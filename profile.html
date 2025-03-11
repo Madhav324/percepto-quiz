@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>User Profile - Percepto</title>
-    <!-- Firebase App -->
+    <!-- Firebase App (the core Firebase SDK) -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <!-- Firebase Auth -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
@@ -66,11 +66,11 @@
             cursor: pointer;
             font-size: 16px;
             transition: background-color 0.3s;
+            min-width: 120px;
         }
         .save-btn {
             background-color: #4CAF50;
             color: white;
-            min-width: 120px;
         }
         .save-btn:hover {
             background-color: #45a049;
@@ -132,169 +132,153 @@
     </div>
 
     <script>
-        // Firebase configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
-            authDomain: "projeccvi.firebaseapp.com",
-            projectId: "projeccvi",
-            storageBucket: "projeccvi.firebasestorage.app",
-            messagingSenderId: "279067566247",
-            appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
-        };
+        // Wait for DOM to be ready
+        document.addEventListener('DOMContentLoaded', function() {
+            // Firebase configuration
+            const firebaseConfig = {
+                apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
+                authDomain: "projeccvi.firebaseapp.com",
+                projectId: "projeccvi",
+                storageBucket: "projeccvi.firebasestorage.app",
+                messagingSenderId: "279067566247",
+                appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
+            };
 
-        // Initialize Firebase
-        let app, auth, db;
+            // Initialize Firebase
+            firebase.initializeApp(firebaseConfig);
+            const auth = firebase.auth();
+            const db = firebase.firestore();
 
-        // Function to initialize Firebase
-        async function initializeFirebase() {
-            if (!app) {
-                app = firebase.initializeApp(firebaseConfig);
-                auth = firebase.auth();
-                db = firebase.firestore();
-            }
-            return new Promise((resolve) => {
-                const unsubscribe = auth.onAuthStateChanged((user) => {
-                    unsubscribe();
-                    resolve(user);
-                });
-            });
-        }
-
-        // Show/hide loading message and form
-        function toggleLoading(show) {
-            document.getElementById('loadingMessage').style.display = show ? 'block' : 'none';
-            document.getElementById('profileForm').style.display = show ? 'none' : 'block';
-        }
-
-        // Show/hide error message
-        function showError(message) {
-            const errorElement = document.getElementById('error-message');
-            if (message) {
-                errorElement.textContent = message;
-                errorElement.style.display = 'block';
-            } else {
-                errorElement.style.display = 'none';
-            }
-        }
-
-        // Disable save button while saving
-        function toggleSaveButton(disabled) {
+            // UI Elements
+            const form = document.getElementById('profileForm');
+            const loadingMessage = document.getElementById('loadingMessage');
+            const errorMessage = document.getElementById('error-message');
             const saveButton = document.getElementById('saveButton');
-            saveButton.disabled = disabled;
-            saveButton.textContent = disabled ? 'Saving...' : 'Save Profile';
-        }
+            const userEmailElement = document.getElementById('userEmail');
 
-        // Get redirect URL
-        function getRedirectUrl(path) {
-            const url = new URL(window.location.href);
-            const basePath = url.pathname.substring(0, url.pathname.lastIndexOf('/'));
-            return url.origin + basePath + '/' + path;
-        }
-
-        // Redirect to page
-        function redirectTo(path) {
-            const redirectUrl = getRedirectUrl(path);
-            window.location.href = redirectUrl;
-        }
-
-        // Auto-fill profile from Google data
-        function fillProfileFromGoogle(user) {
-            if (user && user.displayName) {
-                document.getElementById('name').value = user.displayName;
+            // Helper Functions
+            function showLoading(show) {
+                loadingMessage.style.display = show ? 'block' : 'none';
+                form.style.display = show ? 'none' : 'block';
             }
-        }
 
-        // Save profile data
-        async function saveProfile(profileData) {
-            if (!auth.currentUser) throw new Error('No user signed in');
-            await db.collection('userProfiles').doc(auth.currentUser.uid).set({
-                ...profileData,
-                lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-            });
-        }
-
-        // Load existing profile
-        async function loadProfile(userId) {
-            try {
-                const doc = await db.collection('userProfiles').doc(userId).get();
-                return doc.exists ? doc.data() : null;
-            } catch (error) {
-                console.error('Error loading profile:', error);
-                return null;
+            function showError(message) {
+                errorMessage.textContent = message;
+                errorMessage.style.display = message ? 'block' : 'none';
             }
-        }
 
-        // Initialize page
-        async function initializePage() {
-            try {
+            function toggleSaveButton(disabled) {
+                saveButton.disabled = disabled;
+                saveButton.textContent = disabled ? 'Saving...' : 'Save Profile';
+            }
+
+            function getRedirectUrl(page) {
+                const url = new URL(window.location.href);
+                return url.origin + url.pathname.substring(0, url.pathname.lastIndexOf('/')) + '/' + page;
+            }
+
+            function redirect(page) {
+                window.location.href = getRedirectUrl(page);
+            }
+
+            // Profile Functions
+            async function loadProfile(userId) {
+                try {
+                    const doc = await db.collection('userProfiles').doc(userId).get();
+                    return doc.exists ? doc.data() : null;
+                } catch (error) {
+                    console.error('Error loading profile:', error);
+                    throw error;
+                }
+            }
+
+            async function saveProfile(userId, data) {
+                try {
+                    await db.collection('userProfiles').doc(userId).set({
+                        ...data,
+                        lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                } catch (error) {
+                    console.error('Error saving profile:', error);
+                    throw error;
+                }
+            }
+
+            // Form Event Handlers
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
                 showError('');
-                toggleLoading(true);
+                toggleSaveButton(true);
 
-                // Initialize Firebase and wait for auth
-                const user = await initializeFirebase();
-                
+                try {
+                    const user = auth.currentUser;
+                    if (!user) throw new Error('No user signed in');
+
+                    const profileData = {
+                        name: document.getElementById('name').value.trim(),
+                        age: parseInt(document.getElementById('age').value),
+                        gender: document.getElementById('gender').value,
+                        medicalConditions: document.getElementById('medicalConditions').value.trim()
+                    };
+
+                    await saveProfile(user.uid, profileData);
+                    sessionStorage.removeItem('editingProfile');
+                    redirect('index.html');
+                } catch (error) {
+                    console.error('Error saving profile:', error);
+                    showError('Error saving profile. Please try again.');
+                    toggleSaveButton(false);
+                }
+            });
+
+            // Initialize Page
+            function fillFormData(data = {}) {
+                document.getElementById('name').value = data.name || '';
+                document.getElementById('age').value = data.age || '';
+                document.getElementById('gender').value = data.gender || '';
+                document.getElementById('medicalConditions').value = data.medicalConditions || '';
+            }
+
+            async function initializePage(user) {
                 if (!user) {
-                    redirectTo('login.html');
+                    redirect('login.html');
                     return;
                 }
 
-                document.getElementById('userEmail').textContent = user.email || '';
+                userEmailElement.textContent = user.email;
+                showError('');
+                showLoading(true);
 
-                // Load profile data
-                const profile = await loadProfile(user.uid);
-                
-                if (profile) {
-                    // Load existing profile data
-                    document.getElementById('name').value = profile.name || '';
-                    document.getElementById('age').value = profile.age || '';
-                    document.getElementById('gender').value = profile.gender || '';
-                    document.getElementById('medicalConditions').value = profile.medicalConditions || '';
+                try {
+                    const profile = await loadProfile(user.uid);
                     
-                    // Redirect to index if not editing
-                    if (!sessionStorage.getItem('editingProfile')) {
-                        redirectTo('index.html');
-                        return;
+                    if (profile) {
+                        fillFormData(profile);
+                        if (!sessionStorage.getItem('editingProfile')) {
+                            redirect('index.html');
+                            return;
+                        }
+                    } else if (user.displayName) {
+                        fillFormData({ name: user.displayName });
                     }
-                } else {
-                    // New user, auto-fill from Google
-                    fillProfileFromGoogle(user);
+
+                    showLoading(false);
+                } catch (error) {
+                    console.error('Error initializing page:', error);
+                    showError('Error loading profile. Please try again.');
+                    showLoading(false);
                 }
-                
-                toggleLoading(false);
-            } catch (error) {
-                console.error('Error initializing page:', error);
-                showError('Error loading profile. Please refresh the page.');
-                toggleLoading(false);
             }
-        }
 
-        // Handle form submission
-        document.getElementById('profileForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            showError('');
-            toggleSaveButton(true);
-
-            try {
-                const profileData = {
-                    name: document.getElementById('name').value.trim(),
-                    age: parseInt(document.getElementById('age').value),
-                    gender: document.getElementById('gender').value,
-                    medicalConditions: document.getElementById('medicalConditions').value.trim()
-                };
-
-                await saveProfile(profileData);
-                console.log('Profile saved successfully');
-                sessionStorage.removeItem('editingProfile');
-                redirectTo('index.html');
-            } catch (error) {
-                console.error('Error saving profile:', error);
-                showError('Error saving profile. Please try again.');
-                toggleSaveButton(false);
-            }
+            // Auth State Change Handler
+            auth.onAuthStateChanged((user) => {
+                if (user) {
+                    initializePage(user);
+                } else {
+                    redirect('login.html');
+                }
+            });
         });
-
-        // Start initialization
-        initializePage();
     </script>
 </body>
 </html>
