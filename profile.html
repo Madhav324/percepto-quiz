@@ -381,13 +381,45 @@
                 try {
                     showLoading(true, 'Getting info from Google...');
                     
-                    // Get the ID token with force refresh to ensure we have the latest scopes
-                    const token = await user.getIdToken(true);
+                    // Get the access token from the credential
+                    const credential = firebase.auth.GoogleAuthProvider.credentialFromResult(await auth.getRedirectResult());
+                    if (!credential) {
+                        // If no redirect result, try to get credential from current user
+                        const currentUser = auth.currentUser;
+                        if (!currentUser) {
+                            throw new Error('No user signed in');
+                        }
+                        // Force refresh token
+                        await currentUser.getIdToken(true);
+                        // Get provider data which contains the access token
+                        const providerData = currentUser.providerData.find(
+                            (provider) => provider.providerId === 'google.com'
+                        );
+                        if (!providerData) {
+                            throw new Error('No Google provider data found');
+                        }
+                        // Get fresh credentials
+                        const googleProvider = new firebase.auth.GoogleAuthProvider();
+                        googleProvider.addScope('https://www.googleapis.com/auth/userinfo.profile');
+                        googleProvider.addScope('https://www.googleapis.com/auth/user.birthday.read');
+                        googleProvider.addScope('https://www.googleapis.com/auth/user.gender.read');
+                        
+                        // Reauthenticate to get fresh credentials
+                        const result = await currentUser.reauthenticateWithPopup(googleProvider);
+                        credential = firebase.auth.GoogleAuthProvider.credentialFromResult(result);
+                    }
+
+                    const accessToken = credential.accessToken;
+                    if (!accessToken) {
+                        throw new Error('No access token available');
+                    }
+
+                    console.log('Got access token:', accessToken);
                     
                     // First try basic profile info which is more reliable
                     const basicResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
                         headers: {
-                            'Authorization': `Bearer ${token}`
+                            'Authorization': `Bearer ${accessToken}`
                         }
                     });
                     
@@ -413,7 +445,7 @@
                     // Then try Google People API for additional info
                     const peopleResponse = await fetch('https://people.googleapis.com/v1/people/me?personFields=birthdays', {
                         headers: {
-                            'Authorization': `Bearer ${token}`
+                            'Authorization': `Bearer ${accessToken}`
                         }
                     });
                     
@@ -447,6 +479,22 @@
                     }
                 } catch (error) {
                     console.error('Error fetching Google profile:', error);
+                    // If we get an auth error, try to reauthenticate
+                    if (error.code === 'auth/requires-recent-login') {
+                        const googleProvider = new firebase.auth.GoogleAuthProvider();
+                        googleProvider.addScope('https://www.googleapis.com/auth/userinfo.profile');
+                        googleProvider.addScope('https://www.googleapis.com/auth/user.birthday.read');
+                        googleProvider.addScope('https://www.googleapis.com/auth/user.gender.read');
+                        
+                        try {
+                            await auth.currentUser.reauthenticateWithPopup(googleProvider);
+                            // Try filling profile again after reauthentication
+                            await fillFromGoogle(auth.currentUser);
+                            return;
+                        } catch (reauthError) {
+                            console.error('Reauthentication failed:', reauthError);
+                        }
+                    }
                 } finally {
                     showLoading(false);
                 }
