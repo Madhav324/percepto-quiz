@@ -162,9 +162,14 @@
                 form.style.display = show ? 'none' : 'block';
             }
 
-            function showError(message) {
+            function showError(message, isTemporary = false) {
                 errorMessage.textContent = message;
-                errorMessage.style.display = message ? 'block' : 'none';
+                errorMessage.style.display = 'block';
+                if (isTemporary) {
+                    setTimeout(() => {
+                        errorMessage.style.display = 'none';
+                    }, 3000);
+                }
             }
 
             function toggleSaveButton(disabled) {
@@ -183,91 +188,96 @@
                 const db = firebase.firestore();
                 const auth = firebase.auth();
 
-                // Set shorter timeout for initial auth check
-                const authTimeoutMs = 5000; // 5 seconds
-                const authPromise = new Promise((resolve, reject) => {
-                    const unsubscribe = auth.onAuthStateChanged(user => {
+                // Wait for auth state
+                const user = await new Promise((resolve) => {
+                    const unsubscribe = auth.onAuthStateChanged((user) => {
                         unsubscribe();
                         resolve(user);
                     });
                 });
 
-                // Race between auth and timeout
-                const user = await Promise.race([
-                    authPromise,
-                    new Promise((_, reject) => setTimeout(() => reject(new Error('Auth timeout')), authTimeoutMs))
-                ]).catch(error => {
-                    throw new Error('Authentication taking too long. Please refresh the page.');
-                });
-
                 if (!user) {
+                    console.log('No user found, redirecting to login');
                     window.location.href = 'login.html';
                     return;
                 }
 
-                showLoading(true, 'Loading your profile...');
+                console.log('User authenticated:', user.email);
                 userEmailElement.textContent = user.email;
 
+                // Try to load existing profile
                 try {
-                    // Try to load existing profile
+                    showLoading(true, 'Loading your profile...');
                     const doc = await db.collection('userProfiles').doc(user.uid).get();
                     
                     if (doc.exists) {
+                        console.log('Existing profile found');
                         const data = doc.data();
                         nameInput.value = data.name || '';
                         ageInput.value = data.age || '';
                         genderInput.value = data.gender || '';
                         medicalInput.value = data.medicalConditions || '';
                     } else {
+                        console.log('No existing profile, trying Google data');
                         showLoading(true, 'Getting info from Google...');
                         await fillFromGoogle(user);
                     }
-                    
-                    showLoading(false);
                 } catch (error) {
-                    console.error('Profile load error:', error);
+                    console.error('Error loading profile:', error);
                     showError('Could not load profile. Please check your connection and refresh.');
+                } finally {
                     showLoading(false);
                 }
 
-                // Enable offline persistence
-                try {
-                    await db.enablePersistence({
-                        synchronizeTabs: true
-                    });
-                    console.log("Offline persistence enabled");
-                } catch (err) {
-                    console.warn('Persistence error:', err);
-                    // Continue anyway - not critical
-                }
-
-                // Form submission handler
+                // Form submission handler with retries
                 form.addEventListener('submit', async (e) => {
                     e.preventDefault();
                     toggleSaveButton(true);
                     showError('');
 
-                    try {
-                        const profileData = {
-                            name: nameInput.value.trim(),
-                            age: ageInput.value,
-                            gender: genderInput.value,
-                            medicalConditions: medicalInput.value.trim(),
-                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                        };
+                    const maxRetries = 3;
+                    let attempt = 0;
 
-                        await db.collection('userProfiles').doc(user.uid).set(profileData);
-                        window.location.href = 'index.html';
-                    } catch (error) {
-                        console.error('Save error:', error);
-                        showError('Error saving profile. Please try again.');
-                        toggleSaveButton(false);
+                    const profileData = {
+                        name: nameInput.value.trim(),
+                        age: ageInput.value,
+                        gender: genderInput.value,
+                        medicalConditions: medicalInput.value.trim(),
+                        email: user.email,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    };
+
+                    while (attempt < maxRetries) {
+                        try {
+                            console.log(`Attempt ${attempt + 1} to save profile`);
+                            showError(`Saving profile... Attempt ${attempt + 1}`, true);
+                            
+                            // Try to save
+                            await db.collection('userProfiles').doc(user.uid).set(profileData);
+                            console.log('Profile saved successfully');
+                            
+                            // Success - redirect
+                            window.location.href = 'index.html';
+                            return;
+                        } catch (error) {
+                            attempt++;
+                            console.error(`Save attempt ${attempt} failed:`, error);
+                            
+                            if (attempt === maxRetries) {
+                                showError('Could not save profile. Please check your connection and try again.');
+                                toggleSaveButton(false);
+                                return;
+                            }
+                            
+                            // Wait before retrying
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+                        }
                     }
                 });
 
             } catch (error) {
                 console.error('Initialization error:', error);
-                showError(error.message || 'Error initializing app. Please refresh the page.');
+                showError('Error initializing app. Please refresh the page.');
                 showLoading(false);
             }
 
@@ -285,8 +295,16 @@
                     }
                     
                     const data = await response.json();
-                    if (data.name) nameInput.value = data.name;
-                    if (data.gender) genderInput.value = data.gender.toLowerCase();
+                    console.log('Got Google profile data');
+                    
+                    if (data.name) {
+                        console.log('Setting name from Google');
+                        nameInput.value = data.name;
+                    }
+                    if (data.gender) {
+                        console.log('Setting gender from Google');
+                        genderInput.value = data.gender.toLowerCase();
+                    }
                 } catch (error) {
                     console.warn('Could not fetch Google profile:', error);
                 }
