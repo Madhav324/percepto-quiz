@@ -178,90 +178,63 @@
                 window.location.href = window.location.href.replace(/[^/]*$/, '') + page;
             }
 
+            // Debug logging
+            function logDebug(message, data) {
+                console.log(`[DEBUG] ${message}:`, data);
+            }
+
             // Auto-fill profile from Google data
             async function fillFromGoogle(user) {
                 try {
+                    logDebug('Starting Google data fill for user', user.email);
+
                     // Always try to fill name
                     if (user.displayName) {
                         nameInput.value = user.displayName;
+                        logDebug('Filled name', user.displayName);
                     }
 
-                    // Try to get additional info from Google
-                    const additionalUserInfo = await auth.getAdditionalUserInfo(user);
-                    if (additionalUserInfo && additionalUserInfo.profile) {
-                        const profile = additionalUserInfo.profile;
-                        
-                        // Try to get age if birthday exists
-                        if (profile.birthday) {
-                            const [year, month, day] = profile.birthday.split('-').map(Number);
-                            if (year && month && day) {
-                                const birthDate = new Date(year, month - 1, day);
-                                const today = new Date();
-                                let age = today.getFullYear() - birthDate.getFullYear();
-                                const monthDiff = today.getMonth() - birthDate.getMonth();
-                                
-                                if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-                                    age--;
-                                }
-                                
-                                if (age >= 1 && age <= 120) {
-                                    ageInput.value = age;
-                                }
-                            }
-                        }
-
-                        // Try to get gender if available
-                        if (profile.gender) {
-                            const gender = profile.gender.toLowerCase();
-                            if (['male', 'female', 'other'].includes(gender)) {
-                                genderInput.value = gender;
-                            }
+                    // Get user info directly from provider data
+                    const provider = user.providerData[0];
+                    logDebug('Provider data', provider);
+                    
+                    if (provider) {
+                        if (provider.displayName) {
+                            nameInput.value = provider.displayName;
                         }
                     }
 
-                    // Try to get data from ID token as fallback
-                    const idToken = await user.getIdTokenResult(true);
-                    if (idToken && idToken.claims) {
-                        const claims = idToken.claims;
-                        
-                        // Try gender from claims if not already set
-                        if (!genderInput.value && claims.gender) {
-                            const gender = claims.gender.toLowerCase();
-                            if (['male', 'female', 'other'].includes(gender)) {
-                                genderInput.value = gender;
-                            }
-                        }
+                    // Try to get additional data
+                    const idToken = await user.getIdToken(true);
+                    logDebug('Got ID token', !!idToken);
 
-                        // Try age from claims if not already set
-                        if (!ageInput.value && claims.age) {
-                            const age = parseInt(claims.age);
-                            if (age >= 1 && age <= 120) {
-                                ageInput.value = age;
-                            }
-                        }
-                    }
+                    const decodedToken = await firebase.auth().currentUser.getIdTokenResult();
+                    logDebug('Token claims', decodedToken.claims);
+
                 } catch (error) {
-                    console.log('Could not get additional Google data:', error);
-                    // Non-critical error, just continue without the extra data
+                    console.error('Google data error:', error);
                 }
             }
 
             // Save profile
             async function saveProfile(userId, data) {
+                logDebug('Starting save for user', userId);
+                logDebug('Profile data', data);
+
                 try {
                     // Save to Firebase
-                    await db.collection('userProfiles').doc(userId).set({
-                        ...data,
-                        lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-                    }, { merge: true });
+                    await db.collection('userProfiles').doc(userId).set(data);
+                    logDebug('Save successful', userId);
 
                     // Clear editing flag
                     sessionStorage.removeItem('editingProfile');
                     
-                    // Redirect to index
-                    window.location.href = window.location.href.replace('profile.html', 'index.html');
+                    // Force redirect
+                    const indexUrl = window.location.href.replace('profile.html', 'index.html');
+                    logDebug('Redirecting to', indexUrl);
+                    window.location.replace(indexUrl);
                 } catch (error) {
-                    console.error('Error saving profile:', error);
+                    console.error('Save failed:', error);
                     throw error;
                 }
             }
@@ -312,6 +285,8 @@
             // Handle form submission
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
+                logDebug('Form submitted', new Date().toISOString());
+                
                 const user = auth.currentUser;
                 if (!user) {
                     showError('Please sign in to save your profile.');
@@ -322,23 +297,24 @@
                 toggleSaveButton(true);
 
                 try {
-                    const profileData = {
-                        name: nameInput.value.trim() || user.displayName || '',
-                        age: parseInt(ageInput.value) || null,
-                        gender: genderInput.value || '',
-                        medicalConditions: medicalInput.value.trim() || '',
-                        email: user.email,
-                        updatedAt: new Date().toISOString()
-                    };
-
-                    // Validate required fields
-                    if (!profileData.name) {
+                    const name = nameInput.value.trim();
+                    if (!name) {
                         throw new Error('Name is required');
                     }
 
+                    const profileData = {
+                        name: name,
+                        age: ageInput.value ? parseInt(ageInput.value) : null,
+                        gender: genderInput.value || '',
+                        medicalConditions: medicalInput.value.trim() || '',
+                        email: user.email,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    };
+
+                    logDebug('Saving profile', profileData);
                     await saveProfile(user.uid, profileData);
                 } catch (error) {
-                    console.error('Error saving:', error);
+                    console.error('Save error:', error);
                     showError(error.message || 'Error saving profile. Please try again.');
                     toggleSaveButton(false);
                 }
