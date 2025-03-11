@@ -145,6 +145,50 @@
             return `${baseUrl}/${page}`;
         }
 
+        // Extract age from birthdate
+        function calculateAge(birthDate) {
+            const today = new Date();
+            const birth = new Date(birthDate);
+            let age = today.getFullYear() - birth.getFullYear();
+            const monthDiff = today.getMonth() - birth.getMonth();
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+                age--;
+            }
+            return age;
+        }
+
+        // Auto-fill profile from Google data
+        async function fillProfileFromGoogle(user) {
+            try {
+                // Get ID token result which contains Google account info
+                const idTokenResult = await user.getIdTokenResult(true);
+                const googleInfo = idTokenResult.claims;
+                
+                // Fill name if available
+                if (user.displayName) {
+                    document.getElementById('name').value = user.displayName;
+                }
+
+                // Try to get gender from Google profile
+                if (googleInfo.gender) {
+                    const gender = googleInfo.gender.toLowerCase();
+                    if (['male', 'female', 'other'].includes(gender)) {
+                        document.getElementById('gender').value = gender;
+                    }
+                }
+
+                // Try to get age from birthday if available
+                if (googleInfo.birthday) {
+                    const age = calculateAge(googleInfo.birthday);
+                    if (age > 0 && age < 120) {
+                        document.getElementById('age').value = age;
+                    }
+                }
+            } catch (error) {
+                console.log('Error getting Google profile data:', error);
+            }
+        }
+
         // Check authentication and profile status
         auth.onAuthStateChanged(async (user) => {
             if (user) {
@@ -162,16 +206,18 @@
                     document.getElementById('gender').value = data.gender || '';
                     document.getElementById('medicalConditions').value = data.medicalConditions || '';
                     
-                    // If not coming from index page, redirect to index
+                    // If not editing profile, redirect to index
                     if (!sessionStorage.getItem('editingProfile')) {
-                        window.location.href = getPath('index.html');
+                        window.location.replace(getPath('index.html'));
                     }
                 } else {
                     isFirstLogin = true;
+                    // Auto-fill from Google data
+                    await fillProfileFromGoogle(user);
                 }
             } else {
                 // Not logged in, redirect to login
-                window.location.href = getPath('login.html');
+                window.location.replace(getPath('login.html'));
             }
         });
 
@@ -193,7 +239,8 @@
             try {
                 await db.collection('userProfiles').doc(user.uid).set(profileData);
                 sessionStorage.removeItem('editingProfile');
-                window.location.href = getPath('index.html');
+                // Use replace instead of href to force redirect
+                window.location.replace(getPath('index.html'));
             } catch (error) {
                 console.error('Error saving profile:', error);
                 alert('Error saving profile. Please try again.');
