@@ -11,9 +11,9 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            margin: 0;
+            max-width: 800px;
+            margin: 0 auto;
             padding: 20px;
-            background-color: #f5f5f5;
         }
         .profile-container {
             max-width: 600px;
@@ -89,6 +89,40 @@
             margin: 10px 0;
             display: none;
         }
+        .status-indicator {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 14px;
+            z-index: 1000;
+        }
+        .online {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .offline {
+            background-color: #f44336;
+            color: white;
+        }
+        .connecting {
+            background-color: #ff9800;
+            color: white;
+        }
+        .retry-button {
+            display: none;
+            margin-top: 10px;
+            padding: 5px 10px;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .retry-button:hover {
+            background-color: #1976D2;
+        }
     </style>
 </head>
 <body>
@@ -127,6 +161,8 @@
             </div>
         </form>
     </div>
+    <div id="status" class="status-indicator"></div>
+    <button id="retryConnection" class="retry-button">Retry Connection</button>
 
     <script>
         document.addEventListener('DOMContentLoaded', async function() {
@@ -151,6 +187,89 @@
             const ageInput = document.getElementById('age');
             const genderInput = document.getElementById('gender');
             const medicalInput = document.getElementById('medicalConditions');
+            const statusIndicator = document.getElementById('status');
+            const retryButton = document.getElementById('retryConnection');
+
+            let isOnline = navigator.onLine;
+            let database;
+            let auth;
+
+            function updateOnlineStatus() {
+                if (navigator.onLine) {
+                    statusIndicator.textContent = 'Connecting...';
+                    statusIndicator.className = 'status-indicator connecting';
+                    retryButton.style.display = 'none';
+                    initializeFirebase();
+                } else {
+                    statusIndicator.textContent = 'Offline';
+                    statusIndicator.className = 'status-indicator offline';
+                    retryButton.style.display = 'block';
+                }
+            }
+
+            // Network status handlers
+            window.addEventListener('online', updateOnlineStatus);
+            window.addEventListener('offline', updateOnlineStatus);
+
+            // Retry button handler
+            retryButton.addEventListener('click', () => {
+                if (navigator.onLine) {
+                    updateOnlineStatus();
+                }
+            });
+
+            async function initializeFirebase() {
+                try {
+                    // Initialize Firebase if not already initialized
+                    if (!firebase.apps.length) {
+                        firebase.initializeApp(firebaseConfig);
+                    }
+
+                    database = firebase.database();
+                    auth = firebase.auth();
+
+                    // Monitor connection state
+                    const connectedRef = database.ref('.info/connected');
+                    connectedRef.on('value', (snap) => {
+                        if (snap.val() === true) {
+                            console.log('Connected to Firebase');
+                            statusIndicator.textContent = 'Online';
+                            statusIndicator.className = 'status-indicator online';
+                            retryButton.style.display = 'none';
+                            errorMessage.style.display = 'none';
+                        } else {
+                            console.log('Disconnected from Firebase');
+                            statusIndicator.textContent = 'Connecting...';
+                            statusIndicator.className = 'status-indicator connecting';
+                            showError('Connecting to server...');
+                        }
+                    });
+
+                    // Set up presence
+                    const uid = auth.currentUser?.uid;
+                    if (uid) {
+                        const userStatusRef = database.ref(`/status/${uid}`);
+                        
+                        // When I disconnect, update the last time I was seen online
+                        userStatusRef.onDisconnect().set({
+                            status: 'offline',
+                            lastSeen: firebase.database.ServerValue.TIMESTAMP
+                        });
+
+                        // When I come online, update my status
+                        userStatusRef.set({
+                            status: 'online',
+                            lastSeen: firebase.database.ServerValue.TIMESTAMP
+                        });
+                    }
+
+                } catch (error) {
+                    console.error('Firebase initialization error:', error);
+                    statusIndicator.textContent = 'Connection Error';
+                    statusIndicator.className = 'status-indicator offline';
+                    retryButton.style.display = 'block';
+                }
+            }
 
             // Helper Functions
             function showLoading(show, message = 'Loading profile...') {
@@ -175,27 +294,7 @@
             }
 
             try {
-                showLoading(true, 'Initializing Firebase...');
-
-                // Initialize Firebase
-                if (!firebase.apps.length) {
-                    firebase.initializeApp(firebaseConfig);
-                }
-
-                const auth = firebase.auth();
-                const database = firebase.database();
-
-                // Monitor connection state
-                const connectedRef = database.ref('.info/connected');
-                connectedRef.on('value', (snap) => {
-                    if (snap.val() === true) {
-                        console.log('Connected to Firebase');
-                        errorMessage.style.display = 'none';
-                    } else {
-                        console.log('Disconnected from Firebase');
-                        showError('Connecting to server...');
-                    }
-                });
+                updateOnlineStatus();
 
                 // Wait for auth state with timeout
                 const user = await Promise.race([
