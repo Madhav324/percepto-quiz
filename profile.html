@@ -139,7 +139,7 @@
                 apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
                 authDomain: "projeccvi.firebaseapp.com",
                 projectId: "projeccvi",
-                storageBucket: "projeccvi.firebasestorage.app",
+                storageBucket: "projeccvi.appspot.com",
                 messagingSenderId: "279067566247",
                 appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82",
                 databaseURL: "https://projeccvi-default-rtdb.firebaseio.com"
@@ -180,18 +180,6 @@
                 saveButton.textContent = disabled ? 'Saving...' : 'Save Profile';
             }
 
-            // Network status handlers
-            window.addEventListener('online', function() {
-                isOnline = true;
-                showError('Connection restored', true);
-                setTimeout(() => errorMessage.style.display = 'none', 2000);
-            });
-
-            window.addEventListener('offline', function() {
-                isOnline = false;
-                showError('You are offline. Some features may be limited.');
-            });
-
             try {
                 showLoading(true, 'Initializing Firebase...');
 
@@ -204,38 +192,22 @@
                 const db = firebase.firestore();
                 const auth = firebase.auth();
 
-                // Set up connection state monitoring
-                const connectedRef = firebase.database().ref('.info/connected');
-                connectedRef.on('value', (snap) => {
-                    if (snap.val() === true) {
-                        console.log('Connected to Firebase');
-                        errorMessage.style.display = 'none';
-                    } else {
-                        console.log('Disconnected from Firebase');
-                        showError('Connecting to server...');
-                    }
-                });
-
                 // Enable offline persistence
                 try {
-                    await db.enablePersistence({
-                        synchronizeTabs: true
-                    }).catch(err => {
-                        if (err.code === 'failed-precondition') {
-                            console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.');
-                        } else if (err.code === 'unimplemented') {
-                            console.warn('The current browser does not support offline persistence');
-                        }
-                    });
-                    console.log('Persistence enabled successfully');
+                    await db.enablePersistence()
+                        .then(() => {
+                            console.log("Offline persistence enabled");
+                        })
+                        .catch((err) => {
+                            if (err.code == 'failed-precondition') {
+                                console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.');
+                            } else if (err.code == 'unimplemented') {
+                                console.warn('The current browser does not support offline persistence');
+                            }
+                        });
                 } catch (err) {
-                    console.warn('Persistence already enabled or error:', err);
+                    console.warn('Persistence error:', err);
                 }
-
-                // Set up Firestore settings
-                db.settings({
-                    cacheSizeBytes: firebase.firestore.CACHE_SIZE_UNLIMITED
-                });
 
                 // Wait for auth state
                 const user = await new Promise((resolve) => {
@@ -257,84 +229,53 @@
                 // Try to load existing profile
                 try {
                     showLoading(true, 'Loading your profile...');
-                    const doc = await db.collection('userProfiles').doc(user.uid).get();
                     
+                    // Get user profile from Firestore
+                    const docRef = db.collection('userProfiles').doc(user.uid);
+                    const doc = await docRef.get();
+
                     if (doc.exists) {
-                        console.log('Existing profile found');
+                        console.log('Profile found:', doc.data());
                         const data = doc.data();
                         nameInput.value = data.name || '';
                         ageInput.value = data.age || '';
                         genderInput.value = data.gender || '';
                         medicalInput.value = data.medicalConditions || '';
                     } else {
-                        console.log('No existing profile, trying Google data');
-                        showLoading(true, 'Getting info from Google...');
+                        console.log('No profile found, trying Google data');
                         await fillFromGoogle(user);
                     }
+                    showLoading(false);
                 } catch (error) {
                     console.error('Error loading profile:', error);
-                    if (!isOnline) {
-                        showError('You are offline. Some data may not be available.');
-                    } else {
-                        showError('Could not load profile. Please check your connection and refresh.');
-                    }
-                } finally {
+                    showError('Could not load profile. Please check your connection and refresh.');
                     showLoading(false);
                 }
 
-                // Form submission handler with retries
+                // Form submission handler
                 form.addEventListener('submit', async (e) => {
                     e.preventDefault();
                     toggleSaveButton(true);
                     showError('');
 
-                    if (!isOnline) {
-                        showError('You are offline. Changes will be saved when connection is restored.');
+                    try {
+                        const profileData = {
+                            name: nameInput.value.trim(),
+                            age: ageInput.value,
+                            gender: genderInput.value,
+                            medicalConditions: medicalInput.value.trim(),
+                            email: user.email,
+                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        };
+
+                        // Save to Firestore
+                        await db.collection('userProfiles').doc(user.uid).set(profileData);
+                        console.log('Profile saved successfully');
+                        window.location.href = 'index.html';
+                    } catch (error) {
+                        console.error('Save error:', error);
+                        showError('Error saving profile. Please try again.');
                         toggleSaveButton(false);
-                        return;
-                    }
-
-                    const maxRetries = 3;
-                    let attempt = 0;
-
-                    const profileData = {
-                        name: nameInput.value.trim(),
-                        age: ageInput.value,
-                        gender: genderInput.value,
-                        medicalConditions: medicalInput.value.trim(),
-                        email: user.email,
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                    };
-
-                    while (attempt < maxRetries) {
-                        try {
-                            console.log(`Attempt ${attempt + 1} to save profile`);
-                            showError(`Saving profile... Attempt ${attempt + 1}`, true);
-                            
-                            // Try to save with offline persistence
-                            await db.collection('userProfiles').doc(user.uid).set(profileData, { merge: true });
-                            console.log('Profile saved successfully');
-                            
-                            // Success - redirect
-                            window.location.href = 'index.html';
-                            return;
-                        } catch (error) {
-                            attempt++;
-                            console.error(`Save attempt ${attempt} failed:`, error);
-                            
-                            if (attempt === maxRetries) {
-                                if (!isOnline) {
-                                    showError('You are offline. Changes will sync when connection is restored.');
-                                } else {
-                                    showError('Could not save profile. Please check your connection and try again.');
-                                }
-                                toggleSaveButton(false);
-                                return;
-                            }
-                            
-                            // Wait before retrying
-                            await new Promise(resolve => setTimeout(resolve, 1000));
-                        }
                     }
                 });
 
@@ -345,11 +286,6 @@
             }
 
             async function fillFromGoogle(user) {
-                if (!isOnline) {
-                    console.warn('Skipping Google profile fetch - offline');
-                    return;
-                }
-
                 try {
                     const token = await user.getIdToken();
                     const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
@@ -365,14 +301,8 @@
                     const data = await response.json();
                     console.log('Got Google profile data');
                     
-                    if (data.name) {
-                        console.log('Setting name from Google');
-                        nameInput.value = data.name;
-                    }
-                    if (data.gender) {
-                        console.log('Setting gender from Google');
-                        genderInput.value = data.gender.toLowerCase();
-                    }
+                    if (data.name) nameInput.value = data.name;
+                    if (data.gender) genderInput.value = data.gender.toLowerCase();
                 } catch (error) {
                     console.warn('Could not fetch Google profile:', error);
                 }
