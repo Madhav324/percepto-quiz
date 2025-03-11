@@ -132,9 +132,7 @@
     </div>
 
     <script>
-        // Wait for DOM to be ready
         document.addEventListener('DOMContentLoaded', function() {
-            // Firebase configuration
             const firebaseConfig = {
                 apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
                 authDomain: "projeccvi.firebaseapp.com",
@@ -144,17 +142,20 @@
                 appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
             };
 
-            // Initialize Firebase
             firebase.initializeApp(firebaseConfig);
             const auth = firebase.auth();
             const db = firebase.firestore();
 
-            // UI Elements
+            // Cache DOM elements
             const form = document.getElementById('profileForm');
             const loadingMessage = document.getElementById('loadingMessage');
             const errorMessage = document.getElementById('error-message');
             const saveButton = document.getElementById('saveButton');
             const userEmailElement = document.getElementById('userEmail');
+            const nameInput = document.getElementById('name');
+            const ageInput = document.getElementById('age');
+            const genderInput = document.getElementById('gender');
+            const medicalInput = document.getElementById('medicalConditions');
 
             // Helper Functions
             function showLoading(show) {
@@ -172,73 +173,76 @@
                 saveButton.textContent = disabled ? 'Saving...' : 'Save Profile';
             }
 
-            function getRedirectUrl(page) {
-                const url = new URL(window.location.href);
-                return url.origin + url.pathname.substring(0, url.pathname.lastIndexOf('/')) + '/' + page;
-            }
-
             function redirect(page) {
-                window.location.href = getRedirectUrl(page);
+                const url = new URL(window.location.href);
+                const redirectUrl = url.origin + url.pathname.substring(0, url.pathname.lastIndexOf('/')) + '/' + page;
+                window.location.replace(redirectUrl);
             }
 
-            // Profile Functions
-            async function loadProfile(userId) {
+            // Extract age from birthdate
+            function calculateAge(dateString) {
+                const today = new Date();
+                const birthDate = new Date(dateString);
+                let age = today.getFullYear() - birthDate.getFullYear();
+                const m = today.getMonth() - birthDate.getMonth();
+                if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+                    age--;
+                }
+                return age;
+            }
+
+            // Auto-fill profile from Google data
+            async function fillFromGoogle(user) {
                 try {
-                    const doc = await db.collection('userProfiles').doc(userId).get();
-                    return doc.exists ? doc.data() : null;
+                    // Fill name from displayName
+                    if (user.displayName) {
+                        nameInput.value = user.displayName;
+                    }
+
+                    // Try to get additional info from ID token
+                    const idToken = await user.getIdTokenResult(true);
+                    const claims = idToken.claims;
+
+                    // Try to get age from birthday if available
+                    if (claims.birthday) {
+                        const age = calculateAge(claims.birthday);
+                        if (age > 0 && age < 120) {
+                            ageInput.value = age;
+                        }
+                    }
+
+                    // Try to get gender
+                    if (claims.gender) {
+                        const gender = claims.gender.toLowerCase();
+                        if (['male', 'female', 'other'].includes(gender)) {
+                            genderInput.value = gender;
+                        }
+                    }
                 } catch (error) {
-                    console.error('Error loading profile:', error);
-                    throw error;
+                    console.log('Error getting Google data:', error);
                 }
             }
 
+            // Save profile with optimized Firestore batch
             async function saveProfile(userId, data) {
-                try {
-                    await db.collection('userProfiles').doc(userId).set({
-                        ...data,
-                        lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                } catch (error) {
-                    console.error('Error saving profile:', error);
-                    throw error;
-                }
+                const batch = db.batch();
+                const profileRef = db.collection('userProfiles').doc(userId);
+                
+                batch.set(profileRef, {
+                    ...data,
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                await batch.commit();
             }
 
-            // Form Event Handlers
-            form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                showError('');
-                toggleSaveButton(true);
-
-                try {
-                    const user = auth.currentUser;
-                    if (!user) throw new Error('No user signed in');
-
-                    const profileData = {
-                        name: document.getElementById('name').value.trim(),
-                        age: parseInt(document.getElementById('age').value),
-                        gender: document.getElementById('gender').value,
-                        medicalConditions: document.getElementById('medicalConditions').value.trim()
-                    };
-
-                    await saveProfile(user.uid, profileData);
-                    sessionStorage.removeItem('editingProfile');
-                    redirect('index.html');
-                } catch (error) {
-                    console.error('Error saving profile:', error);
-                    showError('Error saving profile. Please try again.');
-                    toggleSaveButton(false);
-                }
-            });
-
-            // Initialize Page
-            function fillFormData(data = {}) {
-                document.getElementById('name').value = data.name || '';
-                document.getElementById('age').value = data.age || '';
-                document.getElementById('gender').value = data.gender || '';
-                document.getElementById('medicalConditions').value = data.medicalConditions || '';
+            // Load profile with cache
+            async function loadProfile(userId) {
+                const doc = await db.collection('userProfiles').doc(userId).get();
+                return doc.exists ? doc.data() : null;
             }
 
+            // Initialize page
             async function initializePage(user) {
                 if (!user) {
                     redirect('login.html');
@@ -250,34 +254,61 @@
                 showLoading(true);
 
                 try {
-                    const profile = await loadProfile(user.uid);
-                    
+                    const [profile] = await Promise.all([
+                        loadProfile(user.uid),
+                        fillFromGoogle(user)
+                    ]);
+
                     if (profile) {
-                        fillFormData(profile);
+                        // Load existing profile
+                        nameInput.value = profile.name || nameInput.value;
+                        ageInput.value = profile.age || ageInput.value;
+                        genderInput.value = profile.gender || genderInput.value;
+                        medicalInput.value = profile.medicalConditions || '';
+
                         if (!sessionStorage.getItem('editingProfile')) {
                             redirect('index.html');
                             return;
                         }
-                    } else if (user.displayName) {
-                        fillFormData({ name: user.displayName });
                     }
 
                     showLoading(false);
                 } catch (error) {
-                    console.error('Error initializing page:', error);
+                    console.error('Error:', error);
                     showError('Error loading profile. Please try again.');
                     showLoading(false);
                 }
             }
 
-            // Auth State Change Handler
-            auth.onAuthStateChanged((user) => {
-                if (user) {
-                    initializePage(user);
-                } else {
-                    redirect('login.html');
+            // Handle form submission
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                showError('');
+                toggleSaveButton(true);
+
+                try {
+                    const user = auth.currentUser;
+                    if (!user) throw new Error('Please sign in');
+
+                    const profileData = {
+                        name: nameInput.value.trim(),
+                        age: parseInt(ageInput.value),
+                        gender: genderInput.value,
+                        medicalConditions: medicalInput.value.trim()
+                    };
+
+                    await saveProfile(user.uid, profileData);
+                    sessionStorage.removeItem('editingProfile');
+                    redirect('index.html');
+                } catch (error) {
+                    console.error('Error:', error);
+                    showError('Error saving profile. Please try again.');
+                    toggleSaveButton(false);
                 }
             });
+
+            // Start auth listener
+            auth.onAuthStateChanged(initializePage);
         });
     </script>
 </body>
