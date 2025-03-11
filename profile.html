@@ -10,6 +10,8 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     <!-- Firebase Firestore -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <!-- Firebase Realtime Database -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -142,56 +144,123 @@
                 appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
             };
 
-            // Initialize Firebase
-            firebase.initializeApp(firebaseConfig);
-
-            // Enable offline persistence with custom settings
-            await firebase.firestore().enablePersistence({
-                synchronizeTabs: true
-            }).catch(function(err) {
-                if (err.code == 'failed-precondition') {
-                    console.log('Multiple tabs open, persistence can only be enabled in one tab at a time.');
-                } else if (err.code == 'unimplemented') {
-                    console.log('The current browser does not support offline persistence');
+            try {
+                // Initialize Firebase
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(firebaseConfig);
                 }
-            });
 
-            // Initialize auth and db after persistence is set up
-            const auth = firebase.auth();
-            const db = firebase.firestore();
+                const db = firebase.firestore();
+                const auth = firebase.auth();
 
-            // Set up network status monitoring
-            let isOnline = true;
-            
-            // Check initial connection state
-            if (!navigator.onLine) {
-                isOnline = false;
-                document.getElementById('error-message').textContent = 'You are currently offline. Some features may be limited.';
+                // Enable offline persistence right after initialization
+                await db.enablePersistence()
+                    .then(() => {
+                        console.log("Offline persistence enabled successfully");
+                    })
+                    .catch((err) => {
+                        if (err.code == 'failed-precondition') {
+                            console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.');
+                        } else if (err.code == 'unimplemented') {
+                            console.warn('The current browser does not support offline persistence');
+                        }
+                    });
+
+                // Set up connection state monitoring
+                const connectedRef = firebase.database().ref('.info/connected');
+                connectedRef.on('value', (snap) => {
+                    if (snap.val() === true) {
+                        console.log('Connected to Firebase');
+                        document.getElementById('error-message').style.display = 'none';
+                    } else {
+                        console.log('Not connected to Firebase');
+                        document.getElementById('error-message').textContent = 'Connecting to server...';
+                        document.getElementById('error-message').style.display = 'block';
+                    }
+                });
+
+                // Cache DOM elements
+                const form = document.getElementById('profileForm');
+                const loadingMessage = document.getElementById('loadingMessage');
+                const errorMessage = document.getElementById('error-message');
+                const saveButton = document.getElementById('saveButton');
+                const userEmailElement = document.getElementById('userEmail');
+                const nameInput = document.getElementById('name');
+                const ageInput = document.getElementById('age');
+                const genderInput = document.getElementById('gender');
+                const medicalInput = document.getElementById('medicalConditions');
+
+                // Wait for auth state
+                auth.onAuthStateChanged(async (user) => {
+                    if (user) {
+                        showLoading(true);
+                        try {
+                            // Try to load existing profile
+                            const doc = await db.collection('userProfiles').doc(user.uid).get();
+                            
+                            // Show user email
+                            userEmailElement.textContent = user.email;
+                            
+                            if (doc.exists) {
+                                const data = doc.data();
+                                nameInput.value = data.name || '';
+                                ageInput.value = data.age || '';
+                                genderInput.value = data.gender || '';
+                                medicalInput.value = data.medicalConditions || '';
+                            } else {
+                                // If no profile exists, try to fill from Google
+                                await fillFromGoogle(user);
+                            }
+                            
+                            form.style.display = 'block';
+                        } catch (error) {
+                            console.error('Error loading profile:', error);
+                            errorMessage.textContent = 'Error loading profile. Please refresh the page.';
+                            errorMessage.style.display = 'block';
+                        } finally {
+                            showLoading(false);
+                        }
+                    } else {
+                        window.location.href = 'login.html';
+                    }
+                });
+
+                // Form submission handler
+                form.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const user = auth.currentUser;
+                    if (!user) {
+                        showError('Please log in again');
+                        return;
+                    }
+
+                    toggleSaveButton(true);
+                    showError('');
+
+                    const profileData = {
+                        name: nameInput.value.trim(),
+                        age: ageInput.value,
+                        gender: genderInput.value,
+                        medicalConditions: medicalInput.value.trim(),
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    };
+
+                    try {
+                        await db.collection('userProfiles').doc(user.uid).set(profileData);
+                        sessionStorage.removeItem('editingProfile');
+                        window.location.href = 'index.html';
+                    } catch (error) {
+                        console.error('Save error:', error);
+                        showError('Error saving profile. Please try again.');
+                        toggleSaveButton(false);
+                    }
+                });
+
+            } catch (error) {
+                console.error('Firebase initialization error:', error);
+                document.getElementById('error-message').textContent = 'Error connecting to server. Please refresh the page.';
                 document.getElementById('error-message').style.display = 'block';
             }
-
-            // Listen for online/offline events
-            window.addEventListener('online', function() {
-                isOnline = true;
-                document.getElementById('error-message').style.display = 'none';
-            });
-
-            window.addEventListener('offline', function() {
-                isOnline = false;
-                document.getElementById('error-message').textContent = 'You are currently offline. Some features may be limited.';
-                document.getElementById('error-message').style.display = 'block';
-            });
-
-            // Cache DOM elements
-            const form = document.getElementById('profileForm');
-            const loadingMessage = document.getElementById('loadingMessage');
-            const errorMessage = document.getElementById('error-message');
-            const saveButton = document.getElementById('saveButton');
-            const userEmailElement = document.getElementById('userEmail');
-            const nameInput = document.getElementById('name');
-            const ageInput = document.getElementById('age');
-            const genderInput = document.getElementById('gender');
-            const medicalInput = document.getElementById('medicalConditions');
 
             // Helper Functions
             function showLoading(show) {
@@ -209,134 +278,31 @@
                 saveButton.textContent = disabled ? 'Saving...' : 'Save Profile';
             }
 
-            // Save profile with connection check
-            async function saveProfile(userId, data) {
-                if (!isOnline) {
-                    throw new Error('Cannot save while offline. Please check your internet connection.');
-                }
-
-                try {
-                    await db.collection('userProfiles').doc(userId).set(data);
-                    sessionStorage.removeItem('editingProfile');
-                    window.location.href = 'index.html';
-                } catch (error) {
-                    console.error('Save error:', error);
-                    throw new Error('Failed to save profile. Please check your internet connection and try again.');
-                }
-            }
-
             // Auto-fill profile from Google data
             async function fillFromGoogle(user) {
                 try {
-                    // Basic info from Firebase user
-                    if (user.displayName) {
-                        nameInput.value = user.displayName;
-                    }
-
-                    // Get Google provider data
-                    const googleUser = user.providerData.find(p => p.providerId === 'google.com');
-                    if (!googleUser) return;
-
-                    try {
-                        const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-                            headers: { 'Authorization': `Bearer ${await user.getIdToken()}` }
-                        });
-
-                        if (response.ok) {
-                            const data = await response.json();
-                            if (data.gender) {
-                                genderInput.value = data.gender.toLowerCase();
-                            }
-                            if (data.birthdate) {
-                                const birthYear = new Date(data.birthdate).getFullYear();
-                                const age = new Date().getFullYear() - birthYear;
-                                if (age >= 1 && age <= 120) {
-                                    ageInput.value = age;
-                                }
-                            }
+                    const token = await user.getIdToken();
+                    const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
                         }
-                    } catch (error) {
-                        console.log('Could not fetch additional Google data');
-                    }
-                } catch (error) {
-                    console.error('Error in fillFromGoogle:', error);
-                }
-            }
-
-            // Handle form submission
-            form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const user = auth.currentUser;
-                if (!user) {
-                    showError('Please sign in to save your profile.');
-                    return;
-                }
-
-                showError('');
-                toggleSaveButton(true);
-
-                try {
-                    const name = nameInput.value.trim();
-                    if (!name) {
-                        throw new Error('Name is required');
-                    }
-
-                    const profileData = {
-                        name: name,
-                        age: ageInput.value ? parseInt(ageInput.value) : null,
-                        gender: genderInput.value || '',
-                        medicalConditions: medicalInput.value.trim() || '',
-                        email: user.email,
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                    };
-
-                    await saveProfile(user.uid, profileData);
-                } catch (error) {
-                    console.error('Save error:', error);
-                    showError(error.message);
-                    toggleSaveButton(false);
-                }
-            });
-
-            // Initialize page
-            async function initializePage(user) {
-                if (!user) {
-                    window.location.href = 'login.html';
-                    return;
-                }
-
-                showLoading(true);
-                showError('');
-                userEmailElement.textContent = user.email;
-
-                try {
-                    await fillFromGoogle(user);
-                    const profile = await db.collection('userProfiles').doc(user.uid).get();
+                    });
                     
-                    if (profile.exists) {
-                        const data = profile.data();
-                        nameInput.value = data.name || nameInput.value;
-                        ageInput.value = data.age || ageInput.value;
-                        genderInput.value = data.gender || genderInput.value;
-                        medicalInput.value = data.medicalConditions || '';
-
-                        if (!sessionStorage.getItem('editingProfile')) {
-                            window.location.href = 'index.html';
-                            return;
-                        }
+                    if (!response.ok) {
+                        throw new Error('Failed to fetch Google profile');
                     }
+                    
+                    const data = await response.json();
+                    
+                    // Fill in the form with Google data
+                    if (data.name) nameInput.value = data.name;
+                    if (data.gender) genderInput.value = data.gender.toLowerCase();
+                    
+                    console.log('Profile filled from Google data');
                 } catch (error) {
-                    console.error('Error:', error);
-                    if (error.code === 'unavailable') {
-                        showError('You appear to be offline. Some data may not be available.');
-                    }
+                    console.warn('Could not fetch Google profile:', error);
                 }
-
-                showLoading(false);
             }
-
-            // Start auth listener
-            auth.onAuthStateChanged(initializePage);
         });
     </script>
 </body>
