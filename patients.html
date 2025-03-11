@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Management - Percepto</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        .doctor-info {
+            font-size: 16px;
+            color: #666;
+        }
+        .add-patient {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .add-patient:hover {
+            background-color: #45a049;
+        }
+        .patients-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .patient-card {
+            background: #f5f5f5;
+            border-radius: 8px;
+            padding: 20px;
+            position: relative;
+        }
+        .patient-card h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        .patient-info {
+            margin: 5px 0;
+            color: #666;
+        }
+        .patient-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .patient-actions button {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .view-btn {
+            background-color: #2196F3;
+            color: white;
+        }
+        .view-btn:hover {
+            background-color: #1976D2;
+        }
+        .delete-btn {
+            background-color: #f44336;
+            color: white;
+        }
+        .delete-btn:hover {
+            background-color: #d32f2f;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: white;
+            margin: 15% auto;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 500px;
+            position: relative;
+        }
+        .close {
+            position: absolute;
+            right: 20px;
+            top: 15px;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+        }
+        .form-group {
+            margin: 15px 0;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        .error-message {
+            color: #f44336;
+            margin: 10px 0;
+            display: none;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+            color: #666;
+        }
+        .no-patients {
+            text-align: center;
+            color: #666;
+            margin: 50px 0;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="doctor-info">
+            <h1>Patient Management</h1>
+            <p>Doctor: <span id="doctorName">Loading...</span></p>
+        </div>
+        <button class="add-patient" onclick="openAddPatientModal()">Add New Patient</button>
+    </div>
+
+    <div id="loading" class="loading">Loading patients...</div>
+    <div id="error-message" class="error-message"></div>
+    
+    <div id="patientsGrid" class="patients-grid"></div>
+    <div id="noPatients" class="no-patients" style="display: none;">
+        No patients added yet. Click "Add New Patient" to get started.
+    </div>
+
+    <!-- Add Patient Modal -->
+    <div id="addPatientModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeAddPatientModal()">&times;</span>
+            <h2>Add New Patient</h2>
+            <form id="addPatientForm">
+                <div class="form-group">
+                    <label for="patientName">Patient Name</label>
+                    <input type="text" id="patientName" required>
+                </div>
+                <div class="form-group">
+                    <label for="patientAge">Age</label>
+                    <input type="number" id="patientAge" min="1" max="120" required>
+                </div>
+                <div class="form-group">
+                    <label for="patientGender">Gender</label>
+                    <select id="patientGender" required>
+                        <option value="">Select Gender</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="patientMedical">Medical Conditions (if any)</label>
+                    <input type="text" id="patientMedical">
+                </div>
+                <button type="submit" class="add-patient">Add Patient</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
+            authDomain: "projeccvi.firebaseapp.com",
+            projectId: "projeccvi",
+            storageBucket: "projeccvi.appspot.com",
+            messagingSenderId: "279067566247",
+            appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82",
+            databaseURL: "https://projeccvi-default-rtdb.firebaseio.com"
+        };
+
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+
+        const auth = firebase.auth();
+        const database = firebase.database();
+
+        // DOM Elements
+        const doctorNameElement = document.getElementById('doctorName');
+        const patientsGrid = document.getElementById('patientsGrid');
+        const loadingElement = document.getElementById('loading');
+        const errorMessage = document.getElementById('error-message');
+        const noPatients = document.getElementById('noPatients');
+        const addPatientModal = document.getElementById('addPatientModal');
+        const addPatientForm = document.getElementById('addPatientForm');
+
+        // Helper Functions
+        function showLoading(show) {
+            loadingElement.style.display = show ? 'block' : 'none';
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            setTimeout(() => {
+                errorMessage.style.display = 'none';
+            }, 5000);
+        }
+
+        function openAddPatientModal() {
+            addPatientModal.style.display = 'block';
+        }
+
+        function closeAddPatientModal() {
+            addPatientModal.style.display = 'none';
+            addPatientForm.reset();
+        }
+
+        // Create patient card
+        function createPatientCard(patientId, patient) {
+            const card = document.createElement('div');
+            card.className = 'patient-card';
+            card.innerHTML = `
+                <h3>${patient.name}</h3>
+                <div class="patient-info">Age: ${patient.age}</div>
+                <div class="patient-info">Gender: ${patient.gender}</div>
+                ${patient.medicalConditions ? `<div class="patient-info">Medical: ${patient.medicalConditions}</div>` : ''}
+                <div class="patient-actions">
+                    <button class="view-btn" onclick="viewPatientResults('${patientId}')">View Results</button>
+                    <button class="delete-btn" onclick="deletePatient('${patientId}')">Delete</button>
+                </div>
+            `;
+            return card;
+        }
+
+        // Load patients
+        async function loadPatients() {
+            showLoading(true);
+            patientsGrid.innerHTML = '';
+            
+            try {
+                const user = auth.currentUser;
+                if (!user) {
+                    window.location.href = 'login.html';
+                    return;
+                }
+
+                // Check if user is a doctor
+                const doctorSnapshot = await database.ref(`doctorProfiles/${user.uid}`).once('value');
+                const doctorProfile = doctorSnapshot.val();
+                
+                if (!doctorProfile) {
+                    window.location.href = 'profile.html';
+                    return;
+                }
+
+                doctorNameElement.textContent = doctorProfile.name;
+
+                // Load patients
+                const patientsSnapshot = await database.ref(`doctors/${user.uid}/patients`).once('value');
+                const patients = patientsSnapshot.val();
+
+                if (patients) {
+                    noPatients.style.display = 'none';
+                    Object.entries(patients).forEach(([patientId, patient]) => {
+                        patientsGrid.appendChild(createPatientCard(patientId, patient));
+                    });
+                } else {
+                    noPatients.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error loading patients:', error);
+                showError('Failed to load patients. Please refresh the page.');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Add new patient
+        addPatientForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const patientData = {
+                name: document.getElementById('patientName').value.trim(),
+                age: parseInt(document.getElementById('patientAge').value),
+                gender: document.getElementById('patientGender').value,
+                medicalConditions: document.getElementById('patientMedical').value.trim(),
+                addedAt: firebase.database.ServerValue.TIMESTAMP
+            };
+
+            try {
+                const user = auth.currentUser;
+                if (!user) throw new Error('Not signed in');
+
+                // Add to doctor's patients
+                const newPatientRef = await database.ref(`doctors/${user.uid}/patients`).push(patientData);
+                
+                // Add the new patient card
+                patientsGrid.appendChild(createPatientCard(newPatientRef.key, patientData));
+                noPatients.style.display = 'none';
+                
+                closeAddPatientModal();
+            } catch (error) {
+                console.error('Error adding patient:', error);
+                showError('Failed to add patient. Please try again.');
+            }
+        });
+
+        // Delete patient
+        async function deletePatient(patientId) {
+            if (!confirm('Are you sure you want to delete this patient?')) return;
+
+            try {
+                const user = auth.currentUser;
+                if (!user) throw new Error('Not signed in');
+
+                await database.ref(`doctors/${user.uid}/patients/${patientId}`).remove();
+                await loadPatients(); // Reload the list
+            } catch (error) {
+                console.error('Error deleting patient:', error);
+                showError('Failed to delete patient. Please try again.');
+            }
+        }
+
+        // View patient results
+        function viewPatientResults(patientId) {
+            // Store the current patient ID in localStorage
+            localStorage.setItem('currentPatientId', patientId);
+            window.location.href = 'index.html';
+        }
+
+        // Auth state observer
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                const doctorSnapshot = await database.ref(`doctorProfiles/${user.uid}`).once('value');
+                if (!doctorSnapshot.exists()) {
+                    window.location.href = 'profile.html';
+                    return;
+                }
+                loadPatients();
+            } else {
+                window.location.href = 'login.html';
+            }
+        });
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            if (event.target == addPatientModal) {
+                closeAddPatientModal();
+            }
+        }
+    </script>
+</body>
+</html>

@@ -391,18 +391,17 @@
                         // Save to userProfiles
                         await database.ref(`userProfiles/${user.uid}`).set(profileData);
                         
-                        // If they're a doctor, also save to doctorProfiles
+                        // If they're a doctor, save to doctorProfiles without verification
                         if (isDoctorInput.checked) {
                             await database.ref(`doctorProfiles/${user.uid}`).set({
                                 name: profileData.name,
                                 email: profileData.email,
-                                verified: false, // Admin needs to verify doctors
                                 registeredAt: firebase.database.ServerValue.TIMESTAMP
                             });
                         }
 
                         console.log('Profile saved successfully');
-                        window.location.href = 'index.html';
+                        window.location.href = isDoctorInput.checked ? 'patients.html' : 'index.html';
                     } catch (error) {
                         console.error('Save error:', error);
                         showError('Error saving profile. Please try again.');
