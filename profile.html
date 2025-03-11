@@ -248,10 +248,22 @@
 
             // Save profile
             async function saveProfile(userId, data) {
-                await db.collection('userProfiles').doc(userId).set({
-                    ...data,
-                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-                });
+                try {
+                    // Save to Firebase
+                    await db.collection('userProfiles').doc(userId).set({
+                        ...data,
+                        lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+                    }, { merge: true });
+
+                    // Clear editing flag
+                    sessionStorage.removeItem('editingProfile');
+                    
+                    // Redirect to index
+                    window.location.href = window.location.href.replace('profile.html', 'index.html');
+                } catch (error) {
+                    console.error('Error saving profile:', error);
+                    throw error;
+                }
             }
 
             // Load profile
@@ -311,18 +323,23 @@
 
                 try {
                     const profileData = {
-                        name: nameInput.value.trim(),
-                        age: parseInt(ageInput.value),
-                        gender: genderInput.value,
-                        medicalConditions: medicalInput.value.trim()
+                        name: nameInput.value.trim() || user.displayName || '',
+                        age: parseInt(ageInput.value) || null,
+                        gender: genderInput.value || '',
+                        medicalConditions: medicalInput.value.trim() || '',
+                        email: user.email,
+                        updatedAt: new Date().toISOString()
                     };
 
+                    // Validate required fields
+                    if (!profileData.name) {
+                        throw new Error('Name is required');
+                    }
+
                     await saveProfile(user.uid, profileData);
-                    sessionStorage.removeItem('editingProfile');
-                    redirect('index.html');
                 } catch (error) {
                     console.error('Error saving:', error);
-                    showError('Error saving profile. Please try again.');
+                    showError(error.message || 'Error saving profile. Please try again.');
                     toggleSaveButton(false);
                 }
             });
