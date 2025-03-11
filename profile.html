@@ -88,7 +88,8 @@
             <h1>User Profile</h1>
             <p id="userEmail"></p>
         </div>
-        <form id="profileForm" class="profile-form">
+        <div id="loadingMessage" class="loading">Loading profile...</div>
+        <form id="profileForm" class="profile-form" style="display: none;">
             <div class="form-group">
                 <label for="name">Full Name</label>
                 <input type="text" id="name" name="name" required>
@@ -113,7 +114,7 @@
                     placeholder="Please list any medical conditions that might affect your vision or quiz performance..."></textarea>
             </div>
             <div class="button-group">
-                <button type="submit" class="save-btn">Save Profile</button>
+                <button type="submit" class="save-btn" id="saveButton">Save Profile</button>
             </div>
         </form>
     </div>
@@ -134,9 +135,26 @@
         const auth = firebase.auth();
         const db = firebase.firestore();
 
-        // Get base URL for redirects
-        function getBaseUrl() {
-            return window.location.href.substring(0, window.location.href.lastIndexOf('/'));
+        // Show/hide loading message and form
+        function toggleLoading(show) {
+            document.getElementById('loadingMessage').style.display = show ? 'block' : 'none';
+            document.getElementById('profileForm').style.display = show ? 'none' : 'block';
+        }
+
+        // Disable save button while saving
+        function toggleSaveButton(disabled) {
+            const saveButton = document.getElementById('saveButton');
+            saveButton.disabled = disabled;
+            saveButton.textContent = disabled ? 'Saving...' : 'Save Profile';
+        }
+
+        // Force redirect to a page
+        function forceRedirect(path) {
+            const baseUrl = window.location.origin + window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/'));
+            window.location.href = baseUrl + '/' + path;
+            setTimeout(() => {
+                window.location.replace(baseUrl + '/' + path);
+            }, 100);
         }
 
         // Auto-fill profile from Google data
@@ -149,7 +167,7 @@
         // Check authentication and load profile
         auth.onAuthStateChanged(async (user) => {
             if (!user) {
-                window.location.replace(getBaseUrl() + '/login.html');
+                forceRedirect('login.html');
                 return;
             }
 
@@ -170,7 +188,8 @@
                     
                     // Redirect to index if not editing
                     if (!sessionStorage.getItem('editingProfile')) {
-                        window.location.replace(getBaseUrl() + '/index.html');
+                        forceRedirect('index.html');
+                        return;
                     }
                 } else {
                     // New user, auto-fill from Google
@@ -180,6 +199,9 @@
                 console.error('Error loading profile:', error);
                 alert('Error loading profile. Please refresh the page.');
             }
+
+            // Show the form
+            toggleLoading(false);
         });
 
         // Handle form submission
@@ -191,6 +213,9 @@
                 alert('Please sign in to save your profile.');
                 return;
             }
+
+            // Disable save button and show loading
+            toggleSaveButton(true);
 
             // Get form data
             const profileData = {
@@ -208,10 +233,11 @@
                 
                 // Clear editing flag and redirect
                 sessionStorage.removeItem('editingProfile');
-                window.location.replace(getBaseUrl() + '/index.html');
+                forceRedirect('index.html');
             } catch (error) {
                 console.error('Error saving profile:', error);
                 alert('Error saving profile. Please try again.');
+                toggleSaveButton(false);
             }
         });
     </script>
