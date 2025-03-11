@@ -399,44 +399,21 @@
                         console.log('Set name:', googleUser.displayName);
                     }
 
-                    // Try to reauthenticate to get fresh scopes
-                    const googleProvider = new firebase.auth.GoogleAuthProvider();
-                    googleProvider.addScope('profile');
-                    googleProvider.addScope('email');
-                    googleProvider.addScope('https://www.googleapis.com/auth/userinfo.profile');
-                    
-                    try {
-                        const result = await auth.currentUser.reauthenticateWithPopup(googleProvider);
-                        const credential = firebase.auth.GoogleAuthProvider.credentialFromResult(result);
-                        const accessToken = credential.accessToken;
-
-                        if (accessToken) {
-                            // Get additional profile info
-                            const profileResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-                                headers: {
-                                    'Authorization': `Bearer ${accessToken}`
-                                }
-                            });
-
-                            if (profileResponse.ok) {
-                                const profileData = await profileResponse.json();
-                                console.log('Got additional profile data:', profileData);
-
-                                if (profileData.gender) {
-                                    const gender = profileData.gender.toLowerCase();
-                                    if (['male', 'female', 'other'].includes(gender)) {
-                                        genderInput.value = gender;
-                                        console.log('Set gender:', gender);
-                                    }
-                                }
-                            } else {
-                                console.warn('Failed to get additional profile data:', await profileResponse.text());
-                            }
+                    // Get email without domain
+                    if (googleUser.email) {
+                        const username = googleUser.email.split('@')[0];
+                        // If username has dots or numbers, remove them
+                        const cleanUsername = username.replace(/[0-9.]/g, '');
+                        // If it's longer than 2 characters, it might be a real name
+                        if (cleanUsername.length > 2 && !nameInput.value) {
+                            nameInput.value = cleanUsername
+                                .split(/[._-]/)
+                                .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+                                .join(' ');
+                            console.log('Set name from email:', nameInput.value);
                         }
-                    } catch (error) {
-                        console.warn('Could not get additional profile data:', error);
-                        // Continue with basic info only
                     }
+
                 } catch (error) {
                     console.error('Error in fillFromGoogle:', error);
                 } finally {
