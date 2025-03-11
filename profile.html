@@ -142,6 +142,7 @@
                 appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
             };
 
+            // Initialize Firebase
             firebase.initializeApp(firebaseConfig);
             const auth = firebase.auth();
             const db = firebase.firestore();
@@ -174,69 +175,25 @@
             }
 
             function redirect(page) {
-                const url = new URL(window.location.href);
-                const redirectUrl = url.origin + url.pathname.substring(0, url.pathname.lastIndexOf('/')) + '/' + page;
-                window.location.replace(redirectUrl);
-            }
-
-            // Extract age from birthdate
-            function calculateAge(dateString) {
-                const today = new Date();
-                const birthDate = new Date(dateString);
-                let age = today.getFullYear() - birthDate.getFullYear();
-                const m = today.getMonth() - birthDate.getMonth();
-                if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-                    age--;
-                }
-                return age;
+                window.location.href = window.location.href.replace(/[^/]*$/, '') + page;
             }
 
             // Auto-fill profile from Google data
-            async function fillFromGoogle(user) {
-                try {
-                    // Fill name from displayName
-                    if (user.displayName) {
-                        nameInput.value = user.displayName;
-                    }
-
-                    // Try to get additional info from ID token
-                    const idToken = await user.getIdTokenResult(true);
-                    const claims = idToken.claims;
-
-                    // Try to get age from birthday if available
-                    if (claims.birthday) {
-                        const age = calculateAge(claims.birthday);
-                        if (age > 0 && age < 120) {
-                            ageInput.value = age;
-                        }
-                    }
-
-                    // Try to get gender
-                    if (claims.gender) {
-                        const gender = claims.gender.toLowerCase();
-                        if (['male', 'female', 'other'].includes(gender)) {
-                            genderInput.value = gender;
-                        }
-                    }
-                } catch (error) {
-                    console.log('Error getting Google data:', error);
+            function fillFromGoogle(user) {
+                if (user.displayName) {
+                    nameInput.value = user.displayName;
                 }
             }
 
-            // Save profile with optimized Firestore batch
+            // Save profile
             async function saveProfile(userId, data) {
-                const batch = db.batch();
-                const profileRef = db.collection('userProfiles').doc(userId);
-                
-                batch.set(profileRef, {
+                await db.collection('userProfiles').doc(userId).set({
                     ...data,
                     lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
                 });
-
-                await batch.commit();
             }
 
-            // Load profile with cache
+            // Load profile
             async function loadProfile(userId) {
                 const doc = await db.collection('userProfiles').doc(userId).get();
                 return doc.exists ? doc.data() : null;
@@ -249,47 +206,49 @@
                     return;
                 }
 
-                userEmailElement.textContent = user.email;
-                showError('');
                 showLoading(true);
+                showError('');
+                userEmailElement.textContent = user.email;
+
+                // Fill from Google first
+                fillFromGoogle(user);
 
                 try {
-                    const [profile] = await Promise.all([
-                        loadProfile(user.uid),
-                        fillFromGoogle(user)
-                    ]);
-
+                    const profile = await loadProfile(user.uid);
+                    
                     if (profile) {
-                        // Load existing profile
+                        // Load existing profile data
                         nameInput.value = profile.name || nameInput.value;
-                        ageInput.value = profile.age || ageInput.value;
-                        genderInput.value = profile.gender || genderInput.value;
+                        ageInput.value = profile.age || '';
+                        genderInput.value = profile.gender || '';
                         medicalInput.value = profile.medicalConditions || '';
 
+                        // Redirect if not editing
                         if (!sessionStorage.getItem('editingProfile')) {
                             redirect('index.html');
                             return;
                         }
                     }
-
-                    showLoading(false);
                 } catch (error) {
-                    console.error('Error:', error);
-                    showError('Error loading profile. Please try again.');
-                    showLoading(false);
+                    console.error('Error loading profile:', error);
                 }
+
+                showLoading(false);
             }
 
             // Handle form submission
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
+                const user = auth.currentUser;
+                if (!user) {
+                    showError('Please sign in to save your profile.');
+                    return;
+                }
+
                 showError('');
                 toggleSaveButton(true);
 
                 try {
-                    const user = auth.currentUser;
-                    if (!user) throw new Error('Please sign in');
-
                     const profileData = {
                         name: nameInput.value.trim(),
                         age: parseInt(ageInput.value),
@@ -301,7 +260,7 @@
                     sessionStorage.removeItem('editingProfile');
                     redirect('index.html');
                 } catch (error) {
-                    console.error('Error:', error);
+                    console.error('Error saving:', error);
                     showError('Error saving profile. Please try again.');
                     toggleSaveButton(false);
                 }
