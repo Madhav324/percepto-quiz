@@ -141,8 +141,7 @@
                 projectId: "projeccvi",
                 storageBucket: "projeccvi.firebasestorage.app",
                 messagingSenderId: "279067566247",
-                appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82",
-                databaseURL: "https://projeccvi-default-rtdb.firebaseio.com"
+                appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
             };
 
             try {
@@ -154,66 +153,31 @@
                 const db = firebase.firestore();
                 const auth = firebase.auth();
 
-                // Enable offline persistence with retry
-                let persistenceEnabled = false;
-                for (let i = 0; i < 3; i++) {
-                    try {
-                        await db.enablePersistence({
-                            synchronizeTabs: true
-                        });
-                        persistenceEnabled = true;
+                // Enable offline persistence right after initialization
+                await db.enablePersistence()
+                    .then(() => {
                         console.log("Offline persistence enabled successfully");
-                        break;
-                    } catch (err) {
-                        if (err.code === 'failed-precondition') {
+                    })
+                    .catch((err) => {
+                        if (err.code == 'failed-precondition') {
                             console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.');
-                            break;
-                        } else if (err.code === 'unimplemented') {
+                        } else if (err.code == 'unimplemented') {
                             console.warn('The current browser does not support offline persistence');
-                            break;
                         }
-                        // For other errors, retry
-                        await new Promise(resolve => setTimeout(resolve, 1000));
-                    }
-                }
-
-                // Set up connection state monitoring with Firestore
-                const connectionStatus = {
-                    isConnected: false,
-                    hasLoadedInitialData: false
-                };
-
-                // Monitor both online/offline and Firebase connection
-                window.addEventListener('online', () => updateConnectionStatus());
-                window.addEventListener('offline', () => updateConnectionStatus());
-
-                // Monitor Firestore connection
-                db.collection('userProfiles').doc('connection_test')
-                    .onSnapshot(() => {
-                        connectionStatus.isConnected = true;
-                        updateConnectionStatus();
-                    }, (error) => {
-                        connectionStatus.isConnected = false;
-                        updateConnectionStatus();
                     });
 
-                function updateConnectionStatus() {
-                    const isOnline = navigator.onLine;
-                    const errorMessage = document.getElementById('error-message');
-                    
-                    if (!isOnline) {
-                        errorMessage.textContent = 'You are offline. Please check your internet connection.';
-                        errorMessage.style.display = 'block';
-                    } else if (!connectionStatus.isConnected) {
-                        errorMessage.textContent = 'Connecting to server...';
-                        errorMessage.style.display = 'block';
-                    } else if (!connectionStatus.hasLoadedInitialData) {
-                        errorMessage.textContent = 'Loading your profile...';
-                        errorMessage.style.display = 'block';
+                // Set up connection state monitoring
+                const connectedRef = firebase.database().ref('.info/connected');
+                connectedRef.on('value', (snap) => {
+                    if (snap.val() === true) {
+                        console.log('Connected to Firebase');
+                        document.getElementById('error-message').style.display = 'none';
                     } else {
-                        errorMessage.style.display = 'none';
+                        console.log('Not connected to Firebase');
+                        document.getElementById('error-message').textContent = 'Connecting to server...';
+                        document.getElementById('error-message').style.display = 'block';
                     }
-                }
+                });
 
                 // Cache DOM elements
                 const form = document.getElementById('profileForm');
@@ -231,13 +195,8 @@
                     if (user) {
                         showLoading(true);
                         try {
-                            // Try to load existing profile with timeout
-                            const profilePromise = db.collection('userProfiles').doc(user.uid).get();
-                            const timeoutPromise = new Promise((_, reject) => 
-                                setTimeout(() => reject(new Error('Loading profile timed out')), 10000)
-                            );
-
-                            const doc = await Promise.race([profilePromise, timeoutPromise]);
+                            // Try to load existing profile
+                            const doc = await db.collection('userProfiles').doc(user.uid).get();
                             
                             // Show user email
                             userEmailElement.textContent = user.email;
@@ -249,17 +208,14 @@
                                 genderInput.value = data.gender || '';
                                 medicalInput.value = data.medicalConditions || '';
                             } else {
+                                // If no profile exists, try to fill from Google
                                 await fillFromGoogle(user);
                             }
                             
-                            connectionStatus.hasLoadedInitialData = true;
-                            updateConnectionStatus();
                             form.style.display = 'block';
                         } catch (error) {
                             console.error('Error loading profile:', error);
-                            errorMessage.textContent = error.message === 'Loading profile timed out' ?
-                                'Unable to load profile. Please check your connection and refresh.' :
-                                'Error loading profile. Please try again.';
+                            errorMessage.textContent = 'Error loading profile. Please refresh the page.';
                             errorMessage.style.display = 'block';
                         } finally {
                             showLoading(false);
@@ -272,11 +228,6 @@
                 // Form submission handler
                 form.addEventListener('submit', async (e) => {
                     e.preventDefault();
-                    if (!navigator.onLine) {
-                        showError('Cannot save while offline. Please check your internet connection.');
-                        return;
-                    }
-
                     const user = auth.currentUser;
                     if (!user) {
                         showError('Please log in again');
@@ -286,21 +237,21 @@
                     toggleSaveButton(true);
                     showError('');
 
-                    try {
-                        const profileData = {
-                            name: nameInput.value.trim(),
-                            age: ageInput.value,
-                            gender: genderInput.value,
-                            medicalConditions: medicalInput.value.trim(),
-                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                        };
+                    const profileData = {
+                        name: nameInput.value.trim(),
+                        age: ageInput.value,
+                        gender: genderInput.value,
+                        medicalConditions: medicalInput.value.trim(),
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    };
 
+                    try {
                         await db.collection('userProfiles').doc(user.uid).set(profileData);
                         sessionStorage.removeItem('editingProfile');
                         window.location.href = 'index.html';
                     } catch (error) {
                         console.error('Save error:', error);
-                        showError('Failed to save profile. Please check your connection and try again.');
+                        showError('Error saving profile. Please try again.');
                         toggleSaveButton(false);
                     }
                 });
