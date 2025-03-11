@@ -179,9 +179,70 @@
             }
 
             // Auto-fill profile from Google data
-            function fillFromGoogle(user) {
-                if (user.displayName) {
-                    nameInput.value = user.displayName;
+            async function fillFromGoogle(user) {
+                try {
+                    // Always try to fill name
+                    if (user.displayName) {
+                        nameInput.value = user.displayName;
+                    }
+
+                    // Try to get additional info from Google
+                    const additionalUserInfo = await auth.getAdditionalUserInfo(user);
+                    if (additionalUserInfo && additionalUserInfo.profile) {
+                        const profile = additionalUserInfo.profile;
+                        
+                        // Try to get age if birthday exists
+                        if (profile.birthday) {
+                            const [year, month, day] = profile.birthday.split('-').map(Number);
+                            if (year && month && day) {
+                                const birthDate = new Date(year, month - 1, day);
+                                const today = new Date();
+                                let age = today.getFullYear() - birthDate.getFullYear();
+                                const monthDiff = today.getMonth() - birthDate.getMonth();
+                                
+                                if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                                    age--;
+                                }
+                                
+                                if (age >= 1 && age <= 120) {
+                                    ageInput.value = age;
+                                }
+                            }
+                        }
+
+                        // Try to get gender if available
+                        if (profile.gender) {
+                            const gender = profile.gender.toLowerCase();
+                            if (['male', 'female', 'other'].includes(gender)) {
+                                genderInput.value = gender;
+                            }
+                        }
+                    }
+
+                    // Try to get data from ID token as fallback
+                    const idToken = await user.getIdTokenResult(true);
+                    if (idToken && idToken.claims) {
+                        const claims = idToken.claims;
+                        
+                        // Try gender from claims if not already set
+                        if (!genderInput.value && claims.gender) {
+                            const gender = claims.gender.toLowerCase();
+                            if (['male', 'female', 'other'].includes(gender)) {
+                                genderInput.value = gender;
+                            }
+                        }
+
+                        // Try age from claims if not already set
+                        if (!ageInput.value && claims.age) {
+                            const age = parseInt(claims.age);
+                            if (age >= 1 && age <= 120) {
+                                ageInput.value = age;
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.log('Could not get additional Google data:', error);
+                    // Non-critical error, just continue without the extra data
                 }
             }
 
@@ -211,7 +272,7 @@
                 userEmailElement.textContent = user.email;
 
                 // Fill from Google first
-                fillFromGoogle(user);
+                await fillFromGoogle(user);
 
                 try {
                     const profile = await loadProfile(user.uid);
