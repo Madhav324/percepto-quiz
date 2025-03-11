@@ -7,7 +7,7 @@
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -152,6 +152,28 @@
             const genderInput = document.getElementById('gender');
             const medicalInput = document.getElementById('medicalConditions');
 
+            // Helper Functions
+            function showLoading(show, message = 'Loading profile...') {
+                loadingMessage.textContent = message;
+                loadingMessage.style.display = show ? 'block' : 'none';
+                form.style.display = show ? 'none' : 'block';
+            }
+
+            function showError(message, isTemporary = false) {
+                errorMessage.textContent = message;
+                errorMessage.style.display = 'block';
+                if (isTemporary) {
+                    setTimeout(() => {
+                        errorMessage.style.display = 'none';
+                    }, 3000);
+                }
+            }
+
+            function toggleSaveButton(disabled) {
+                saveButton.disabled = disabled;
+                saveButton.textContent = disabled ? 'Saving...' : 'Save Profile';
+            }
+
             try {
                 showLoading(true, 'Initializing Firebase...');
 
@@ -160,51 +182,20 @@
                     firebase.initializeApp(firebaseConfig);
                 }
 
-                // Get Firestore instance with settings
-                const db = firebase.firestore();
-                db.settings({
-                    experimentalForceLongPolling: true,
-                    useFetchStreams: false,
-                    cacheSizeBytes: firebase.firestore.CACHE_SIZE_UNLIMITED
-                });
-
                 const auth = firebase.auth();
+                const database = firebase.database();
 
-                // Enable offline persistence
-                try {
-                    await db.enablePersistence({
-                        synchronizeTabs: true
-                    });
-                    console.log("Persistence enabled");
-                } catch (err) {
-                    if (err.code === 'failed-precondition') {
-                        console.warn('Multiple tabs open');
-                    } else if (err.code === 'unimplemented') {
-                        console.warn('Browser does not support persistence');
+                // Monitor connection state
+                const connectedRef = database.ref('.info/connected');
+                connectedRef.on('value', (snap) => {
+                    if (snap.val() === true) {
+                        console.log('Connected to Firebase');
+                        errorMessage.style.display = 'none';
+                    } else {
+                        console.log('Disconnected from Firebase');
+                        showError('Connecting to server...');
                     }
-                }
-
-                // Helper Functions
-                function showLoading(show, message = 'Loading profile...') {
-                    loadingMessage.textContent = message;
-                    loadingMessage.style.display = show ? 'block' : 'none';
-                    form.style.display = show ? 'none' : 'block';
-                }
-
-                function showError(message, isTemporary = false) {
-                    errorMessage.textContent = message;
-                    errorMessage.style.display = 'block';
-                    if (isTemporary) {
-                        setTimeout(() => {
-                            errorMessage.style.display = 'none';
-                        }, 3000);
-                    }
-                }
-
-                function toggleSaveButton(disabled) {
-                    saveButton.disabled = disabled;
-                    saveButton.textContent = disabled ? 'Saving...' : 'Save Profile';
-                }
+                });
 
                 // Wait for auth state with timeout
                 const user = await Promise.race([
@@ -232,14 +223,12 @@
                 // Try to load existing profile
                 try {
                     showLoading(true, 'Loading your profile...');
-                    const docRef = db.collection('userProfiles').doc(user.uid);
+                    const userRef = database.ref('userProfiles/' + user.uid);
                     
-                    // Use get() with metadata to force server read
-                    const doc = await docRef.get({ source: 'server' });
-                    
-                    if (doc.exists) {
-                        console.log('Profile found:', doc.data());
-                        const data = doc.data();
+                    const snapshot = await userRef.get();
+                    if (snapshot.exists()) {
+                        console.log('Profile found:', snapshot.val());
+                        const data = snapshot.val();
                         nameInput.value = data.name || '';
                         ageInput.value = data.age || '';
                         genderInput.value = data.gender || '';
@@ -268,12 +257,12 @@
                             gender: genderInput.value,
                             medicalConditions: medicalInput.value.trim(),
                             email: user.email,
-                            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                            uid: user.uid  // Add UID for security rules
+                            updatedAt: firebase.database.ServerValue.TIMESTAMP,
+                            uid: user.uid
                         };
 
-                        // Save to Firestore with server timestamp
-                        await db.collection('userProfiles').doc(user.uid).set(profileData, { merge: true });
+                        // Save to Realtime Database
+                        await database.ref('userProfiles/' + user.uid).set(profileData);
                         console.log('Profile saved successfully');
                         window.location.href = 'index.html';
                     } catch (error) {
