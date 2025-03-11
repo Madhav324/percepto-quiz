@@ -123,6 +123,27 @@
         .retry-button:hover {
             background-color: #1976D2;
         }
+        .checkbox-container {
+            margin: 15px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .checkbox-container input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        .checkbox-container label {
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .doctor-note {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+            margin-left: 28px;
+        }
     </style>
 </head>
 <body>
@@ -154,8 +175,13 @@
             </div>
             <div class="form-group">
                 <label for="medicalConditions">Medical Conditions (if any)</label>
-                <textarea id="medicalConditions" name="medicalConditions" autocomplete="off" placeholder="Please list any medical conditions that might affect your vision or quiz performance..."></textarea>
+                <textarea id="medicalConditions" name="medicalConditions" rows="3"></textarea>
             </div>
+            <div class="checkbox-container">
+                <input type="checkbox" id="isDoctor" name="isDoctor">
+                <label for="isDoctor">I am a licensed medical professional</label>
+            </div>
+            <p class="doctor-note">Medical professionals can create and manage multiple patient profiles under their account</p>
             <div class="button-group">
                 <button type="submit" class="save-btn" id="saveButton">Save Profile</button>
             </div>
@@ -187,6 +213,7 @@
             const ageInput = document.getElementById('age');
             const genderInput = document.getElementById('gender');
             const medicalInput = document.getElementById('medicalConditions');
+            const isDoctorInput = document.getElementById('isDoctor');
             const statusIndicator = document.getElementById('status');
             const retryButton = document.getElementById('retryConnection');
 
@@ -332,6 +359,7 @@
                         ageInput.value = data.age || '';
                         genderInput.value = data.gender || '';
                         medicalInput.value = data.medicalConditions || '';
+                        isDoctorInput.checked = data.isDoctor || false;
                     } else {
                         console.log('No profile found, trying Google data');
                         await fillFromGoogle(user);
@@ -352,16 +380,27 @@
                     try {
                         const profileData = {
                             name: nameInput.value.trim(),
-                            age: ageInput.value,
+                            age: parseInt(ageInput.value),
                             gender: genderInput.value,
                             medicalConditions: medicalInput.value.trim(),
+                            isDoctor: isDoctorInput.checked,
                             email: user.email,
-                            updatedAt: firebase.database.ServerValue.TIMESTAMP,
-                            uid: user.uid
+                            lastUpdated: firebase.database.ServerValue.TIMESTAMP
                         };
 
-                        // Save to Realtime Database
-                        await database.ref('userProfiles/' + user.uid).set(profileData);
+                        // Save to userProfiles
+                        await database.ref(`userProfiles/${user.uid}`).set(profileData);
+                        
+                        // If they're a doctor, also save to doctorProfiles
+                        if (isDoctorInput.checked) {
+                            await database.ref(`doctorProfiles/${user.uid}`).set({
+                                name: profileData.name,
+                                email: profileData.email,
+                                verified: false, // Admin needs to verify doctors
+                                registeredAt: firebase.database.ServerValue.TIMESTAMP
+                            });
+                        }
+
                         console.log('Profile saved successfully');
                         window.location.href = 'index.html';
                     } catch (error) {
