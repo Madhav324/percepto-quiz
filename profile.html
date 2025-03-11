@@ -70,15 +70,26 @@
         .save-btn {
             background-color: #4CAF50;
             color: white;
+            min-width: 120px;
         }
         .save-btn:hover {
             background-color: #45a049;
+        }
+        .save-btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
         }
         .loading {
             text-align: center;
             padding: 20px;
             font-style: italic;
             color: #666;
+        }
+        #error-message {
+            color: #ff0000;
+            text-align: center;
+            margin: 10px 0;
+            display: none;
         }
     </style>
 </head>
@@ -88,6 +99,7 @@
             <h1>User Profile</h1>
             <p id="userEmail"></p>
         </div>
+        <div id="error-message"></div>
         <div id="loadingMessage" class="loading">Loading profile...</div>
         <form id="profileForm" class="profile-form" style="display: none;">
             <div class="form-group">
@@ -141,6 +153,17 @@
             document.getElementById('profileForm').style.display = show ? 'none' : 'block';
         }
 
+        // Show/hide error message
+        function showError(message) {
+            const errorElement = document.getElementById('error-message');
+            if (message) {
+                errorElement.textContent = message;
+                errorElement.style.display = 'block';
+            } else {
+                errorElement.style.display = 'none';
+            }
+        }
+
         // Disable save button while saving
         function toggleSaveButton(disabled) {
             const saveButton = document.getElementById('saveButton');
@@ -148,96 +171,115 @@
             saveButton.textContent = disabled ? 'Saving...' : 'Save Profile';
         }
 
-        // Force redirect to a page
-        function forceRedirect(path) {
-            const baseUrl = window.location.origin + window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/'));
-            window.location.href = baseUrl + '/' + path;
-            setTimeout(() => {
-                window.location.replace(baseUrl + '/' + path);
-            }, 100);
+        // Get redirect URL
+        function getRedirectUrl(path) {
+            const url = new URL(window.location.href);
+            const basePath = url.pathname.substring(0, url.pathname.lastIndexOf('/'));
+            return url.origin + basePath + '/' + path;
+        }
+
+        // Redirect to page
+        function redirectTo(path) {
+            const redirectUrl = getRedirectUrl(path);
+            window.location.href = redirectUrl;
         }
 
         // Auto-fill profile from Google data
         function fillProfileFromGoogle(user) {
+            console.log('Filling profile from Google data:', user);
             if (user.displayName) {
                 document.getElementById('name').value = user.displayName;
             }
         }
 
-        // Check authentication and load profile
-        auth.onAuthStateChanged(async (user) => {
+        // Save profile data
+        async function saveProfile(profileData) {
+            const user = auth.currentUser;
+            if (!user) throw new Error('No user signed in');
+
+            await db.collection('userProfiles').doc(user.uid).set({
+                ...profileData,
+                lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        }
+
+        // Load existing profile
+        async function loadProfile(userId) {
+            const doc = await db.collection('userProfiles').doc(userId).get();
+            return doc.exists ? doc.data() : null;
+        }
+
+        // Initialize page
+        async function initializePage() {
+            const user = auth.currentUser;
             if (!user) {
-                forceRedirect('login.html');
+                redirectTo('login.html');
                 return;
             }
 
-            // Display user email
             document.getElementById('userEmail').textContent = user.email;
+            showError('');
+            toggleLoading(true);
 
             try {
-                // Check if profile exists
-                const doc = await db.collection('userProfiles').doc(user.uid).get();
+                const profile = await loadProfile(user.uid);
                 
-                if (doc.exists) {
+                if (profile) {
                     // Load existing profile data
-                    const data = doc.data();
-                    document.getElementById('name').value = data.name || '';
-                    document.getElementById('age').value = data.age || '';
-                    document.getElementById('gender').value = data.gender || '';
-                    document.getElementById('medicalConditions').value = data.medicalConditions || '';
+                    document.getElementById('name').value = profile.name || '';
+                    document.getElementById('age').value = profile.age || '';
+                    document.getElementById('gender').value = profile.gender || '';
+                    document.getElementById('medicalConditions').value = profile.medicalConditions || '';
                     
                     // Redirect to index if not editing
                     if (!sessionStorage.getItem('editingProfile')) {
-                        forceRedirect('index.html');
+                        redirectTo('index.html');
                         return;
                     }
                 } else {
                     // New user, auto-fill from Google
                     fillProfileFromGoogle(user);
                 }
+                
+                toggleLoading(false);
             } catch (error) {
                 console.error('Error loading profile:', error);
-                alert('Error loading profile. Please refresh the page.');
+                showError('Error loading profile. Please refresh the page.');
+                toggleLoading(false);
             }
-
-            // Show the form
-            toggleLoading(false);
-        });
+        }
 
         // Handle form submission
         document.getElementById('profileForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            
-            const user = auth.currentUser;
-            if (!user) {
-                alert('Please sign in to save your profile.');
-                return;
-            }
-
-            // Disable save button and show loading
+            showError('');
             toggleSaveButton(true);
 
-            // Get form data
-            const profileData = {
-                name: document.getElementById('name').value.trim(),
-                age: parseInt(document.getElementById('age').value),
-                gender: document.getElementById('gender').value,
-                medicalConditions: document.getElementById('medicalConditions').value.trim(),
-                lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-            };
-
             try {
-                // Save to Firestore
-                await db.collection('userProfiles').doc(user.uid).set(profileData);
+                const profileData = {
+                    name: document.getElementById('name').value.trim(),
+                    age: parseInt(document.getElementById('age').value),
+                    gender: document.getElementById('gender').value,
+                    medicalConditions: document.getElementById('medicalConditions').value.trim()
+                };
+
+                await saveProfile(profileData);
                 console.log('Profile saved successfully');
-                
-                // Clear editing flag and redirect
                 sessionStorage.removeItem('editingProfile');
-                forceRedirect('index.html');
+                redirectTo('index.html');
             } catch (error) {
                 console.error('Error saving profile:', error);
-                alert('Error saving profile. Please try again.');
+                showError('Error saving profile. Please try again.');
                 toggleSaveButton(false);
+            }
+        });
+
+        // Listen for auth state changes
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                initializePage();
+            } else {
+                redirectTo('login.html');
             }
         });
     </script>
