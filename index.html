@@ -5,11 +5,70 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Visual Perceptual Skills</title>
     <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Existing styles */
+        
+        /* Profile Navigation Styles */
+        .nav-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background-color: #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .profile-nav {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .profile-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #2196F3;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: bold;
+            text-decoration: none;
+        }
+        
+        .profile-icon:hover {
+            background-color: #1976D2;
+        }
+        
+        .user-info {
+            display: flex;
+            flex-direction: column;
+            font-size: 14px;
+        }
+        
+        .user-name {
+            font-weight: bold;
+        }
+        
+        .user-email {
+            color: #666;
+            font-size: 12px;
+        }
+    </style>
 </head>
 <body>
-    <div id="user-info" style="position: absolute; top: 10px; right: 10px;">
-        <span id="userEmail"></span>
-        <button onclick="logout()" style="margin-left: 10px;">Logout</button>
+    <div class="nav-header">
+        <h1>Percepto Quiz</h1>
+        <div class="profile-nav">
+            <div class="user-info">
+                <span class="user-name" id="userName">Loading...</span>
+                <span class="user-email" id="userEmail"></span>
+            </div>
+            <a href="#" class="profile-icon" id="profileIcon" title="Edit Profile">P</a>
+            <button onclick="logout()" class="logout-btn">Logout</button>
+        </div>
     </div>
     <div id="quiz-container">
         <h1>Visual Perceptual Skills</h1>
@@ -48,6 +107,8 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <!-- Firebase Auth -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <!-- Firebase Firestore -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
     <script>
         // Firebase configuration
@@ -63,26 +124,48 @@
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
-        console.log("Firebase initialized successfully");
-
+        const db = firebase.firestore();
+        
         // Handle relative paths for both local and GitHub Pages
-        function getLoginPath() {
-            // Get the base URL (works for both local and GitHub Pages)
+        function getPath(page) {
             const baseUrl = window.location.href.split('/').slice(0, -1).join('/');
-            return `${baseUrl}/login.html`;
+            return `${baseUrl}/${page}`;
         }
 
-        // Check authentication state
-        auth.onAuthStateChanged((user) => {
+        // Profile navigation
+        document.getElementById('profileIcon').addEventListener('click', (e) => {
+            e.preventDefault();
+            sessionStorage.setItem('editingProfile', 'true');
+            window.location.href = getPath('profile.html');
+        });
+
+        // Check authentication state and load profile
+        auth.onAuthStateChanged(async (user) => {
             if (user) {
                 // User is signed in
                 console.log("User is signed in:", user.email);
                 document.getElementById('userEmail').textContent = user.email;
+                
+                // Load user profile
+                try {
+                    const doc = await db.collection('userProfiles').doc(user.uid).get();
+                    if (doc.exists) {
+                        const data = doc.data();
+                        document.getElementById('userName').textContent = data.name || 'User';
+                    } else {
+                        // No profile, redirect to profile page
+                        window.location.href = getPath('profile.html');
+                    }
+                } catch (error) {
+                    console.error('Error loading profile:', error);
+                    document.getElementById('userName').textContent = 'User';
+                }
+                
                 document.getElementById('quiz-container').style.display = 'block';
             } else {
                 // User is signed out
                 console.log("No user signed in, redirecting to login");
-                window.location.href = getLoginPath();
+                window.location.href = getPath('login.html');
             }
         });
 
@@ -91,9 +174,9 @@
             try {
                 await auth.signOut();
                 console.log("User signed out successfully");
-                window.location.href = getLoginPath();
+                window.location.href = getPath('login.html');
             } catch (error) {
-                console.error('Error signing out:', error.code, error.message);
+                console.error('Error signing out:', error);
             }
         };
     </script>

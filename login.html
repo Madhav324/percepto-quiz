@@ -153,6 +153,8 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <!-- Firebase Auth -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <!-- Firebase Firestore -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
     <script>
         // Firebase configuration
@@ -168,6 +170,7 @@
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
+        const db = firebase.firestore();
         
         // Configure Google Auth Provider
         const googleProvider = new firebase.auth.GoogleAuthProvider();
@@ -177,10 +180,20 @@
         console.log("Firebase initialized successfully");
 
         // Handle relative paths for both local and GitHub Pages
-        function getRedirectPath() {
-            // Get the base URL (works for both local and GitHub Pages)
+        function getPath(page) {
             const baseUrl = window.location.href.split('/').slice(0, -1).join('/');
-            return `${baseUrl}/index.html`;
+            return `${baseUrl}/${page}`;
+        }
+
+        // Check if user has profile
+        async function checkUserProfile(userId) {
+            try {
+                const doc = await db.collection('userProfiles').doc(userId).get();
+                return doc.exists;
+            } catch (error) {
+                console.error('Error checking profile:', error);
+                return false;
+            }
         }
 
         // Google Sign In
@@ -191,8 +204,12 @@
             try {
                 const result = await auth.signInWithPopup(googleProvider);
                 console.log("Google sign-in successful:", result.user.email);
-                // Use dynamic redirect path
-                window.location.href = getRedirectPath();
+                
+                // Check if user has a profile
+                const hasProfile = await checkUserProfile(result.user.uid);
+                
+                // Redirect based on profile status
+                window.location.href = getPath(hasProfile ? 'index.html' : 'profile.html');
             } catch (error) {
                 console.error("Google sign-in error:", error.code, error.message);
                 errorElement.style.display = 'block';
@@ -206,10 +223,12 @@
         };
 
         // Check auth state
-        auth.onAuthStateChanged((user) => {
+        auth.onAuthStateChanged(async (user) => {
             if (user) {
                 console.log("User is signed in:", user.email);
-                window.location.href = getRedirectPath();
+                // Check if user has a profile
+                const hasProfile = await checkUserProfile(user.uid);
+                window.location.href = getPath(hasProfile ? 'index.html' : 'profile.html');
             } else {
                 console.log("No user signed in");
             }
