@@ -56,6 +56,37 @@
             color: #666;
             font-size: 12px;
         }
+        
+        .nav-buttons {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .nav-button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+        }
+        
+        .nav-button:hover {
+            background-color: #45a049;
+        }
+        
+        .patients-button {
+            background-color: #2196F3;
+        }
+        
+        .patients-button:hover {
+            background-color: #1976D2;
+        }
     </style>
 </head>
 <body>
@@ -71,10 +102,14 @@
         </div>
     </div>
     <div id="quiz-container">
+        <div class="nav-buttons">
+            <a href="profile.html" class="nav-button">Profile</a>
+            <a href="patients.html" id="patientsButton" class="nav-button patients-button" style="display: none;">Manage Patients</a>
+        </div>
         <h1>Visual Perceptual Skills</h1>
         <a href="report.html" style="text-decoration: none;"><button>Report</button></a>
         <h2>Select a Quiz Type:</h2>
-<br>
+        <br>
         <!-- Quiz Type Selection -->
         <div id="quiz-type">
             <button onclick="startQuiz('animals')">Fixation to Mirror</button>
@@ -139,6 +174,17 @@
             window.location.href = getPath('profile.html');
         });
 
+        // Check if user is a doctor and show patients button
+        async function checkIfDoctor(userId) {
+            try {
+                const doctorSnapshot = await db.collection('doctorProfiles').doc(userId).get();
+                const patientsButton = document.getElementById('patientsButton');
+                patientsButton.style.display = doctorSnapshot.exists() ? 'inline-flex' : 'none';
+            } catch (error) {
+                console.error('Error checking doctor status:', error);
+            }
+        }
+
         // Check authentication state and load profile
         auth.onAuthStateChanged(async (user) => {
             if (user) {
@@ -160,6 +206,8 @@
                     console.error('Error loading profile:', error);
                     document.getElementById('userName').textContent = 'User';
                 }
+                
+                await checkIfDoctor(user.uid);
                 
                 document.getElementById('quiz-container').style.display = 'block';
             } else {
