@@ -143,9 +143,22 @@
         };
 
         // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const db = firebase.firestore();
+        let app, auth, db;
+
+        // Function to initialize Firebase
+        async function initializeFirebase() {
+            if (!app) {
+                app = firebase.initializeApp(firebaseConfig);
+                auth = firebase.auth();
+                db = firebase.firestore();
+            }
+            return new Promise((resolve) => {
+                const unsubscribe = auth.onAuthStateChanged((user) => {
+                    unsubscribe();
+                    resolve(user);
+                });
+            });
+        }
 
         // Show/hide loading message and form
         function toggleLoading(show) {
@@ -186,18 +199,15 @@
 
         // Auto-fill profile from Google data
         function fillProfileFromGoogle(user) {
-            console.log('Filling profile from Google data:', user);
-            if (user.displayName) {
+            if (user && user.displayName) {
                 document.getElementById('name').value = user.displayName;
             }
         }
 
         // Save profile data
         async function saveProfile(profileData) {
-            const user = auth.currentUser;
-            if (!user) throw new Error('No user signed in');
-
-            await db.collection('userProfiles').doc(user.uid).set({
+            if (!auth.currentUser) throw new Error('No user signed in');
+            await db.collection('userProfiles').doc(auth.currentUser.uid).set({
                 ...profileData,
                 lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
             });
@@ -205,23 +215,32 @@
 
         // Load existing profile
         async function loadProfile(userId) {
-            const doc = await db.collection('userProfiles').doc(userId).get();
-            return doc.exists ? doc.data() : null;
+            try {
+                const doc = await db.collection('userProfiles').doc(userId).get();
+                return doc.exists ? doc.data() : null;
+            } catch (error) {
+                console.error('Error loading profile:', error);
+                return null;
+            }
         }
 
         // Initialize page
         async function initializePage() {
-            const user = auth.currentUser;
-            if (!user) {
-                redirectTo('login.html');
-                return;
-            }
-
-            document.getElementById('userEmail').textContent = user.email;
-            showError('');
-            toggleLoading(true);
-
             try {
+                showError('');
+                toggleLoading(true);
+
+                // Initialize Firebase and wait for auth
+                const user = await initializeFirebase();
+                
+                if (!user) {
+                    redirectTo('login.html');
+                    return;
+                }
+
+                document.getElementById('userEmail').textContent = user.email || '';
+
+                // Load profile data
                 const profile = await loadProfile(user.uid);
                 
                 if (profile) {
@@ -243,7 +262,7 @@
                 
                 toggleLoading(false);
             } catch (error) {
-                console.error('Error loading profile:', error);
+                console.error('Error initializing page:', error);
                 showError('Error loading profile. Please refresh the page.');
                 toggleLoading(false);
             }
@@ -274,14 +293,8 @@
             }
         });
 
-        // Listen for auth state changes
-        auth.onAuthStateChanged((user) => {
-            if (user) {
-                initializePage();
-            } else {
-                redirectTo('login.html');
-            }
-        });
+        // Start initialization
+        initializePage();
     </script>
 </body>
 </html>
