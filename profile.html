@@ -4,8 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>User Profile - Percepto</title>
+    <!-- Firebase App -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <!-- Firebase Auth -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <!-- Firebase Firestore -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
     <style>
         body {
@@ -71,13 +74,6 @@
         .save-btn:hover {
             background-color: #45a049;
         }
-        .edit-btn {
-            background-color: #2196F3;
-            color: white;
-        }
-        .edit-btn:hover {
-            background-color: #1976D2;
-        }
         .loading {
             text-align: center;
             padding: 20px;
@@ -137,87 +133,52 @@
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.firestore();
-        let isFirstLogin = false;
 
-        // Handle relative paths for both local and GitHub Pages
-        function getPath(page) {
-            const baseUrl = window.location.href.split('/').slice(0, -1).join('/');
-            return `${baseUrl}/${page}`;
-        }
-
-        // Extract age from birthdate
-        function calculateAge(birthDate) {
-            const today = new Date();
-            const birth = new Date(birthDate);
-            let age = today.getFullYear() - birth.getFullYear();
-            const monthDiff = today.getMonth() - birth.getMonth();
-            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-                age--;
-            }
-            return age;
+        // Get base URL for redirects
+        function getBaseUrl() {
+            return window.location.href.substring(0, window.location.href.lastIndexOf('/'));
         }
 
         // Auto-fill profile from Google data
-        async function fillProfileFromGoogle(user) {
-            try {
-                // Get ID token result which contains Google account info
-                const idTokenResult = await user.getIdTokenResult(true);
-                const googleInfo = idTokenResult.claims;
-                
-                // Fill name if available
-                if (user.displayName) {
-                    document.getElementById('name').value = user.displayName;
-                }
-
-                // Try to get gender from Google profile
-                if (googleInfo.gender) {
-                    const gender = googleInfo.gender.toLowerCase();
-                    if (['male', 'female', 'other'].includes(gender)) {
-                        document.getElementById('gender').value = gender;
-                    }
-                }
-
-                // Try to get age from birthday if available
-                if (googleInfo.birthday) {
-                    const age = calculateAge(googleInfo.birthday);
-                    if (age > 0 && age < 120) {
-                        document.getElementById('age').value = age;
-                    }
-                }
-            } catch (error) {
-                console.log('Error getting Google profile data:', error);
+        function fillProfileFromGoogle(user) {
+            if (user.displayName) {
+                document.getElementById('name').value = user.displayName;
             }
         }
 
-        // Check authentication and profile status
+        // Check authentication and load profile
         auth.onAuthStateChanged(async (user) => {
-            if (user) {
-                document.getElementById('userEmail').textContent = user.email;
-                
+            if (!user) {
+                window.location.replace(getBaseUrl() + '/login.html');
+                return;
+            }
+
+            // Display user email
+            document.getElementById('userEmail').textContent = user.email;
+
+            try {
                 // Check if profile exists
-                const profileRef = db.collection('userProfiles').doc(user.uid);
-                const doc = await profileRef.get();
+                const doc = await db.collection('userProfiles').doc(user.uid).get();
                 
                 if (doc.exists) {
-                    // Profile exists, populate form
+                    // Load existing profile data
                     const data = doc.data();
                     document.getElementById('name').value = data.name || '';
                     document.getElementById('age').value = data.age || '';
                     document.getElementById('gender').value = data.gender || '';
                     document.getElementById('medicalConditions').value = data.medicalConditions || '';
                     
-                    // If not editing profile, redirect to index
+                    // Redirect to index if not editing
                     if (!sessionStorage.getItem('editingProfile')) {
-                        window.location.replace(getPath('index.html'));
+                        window.location.replace(getBaseUrl() + '/index.html');
                     }
                 } else {
-                    isFirstLogin = true;
-                    // Auto-fill from Google data
-                    await fillProfileFromGoogle(user);
+                    // New user, auto-fill from Google
+                    fillProfileFromGoogle(user);
                 }
-            } else {
-                // Not logged in, redirect to login
-                window.location.replace(getPath('login.html'));
+            } catch (error) {
+                console.error('Error loading profile:', error);
+                alert('Error loading profile. Please refresh the page.');
             }
         });
 
@@ -226,21 +187,28 @@
             e.preventDefault();
             
             const user = auth.currentUser;
-            if (!user) return;
+            if (!user) {
+                alert('Please sign in to save your profile.');
+                return;
+            }
 
+            // Get form data
             const profileData = {
-                name: document.getElementById('name').value,
+                name: document.getElementById('name').value.trim(),
                 age: parseInt(document.getElementById('age').value),
                 gender: document.getElementById('gender').value,
-                medicalConditions: document.getElementById('medicalConditions').value,
+                medicalConditions: document.getElementById('medicalConditions').value.trim(),
                 lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
             };
 
             try {
+                // Save to Firestore
                 await db.collection('userProfiles').doc(user.uid).set(profileData);
+                console.log('Profile saved successfully');
+                
+                // Clear editing flag and redirect
                 sessionStorage.removeItem('editingProfile');
-                // Use replace instead of href to force redirect
-                window.location.replace(getPath('index.html'));
+                window.location.replace(getBaseUrl() + '/index.html');
             } catch (error) {
                 console.error('Error saving profile:', error);
                 alert('Error saving profile. Please try again.');
