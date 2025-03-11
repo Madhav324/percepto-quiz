@@ -147,6 +147,12 @@
             const auth = firebase.auth();
             const db = firebase.firestore();
 
+            // Enable offline persistence
+            firebase.firestore().enablePersistence()
+                .catch((err) => {
+                    console.error('Error enabling offline persistence:', err);
+                });
+
             // Cache DOM elements
             const form = document.getElementById('profileForm');
             const loadingMessage = document.getElementById('loadingMessage');
@@ -188,54 +194,73 @@
                 try {
                     logDebug('Starting Google data fill for user', user.email);
 
-                    // Always try to fill name
+                    // Fill name from display name
                     if (user.displayName) {
                         nameInput.value = user.displayName;
                         logDebug('Filled name', user.displayName);
                     }
 
-                    // Get user info directly from provider data
-                    const provider = user.providerData[0];
-                    logDebug('Provider data', provider);
-                    
-                    if (provider) {
-                        if (provider.displayName) {
-                            nameInput.value = provider.displayName;
+                    // Get provider data
+                    const googleProvider = user.providerData.find(p => p.providerId === 'google.com');
+                    if (googleProvider) {
+                        logDebug('Found Google provider data', googleProvider);
+                        
+                        // Try to get profile info
+                        try {
+                            const token = await user.getIdToken(true);
+                            const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                                headers: {
+                                    'Authorization': `Bearer ${token}`
+                                }
+                            });
+                            
+                            if (response.ok) {
+                                const data = await response.json();
+                                logDebug('Google profile data', data);
+                                
+                                if (data.gender) {
+                                    genderInput.value = data.gender.toLowerCase();
+                                }
+                                
+                                if (data.birthdate) {
+                                    const birthYear = new Date(data.birthdate).getFullYear();
+                                    const age = new Date().getFullYear() - birthYear;
+                                    if (age >= 1 && age <= 120) {
+                                        ageInput.value = age;
+                                    }
+                                }
+                            }
+                        } catch (profileError) {
+                            console.log('Could not fetch Google profile:', profileError);
                         }
                     }
-
-                    // Try to get additional data
-                    const idToken = await user.getIdToken(true);
-                    logDebug('Got ID token', !!idToken);
-
-                    const decodedToken = await firebase.auth().currentUser.getIdTokenResult();
-                    logDebug('Token claims', decodedToken.claims);
-
                 } catch (error) {
                     console.error('Google data error:', error);
                 }
             }
 
-            // Save profile
+            // Save profile with retry
             async function saveProfile(userId, data) {
                 logDebug('Starting save for user', userId);
                 logDebug('Profile data', data);
 
                 try {
-                    // Save to Firebase
-                    await db.collection('userProfiles').doc(userId).set(data);
+                    // Check online status
+                    const networkStatus = await db.collection('userProfiles').doc(userId).set(data);
                     logDebug('Save successful', userId);
 
                     // Clear editing flag
                     sessionStorage.removeItem('editingProfile');
                     
-                    // Force redirect
-                    const indexUrl = window.location.href.replace('profile.html', 'index.html');
-                    logDebug('Redirecting to', indexUrl);
-                    window.location.replace(indexUrl);
+                    // Force redirect after successful save
+                    window.location.href = window.location.href.replace('profile.html', 'index.html');
                 } catch (error) {
-                    console.error('Save failed:', error);
-                    throw error;
+                    if (error.code === 'unavailable' || error.code === 'failed-precondition') {
+                        showError('You appear to be offline. Please check your internet connection and try again.');
+                    } else {
+                        console.error('Save failed:', error);
+                        throw error;
+                    }
                 }
             }
 
