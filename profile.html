@@ -379,8 +379,6 @@
 
             async function fillFromGoogle(user) {
                 try {
-                    showLoading(true, 'Getting info from Google...');
-                    
                     // Get Google provider data
                     const googleUser = user.providerData.find(
                         provider => provider.providerId === 'google.com'
@@ -391,33 +389,13 @@
                         return;
                     }
 
-                    console.log('Got Google user data:', googleUser);
-
-                    // Fill in the data we get directly from Firebase Auth
+                    // Fill in just the name from Google
                     if (googleUser.displayName) {
                         nameInput.value = googleUser.displayName;
                         console.log('Set name:', googleUser.displayName);
                     }
-
-                    // Get email without domain
-                    if (googleUser.email) {
-                        const username = googleUser.email.split('@')[0];
-                        // If username has dots or numbers, remove them
-                        const cleanUsername = username.replace(/[0-9.]/g, '');
-                        // If it's longer than 2 characters, it might be a real name
-                        if (cleanUsername.length > 2 && !nameInput.value) {
-                            nameInput.value = cleanUsername
-                                .split(/[._-]/)
-                                .map(part => part.charAt(0).toUpperCase() + part.slice(1))
-                                .join(' ');
-                            console.log('Set name from email:', nameInput.value);
-                        }
-                    }
-
                 } catch (error) {
                     console.error('Error in fillFromGoogle:', error);
-                } finally {
-                    showLoading(false);
                 }
             }
         });
