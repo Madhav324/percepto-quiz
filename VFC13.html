@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visual Perceptual Skills</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 2px;
+            font-size: 10px;
+        }
+
+        #quiz-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 500px;
+            padding: 4px;
+            box-sizing: border-box;
+        }
+
+        .question {
+            text-align: center;
+            width: 100%;
+            margin-bottom: 5px;
+        }
+
+        .question h1 {
+            font-size: 14px;
+            margin: 0 0 4px 0;
+            font-weight: normal;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 3px;
+            width: 100%;
+            max-width: 350px;
+            margin: 0 auto 5px auto;
+            padding: 2px;
+            box-sizing: border-box;
+        }
+
+        .grid-item {
+            aspect-ratio: 1;
+            border: 1px solid #ddd;
+            border-radius: 2px;
+            background-color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 2px;
+            box-sizing: border-box;
+        }
+
+        .grid-item img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .options {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 3px;
+            width: 100%;
+            max-width: 350px;
+            margin: 0 auto;
+            padding: 2px;
+            box-sizing: border-box;
+            grid-auto-flow: dense;
+            grid-auto-rows: min-content;
+        }
+
+        .option {
+            aspect-ratio: 1;
+            border: 1px solid #ddd;
+            border-radius: 2px;
+            background-color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 2px;
+            box-sizing: border-box;
+            cursor: pointer;
+            transition: all 0.15s ease-out;
+            transform-origin: center top;
+            margin-bottom: 0;
+        }
+
+        .option img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .option:hover {
+            border-color: #4CAF50;
+            transform: scale(1.02);
+        }
+
+        .option.hidden {
+            display: none;
+        }
+
+        .option.moving-up {
+            transform: translateY(-100%);
+            opacity: 0;
+        }
+
+        .feedback {
+            text-align: center;
+            margin: 4px 0;
+            font-size: 12px;
+            font-weight: bold;
+            min-height: 16px;
+        }
+
+        #result-container {
+            display: none;
+            width: 100%;
+            max-width: 300px;
+            margin: 5px auto;
+            padding: 5px;
+            background-color: white;
+            border-radius: 2px;
+            box-shadow: 0 0 3px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        #result-container h2 {
+            font-size: 12px;
+            margin: 0 0 4px 0;
+            text-align: center;
+        }
+
+        #result-container ul {
+            margin: 0;
+            padding: 0;
+            list-style-type: none;
+            text-align: center;
+        }
+
+        #result-container li {
+            margin-bottom: 2px;
+            font-size: 10px;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 10px;
+        }
+
+        #result-container li span {
+            font-weight: bold;
+        }
+
+        #result-container .home-button {
+            margin-top: 8px;
+            display: block;
+            width: 100%;
+        }
+
+        #report-container {
+            width: 100%;
+            max-width: 350px;
+            margin: 5px auto;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #report-container h2 {
+            font-size: 12px;
+            margin: 0 0 4px 0;
+        }
+
+        #report-list {
+            width: 100%;
+            padding: 0;
+            margin: 0;
+            list-style-type: none;
+        }
+
+        #report-list li {
+            background-color: #f9f9f9;
+            padding: 3px;
+            margin-bottom: 2px;
+            border-radius: 2px;
+            font-size: 9px;
+            line-height: 1.2;
+        }
+
+        button {
+            padding: 4px 8px;
+            margin: 3px;
+            border: none;
+            background-color: #4CAF50;
+            color: white;
+            font-size: 10px;
+            cursor: pointer;
+            border-radius: 2px;
+            transition: background-color 0.15s;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        #history-container {
+            width: 100%;
+            max-width: 300px;
+            margin: 10px auto;
+            padding: 5px;
+            background-color: white;
+            border-radius: 2px;
+            box-shadow: 0 0 3px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            display: none;
+        }
+
+        #history-container h3 {
+            font-size: 11px;
+            margin: 0 0 4px 0;
+            text-align: center;
+        }
+
+        .history-item {
+            border-bottom: 1px solid #eee;
+            padding: 4px 0;
+            font-size: 9px;
+            margin-bottom: 5px;
+        }
+
+        .history-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .history-item .timestamp {
+            color: #666;
+            font-size: 8px;
+            margin-bottom: 2px;
+        }
+
+        .history-stats {
+            text-align: left;
+            padding: 0 10px;
+        }
+
+        .history-stats div {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1px;
+        }
+
+        .history-stats span {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div id="quiz-container">
+        <div class="question">
+            <h1>Place the options in their correct positions</h1>
+        </div>
+        <div class="grid-container">
+            <div class="grid-item" data-answer="1"><img src="images/VFC/lvl1/size/1a.png"></div>
+            <div class="grid-item" data-answer="2"><img src="images/VFC/lvl1/size/2a.png"></div>
+            <div class="grid-item" data-answer="3"><img src="images/VFC/lvl1/size/3a.png"></div>
+            <div class="grid-item" data-answer="4"><img src="images/VFC/lvl1/size/4a.png"></div>
+            <div class="grid-item" data-answer="5"></div>
+            <div class="grid-item" data-answer="6"></div>
+            <div class="grid-item" data-answer="7"></div>
+            <div class="grid-item" data-answer="8"></div>
+            <div class="grid-item" data-answer="9"></div>
+            <div class="grid-item" data-answer="10"></div>
+            <div class="grid-item" data-answer="11"></div>
+            <div class="grid-item" data-answer="12"></div>
+            <div class="grid-item" data-answer="13"></div>
+            <div class="grid-item" data-answer="14"></div>
+            <div class="grid-item" data-answer="15"></div>
+            <div class="grid-item" data-answer="16"></div>
+        </div>
+
+        <div class="options">
+            <div class="option" draggable="true">
+                <img src="images/VFC/lvl1/size/1b.png" alt="Image 1" id="drag5" />
+            </div>
+            <div class="option" draggable="true">
+                <img src="images/VFC/lvl1/size/2b.png" alt="Image 2" id="drag6" />
+            </div>
+            <div class="option" draggable="true">
+                <img src="images/VFC/lvl1/size/3b.png" alt="Image 3" id="drag7" />
+            </div>
+            <div class="option" draggable="true">
+                <img src="images/VFC/lvl1/size/4b.png" alt="Image 4" id="drag8" />
+            </div>
+            <div class="option" draggable="true">
+                <img src="images/VFC/lvl1/size/1c.png" alt="Image 1" id="drag9" />
+            </div>
+            <div class="option" draggable="true">
+                <img src="images/VFC/lvl1/size/2c.png" alt="Image 2" id="drag10" />
+            </div>
+            <div class="option" draggable="true">
+                <img src="images/VFC/lvl1/size/3c.png" alt="Image 3" id="drag11" />
+            </div>
+            <div class="option" draggable="true">
+                <img src="images/VFC/lvl1/size/4c.png" alt="Image 4" id="drag12" />
+            </div>
+            <div class="option" draggable="true">
+                <img src="images/VFC/lvl1/size/1d.png" alt="Image 1" id="drag13" />
+            </div>
+            <div class="option" draggable="true">
+                <img src="images/VFC/lvl1/size/2d.png" alt="Image 2" id="drag14" />
+            </div>
+            <div class="option" draggable="true">
+                <img src="images/VFC/lvl1/size/3d.png" alt="Image 3" id="drag15" />
+            </div>
+            <div class="option" draggable="true">
+                <img src="images/VFC/lvl1/size/4d.png" alt="Image 4" id="drag16" />
+            </div>
+        </div>
+
+        <div class="feedback" id="feedback"></div>
+
+        <button id="submitBtn">Submit</button>
+
+        <div id="result-container" style="display: none;">
+            <h2>Your Results</h2>
+            <ul>
+                <li><div>Score:</div><div><span id="score">0</span></div></li>
+                <li><div>Total Time:</div><div><span id="total-time">0</span>s</div></li>
+                <li><div>Average Time:</div><div><span id="avg-time">0</span>s</div></li>
+                <li><div>First Tap:</div><div><span id="first-tap">0</span>s</div></li>
+                <li><div>Total Taps:</div><div><span id="total-taps">0</span></div></li>
+                <li><div>Total Correct:</div><div><span id="total-correct">0</span></div></li>
+                <li><div>Total Incorrect:</div><div><span id="total-incorrect">0</span></div></li>
+            </ul>
+            <button onclick="window.location.href='index.html'" class="home-button">Return Home</button>
+        </div>
+        <div id="history-container">
+            <h3>Previous Attempts</h3>
+            <div id="history-list"></div>
+        </div>
+    </div>
+
+    <div id="report-container" style="display: none;">
+        <h2>All Quiz Attempts</h2>
+        <ul id="report-list"></ul>
+        <button id="clear-report" onclick="clearReport()">Clear Report</button>
+    </div>
+
+    <script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-database.js";
+
+// Firebase configuration
+const firebaseConfig = {
+    apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
+    authDomain: "projeccvi.firebaseapp.com",
+    projectId: "projeccvi",
+    storageBucket: "projeccvi.firebasestorage.app",
+    messagingSenderId: "279067566247",
+    appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+const options = document.querySelectorAll('.option img');
+const gridItems = document.querySelectorAll('.grid-item');
+const feedback = document.getElementById('feedback');
+const submitButton = document.getElementById('submitBtn');
+
+let startTime;
+let totalStartTime = Date.now();
+let firstTapTime = null;
+let totalTaps = 0;
+let totalIncorrectAttempts = 0;
+let filledGrids = 0;
+let firstDragOccurred = false;
+const totalGrids = gridItems.length;
+
+// Track first drag start
+document.addEventListener('dragstart', () => {
+    totalTaps++;
+    if (!firstDragOccurred) {
+        firstDragOccurred = true;
+        firstTapTime = (Date.now() - totalStartTime) / 1000;
+        document.getElementById('first-tap').textContent = firstTapTime.toFixed(2);
+    }
+});
+
+options.forEach(option => {
+    option.addEventListener('dragstart', dragStart);
+    option.addEventListener('dragend', dragEnd);
+});
+
+gridItems.forEach(gridItem => {
+    gridItem.addEventListener('dragover', dragOver);
+    gridItem.addEventListener('drop', drop);
+});
+
+function dragStart(e) {
+    if (!startTime) startTime = Date.now();
+    e.dataTransfer.setData('text', e.target.id);
+    e.target.classList.add('dragging');
+}
+
+function dragEnd(e) {
+    e.target.classList.remove('dragging');
+}
+
+function dragOver(e) {
+    e.preventDefault();
+}
+
+function drop(e) {
+    e.preventDefault();
+    const draggedId = e.dataTransfer.getData('text');
+    const draggedElement = document.getElementById(draggedId);
+    const draggedParent = draggedElement.parentElement;
+    const gridItem = e.target.closest('.grid-item');
+
+    if (gridItem && !gridItem.querySelector('img')) {
+        const correctAnswer = gridItem.getAttribute('data-answer');
+        const draggedAnswer = draggedId.replace('drag', '');
+
+        if (correctAnswer === draggedAnswer) {
+            // Create a new image element for the grid
+            const newImg = document.createElement('img');
+            newImg.src = draggedElement.src;
+            newImg.alt = draggedElement.alt;
+            
+            // Add the new image to the grid
+            gridItem.appendChild(newImg);
+            
+            // Animate the option moving up
+            draggedParent.classList.add('moving-up');
+            
+            setTimeout(() => {
+                // Hide the original option container
+                draggedParent.classList.add('hidden');
+                
+                // Rearrange remaining options with animation
+                rearrangeOptions();
+            }, 300);
+            
+            feedback.textContent = "Correct placement!";
+            feedback.style.color = "green";
+            
+            filledGrids++;
+            
+            // If all grids are filled, automatically finalize results
+            if (filledGrids === totalGrids) {
+                finalizeResults();
+            }
+        } else {
+            totalIncorrectAttempts++;
+            feedback.textContent = "Incorrect placement. Try again!";
+            feedback.style.color = "red";
+        }
+        
+        // Update total taps display
+        document.getElementById('total-taps').textContent = totalTaps;
+    }
+}
+
+// Function to finalize results
+function finalizeResults() {
+    const totalPlacementTime = (Date.now() - startTime) / 1000;
+    
+    // Format results for display
+    const results = {
+        score: filledGrids,
+        totalTime: totalPlacementTime.toFixed(2),
+        avgTime: (totalPlacementTime / totalGrids).toFixed(2),
+        firstTap: firstTapTime ? firstTapTime.toFixed(2) : '0',
+        totalTaps,
+        totalCorrect: filledGrids,
+        totalIncorrect: totalIncorrectAttempts
+    };
+
+    // Update display
+    document.getElementById('score').textContent = results.score;
+    document.getElementById('total-time').textContent = results.totalTime;
+    document.getElementById('avg-time').textContent = results.avgTime;
+    document.getElementById('first-tap').textContent = results.firstTap;
+    document.getElementById('total-taps').textContent = results.totalTaps;
+    document.getElementById('total-correct').textContent = results.totalCorrect;
+    document.getElementById('total-incorrect').textContent = results.totalIncorrect;
+
+    // Save attempt with consistent format
+    saveAttempt({
+        score: results.score,
+        totalTime: parseFloat(results.totalTime),
+        avgTime: parseFloat(results.avgTime),
+        firstTap: parseFloat(results.firstTap),
+        totalTaps: results.totalTaps,
+        totalCorrect: results.totalCorrect,
+        totalIncorrect: results.totalIncorrect,
+        timestamp: Date.now()
+    });
+
+    // Show results and disable submit button
+    submitButton.disabled = true;
+    document.getElementById('result-container').style.display = 'block';
+    
+    // Fetch and display history
+    fetchAttempts();
+}
+
+function fetchAttempts() {
+    const attemptsRef = ref(db, 'quizAttempts11/');
+    
+    get(attemptsRef)
+        .then((snapshot) => {
+            if (snapshot.exists()) {
+                const attempts = [];
+                snapshot.forEach((childSnapshot) => {
+                    attempts.push({
+                        ...childSnapshot.val(),
+                        id: childSnapshot.key
+                    });
+                });
+                
+                // Sort attempts by timestamp in descending order
+                attempts.sort((a, b) => b.timestamp - a.timestamp);
+                
+                // Display last 5 attempts
+                displayHistory(attempts.slice(0, 5));
+            }
+        })
+        .catch((error) => {
+            console.error("Error fetching attempts: ", error);
+        });
+}
+
+function displayHistory(attempts) {
+    const historyList = document.getElementById('history-list');
+    historyList.innerHTML = '';
+    
+    attempts.forEach(attempt => {
+        const date = new Date(attempt.timestamp);
+        const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+        
+        const historyItem = document.createElement('div');
+        historyItem.className = 'history-item';
+        historyItem.innerHTML = `
+            <div class="timestamp">${formattedDate}</div>
+            <div class="history-stats">
+                <div><div>Score:</div><span>${attempt.score}</span></div>
+                <div><div>Total Time:</div><span>${attempt.totalTime}s</span></div>
+                <div><div>Avg Time:</div><span>${attempt.avgTime}s</span></div>
+                <div><div>First Tap:</div><span>${attempt.firstTap}s</span></div>
+                <div><div>Total Taps:</div><span>${attempt.totalTaps}</span></div>
+                <div><div>Correct:</div><span>${attempt.totalCorrect}</span></div>
+                <div><div>Incorrect:</div><span>${attempt.totalIncorrect}</span></div>
+            </div>
+        `;
+        historyList.appendChild(historyItem);
+    });
+    
+    // Show history container
+    document.getElementById('history-container').style.display = 'block';
+}
+
+// Submit button event listener
+submitButton.addEventListener('click', () => {
+    finalizeResults();
+});
+
+// Function to shuffle array
+function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+}
+
+// Function to rearrange remaining options
+function rearrangeOptions() {
+    const optionsContainer = document.querySelector('.options');
+    let visibleOptions = Array.from(document.querySelectorAll('.option')).filter(opt => 
+        !opt.classList.contains('hidden') && !opt.classList.contains('moving-up')
+    );
+
+    if (visibleOptions.length === 0) return;
+
+    // Remove all options from container
+    visibleOptions.forEach(opt => {
+        opt.style.transition = 'none';
+        optionsContainer.removeChild(opt);
+    });
+    
+    // Shuffle visible options
+    shuffleArray(visibleOptions);
+    
+    // Add them back in shuffled order, starting from the top
+    visibleOptions.forEach((opt, index) => {
+        // Reset styles
+        opt.style.opacity = '0';
+        opt.style.transform = 'translateY(-20px)';
+        opt.style.gridRow = Math.floor(index / 4) + 1; // Force row position
+        opt.style.gridColumn = (index % 4) + 1; // Force column position
+        optionsContainer.appendChild(opt);
+        
+        // Force reflow
+        opt.offsetHeight;
+        
+        // Add animation back
+        opt.style.transition = 'all 0.3s ease-out';
+        
+        // Animate in with delay based on position
+        setTimeout(() => {
+            opt.style.opacity = '1';
+            opt.style.transform = 'translateY(0)';
+        }, index * 50);
+    });
+}
+
+function saveAttempt(data) {
+    const attemptsRef = ref(db, 'quizAttempts11/');
+    const newAttemptRef = ref(db, 'quizAttempts11/' + Date.now());
+    
+    set(newAttemptRef, data)
+        .then(() => {
+            console.log("Attempt saved successfully");
+        })
+        .catch(error => {
+            console.error("Error saving attempt: ", error);
+        });
+}
+
+function clearReport() {
+    const attemptsRef = ref(db, 'quizAttempts11/');
+    set(attemptsRef, null)
+        .then(() => {
+            console.log("Report cleared!");
+            document.getElementById('report-list').innerHTML = '';
+        })
+        .catch(error => console.error("Error clearing report: ", error));
+}
+
+// Initialize statistics display
+document.addEventListener('DOMContentLoaded', () => {
+    // Reset all statistics
+    document.getElementById('score').textContent = '0';
+    document.getElementById('total-time').textContent = '0';
+    document.getElementById('avg-time').textContent = '0';
+    document.getElementById('first-tap').textContent = '0';
+    document.getElementById('total-taps').textContent = '0';
+    document.getElementById('total-correct').textContent = '0';
+    document.getElementById('total-incorrect').textContent = '0';
+    
+    // Set start time
+    startTime = Date.now();
+    totalStartTime = Date.now();
+    
+    // Initial shuffle of options
+    setTimeout(() => {
+        rearrangeOptions();
+    }, 100);
+});
+    </script>
+</body>
+</html>

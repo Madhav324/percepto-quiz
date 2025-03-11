@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Children's Image Quiz</title>
+    <style>
+        /* Your existing CSS */
+body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            flex-direction: column;
+        }
+
+        #quiz-container {
+            text-align: center;
+            padding: 20px;
+            border-radius: 8px;
+            width: 450px;
+        }
+
+        button {
+            padding: 10px 15px;
+            margin: 10px;
+            border: none;
+            background-color: #4CAF50;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        #question-container {
+            margin-bottom: 20px;
+        }
+
+        #question-container img {
+            width: 100%; /* Make the image fill the container width */
+            height: auto; /* Adjust height according to aspect ratio */
+            max-width: 150px; /* Set a maximum width */
+            max-height: 150px; /* Set a maximum height */
+            object-fit: contain; /* Maintain aspect ratio while scaling */
+        }
+
+        #images-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        #images-container img {
+            width: 100%; /* Make the image fill the container width */
+            height: auto; /* Adjust height according to aspect ratio */
+            max-width: 150px; /* Set a maximum width */
+            max-height: 150px; /* Set a maximum height */
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: border-color 0.3s ease;
+        }
+
+        #images-container img:hover {
+            border-color: #4CAF50;
+        }
+
+        #result-container {
+            display: none;
+            margin-top: 20px;
+        }
+
+        #report-container {
+            margin-top: 40px;
+            width: 80%;
+            max-width: 600px;
+        }
+
+        #report-container h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        #report-container ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        #report-container li {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+</head>
+<body>
+    <div id="quiz-container">
+        <h1>Visual Perceptual Skills</h1>
+        <div id="question-container"></div>
+        <div id="images-container"></div>
+        <div id="result-container">
+            <h2>Your Score: <span id="score"></span></h2>
+            <h3>Time Taken for Each Question:</h3>
+            <ul id="time-list"></ul>
+            <h3>Total Time Taken: <span id="total-time"></span> seconds</h3>
+            <h3>Average Time per Question: <span id="avg-time"></span> seconds</h3>
+            <h3>First Tap Time: <span id="first-tap"></span> seconds</h3>
+            <h3>Total Taps: <span id="total-taps"></span></h3>
+            <h3>Total Incorrect Answers: <span id="total-incorrect"></span></h3>
+            <button onclick="restartQuiz()">Restart Quiz</button>
+        </div>
+    </div>
+
+    <div id="report-container">
+        <h2>All Quiz Attempts</h2>
+        <ul id="report-list"></ul>
+        <button onclick="clearReport()">Clear Report</button>
+    </div>
+
+    <script type="module">
+        // Import Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+        import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-database.js";
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
+            authDomain: "projeccvi.firebaseapp.com",
+            projectId: "projeccvi",
+            storageBucket: "projeccvi.firebasestorage.app",
+            messagingSenderId: "279067566247",
+            appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        const questions = [
+            {
+                questionImage: "size1.png",
+                options: [
+                    { src: "size1a.png", correct: true },
+                    { src: "size2a.png", correct: false },
+                    { src: "size3a.png", correct: false },
+                    { src: "size4a.png", correct: false },
+                    { src: "size5a.png", correct: false }
+                ]
+            },{
+                questionImage: "size2.png",
+                options: [
+                    { src: "size1a.png", correct: false },
+                    { src: "size2a.png", correct: true },
+                    { src: "size3a.png", correct: false },
+                    { src: "size4a.png", correct: false },
+                    { src: "size5a.png", correct: false }
+                ]
+            },{
+                questionImage: "size3.png",
+                options: [
+                    { src: "size1a.png", correct: false },
+                    { src: "size2a.png", correct: false },
+                    { src: "size3a.png", correct: true },
+                    { src: "size4a.png", correct: false },
+                    { src: "size5a.png", correct: false }
+                ]
+            },{
+                questionImage: "size4.png",
+                options: [
+                    { src: "size1a.png", correct: false },
+                    { src: "size2a.png", correct: false },
+                    { src: "size3a.png", correct: false },
+                    { src: "size4a.png", correct: true },
+                    { src: "size5a.png", correct: false }
+                ]
+            },{
+                questionImage: "size5.png",
+                options: [
+                    { src: "size1a.png", correct: false },
+                    { src: "size2a.png", correct: false },
+                    { src: "size3a.png", correct: false },
+                    { src: "size4a.png", correct: false },
+                    { src: "size5a.png", correct: true }
+                ]
+            }      
+        ];
+
+
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let triesLeft = 3;
+        let timeTaken = [];
+        let startTime;
+        let totalStartTime;
+        let totalTaps = 0;
+        let firstTapTime;
+        let incorrectAnswers = 0;
+
+document.addEventListener("click", () => {
+            totalTaps++;
+            if (totalTaps === 1) {
+                firstTapTime = (Date.now() - totalStartTime) / 1000;
+            }
+        });
+
+        function displayQuestion() {
+            const question = questions[currentQuestionIndex];
+            shuffleOptions(question.options);
+
+            if (currentQuestionIndex === 0) {
+                totalStartTime = Date.now();
+            }
+            startTime = Date.now();
+
+            const questionContainer = document.getElementById('question-container');
+            questionContainer.innerHTML = '';
+            const questionImage = document.createElement('img');
+            questionImage.src = question.questionImage;
+            questionContainer.appendChild(questionImage);
+
+            const imagesContainer = document.getElementById('images-container');
+            imagesContainer.innerHTML = '';
+            question.options.forEach(option => {
+                const img = document.createElement('img');
+                img.src = option.src;
+                img.onclick = () => {
+                    checkAnswer(option);
+                };
+                imagesContainer.appendChild(img);
+            });
+
+            const skipButton = document.createElement('button');
+            skipButton.innerText = "Skip Question";
+            skipButton.onclick = skipQuestion;
+            imagesContainer.appendChild(skipButton);
+        }
+
+        function shuffleOptions(options) {
+            options.sort(() => Math.random() - 0.5);
+        }
+
+        function checkAnswer(option) {
+            const endTime = Date.now();
+            const timeSpent = (endTime - startTime) / 1000;
+            timeTaken.push({ question: currentQuestionIndex + 1, time: timeSpent.toFixed(2) });
+
+            if (option.correct) {
+                score++;
+                alert('Correct!');
+                moveToNextQuestion();
+            } else {
+                incorrectAnswers++;
+                triesLeft--;
+                if (triesLeft > 0) {
+                    alert(`Wrong! Try again. You have ${triesLeft} tries left.`);
+                    displayQuestion();
+                } else {
+                    alert('Out of tries! Moving to the next question.');
+                    moveToNextQuestion();
+                }
+            }
+        }
+
+        function skipQuestion() {
+            const endTime = Date.now();
+            const timeSpent = (endTime - startTime) / 1000;
+            timeTaken.push({ question: currentQuestionIndex + 1, time: timeSpent.toFixed(2) });
+
+            alert('You skipped this question!');
+            moveToNextQuestion();
+        }
+
+        function moveToNextQuestion() {
+            triesLeft = 3;
+            currentQuestionIndex++;
+            if (currentQuestionIndex < questions.length) {
+                displayQuestion();
+            } else {
+                showResults();
+            }
+        }
+
+        function showResults() {
+            document.getElementById('question-container').style.display = 'none';
+            document.getElementById('images-container').style.display = 'none';
+            document.getElementById('result-container').style.display = 'block';
+            document.getElementById('score').innerText = score;
+
+            const timeList = document.getElementById('time-list');
+            timeTaken.forEach(entry => {
+                const listItem = document.createElement('li');
+                listItem.innerText = `Question ${entry.question}: ${entry.time} seconds`;
+                timeList.appendChild(listItem);
+            });
+
+            const totalTime = timeTaken.reduce((acc, entry) => acc + parseFloat(entry.time), 0);
+            document.getElementById('total-time').innerText = totalTime.toFixed(2);
+
+            const avgTime = timeTaken.reduce((acc, entry) => acc + parseFloat(entry.time), 0) / timeTaken.length;
+            document.getElementById('avg-time').innerText = avgTime.toFixed(2);
+
+            document.getElementById('first-tap').innerText = firstTapTime ? firstTapTime.toFixed(2) : "N/A";
+            document.getElementById('total-taps').innerText = totalTaps;
+            document.getElementById('total-incorrect').innerText = incorrectAnswers;
+
+            saveAttempt({
+                score,
+                totalTime: totalTime.toFixed(2),
+                avgTime: avgTime.toFixed(2),
+                firstTapTime: firstTapTime ? firstTapTime.toFixed(2) : "N/A",
+                totalTaps,
+                totalIncorrectAnswers: incorrectAnswers
+            });
+        }
+
+        function saveAttempt(data) {
+            const attemptsRef = ref(db, 'quizAttempts/');
+            const newAttemptRef = ref(db, 'quizAttempts/' + Date.now());
+            set(newAttemptRef, data)
+                .then(() => {
+                    console.log("Attempt saved!");
+                })
+                .catch(error => {
+                    console.error("Error saving attempt: ", error);
+                });
+        }
+
+        function fetchAttempts() {
+    const attemptsRef = ref(db, 'quizAttempts/');
+    get(attemptsRef)
+        .then(snapshot => {
+            if (snapshot.exists()) {
+                const attempts = snapshot.val();
+                const reportList = document.getElementById('report-list');
+                reportList.innerHTML = ''; // Clear the existing list
+
+                for (let attemptId in attempts) {
+                    const attempt = attempts[attemptId];
+
+                    // Ensure all necessary data exists (if not, use defaults or N/A)
+                    const score = attempt.score || "N/A";
+                    const totalTime = attempt.totalTime || "N/A";
+                    const incorrectAnswers = attempt.totalIncorrectAnswers || "0";
+                    const totalTaps = attempt.totalTaps || "N/A";
+                    const firstTapTime = attempt.firstTapTime || "N/A";
+                    const avgTime = attempt.avgTime || "N/A";
+
+                    const listItem = document.createElement('li');
+                    listItem.innerText = `Score: ${score}, Time Taken: ${totalTime}s, Incorrect Answers: ${incorrectAnswers}, Total Taps: ${totalTaps}, First Tap Time: ${firstTapTime}s, Avg Time: ${avgTime}s`;
+                    reportList.appendChild(listItem);
+                }
+            } else {
+                console.log("No data available");
+            }
+        })
+        .catch(error => {
+            console.error("Error fetching attempts: ", error);
+        });
+}
+
+
+        // Function to clear both frontend and backend
+function clearReport() {
+    // Clear the report list from the frontend
+    const reportList = document.getElementById('report-list');
+    if (reportList) {
+        reportList.innerHTML = '';  // Clears all child elements (the reports) from the DOM
+    }
+
+    // Firebase authentication setup (this assumes Firebase Authentication is already initialized)
+    const user = firebase.auth().currentUser;
+
+    if (!user) {
+        console.log("No user is logged in.");
+        return;
+    }
+    const userId = user.uid;
+
+    // Reference to the Firebase Realtime Database where the attempts are stored
+    const attemptsRef = ref(db, 'quizAttempts/' + userId);
+
+    // Delete all the attempts associated with the current user in the database
+    set(attemptsRef, null)
+    .then(() => {
+        console.log("All attempts cleared from the database.");
+    })
+    .catch((error) => {
+        console.error("Error clearing attempts: ", error);
+    });
+}
+
+
+        function restartQuiz() {
+            score = 0;
+            triesLeft = 3;
+            currentQuestionIndex = 0;
+            timeTaken = [];
+            incorrectAnswers = 0;
+            totalTaps = 0;
+            document.getElementById('result-container').style.display = 'none';
+            document.getElementById('quiz-container').style.display = 'block';
+            displayQuestion();
+        }
+
+        // Start the quiz
+        displayQuestion();
+        fetchAttempts();  // Fetch attempts when the page loads
+    </script>
+</body>
+</html>

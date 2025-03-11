@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visual Perceptual Skills</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 2px;
+            font-size: 10px;
+        }
+
+        #quiz-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .question {
+            text-align: center;
+            width: 100%;
+            margin-bottom: 5px;
+        }
+
+        .question h1 {
+            font-size: 14px;
+            margin: 0 0 4px 0;
+            font-weight: normal;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(4, 100px);
+            grid-template-rows: repeat(2, 100px);
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+
+        .grid-item {
+            width: 100px;
+            height: 100px;
+            border: 2px dashed #ccc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #f5f5f5;
+        }
+
+        .grid-item img {
+            max-width: 90px;
+            max-height: 90px;
+            object-fit: contain;
+        }
+
+        .options {
+            display: grid;
+            grid-template-columns: repeat(4, 100px);
+            gap: 10px;
+            margin-top: 20px;
+            justify-content: center;
+        }
+
+        .option {
+            width: 100px;
+            height: 100px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: move;
+        }
+
+        .option img {
+            max-width: 90px;
+            max-height: 90px;
+            object-fit: contain;
+        }
+
+        .dragging {
+            opacity: 0.5;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .feedback {
+            text-align: center;
+            margin: 4px 0;
+            font-size: 12px;
+            font-weight: bold;
+            min-height: 16px;
+        }
+
+        #result-container {
+            display: none;
+            width: 100%;
+            max-width: 300px;
+            margin: 5px auto;
+            padding: 5px;
+            background-color: white;
+            border-radius: 2px;
+            box-shadow: 0 0 3px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        #result-container h2 {
+            font-size: 12px;
+            margin: 0 0 4px 0;
+            text-align: center;
+        }
+
+        #result-container ul {
+            margin: 0;
+            padding: 0;
+            list-style-type: none;
+            text-align: center;
+        }
+
+        #result-container li {
+            margin-bottom: 2px;
+            font-size: 10px;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 10px;
+        }
+
+        #result-container li span {
+            font-weight: bold;
+        }
+
+        #result-container .home-button {
+            margin-top: 8px;
+            display: block;
+            width: 100%;
+        }
+
+        .stats {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 20px auto;
+            text-align: left;
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            font-weight: bold;
+            color: #495057;
+        }
+
+        .home-button {
+            margin-top: 15px;
+            padding: 8px 20px;
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .home-button:hover {
+            background-color: #5a6268;
+        }
+
+        #history-container {
+            width: 100%;
+            max-width: 300px;
+            margin: 10px auto;
+            padding: 5px;
+            background-color: white;
+            border-radius: 2px;
+            box-shadow: 0 0 3px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            display: none;
+        }
+
+        #history-container h3 {
+            font-size: 11px;
+            margin: 0 0 4px 0;
+            text-align: center;
+        }
+
+        .history-item {
+            border-bottom: 1px solid #eee;
+            padding: 4px 0;
+            font-size: 9px;
+            margin-bottom: 5px;
+        }
+
+        .history-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .history-item .timestamp {
+            color: #666;
+            font-size: 8px;
+            margin-bottom: 2px;
+        }
+
+        .history-stats {
+            text-align: left;
+            padding: 0 10px;
+        }
+
+        .history-stats div {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1px;
+        }
+
+        .history-stats span {
+            font-weight: bold;
+        }
+
+        #report-container {
+            width: 100%;
+            max-width: 350px;
+            margin: 5px auto;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #report-container h2 {
+            font-size: 12px;
+            margin: 0 0 4px 0;
+        }
+
+        #report-list {
+            width: 100%;
+            padding: 0;
+            margin: 0;
+            list-style-type: none;
+        }
+
+        #report-list li {
+            background-color: #f9f9f9;
+            padding: 3px;
+            margin-bottom: 2px;
+            border-radius: 2px;
+            font-size: 9px;
+            line-height: 1.2;
+        }
+    </style>
+</head>
+<body>
+    <div id="quiz-container">
+        <div class="question">
+            <h1>Place the options in their correct positions</h1>
+        </div>
+        <div class="grid-container">
+            <div class="grid-item" data-original="1"></div>
+            <div class="grid-item" data-original="2"></div>
+            <div class="grid-item" data-original="3"></div>
+            <div class="grid-item" data-original="4"></div>
+            <div class="grid-item" data-target="1"></div>
+            <div class="grid-item" data-target="2"></div>
+            <div class="grid-item" data-target="3"></div>
+            <div class="grid-item" data-target="4"></div>
+        </div>
+
+        <div class="options">
+            <!-- Options will be populated by JavaScript -->
+        </div>
+
+        <div class="feedback" id="feedback"></div>
+
+        <div id="result-container">
+            <h2>Your Results</h2>
+            <ul>
+                <li><div>Score:</div><div><span id="score">0</span></div></li>
+                <li><div>Total Time:</div><div><span id="total-time">0</span>s</div></li>
+                <li><div>Average Time:</div><div><span id="avg-time">0</span>s</div></li>
+                <li><div>First Tap:</div><div><span id="first-tap">0</span>s</div></li>
+                <li><div>Total Taps:</div><div><span id="total-taps">0</span></div></li>
+                <li><div>Total Correct:</div><div><span id="total-correct">0</span></div></li>
+                <li><div>Total Incorrect:</div><div><span id="total-incorrect">0</span></div></li>
+            </ul>
+            <button onclick="window.location.href='index.html'" class="home-button">Return Home</button>
+        </div>
+        <div id="history-container">
+            <h3>Previous Attempts</h3>
+            <div id="history-list"></div>
+        </div>
+    </div>
+
+    <div id="report-container" style="display: none;">
+        <h2>All Quiz Attempts</h2>
+        <ul id="report-list"></ul>
+        <button id="clear-report" onclick="clearReport()">Clear Report</button>
+    </div>
+
+    <script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-database.js";
+
+// Firebase configuration
+const firebaseConfig = {
+    apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
+    authDomain: "projeccvi.firebaseapp.com",
+    projectId: "projeccvi",
+    storageBucket: "projeccvi.firebasestorage.app",
+    messagingSenderId: "279067566247",
+    appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+const options = document.querySelectorAll('.option img');
+const gridItems = document.querySelectorAll('.grid-item');
+const feedback = document.getElementById('feedback');
+
+let startTime;
+let totalStartTime = Date.now();
+let firstTapTime = null;
+let totalTaps = 0;
+let totalIncorrectAttempts = 0;
+let filledGrids = 0;
+let firstDragOccurred = false;
+const totalGrids = 4; // Set to 4 for this layout
+
+function initializeGrid() {
+    const imageSet = [
+        { id: 1, top: "images/VFC/lvl2/size/1a.png", bottom: "images/VFC/lvl2/size/1b.png" },
+        { id: 2, top: "images/VFC/lvl2/size/2a.png", bottom: "images/VFC/lvl2/size/2b.png" },
+        { id: 3, top: "images/VFC/lvl2/size/3a.png", bottom: "images/VFC/lvl2/size/3b.png" },
+        { id: 4, top: "images/VFC/lvl2/size/4a.png", bottom: "images/VFC/lvl2/size/4b.png" }
+    ];
+
+    // Additional decoy images
+    const decoyImages = [
+        { id: 5, bottom: "images/VFC/lvl2/size/1c.png" },
+        { id: 6, bottom: "images/VFC/lvl2/size/2c.png" },
+        { id: 7, bottom: "images/VFC/lvl2/size/3c.png" },
+        { id: 8, bottom: "images/VFC/lvl2/size/4c.png" }
+    ];
+
+    // Shuffle the image set for top row
+    const shuffledImages = [...imageSet].sort(() => Math.random() - 0.5);
+
+    // Update top row with shuffled images
+    const topRowItems = document.querySelectorAll('.grid-item[data-original]');
+    topRowItems.forEach((item, index) => {
+        const currentImage = shuffledImages[index];
+        item.innerHTML = `<img src="${currentImage.top}">`;
+        item.setAttribute('data-match', currentImage.id);
+    });
+
+    // Clear and populate options
+    const optionsContainer = document.querySelector('.options');
+    optionsContainer.innerHTML = '';
+
+    // Create array with correct bottom images and decoy images
+    const allBottomImages = [
+        ...shuffledImages.map(img => ({ ...img, isDecoy: false })),
+        ...decoyImages.map(img => ({ ...img, isDecoy: true }))
+    ];
+
+    // Shuffle all bottom images
+    const shuffledBottomImages = allBottomImages.sort(() => Math.random() - 0.5);
+
+    // Take only the first 8 images (4 correct + 4 decoys)
+    const selectedBottomImages = shuffledBottomImages.slice(0, 8);
+
+    // Create option elements for each selected bottom image
+    selectedBottomImages.forEach(image => {
+        const optionDiv = document.createElement('div');
+        optionDiv.className = 'option';
+        optionDiv.setAttribute('draggable', 'true');
+        
+        const optionImg = document.createElement('img');
+        optionImg.src = image.bottom;
+        optionImg.setAttribute('data-match', image.id);
+        optionImg.id = `drag${image.id}`;
+        
+        if (image.isDecoy) {
+            optionImg.setAttribute('data-decoy', 'true');
+        }
+        
+        optionDiv.appendChild(optionImg);
+        optionsContainer.appendChild(optionDiv);
+    });
+}
+
+function initializeDragAndDrop() {
+    const options = document.querySelectorAll('.option img');
+    const gridItems = document.querySelectorAll('.grid-item[data-target]');
+
+    options.forEach(option => {
+        option.addEventListener('dragstart', dragStart);
+        option.addEventListener('dragend', dragEnd);
+    });
+
+    gridItems.forEach(item => {
+        item.addEventListener('dragover', dragOver);
+        item.addEventListener('drop', drop);
+    });
+}
+
+function dragStart(e) {
+    if (!startTime) startTime = Date.now();
+    e.dataTransfer.setData('text', e.target.id);
+    e.target.classList.add('dragging');
+}
+
+function dragEnd(e) {
+    e.target.classList.remove('dragging');
+}
+
+function dragOver(e) {
+    e.preventDefault();
+}
+
+function drop(e) {
+    e.preventDefault();
+    const draggedId = e.dataTransfer.getData('text');
+    const draggedElement = document.getElementById(draggedId);
+    const gridItem = e.target.closest('.grid-item[data-target]');
+
+    if (!gridItem || gridItem.querySelector('img')) return;
+
+    const targetId = gridItem.getAttribute('data-target');
+    const topImage = document.querySelector(`.grid-item[data-original="${targetId}"]`);
+    
+    if (!topImage) return;
+
+    const topMatchId = topImage.getAttribute('data-match');
+    const draggedMatchId = draggedElement.getAttribute('data-match');
+
+    if (topMatchId === draggedMatchId) {
+        const newImg = draggedElement.cloneNode(true);
+        gridItem.appendChild(newImg);
+        draggedElement.parentElement.classList.add('hidden');
+        
+        feedback.textContent = "Correct placement!";
+        feedback.style.color = "green";
+        
+        filledGrids++;
+        
+        if (filledGrids === totalGrids) {
+            finalizeResults();
+        }
+    } else {
+        totalIncorrectAttempts++;
+        feedback.textContent = "Incorrect placement. Try again!";
+        feedback.style.color = "red";
+    }
+    
+    document.getElementById('total-taps').textContent = totalTaps;
+}
+
+// Initialize the grid when the page loads
+document.addEventListener('DOMContentLoaded', () => {
+    initializeGrid();
+    startTime = Date.now();
+    totalStartTime = Date.now();
+    
+    // Initialize drag and drop after grid is set up
+    initializeDragAndDrop();
+    
+    // Reset all statistics
+    document.getElementById('score').textContent = '0';
+    document.getElementById('total-time').textContent = '0';
+    document.getElementById('avg-time').textContent = '0';
+    document.getElementById('first-tap').textContent = '0';
+    document.getElementById('total-taps').textContent = '0';
+    document.getElementById('total-correct').textContent = '0';
+    document.getElementById('total-incorrect').textContent = '0';
+});
+
+// Track first drag start
+document.addEventListener('dragstart', () => {
+    totalTaps++;
+    if (!firstDragOccurred) {
+        firstDragOccurred = true;
+        firstTapTime = (Date.now() - totalStartTime) / 1000;
+        document.getElementById('first-tap').textContent = firstTapTime.toFixed(2);
+    }
+});
+
+// Function to finalize results
+function finalizeResults() {
+    const totalPlacementTime = (Date.now() - startTime) / 1000;
+    
+    // Format results for display
+    const results = {
+        score: filledGrids,
+        totalTime: totalPlacementTime.toFixed(2),
+        avgTime: (totalPlacementTime / totalGrids).toFixed(2),
+        firstTap: firstTapTime ? firstTapTime.toFixed(2) : '0',
+        totalTaps,
+        totalCorrect: filledGrids,
+        totalIncorrect: totalIncorrectAttempts
+    };
+
+    // Update display
+    document.getElementById('score').textContent = results.score;
+    document.getElementById('total-time').textContent = results.totalTime;
+    document.getElementById('avg-time').textContent = results.avgTime;
+    document.getElementById('first-tap').textContent = results.firstTap;
+    document.getElementById('total-taps').textContent = results.totalTaps;
+    document.getElementById('total-correct').textContent = results.totalCorrect;
+    document.getElementById('total-incorrect').textContent = results.totalIncorrect;
+
+    // Save attempt with consistent format
+    saveAttempt({
+        score: results.score,
+        totalTime: parseFloat(results.totalTime),
+        avgTime: parseFloat(results.avgTime),
+        firstTap: parseFloat(results.firstTap),
+        totalTaps: results.totalTaps,
+        totalCorrect: results.totalCorrect,
+        totalIncorrect: results.totalIncorrect,
+        timestamp: Date.now()
+    });
+
+    // Show results
+    document.getElementById('result-container').style.display = 'block';
+    
+    // Fetch and display history
+    fetchAttempts();
+}
+
+function fetchAttempts() {
+    const attemptsRef = ref(db, 'quizAttempts14/');
+    
+    get(attemptsRef)
+        .then((snapshot) => {
+            if (snapshot.exists()) {
+                const attempts = [];
+                snapshot.forEach((childSnapshot) => {
+                    attempts.push({
+                        ...childSnapshot.val(),
+                        id: childSnapshot.key
+                    });
+                });
+                
+                // Sort attempts by timestamp in descending order
+                attempts.sort((a, b) => b.timestamp - a.timestamp);
+                
+                // Display last 5 attempts
+                displayHistory(attempts.slice(0, 5));
+            }
+        })
+        .catch((error) => {
+            console.error("Error fetching attempts: ", error);
+        });
+}
+
+function displayHistory(attempts) {
+    const historyList = document.getElementById('history-list');
+    historyList.innerHTML = '';
+    
+    attempts.forEach(attempt => {
+        const date = new Date(attempt.timestamp);
+        const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+        
+        const historyItem = document.createElement('div');
+        historyItem.className = 'history-item';
+        historyItem.innerHTML = `
+            <div class="timestamp">${formattedDate}</div>
+            <div class="history-stats">
+                <div><div>Score:</div><span>${attempt.score}</span></div>
+                <div><div>Total Time:</div><span>${attempt.totalTime}s</span></div>
+                <div><div>Avg Time:</div><span>${attempt.avgTime}s</span></div>
+                <div><div>First Tap:</div><span>${attempt.firstTap}s</span></div>
+                <div><div>Total Taps:</div><span>${attempt.totalTaps}</span></div>
+                <div><div>Correct:</div><span>${attempt.totalCorrect}</span></div>
+                <div><div>Incorrect:</div><span>${attempt.totalIncorrect}</span></div>
+            </div>
+        `;
+        historyList.appendChild(historyItem);
+    });
+    
+    // Show history container
+    document.getElementById('history-container').style.display = 'block';
+}
+
+// Function to shuffle array
+function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+}
+
+// Function to rearrange remaining options
+function rearrangeOptions() {
+    const optionsContainer = document.querySelector('.options');
+    let visibleOptions = Array.from(document.querySelectorAll('.option')).filter(opt => 
+        !opt.classList.contains('hidden')
+    );
+
+    if (visibleOptions.length === 0) return;
+
+    // Remove all options from container
+    visibleOptions.forEach(opt => optionsContainer.removeChild(opt));
+    
+    // Shuffle visible options
+    shuffleArray(visibleOptions);
+    
+    // Add them back in shuffled order
+    visibleOptions.forEach((opt, index) => {
+        opt.style.gridColumn = (index % 4) + 1;
+        opt.style.gridRow = Math.floor(index / 4) + 1;
+        optionsContainer.appendChild(opt);
+    });
+}
+
+function saveAttempt(data) {
+    const attemptsRef = ref(db, 'quizAttempts14/');
+    const newAttemptRef = ref(db, 'quizAttempts14/' + Date.now());
+    
+    set(newAttemptRef, data)
+        .then(() => {
+            console.log("Attempt saved successfully");
+        })
+        .catch(error => {
+            console.error("Error saving attempt: ", error);
+        });
+}
+
+function clearReport() {
+    const attemptsRef = ref(db, 'quizAttempts14/');
+    set(attemptsRef, null)
+        .then(() => {
+            console.log("Report cleared!");
+            document.getElementById('report-list').innerHTML = '';
+        })
+        .catch(error => console.error("Error clearing report: ", error));
+}
+    </script>
+</body>
+</html>

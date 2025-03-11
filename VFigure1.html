@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory Image Quiz</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #quiz-container {
+            text-align: center;
+            padding: 20px;
+            border-radius: 8px;
+            background-color: #fff;
+            box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 800px;
+            margin: 20px;
+        }
+
+        #preview-container {
+            margin: 20px auto;
+            text-align: center;
+        }
+
+        #target-image {
+            max-width: 300px;
+            height: auto;
+            margin: 20px auto;
+            border: 3px solid #4CAF50;
+            border-radius: 8px;
+        }
+
+        #options-container {
+            position: relative;
+            width: 100%;
+            height: 500px;
+            border: 2px solid #ddd;
+            margin-top: 20px;
+            background-color: #f9f9f9;
+            overflow: hidden;
+            display: none;
+        }
+
+        .option-image {
+            position: absolute;
+            width: 150px;
+            height: 150px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            border-radius: 4px;
+            transition: transform 0.2s;
+        }
+
+        .option-image.found {
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease-out;
+        }
+        
+        .progress-text {
+            font-size: 1.1em;
+            color: #666;
+            margin: 10px 0;
+        }
+
+        .option-image:hover {
+            transform: scale(1.05);
+            border-color: #4CAF50;
+        }
+
+        #result-container, #report-container {
+            margin-top: 20px;
+            padding: 20px;
+            display: none;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            border: none;
+            background-color: #4CAF50;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .instruction-text {
+            font-size: 1.2em;
+            color: #333;
+            margin: 15px 0;
+        }
+
+        .timer {
+            font-size: 1.2em;
+            color: #666;
+            margin: 10px 0;
+        }
+
+        #report-list {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        #report-list li {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="quiz-container">
+        <h1>Memory Image Quiz</h1>
+        
+        <div id="preview-container">
+            <p class="instruction-text">Remember this image carefully:</p>
+            <img id="target-image" alt="Target image to find">
+            <div class="timer">Time remaining: <span id="countdown">5</span> seconds</div>
+            <button id="ready-btn" onclick="startQuiz()">I'm Ready!</button>
+        </div>
+
+        <div id="options-container">
+            <p class="instruction-text">Find all matching images from below:</p>
+            <p class="progress-text">Found: <span id="found-count">0</span> of <span id="total-count">0</span></p>
+        </div>
+
+        <div id="result-container">
+            <h2>Quiz Complete!</h2>
+            <p>Score: <span id="score">0</span> / <span id="total-questions">0</span></p>
+            <p>Time taken: <span id="time-taken">0</span> seconds</p>
+            <p>Total incorrect attempts: <span id="incorrect-attempts">0</span></p>
+            <p>Total taps: <span id="total-taps">0</span></p>
+            <p>First tap time: <span id="first-tap-time">0</span> seconds</p>
+            <button onclick="restartQuiz()">Try Again</button>
+            <button onclick="viewReport()">View Previous Attempts</button>
+        </div>
+
+        <div id="report-container">
+            <h2>Previous Attempts</h2>
+            <ul id="report-list"></ul>
+            <button onclick="clearReport()">Clear Report</button>
+            <button onclick="hideReport()">Back to Quiz</button>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+        import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-database.js";
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
+            authDomain: "projeccvi.firebaseapp.com",
+            projectId: "projeccvi",
+            storageBucket: "projeccvi.firebasestorage.app",
+            messagingSenderId: "279067566247",
+            appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // Quiz variables
+        const images = [
+            "fear.png",
+            "happy.png",
+            "angry.png",
+            "sad.png",
+            "fear.png",
+            "happy.png"
+        ];
+
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let startTime;
+        let totalStartTime;
+        let questions = [];
+        let countdownInterval;
+        let totalTaps = 0;
+        let firstTapTime;
+        let incorrectAttempts = 0;
+        let foundAnswers = new Set();
+        
+        const IMAGE_WIDTH = 150;
+        const IMAGE_HEIGHT = 150;
+        const PADDING = 20;
+
+        // Add click listener for tracking taps
+        document.addEventListener("click", () => {
+            totalTaps++;
+            if (totalTaps === 1) {
+                firstTapTime = (Date.now() - totalStartTime) / 1000;
+            }
+        });
+
+        function initializeQuestions() {
+            // Group images by type to identify duplicates
+            const imageGroups = images.reduce((acc, img) => {
+                acc[img] = (acc[img] || 0) + 1;
+                return acc;
+            }, {});
+
+            questions = Object.entries(imageGroups).map(([img, count]) => ({
+                targetImage: img,
+                options: [...images],
+                requiredCount: count,
+                foundCount: 0
+            }));
+
+            shuffleArray(questions);
+            totalStartTime = Date.now();
+        }
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        window.startQuiz = function() {
+            document.getElementById('ready-btn').style.display = 'none';
+            let timeLeft = 5;
+            
+            countdownInterval = setInterval(() => {
+                timeLeft--;
+                document.getElementById('countdown').textContent = timeLeft;
+                
+                if (timeLeft <= 0) {
+                    clearInterval(countdownInterval);
+                    document.getElementById('preview-container').style.display = 'none';
+                    document.getElementById('options-container').style.display = 'block';
+                    displayOptions();
+                    startTime = Date.now();
+                }
+            }, 1000);
+        }
+
+        function isOverlapping(newRect, existingRects) {
+            for (const rect of existingRects) {
+                if (!(newRect.right + PADDING < rect.left - PADDING || 
+                      newRect.left - PADDING > rect.right + PADDING || 
+                      newRect.bottom + PADDING < rect.top - PADDING || 
+                      newRect.top - PADDING > rect.bottom + PADDING)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function findValidPosition(containerWidth, containerHeight, existingRects) {
+            const maxAttempts = 100;
+            let attempts = 0;
+
+            while (attempts < maxAttempts) {
+                const x = Math.floor(Math.random() * (containerWidth - IMAGE_WIDTH - PADDING * 2)) + PADDING;
+                const y = Math.floor(Math.random() * (containerHeight - IMAGE_HEIGHT - PADDING * 2)) + PADDING;
+
+                const newRect = {
+                    left: x,
+                    right: x + IMAGE_WIDTH,
+                    top: y,
+                    bottom: y + IMAGE_HEIGHT
+                };
+
+                if (!isOverlapping(newRect, existingRects)) {
+                    return { x, y, ...newRect };
+                }
+
+                attempts++;
+            }
+
+            return findGridPosition(containerWidth, containerHeight, existingRects);
+        }
+
+        function findGridPosition(containerWidth, containerHeight, existingRects) {
+            const gridCellWidth = IMAGE_WIDTH + PADDING * 2;
+            const gridCellHeight = IMAGE_HEIGHT + PADDING * 2;
+            const cols = Math.floor(containerWidth / gridCellWidth);
+            const rows = Math.floor(containerHeight / gridCellHeight);
+
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < cols; col++) {
+                    const x = col * gridCellWidth + PADDING;
+                    const y = row * gridCellHeight + PADDING;
+
+                    const newRect = {
+                        left: x,
+                        right: x + IMAGE_WIDTH,
+                        top: y,
+                        bottom: y + IMAGE_HEIGHT
+                    };
+
+                    if (!isOverlapping(newRect, existingRects)) {
+                        return { x, y, ...newRect };
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        function displayOptions() {
+            const question = questions[currentQuestionIndex];
+            const optionsContainer = document.getElementById('options-container');
+            optionsContainer.innerHTML = `
+                <p class="instruction-text">Find all matching images from below:</p>
+                <p class="progress-text">Found: <span id="found-count">0</span> of <span id="total-count">${question.requiredCount}</span></p>
+            `;
+
+            const containerWidth = optionsContainer.offsetWidth;
+            const containerHeight = optionsContainer.offsetHeight;
+            const shuffledOptions = [...question.options];
+            shuffleArray(shuffledOptions);
+            const existingRects = [];
+
+            shuffledOptions.forEach((imgSrc, index) => {
+                const position = findValidPosition(containerWidth, containerHeight, existingRects);
+                
+                if (position) {
+                    const img = document.createElement('img');
+                    img.src = imgSrc;
+                    img.className = 'option-image';
+                    img.dataset.src = imgSrc;
+                    img.onclick = () => checkAnswer(img);
+                    img.style.left = `${position.x}px`;
+                    img.style.top = `${position.y}px`;
+                    
+                    optionsContainer.appendChild(img);
+                    existingRects.push(position);
+                }
+            });
+        }
+
+        function displayQuestion() {
+            if (currentQuestionIndex >= questions.length) {
+                showResults();
+                return;
+            }
+
+            document.getElementById('preview-container').style.display = 'block';
+            document.getElementById('options-container').style.display = 'none';
+            document.getElementById('ready-btn').style.display = 'block';
+            document.getElementById('countdown').textContent = '5';
+
+            const question = questions[currentQuestionIndex];
+            const targetImage = document.getElementById('target-image');
+            targetImage.src = question.targetImage;
+            question.foundCount = 0;
+        }
+
+        function checkAnswer(imageElement) {
+            const question = questions[currentQuestionIndex];
+            const isCorrect = imageElement.dataset.src === question.targetImage;
+
+            if (isCorrect && !foundAnswers.has(imageElement)) {
+                foundAnswers.add(imageElement);
+                question.foundCount++;
+                imageElement.classList.add('found');
+                
+                document.getElementById('found-count').textContent = question.foundCount;
+
+                if (question.foundCount === question.requiredCount) {
+                    score++;
+                    setTimeout(() => {
+                        foundAnswers.clear();
+                        currentQuestionIndex++;
+                        displayQuestion();
+                    }, 500);
+                }
+            } else if (!isCorrect) {
+                incorrectAttempts++;
+                alert('Incorrect! Try again.');
+            }
+        }
+
+        
+
+        function showResults() {
+            const timeTaken = ((Date.now() - startTime) / 1000).toFixed(2);
+            document.getElementById('options-container').style.y= 'none';
+            document.getElementById('preview-container').style.display = 'none';
+            document.getElementById('result-container').style.display = 'block';
+            document.getElementById('score').textContent = score;
+            document.getElementById('total-questions').textContent = questions.length;
+            document.getElementById('time-taken').textContent = timeTaken;
+            document.getElementById('incorrect-attempts').textContent = incorrectAttempts;
+            document.getElementById('total-taps').textContent = totalTaps;
+            document.getElementById('first-tap-time').textContent = firstTapTime ? firstTapTime.toFixed(2) : "N/A";
+
+            // Save attempt to Firebase
+            saveAttempt({
+                score,
+                totalQuestions: questions.length,
+                timeTaken,
+                incorrectAttempts,
+                totalTaps,
+                firstTapTime: firstTapTime ? firstTapTime.toFixed(2) : "N/A",
+                timestamp: Date.now()
+            });
+        }
+
+        function saveAttempt(data) {
+            const attemptsRef = ref(db, 'memoryQuizAttempts/');
+            const newAttemptRef = ref(db, 'memoryQuizAttempts/' + Date.now());
+            set(newAttemptRef, data)
+                .then(() => {
+                    console.log("Attempt saved!");
+                    fetchAttempts(); // Refresh the report list
+                })
+                .catch(error => {
+                    console.error("Error saving attempt: ", error);
+                });
+        }
+
+        function fetchAttempts() {
+            const attemptsRef = ref(db, 'memoryQuizAttempts/');
+            get(attemptsRef)
+                .then(snapshot => {
+                    if (snapshot.exists()) {
+                        const attempts = snapshot.val();
+                        const reportList = document.getElementById('report-list');
+                        reportList.innerHTML = '';
+
+                        Object.entries(attempts)
+                            .sort(([a], [b]) => b - a) // Sort by timestamp (newest first)
+                            .forEach(([timestamp, attempt]) => {
+                                const listItem = document.createElement('li');
+                                listItem.innerHTML = `
+                                    Score: ${attempt.score}/${attempt.totalQuestions}, 
+                                    Time: ${attempt.timeTaken}s, 
+                                    Incorrect: ${attempt.incorrectAttempts}, 
+                                    Taps: ${attempt.totalTaps}, 
+                                    First Tap: ${attempt.firstTapTime}s
+                                `;
+                                reportList.appendChild(listItem);
+                            });
+                    }
+                })
+                .catch(error => {
+                    console.error("Error fetching attempts: ", error);
+                });
+        }
+
+        window.clearReport = function() {
+            const attemptsRef = ref(db, 'memoryQuizAttempts/');
+            set(attemptsRef, null)
+                .then(() => {
+                    console.log("Report cleared!");
+                    document.getElementById('report-list').innerHTML = '';
+                })
+                .catch(error => {
+                    console.error("Error clearing report: ", error);
+                });
+        }
+
+        window.viewReport = function() {
+            document.getElementById('result-container').style.display = 'none';
+            document.getElementById('report-container').style.display = 'block';
+            fetchAttempts();
+        }
+
+        window.hideReport = function() {
+            document.getElementById('report-container').style.display = 'none';
+            document.getElementById('result-container').style.display = 'block';
+        }
+
+        window.restartQuiz = function() {
+            currentQuestionIndex = 0;
+            score = 0;
+            totalTaps = 0;
+            firstTapTime = null;
+            incorrectAttempts = 0;
+            clearInterval(countdownInterval);
+            document.getElementById('preview-container').style.display = 'block';
+            document.getElementById('options-container').style.display = 'none';
+            document.getElementById('result-container').style.display = 'none';
+            document.getElementById('report-container').style.display = 'none';
+            document.getElementById('ready-btn').style.display = 'block';
+            document.getElementById('countdown').textContent = '5';
+            totalStartTime = Date.now();
+            initializeQuestions();
+            displayQuestion();
+        }
+
+        // Start the quiz
+        initializeQuestions();
+        displayQuestion();
+    </script>
+</body>
+</html>

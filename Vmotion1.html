@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cat Path Game</title>
+    <style>
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        .controls {
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 0 5px;
+            cursor: pointer;
+        }
+        canvas {
+            border: 2px solid #333;
+            background: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Guide the Cat!</h1>
+        <div class="controls">
+            <button id="drawMode">Draw Path</button>
+            <button id="resetGame">Reset</button>
+        </div>
+        <p>1. Draw your path</p>
+        <p>2. Click and drag the cat to move it along the path</p>
+        <canvas id="gameCanvas" width="600" height="400"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let pathPoints = [];
+        let gameMode = 'draw';
+        let isDragging = false;
+        let currentPosition = { x: 0, y: 0 };
+        let isDraggingCat = false;
+        let nearestPointIndex = 0;
+        let hasReachedEnd = false;
+        let maxStepSize = 5; // Maximum distance to move per step
+
+        // Load images
+        const catImage = new Image();
+        catImage.src = 'images/VC/animal/cat1.png';
+        const goalImage = new Image();
+        goalImage.src = 'images/VC/animal/cat.png';
+
+        function drawCat(x, y) {
+            ctx.drawImage(catImage, x - 25, y - 25, 50, 50);
+        }
+
+        function drawGoal(x, y) {
+            ctx.drawImage(goalImage, x - 25, y - 25, 50, 50);
+        }
+
+        function drawPath() {
+            if (pathPoints.length < 2) return;
+            
+            ctx.beginPath();
+            ctx.moveTo(pathPoints[0].x, pathPoints[0].y);
+            for (let i = 1; i < pathPoints.length; i++) {
+                ctx.lineTo(pathPoints[i].x, pathPoints[i].y);
+            }
+            ctx.strokeStyle = '#666';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+        }
+
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function drawGame() {
+            clearCanvas();
+            drawPath();
+            
+            // Draw goal if path exists
+            if (pathPoints.length > 1) {
+                drawGoal(pathPoints[pathPoints.length - 1].x, pathPoints[pathPoints.length - 1].y);
+            }
+            
+            // Draw cat at current position
+            drawCat(currentPosition.x, currentPosition.y);
+        }
+
+        function distanceToPoint(x1, y1, x2, y2) {
+            return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+        }
+
+        function findNearestPointOnPath(x, y) {
+            if (pathPoints.length < 2) return 0;
+            
+            let minDist = Infinity;
+            let nearestIndex = nearestPointIndex;
+            let searchRange = 10; // Look ahead/behind up to 10 points
+            
+            // Look both forward and backward within the search range
+            const startIndex = Math.max(0, nearestPointIndex - searchRange);
+            const endIndex = Math.min(pathPoints.length, nearestPointIndex + searchRange);
+            
+            for (let i = startIndex; i < endIndex; i++) {
+                const dist = distanceToPoint(x, y, pathPoints[i].x, pathPoints[i].y);
+                if (dist < minDist) {
+                    minDist = dist;
+                    nearestIndex = i;
+                }
+            }
+            
+            return nearestIndex;
+        }
+
+        function moveTowardsPoint(targetX, targetY) {
+            const dx = targetX - currentPosition.x;
+            const dy = targetY - currentPosition.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance <= maxStepSize) {
+                currentPosition.x = targetX;
+                currentPosition.y = targetY;
+                return true;
+            } else {
+                // Move in the direction of the target, but only by maxStepSize
+                const ratio = maxStepSize / distance;
+                currentPosition.x += dx * ratio;
+                currentPosition.y += dy * ratio;
+                return false;
+            }
+        }
+
+        function updateCatPosition(mouseX, mouseY) {
+            if (!isDraggingCat || pathPoints.length < 2) return;
+
+            const newIndex = findNearestPointOnPath(mouseX, mouseY);
+            
+            // Allow movement in both directions
+            if (newIndex !== nearestPointIndex) {
+                // Determine which point to move towards based on the new index
+                const targetIndex = newIndex > nearestPointIndex ? 
+                    nearestPointIndex + 1 : nearestPointIndex - 1;
+                
+                // Check if we're at the ends of the path
+                if (targetIndex >= 0 && targetIndex < pathPoints.length) {
+                    const reached = moveTowardsPoint(pathPoints[targetIndex].x, pathPoints[targetIndex].y);
+                    if (reached) {
+                        nearestPointIndex = targetIndex;
+                        
+                        // Check if reached end
+                        if (nearestPointIndex === pathPoints.length - 1 && !hasReachedEnd) {
+                            hasReachedEnd = true;
+                            setTimeout(() => {
+                                alert('Great job! You reached the end!');
+                            }, 100);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Mouse events
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            if (gameMode === 'draw') {
+                pathPoints = [{x, y}];
+                currentPosition = {x, y};
+                isDragging = true;
+                hasReachedEnd = false;
+                nearestPointIndex = 0;
+            } else if (isNearCat(x, y)) {
+                isDraggingCat = true;
+            }
+            
+            drawGame();
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            if (isDragging && gameMode === 'draw') {
+                const lastPoint = pathPoints[pathPoints.length - 1];
+                const distance = distanceToPoint(x, y, lastPoint.x, lastPoint.y);
+                
+                if (distance >= 5) {
+                    pathPoints.push({x, y});
+                    drawGame();
+                }
+            } else if (isDraggingCat && pathPoints.length > 1) {
+                updateCatPosition(x, y);
+                drawGame();
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+            isDraggingCat = false;
+            
+            if (gameMode === 'draw') {
+                gameMode = 'play';
+            }
+        });
+
+        // Controls
+        document.getElementById('drawMode').addEventListener('click', () => {
+            gameMode = 'draw';
+            pathPoints = [];
+            currentPosition = {x: 0, y: 0};
+            nearestPointIndex = 0;
+            hasReachedEnd = false;
+            drawGame();
+        });
+
+        document.getElementById('resetGame').addEventListener('click', () => {
+            gameMode = 'draw';
+            pathPoints = [];
+            currentPosition = {x: 0, y: 0};
+            nearestPointIndex = 0;
+            hasReachedEnd = false;
+            drawGame();
+        });
+
+        function isNearCat(x, y) {
+            return distanceToPoint(x, y, currentPosition.x, currentPosition.y) < 30;
+        }
+
+        // Initial draw
+        drawGame();
+    </script>
+</body>
+</html>

@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moving Box Image Game</title>
+    <style>
+        /* All previous styles remain the same */
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .game-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(3, 120px);
+            grid-template-rows: repeat(2, 120px);
+            gap: 20px;
+            justify-content: center;
+            margin: 20px 0;
+            position: relative;
+        }
+
+        .box-placeholder {
+            width: 100px;
+            height: 100px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-size: cover;
+            background-position: center;
+        }
+
+        .target-box {
+            width: 100px;
+            height: 100px;
+            border: 3px dashed #4CAF50;
+            border-radius: 10px;
+            position: absolute;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-size: cover;
+            background-position: center;
+            z-index: 10;
+            background-color: rgba(76, 175, 80, 0.1);
+        }
+
+        .options-container {
+            display: grid;
+            grid-template-columns: repeat(3, 120px);
+            grid-template-rows: repeat(2, 120px);
+            gap: 20px;
+            justify-content: center;
+            margin-top: 40px;
+        }
+
+        .image-option {
+            width: 100px;
+            height: 100px;
+            border: 2px solid #333;
+            border-radius: 10px;
+            cursor: grab;
+            transition: all 0.2s;
+            background-size: cover;
+            background-position: center;
+            justify-self: center;
+            align-self: center;
+            position: relative;
+        }
+
+        .image-option.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+
+        .image-option.placed {
+            visibility: hidden;
+        }
+
+        .image-option.invalid {
+            border-color: #f44336;
+            animation: shake 0.5s;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .feedback {
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            color: #4CAF50;
+            min-height: 27px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .statistics-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+            width: 100%;
+            max-width: 600px;
+            display: none;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        .stat-item {
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .history-list {
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .history-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        #result-container {
+            display: none;
+            margin: 20px auto;
+            text-align: center;
+            padding: 20px;
+            border-radius: 8px;
+            background-color: #fff;
+            box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.1);
+            width: 450px;
+        }
+
+        #result-container h2 {
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+
+        #result-container ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            text-align: center;
+        }
+
+        #result-container li {
+            margin: 10px 0;
+            padding: 8px;
+            text-align: center;
+            border-bottom: 1px solid #eee;
+        }
+
+        #result-container li strong {
+            color: #333;
+        }
+
+        #result-container li span {
+            font-weight: bold;
+            color: #4CAF50;
+            margin-left: 5px;
+        }
+
+        #report-container {
+            margin: 40px auto;
+            width: 80%;
+            max-width: 600px;
+            display: none;
+        }
+
+        #report-container > * {
+            display: block;
+            text-align: center;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        #report-container h2 {
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+
+        #report-list {
+            list-style-type: none;
+            padding: 0;
+            margin-bottom: 20px;
+            width: 100%;
+        }
+
+        #report-list li {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+            font-size: 14px;
+            line-height: 1.4;
+            text-align: center;
+        }
+
+        #clear-report {
+            padding: 10px 20px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        #clear-report:hover {
+            background-color: #c82333;
+        }
+    </style>
+</head>
+<body>
+    <h1>Image Sequence Game</h1>
+    
+    <div class="game-container">
+        <div class="grid-container" id="sequence-container">
+            <div class="box-placeholder"></div>
+            <div class="box-placeholder"></div>
+            <div class="box-placeholder"></div>
+            <div class="box-placeholder"></div>
+            <div class="box-placeholder"></div>
+            <div class="box-placeholder"></div>
+            <div class="target-box" id="target-box"></div>
+        </div>
+        
+        <div class="options-container" id="options-container"></div>
+    </div>
+
+    <div class="statistics-container" id="statistics">
+        <h2>Game Statistics</h2>
+        <div class="stats-grid">
+            <div class="stat-item">
+                <h3>Total Time</h3>
+                <p id="total-time">0s</p>
+            </div>
+            <div class="stat-item">
+                <h3>Total Moves</h3>
+                <p id="total-moves">0</p>
+            </div>
+            <div class="stat-item">
+                <h3>Incorrect Placements</h3>
+                <p id="incorrect-moves">0</p>
+            </div>
+            <div class="stat-item">
+                <h3>Total Taps</h3>
+                <p id="total-taps">0</p>
+            </div>
+        </div>
+        <h3>Previous Attempts</h3>
+        <div class="history-list" id="history-list"></div>
+    </div>
+
+    <div class="feedback" id="feedback"></div>
+    <button id="reset-button">New Game</button>
+
+    <div id="result-container">
+        <h2>Quiz Results</h2>
+        <ul>
+            <li><strong>Score:</strong> <span id="score">0</span></li>
+            <li><strong>Total Time:</strong> <span id="total-time-result">0</span> seconds</li>
+            <li><strong>Average Time:</strong> <span id="avg-time">0</span> seconds</li>
+            <li><strong>First Tap Time:</strong> <span id="first-tap">0</span> seconds</li>
+            <li><strong>Total Taps:</strong> <span id="total-taps-result">0</span></li>
+            <li><strong>Total Correct Answers:</strong> <span id="total-correct">0</span></li>
+            <li><strong>Total Incorrect Answers:</strong> <span id="total-incorrect">0</span></li>
+        </ul>
+        <a href="index.html" style="text-decoration: none;">
+            <button class="home-button">Return Home</button>
+        </a>
+    </div>
+
+    <div id="report-container">
+        <h2>All Quiz Attempts</h2>
+        <ul id="report-list"></ul>
+        <button id="clear-report" onclick="clearReport()">Clear Report</button>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+        import { getDatabase, ref, set, get, remove } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-database.js";
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
+            authDomain: "projeccvi.firebaseapp.com",
+            projectId: "projeccvi",
+            storageBucket: "projeccvi.firebasestorage.app",
+            messagingSenderId: "279067566247",
+            appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // Game state and statistics variables
+        let totalStartTime = Date.now();
+        let firstTapTime = null;
+        let score = 0;
+        let incorrectAnswers = 0;
+        let totalTaps = 0;
+        let currentPosition = 0;
+        let sequence = Array(6).fill(null);
+
+        const images = [
+            'images/VSM/morning/1.jpg',
+            'images/VSM/morning/2.jpg',
+            'images/VSM/morning/3.jpg',
+            'images/VSM/morning/4.jpg',
+            'images/VSM/morning/5.jpg',
+            'images/VSM/morning/6.jpg'
+        ];
+
+        const correctPositions = [0, 1, 2, 3, 4, 5];
+
+        function updateGridPositions() {
+            const placeholders = document.querySelectorAll('.box-placeholder');
+            return Array.from(placeholders).map(placeholder => {
+                const rect = placeholder.getBoundingClientRect();
+                const container = document.getElementById('sequence-container').getBoundingClientRect();
+                return {
+                    left: rect.left - container.left + 'px',
+                    top: rect.top - container.top + 'px'
+                };
+            });
+        }
+
+        function shuffleArray(array) {
+            const shuffled = [...array];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
+
+        function getUnplacedImages() {
+            return images.map((img, index) => index).filter(index => !sequence.includes(index));
+        }
+
+        function createImageOptions() {
+            const container = document.getElementById('options-container');
+            container.innerHTML = '';
+            
+            // Get unplaced images and shuffle them
+            const unplacedIndices = shuffleArray(getUnplacedImages());
+            
+            unplacedIndices.forEach((index) => {
+                const imageDiv = document.createElement('div');
+                imageDiv.className = 'image-option';
+                imageDiv.style.backgroundImage = `url(${images[index]})`;
+                imageDiv.draggable = true;
+                imageDiv.dataset.index = index;
+                imageDiv.dataset.position = correctPositions[index] + 1;
+                
+                imageDiv.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('text/plain', index);
+                    imageDiv.classList.add('dragging');
+                });
+                
+                imageDiv.addEventListener('dragend', () => {
+                    imageDiv.classList.remove('dragging');
+                });
+                
+                container.appendChild(imageDiv);
+            });
+        }
+
+        function updateTargetBox() {
+            const gridPositions = updateGridPositions();
+            const box = document.getElementById('target-box');
+            box.style.left = gridPositions[currentPosition].left;
+            box.style.top = gridPositions[currentPosition].top;
+        }
+
+        function showFeedback(isSuccess) {
+            const feedback = document.getElementById('feedback');
+            feedback.textContent = isSuccess ? 'Correct!' : 'Incorrect, try again!';
+            feedback.style.color = isSuccess ? '#4CAF50' : '#f44336';
+            
+            if (!isSuccess) {
+                setTimeout(() => {
+                    feedback.textContent = '';
+                }, 2000);
+            }
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            totalTaps++;
+            if (!firstTapTime) {
+                firstTapTime = (Date.now() - totalStartTime) / 1000;
+            }
+
+            const imageIndex = parseInt(e.dataTransfer.getData('text/plain'));
+            
+            if (correctPositions[imageIndex] !== currentPosition) {
+                incorrectAnswers++;
+                showFeedback(false);
+                return;
+            }
+
+            score++;
+            sequence[currentPosition] = imageIndex;
+            
+            const placeholder = document.querySelectorAll('.box-placeholder')[currentPosition];
+            placeholder.style.backgroundImage = `url(${images[imageIndex]})`;
+            placeholder.style.borderStyle = 'none';
+            
+            const draggedImage = document.querySelector(`[data-index="${imageIndex}"]`);
+            if (draggedImage) {
+                draggedImage.style.visibility = 'hidden';
+            }
+
+            showFeedback(true);
+            currentPosition++;
+
+            if (currentPosition >= 6) {
+                document.getElementById('target-box').style.display = 'none';
+                showResults();
+            } else {
+                updateTargetBox();
+            }
+        }
+
+        function showResults() {
+            const totalEndTime = Date.now();
+            const totalTimeInSeconds = ((totalEndTime - totalStartTime) / 1000).toFixed(2);
+            const averageTimeInSeconds = (totalTimeInSeconds / 6).toFixed(2); // 6 positions total
+            
+            document.getElementById('score').innerText = score;
+            document.getElementById('total-time').innerText = totalTimeInSeconds;
+            document.getElementById('avg-time').innerText = averageTimeInSeconds;
+            document.getElementById('first-tap').innerText = firstTapTime ? firstTapTime.toFixed(2) : "N/A";
+            document.getElementById('total-taps').innerText = totalTaps;
+            document.getElementById('total-correct').innerText = score;
+            document.getElementById('total-incorrect').innerText = incorrectAnswers;
+
+            document.getElementById('result-container').style.display = 'block';
+            document.getElementById('report-container').style.display = 'block';
+            
+            saveAttempt({
+                score,
+                totalTime: totalTimeInSeconds,
+                avgTime: averageTimeInSeconds,
+                firstTapTime: firstTapTime ? firstTapTime.toFixed(2) : "N/A",
+                totalTaps,
+                totalCorrectAnswers: score,
+                totalIncorrectAnswers: incorrectAnswers,
+                timestamp: Date.now()
+            });
+        }
+
+        function saveAttempt(data) {
+            const timestamp = Date.now();
+            const attemptRef = ref(db, 'quizAttempts20/' + timestamp);
+            set(attemptRef, data)
+                .then(() => {
+                    fetchAttempts();
+                })
+                .catch((error) => {
+                    console.error("Error saving attempt:", error);
+                });
+        }
+
+        async function fetchAttempts() {
+            try {
+                const attemptsRef = ref(db, 'quizAttempts20/');
+                const snapshot = await get(attemptsRef);
+                const reportList = document.getElementById('report-list');
+                reportList.innerHTML = '';
+
+                if (snapshot.exists()) {
+                    const attempts = [];
+                    snapshot.forEach((childSnapshot) => {
+                        attempts.push({
+                            ...childSnapshot.val(),
+                            id: childSnapshot.key
+                        });
+                    });
+
+                    attempts.sort((a, b) => b.timestamp - a.timestamp);
+                    const recentAttempts = attempts.slice(0, 5);
+
+                    recentAttempts.forEach(attempt => {
+                        const li = document.createElement('li');
+                        li.innerHTML = `
+                            Score: ${attempt.score} | 
+                            Time: ${attempt.totalTime}s | 
+                            Avg Time: ${attempt.avgTime}s | 
+                            First Tap: ${attempt.firstTapTime}s | 
+                            Total Taps: ${attempt.totalTaps} | 
+                            Correct: ${attempt.totalCorrectAnswers} | 
+                            Incorrect: ${attempt.totalIncorrectAnswers}
+                        `;
+                        reportList.appendChild(li);
+                    });
+                }
+            } catch (error) {
+                console.error("Error fetching attempts:", error);
+            }
+        }
+
+        function clearReport() {
+            const attemptsRef = ref(db, 'quizAttempts20/');
+            remove(attemptsRef)
+                .then(() => {
+                    document.getElementById('report-list').innerHTML = '';
+                })
+                .catch((error) => {
+                    console.error("Error clearing report:", error);
+                });
+        }
+
+        function resetGame() {
+            totalStartTime = Date.now();
+            firstTapTime = null;
+            score = 0;
+            incorrectAnswers = 0;
+            totalTaps = 0;
+            currentPosition = 0;
+            sequence = Array(6).fill(null);
+            
+            document.getElementById('result-container').style.display = 'none';
+            document.getElementById('report-container').style.display = 'none';
+            document.getElementById('statistics').style.display = 'none';
+            
+            const placeholders = document.querySelectorAll('.box-placeholder');
+            placeholders.forEach(placeholder => {
+                placeholder.style.backgroundImage = 'none';
+                placeholder.style.borderStyle = 'solid';
+            });
+            
+            const box = document.getElementById('target-box');
+            box.style.display = 'flex';
+            updateTargetBox();
+            
+            document.getElementById('feedback').textContent = '';
+            createImageOptions();
+            fetchAttempts();
+        }
+
+        document.getElementById('target-box').addEventListener('dragover', (e) => e.preventDefault());
+        document.getElementById('target-box').addEventListener('drop', handleDrop);
+        document.getElementById('reset-button').addEventListener('click', resetGame);
+
+        // Track all taps globally
+        document.addEventListener('click', () => {
+            totalTaps++;
+            if (!firstTapTime) {
+                firstTapTime = (Date.now() - totalStartTime) / 1000;
+            }
+        });
+
+        window.addEventListener('load', () => {
+            resetGame();
+        });
+
+        window.addEventListener('resize', () => {
+            if (currentPosition < 6) {
+                updateTargetBox();
+            }
+        });
+    </script>
+</body>
+</html>

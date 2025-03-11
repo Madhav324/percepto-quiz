@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Position Quiz</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            flex-direction: column;
+        }
+
+        #quiz-container {
+            text-align: center;
+            padding: 20px;
+            border-radius: 8px;
+            background-color: #fff;
+            box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.1);
+            width: 600px;
+        }
+
+        .game-area {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            margin: 20px auto;
+            border: 2px solid #4CAF50;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        #question-image {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        .drop-area {
+            position: absolute;
+            width: 100%;
+            height: 50%;
+            left: 0;
+            z-index: 2;
+        }
+
+        #upper-area {
+            top: 0;
+        }
+
+        #lower-area {
+            bottom: 0;
+        }
+
+        .placed-image {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            z-index: 3;
+            pointer-events: none;
+            border-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+
+        .options-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f8f8f8;
+            border-radius: 8px;
+        }
+
+        .draggable {
+            width: 60px;
+            height: 60px;
+            cursor: move;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            transition: transform 0.2s;
+            background-color: white;
+        }
+
+        .draggable:hover {
+            transform: scale(1.05);
+        }
+
+        .instruction {
+            background-color: #e3f2fd;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            border: none;
+            background-color: #4CAF50;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        #quiz-type {
+            font-size: 18px;
+            color: #2196F3;
+            margin-bottom: 10px;
+        }
+
+        .statistics-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        .stat-item {
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .history-list {
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .history-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        #result-container {
+            display: none;
+            margin-top: 20px;
+            text-align: center;
+            padding: 20px;
+            border-radius: 8px;
+            background-color: #fff;
+            box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.1);
+            width: 450px;
+        }
+
+        #result-container h2 {
+            margin-bottom: 20px;
+        }
+
+        #result-container ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        #result-container li {
+            margin: 10px 0;
+            padding: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #eee;
+        }
+
+        #result-container li strong {
+            color: #333;
+        }
+
+        #result-container li span {
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        .home-button {
+            margin-top: 20px;
+            padding: 10px 15px;
+            border: none;
+            background-color: #4CAF50;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .home-button:hover {
+            background-color: #45a049;
+        }
+
+        #report-container {
+            margin-top: 40px;
+            width: 80%;
+            max-width: 600px;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #report-container h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        #report-list {
+            list-style-type: none;
+            padding: 0;
+            width: 100%;
+        }
+
+        #report-list li {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        #clear-report {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #clear-report:hover {
+            background-color: #c82333;
+        }
+    </style>
+</head>
+<body>
+    <div id="quiz-container">
+        <h1>Image Position Quiz</h1>
+        <div id="quiz-type"></div>
+        <div class="instruction" id="instruction"></div>
+        
+        <div class="game-area">
+            <img id="question-image" src="circle.png" alt="Question Image">
+            <div class="drop-area" id="upper-area"></div>
+            <div class="drop-area" id="lower-area"></div>
+        </div>
+
+        <div class="options-container" id="options-container"></div>
+        <button id="check-button" onclick="checkAnswer()">Check Answer</button>
+        <button id="reload-button" onclick="reloadRandomQuestion()">Try Different Question</button>
+    </div>
+
+    <div class="statistics-container">
+        <h2>Statistics</h2>
+        <div class="stats-grid">
+            <div class="stat-item">
+                <strong>Time:</strong> <span id="time">0:00</span>
+            </div>
+            <div class="stat-item">
+                <strong>Total Moves:</strong> <span id="total-moves">0</span>
+            </div>
+            <div class="stat-item">
+                <strong>Incorrect Placements:</strong> <span id="incorrect-moves">0</span>
+            </div>
+            <div class="stat-item">
+                <strong>Total Taps:</strong> <span id="total-taps">0</span>
+            </div>
+        </div>
+        <h3>Previous Attempts</h3>
+        <div class="history-list" id="history-list">
+            <!-- History items will be loaded here -->
+        </div>
+    </div>
+
+    <div id="result-container">
+        <h2>Quiz Results</h2>
+        <ul>
+            <li><strong>Score:</strong> <span id="score">0</span></li>
+            <li><strong>Total Time:</strong> <span id="total-time">0</span> seconds</li>
+            <li><strong>Average Time:</strong> <span id="avg-time">0</span> seconds</li>
+            <li><strong>First Placement Time:</strong> <span id="first-tap">0</span> seconds</li>
+            <li><strong>Total Taps:</strong> <span id="total-taps">0</span></li>
+            <li><strong>Total Correct Answers:</strong> <span id="total-correct">0</span></li>
+            <li><strong>Total Incorrect Answers:</strong> <span id="total-incorrect">0</span></li>
+        </ul>
+        <a href="index.html" style="text-decoration: none; margin-top: 20px; display: block;">
+            <button class="home-button">Return Home</button>
+        </a>
+    </div>
+
+    <div id="report-container">
+        <h2>All Quiz Attempts</h2>
+        <ul id="report-list"></ul>
+        <button id="clear-report" onclick="clearReport()">Clear Report</button>
+    </div>
+
+    <script>
+        const questionTypes = {
+            topOnly: {
+                type: "TOP",
+                questionImage: "images/SR/table.png",
+                options: ["images/SR/gift1.png", "images/SR/gift2.png", "images/SR/gift3.png"],
+                instruction: "Place ALL shapes in the TOP HALF of the table.",
+                correctArea: "upper"
+            },
+            bottomOnly: {
+                type: "BOTTOM",
+                questionImage: "images/SR/table.png",
+                options: ["images/SR/gift1.png", "images/SR/gift2.png", "images/SR/gift3.png"],
+                instruction: "Place ALL shapes in the BOTTOM HALF of the table.",
+                correctArea: "lower"
+            }
+        };
+
+        let currentQuestion;
+        let placedImages = new Map();
+
+        function selectRandomQuestion() {
+            const questions = Object.values(questionTypes);
+            return questions[Math.floor(Math.random() * questions.length)];
+        }
+
+        function rearrangeImages(dropArea, isUpper) {
+            const placedImgs = Array.from(dropArea.getElementsByClassName('placed-image'));
+            const imageWidth = 60;
+            const gap = 10;
+            const totalWidth = placedImgs.length * (imageWidth + gap) - gap;
+            const startX = (dropArea.offsetWidth - totalWidth) / 2;
+            
+            // Calculate Y position at bottom of respective area
+            const areaHeight = dropArea.offsetHeight;
+            const y = areaHeight - imageWidth - 10; // 10px padding from bottom
+
+            placedImgs.forEach((img, index) => {
+                const x = startX + index * (imageWidth + gap);
+                img.style.left = `${x}px`;
+                img.style.top = `${y}px`;
+            });
+        }
+
+        function initializeQuiz(questionType = null) {
+            currentQuestion = questionType || selectRandomQuestion();
+            
+            const questionImage = document.getElementById('question-image');
+            const optionsContainer = document.getElementById('options-container');
+            const instruction = document.getElementById('instruction');
+            const quizType = document.getElementById('quiz-type');
+            
+            // Set the table image
+            questionImage.src = currentQuestion.questionImage;
+            instruction.textContent = currentQuestion.instruction;
+            quizType.textContent = `Question Type: ${currentQuestion.type} PLACEMENT`;
+            
+            optionsContainer.innerHTML = '';
+            
+            // Create draggable options
+            currentQuestion.options.forEach(option => {
+                const img = document.createElement('img');
+                img.src = option;
+                img.className = 'draggable';
+                img.draggable = true;
+                img.addEventListener('dragstart', dragStart);
+                img.addEventListener('dragend', dragEnd);
+                optionsContainer.appendChild(img);
+            });
+
+            // Clear any previously placed images
+            document.querySelectorAll('.placed-image').forEach(img => img.remove());
+            placedImages.clear();
+        }
+
+        function dragStart(e) {
+            e.dataTransfer.setData('text/plain', e.target.src);
+            e.target.classList.add('dragging');
+        }
+
+        function dragEnd(e) {
+            e.target.classList.remove('dragging');
+        }
+
+        function handleDrop(e, isUpper) {
+            e.preventDefault();
+            const imageSrc = e.dataTransfer.getData('text/plain');
+            const dropArea = isUpper ? document.getElementById('upper-area') : document.getElementById('lower-area');
+            
+            // Create and position the new image
+            const newImage = document.createElement('img');
+            newImage.src = imageSrc;
+            newImage.className = 'placed-image';
+            
+            // Calculate initial position
+            const areaHeight = dropArea.offsetHeight;
+            const imageWidth = 60;
+            newImage.style.top = `${areaHeight - imageWidth - 10}px`; // 10px padding from bottom
+            
+            dropArea.appendChild(newImage);
+            
+            // Remove the original draggable
+            const originalImage = Array.from(document.getElementsByClassName('draggable'))
+                .find(img => img.src === imageSrc);
+            if (originalImage) {
+                originalImage.remove();
+            }
+            
+            // Store the placement
+            placedImages.set(imageSrc, isUpper ? 'upper' : 'lower');
+            
+            // Rearrange images in the drop area
+            rearrangeImages(dropArea, isUpper);
+        }
+
+        function setupDropAreas() {
+            const upperArea = document.getElementById('upper-area');
+            const lowerArea = document.getElementById('lower-area');
+            
+            [upperArea, lowerArea].forEach((area, index) => {
+                const isUpper = index === 0;
+                
+                area.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                });
+                
+                area.addEventListener('drop', (e) => handleDrop(e, isUpper));
+            });
+        }
+
+        function checkAnswer() {
+            const allImagesPlaced = document.getElementsByClassName('draggable').length === 0;
+            if (!allImagesPlaced) {
+                alert('Please place all shapes before checking!');
+                return;
+            }
+
+            const correctArea = currentQuestion.correctArea;
+            let isCorrect = true;
+
+            placedImages.forEach((area, imageSrc) => {
+                if (area !== correctArea) {
+                    isCorrect = false;
+                }
+            });
+
+            if (isCorrect) {
+                alert('Correct! All shapes are in the right place.');
+            } else {
+                alert('Try again! Some shapes are in the wrong area.');
+            }
+            showResults();
+        }
+
+        function reloadRandomQuestion() {
+            initializeQuiz();
+        }
+
+        // Initialize the quiz
+        initializeQuiz();
+        setupDropAreas();
+    </script>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+        import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
+            authDomain: "projeccvi.firebaseapp.com",
+            projectId: "projeccvi",
+            storageBucket: "projeccvi.firebasestorage.app",
+            messagingSenderId: "279067566247",
+            appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        let totalStartTime = Date.now();
+        let totalTaps = 0;
+        let firstPlacementTime = null;
+        let score = 0;
+        let incorrectAnswers = 0;
+
+        document.addEventListener("click", () => {
+            totalTaps++;
+        });
+
+        function handleDrop(event) {
+            if (firstPlacementTime === null) {
+                firstPlacementTime = (Date.now() - totalStartTime) / 1000;
+            }
+        }
+
+        document.querySelectorAll('.drop-area').forEach(zone => {
+            zone.addEventListener('drop', handleDrop);
+        });
+
+        function showResults() {
+            const totalEndTime = Date.now();
+            const totalTimeInSeconds = ((totalEndTime - totalStartTime) / 1000).toFixed(2);
+            const averageTimeInSeconds = totalTimeInSeconds; // Since there's only one question
+            
+            document.getElementById('score').innerText = score;
+            document.getElementById('total-time').innerText = totalTimeInSeconds;
+            document.getElementById('avg-time').innerText = averageTimeInSeconds;
+            document.getElementById('first-tap').innerText = firstPlacementTime ? firstPlacementTime.toFixed(2) : "N/A";
+            document.getElementById('total-taps').innerText = totalTaps;
+            document.getElementById('total-correct').innerText = score;
+            document.getElementById('total-incorrect').innerText = incorrectAnswers;
+
+            document.getElementById('result-container').style.display = 'block';
+            document.getElementById('report-container').style.display = 'flex';
+            
+            saveAttempt({
+                score,
+                totalTime: totalTimeInSeconds,
+                avgTime: averageTimeInSeconds,
+                firstPlacementTime: firstPlacementTime ? firstPlacementTime.toFixed(2) : "N/A",
+                totalTaps,
+                totalIncorrectAnswers: incorrectAnswers,
+                timestamp: Date.now()
+            });
+        }
+
+        function saveAttempt(data) {
+            const attemptsRef = ref(db, 'quizAttempts16/');
+            const newAttemptRef = ref(db, 'quizAttempts16/' + Date.now());
+            
+            set(newAttemptRef, data)
+                .then(() => {
+                    console.log("Attempt saved!");
+                    fetchAttempts();
+                })
+                .catch(error => {
+                    console.error("Error saving attempt: ", error);
+                });
+        }
+
+        function fetchAttempts() {
+            const attemptsRef = ref(db, 'quizAttempts16/');
+            get(attemptsRef)
+                .then(snapshot => {
+                    if (snapshot.exists()) {
+                        const attempts = snapshot.val();
+                        const reportList = document.getElementById('report-list');
+                        reportList.innerHTML = '';
+
+                        const sortedAttempts = Object.entries(attempts)
+                            .map(([id, attempt]) => ({...attempt, id}))
+                            .sort((a, b) => b.timestamp - a.timestamp)
+                            .slice(0, 5);
+
+                        sortedAttempts.forEach(attempt => {
+                            const listItem = document.createElement('li');
+                            listItem.innerText = `Score: ${attempt.score}, Time: ${attempt.totalTime}s, Incorrect: ${attempt.totalIncorrectAnswers}, Taps: ${attempt.totalTaps}, First Tap: ${attempt.firstPlacementTime}s, Avg Time: ${attempt.avgTime}s`;
+                            reportList.appendChild(listItem);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error("Error fetching attempts: ", error);
+                });
+        }
+
+        function clearReport() {
+            const attemptsRef = ref(db, 'quizAttempts16/');
+            set(attemptsRef, null)
+                .then(() => {
+                    console.log("Report cleared!");
+                    document.getElementById('report-list').innerHTML = '';
+                })
+                .catch(error => {
+                    console.error("Error clearing report: ", error);
+                });
+        }
+
+        window.checkAnswer = function() {
+            const allImagesPlaced = document.getElementsByClassName('draggable').length === 0;
+            if (!allImagesPlaced) {
+                alert('Please place all objects before checking!');
+                return;
+            }
+
+            const correctArea = currentQuestion.correctArea;
+            let isCorrect = true;
+
+            placedImages.forEach((area, imageSrc) => {
+                if (area !== correctArea) {
+                    isCorrect = false;
+                    incorrectAnswers++;
+                }
+            });
+
+            if (isCorrect) {
+                score++;
+                alert('Correct! You have completed the exercise.');
+            } else {
+                alert('Try again! Some objects are in the wrong area.');
+            }
+            showResults();
+        };
+    </script>
+</body>
+</html>

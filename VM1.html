@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory Matching Game</title>
+    <style>
+        body {
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            background-color: #f0f7ff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 10px;
+        }
+
+        .game-container {
+            background-color: white;
+            border-radius: 15px;
+            padding: 15px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 1000px;
+            width: 95%;
+        }
+
+        h1 {
+            color: #2196F3;
+            margin: 10px 0;
+            font-size: 1.5em;
+        }
+
+        .instructions {
+            margin-bottom: 20px;
+            font-size: 1.1em;
+            color: #555;
+        }
+
+        .memory-images {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            padding: 15px;
+            justify-content: center;
+            margin: 0 auto 20px auto;
+        }
+
+        .memory-image {
+            width: 100px;
+            height: 100px;
+            object-fit: contain;
+            border: 3px solid #2196F3;
+            border-radius: 8px;
+            padding: 5px;
+        }
+
+        .timer {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #2196F3;
+            margin: 15px 0;
+        }
+
+        .options-container {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 10px;
+            padding: 10px;
+            justify-content: center;
+            margin: 0 auto;
+        }
+
+        .option-image {
+            width: 80px;
+            height: 80px;
+            object-fit: contain;
+            border: 1px solid #e0e0e0;
+            padding: 4px;
+            cursor: pointer;
+            transition: transform 0.2s, border-color 0.2s;
+            background: white;
+        }
+
+        .option-image:hover {
+            transform: scale(1.05);
+            border-color: #2196F3;
+        }
+
+        .correct {
+            border-color: #4CAF50;
+            animation: correct 0.5s ease-out;
+        }
+
+        .incorrect {
+            border-color: #f44336;
+            animation: incorrect 0.5s ease-out;
+        }
+
+        .selected {
+            border-color: #2196F3;
+            transform: scale(1.05);
+        }
+
+        @keyframes correct {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes incorrect {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+            100% { transform: translateX(0); }
+        }
+
+        .feedback {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px 40px;
+            border-radius: 10px;
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+            z-index: 1000;
+            animation: fadeOut 1s ease-in-out;
+        }
+
+        .feedback.correct {
+            background-color: #4CAF50;
+        }
+
+        .feedback.incorrect {
+            background-color: #f44336;
+        }
+
+        @keyframes fadeOut {
+            0% { opacity: 1; }
+            70% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        button {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin: 15px 5px;
+        }
+
+        button:hover {
+            background-color: #1976D2;
+        }
+
+        button:disabled {
+            background-color: #b0bec5;
+            cursor: not-allowed;
+        }
+
+        .statistics-container {
+            background-color: white;
+            border-radius: 15px;
+            padding: 15px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+            width: 95%;
+            max-width: 1000px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        .stat-item {
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .history-container {
+            margin-top: 20px;
+            width: 100%;
+        }
+
+        .history-item {
+            background-color: #f8f9fa;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        #result-container {
+            display: none;
+            margin: 20px auto;
+            text-align: center;
+            padding: 20px;
+            border-radius: 8px;
+            background-color: #fff;
+            box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.1);
+            width: 450px;
+        }
+
+        #result-container h2 {
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+
+        #result-container ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            text-align: center;
+        }
+
+        #result-container li {
+            margin: 10px 0;
+            padding: 8px;
+            text-align: center;
+            border-bottom: 1px solid #eee;
+        }
+
+        #result-container li strong {
+            color: #333;
+        }
+
+        #result-container li span {
+            font-weight: bold;
+            color: #4CAF50;
+            margin-left: 5px;
+        }
+
+        #report-container {
+            margin: 40px auto;
+            width: 80%;
+            max-width: 600px;
+            display: none;
+        }
+
+        #report-container > * {
+            display: block;
+            text-align: center;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        #report-container h2 {
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+
+        #report-list {
+            list-style-type: none;
+            padding: 0;
+            margin-bottom: 20px;
+            width: 100%;
+        }
+
+        #report-list li {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+            font-size: 14px;
+            line-height: 1.4;
+            text-align: center;
+        }
+
+        #clear-report {
+            padding: 10px 20px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        #clear-report:hover {
+            background-color: #c82333;
+        }
+
+        @media (max-width: 768px) {
+            .memory-images {
+                grid-template-columns: repeat(3, 1fr);
+            }
+            
+            .memory-image {
+                width: 80px;
+                height: 80px;
+            }
+
+            .options-container {
+                grid-template-columns: repeat(4, 1fr);
+            }
+
+            .option-image {
+                width: 60px;
+                height: 60px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .memory-images {
+                grid-template-columns: repeat(3, 1fr);
+            }
+            
+            .memory-image {
+                width: 60px;
+                height: 60px;
+            }
+
+            .options-container {
+                grid-template-columns: repeat(3, 1fr);
+            }
+
+            .option-image {
+                width: 50px;
+                height: 50px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>Memory Challenge!</h1>
+        
+        <div id="instructionsDiv" class="instructions">
+            Remember these 5 images! They will disappear in <span id="timerDisplay">60</span> seconds.
+        </div>
+        
+        <div id="memoryImagesContainer" class="memory-images">
+            <!-- Memory images will be placed here -->
+        </div>
+        
+        <div id="selectionInstructions" class="instructions" style="display: none;">
+            Select all 5 images that were shown earlier
+            <div><span id="foundCount">0</span>/5 found</div>
+        </div>
+        
+        <div id="optionsContainer" class="options-container" style="display: none;">
+            <!-- Option images will be placed here -->
+        </div>
+        
+        <button id="checkButton" style="display: none;">Check Answers</button>
+        <button id="startOverButton" style="display: none;">Start New Game</button>
+    </div>
+
+    <div class="statistics-container" id="statsContainer" style="display: none;">
+        <h2>Game Statistics</h2>
+        <div class="stats-grid">
+            <div class="stat-item">
+                <h3>Total Time</h3>
+                <p id="totalTime">0s</p>
+            </div>
+            <div class="stat-item">
+                <h3>Total Selections</h3>
+                <p id="totalTaps">0</p>
+            </div>
+            <div class="stat-item">
+                <h3>Incorrect Selections</h3>
+                <p id="incorrectPlacements">0</p>
+            </div>
+        </div>
+        
+        <div class="history-container">
+            <h2>History</h2>
+            <div id="historyList"></div>
+        </div>
+    </div>
+
+    <div id="result-container">
+        <h2>Quiz Results</h2>
+        <ul>
+            <li><strong>Score:</strong> <span id="score">0</span></li>
+            <li><strong>Total Time:</strong> <span id="total-time">0</span> seconds</li>
+            <li><strong>Average Time:</strong> <span id="avg-time">0</span> seconds</li>
+            <li><strong>First Tap Time:</strong> <span id="first-tap">0</span> seconds</li>
+            <li><strong>Total Taps:</strong> <span id="total-taps">0</span></li>
+            <li><strong>Total Correct Answers:</strong> <span id="total-correct">0</span></li>
+            <li><strong>Total Incorrect Answers:</strong> <span id="total-incorrect">0</span></li>
+        </ul>
+        <a href="index.html" style="text-decoration: none;">
+            <button class="home-button">Return Home</button>
+        </a>
+    </div>
+
+    <div id="report-container">
+        <h2>All Quiz Attempts</h2>
+        <ul id="report-list"></ul>
+        <button id="clear-report" onclick="clearReport()">Clear Report</button>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+        import { getDatabase, ref, set, get, push, remove } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-database.js";
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
+            authDomain: "projeccvi.firebaseapp.com",
+            projectId: "projeccvi",
+            storageBucket: "projeccvi.firebasestorage.app",
+            messagingSenderId: "279067566247",
+            appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // Game elements
+        const memoryImagesContainer = document.getElementById('memoryImagesContainer');
+        const optionsContainer = document.getElementById('optionsContainer');
+        const instructionsDiv = document.getElementById('instructionsDiv');
+        const selectionInstructions = document.getElementById('selectionInstructions');
+        const foundCountDisplay = document.getElementById('foundCount');
+        const checkButton = document.getElementById('checkButton');
+        const startOverButton = document.getElementById('startOverButton');
+        const statsContainer = document.getElementById('statsContainer');
+
+        // Game statistics
+        let startTime = 0;
+        let totalTaps = 0;
+        let incorrectPlacements = 0;
+        let timerInterval = null;
+        let secondsLeft = 60;
+        let firstTapTime = null;
+
+        // Game state
+        const baseImages = [
+            'images/VM/candy.png',
+            'images/VM/car.png',
+            'images/VM/comb.png',
+            'images/VM/cycle.png',
+            'images/VM/dog.png',
+            'images/VM/fish.png',
+            'images/VM/flower.png',
+            'images/VM/ice.png',
+            'images/VM/laddu.png',
+            'images/VM/parrot.png',
+            'images/VM/pencil.png',
+            'images/VM/ball.png',
+            'images/VM/book.png',
+            'images/VM/cap.png',
+            'images/VM/glass.png',
+            'images/VM/tree.png',
+            'images/VM/water.png',
+            'images/VM/shirt.png'
+        ];
+
+        let targetImages = [];
+        let allOptions = [];
+        let selectedImages = [];
+
+        function startNewGame() {
+            // Reset UI elements
+            memoryImagesContainer.style.display = 'block';
+            instructionsDiv.style.display = 'block';
+            selectionInstructions.style.display = 'none';
+            optionsContainer.style.display = 'none';
+            checkButton.style.display = 'block';
+            startOverButton.style.display = 'none';
+            statsContainer.style.display = 'none';
+            document.getElementById('result-container').style.display = 'none';
+            document.getElementById('report-container').style.display = 'none';
+            
+            // Reset game state
+            targetImages = [];
+            selectedImages = [];
+            allOptions = [];
+            totalTaps = 0;
+            incorrectPlacements = 0;
+            firstTapTime = null;
+            document.getElementById('totalTaps').textContent = '0';
+            document.getElementById('incorrectPlacements').textContent = '0';
+            
+            // Shuffle and select target images
+            const shuffled = [...baseImages].sort(() => Math.random() - 0.5);
+            targetImages = shuffled.slice(0, 5);
+            
+            // Create memory phase display
+            memoryImagesContainer.innerHTML = '';
+            targetImages.forEach(img => {
+                const imgElement = document.createElement('img');
+                imgElement.src = img;
+                imgElement.className = 'memory-image';
+                memoryImagesContainer.appendChild(imgElement);
+            });
+            
+            // Start the timer
+            secondsLeft = 60;
+            document.getElementById('timerDisplay').textContent = secondsLeft;
+            startTime = Date.now();
+            
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+            
+            timerInterval = setInterval(() => {
+                secondsLeft--;
+                document.getElementById('timerDisplay').textContent = secondsLeft;
+                
+                if (secondsLeft <= 0) {
+                    clearInterval(timerInterval);
+                    showOptionsPhase();
+                }
+            }, 1000);
+        }
+
+        function showOptionsPhase() {
+            // Hide memory phase elements
+            memoryImagesContainer.style.display = 'none';
+            instructionsDiv.style.display = 'none';
+            
+            // Reset the start time to measure only the selection phase
+            startTime = Date.now();
+            
+            // Show selection phase elements
+            selectionInstructions.style.display = 'block';
+            optionsContainer.style.display = 'grid';
+            checkButton.disabled = true;
+            
+            // Create shuffled options
+            createOptions();
+        }
+
+        function createOptions() {
+            optionsContainer.innerHTML = '';
+            allOptions = [...baseImages].sort(() => Math.random() - 0.5);
+            
+            allOptions.forEach((img, index) => {
+                const imgElement = document.createElement('img');
+                imgElement.src = img;
+                imgElement.className = 'option-image';
+                imgElement.dataset.index = index;
+                imgElement.dataset.src = img;
+                
+                imgElement.addEventListener('click', () => {
+                    toggleImageSelection(imgElement, img);
+                    if (!firstTapTime) {
+                        firstTapTime = (Date.now() - startTime) / 1000;
+                    }
+                });
+                
+                optionsContainer.appendChild(imgElement);
+            });
+            
+            // Reset selection tracking
+            selectedImages = [];
+            updateFoundCount();
+        }
+
+        function toggleImageSelection(imgElement, imgSrc) {
+            totalTaps++;
+            document.getElementById('totalTaps').textContent = totalTaps;
+            
+            const isSelected = imgElement.classList.contains('selected');
+            
+            if (isSelected) {
+                // Deselect the image
+                imgElement.classList.remove('selected');
+                selectedImages = selectedImages.filter(img => img !== imgSrc);
+            } else {
+                // Don't allow selecting more than 5 images
+                if (selectedImages.length >= 5) {
+                    showFeedback('You can only select 5 images!', false);
+                    return;
+                }
+                
+                // Select the image
+                imgElement.classList.add('selected');
+                selectedImages.push(imgSrc);
+            }
+            
+            updateFoundCount();
+        }
+
+        function updateFoundCount() {
+            foundCountDisplay.textContent = selectedImages.length;
+            
+            // Enable the check button only when exactly 5 images are selected
+            checkButton.disabled = selectedImages.length !== 5;
+        }
+
+        function checkAnswers() {
+            let correctCount = 0;
+            let wrongSelections = [];
+            
+            // Count correct selections and identify wrong ones
+            selectedImages.forEach(selected => {
+                if (targetImages.includes(selected)) {
+                    correctCount++;
+                } else {
+                    wrongSelections.push(selected);
+                    incorrectPlacements++;
+                }
+            });
+            
+            // Highlight correct and incorrect selections
+            document.querySelectorAll('.option-image').forEach(img => {
+                if (img.classList.contains('selected')) {
+                    const imgSrc = img.dataset.src;
+                    
+                    if (targetImages.includes(imgSrc)) {
+                        img.classList.add('correct');
+                    } else {
+                        img.classList.add('incorrect');
+                    }
+                }
+                
+                // Disable further selection
+                img.style.pointerEvents = 'none';
+            });
+            
+            // Update incorrect count
+            document.getElementById('incorrectPlacements').textContent = incorrectPlacements;
+            
+            // Show result feedback
+            if (correctCount === 5) {
+                showFeedback('Perfect! All correct!', true);
+            } else {
+                showFeedback(`${correctCount}/5 correct`, false);
+            }
+            
+            // Show start over button and hide check button
+            checkButton.style.display = 'none';
+            startOverButton.style.display = 'block';
+            
+            // Show stats
+            const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
+            document.getElementById('totalTime').textContent = totalTime + 's';
+            statsContainer.style.display = 'block';
+
+            // Update and show the new statistics
+            document.getElementById('score').innerText = correctCount;
+            document.getElementById('total-time').innerText = totalTime;
+            document.getElementById('avg-time').innerText = (totalTime / 5).toFixed(2);
+            document.getElementById('first-tap').innerText = firstTapTime ? firstTapTime.toFixed(2) : "N/A";
+            document.getElementById('total-taps').innerText = totalTaps;
+            document.getElementById('total-correct').innerText = correctCount;
+            document.getElementById('total-incorrect').innerText = incorrectPlacements;
+
+            document.getElementById('result-container').style.display = 'block';
+            document.getElementById('report-container').style.display = 'block';
+            
+            // Save attempt data
+            saveAttempt({
+                score: correctCount,
+                totalTime: totalTime,
+                avgTime: (totalTime / 5).toFixed(2),
+                firstTapTime: firstTapTime ? firstTapTime.toFixed(2) : "N/A",
+                totalTaps,
+                totalCorrectAnswers: correctCount,
+                totalIncorrectAnswers: incorrectPlacements,
+                timestamp: Date.now()
+            });
+        }
+
+        function saveAttempt(data) {
+            const timestamp = Date.now();
+            const attemptRef = ref(db, 'quizAttempts25/' + timestamp);
+            set(attemptRef, data)
+                .then(() => {
+                    fetchAttempts();
+                })
+                .catch((error) => {
+                    console.error("Error saving attempt:", error);
+                });
+        }
+
+        async function fetchAttempts() {
+            try {
+                const attemptsRef = ref(db, 'quizAttempts25/');
+                const snapshot = await get(attemptsRef);
+                const reportList = document.getElementById('report-list');
+                reportList.innerHTML = '';
+
+                if (snapshot.exists()) {
+                    const attempts = [];
+                    snapshot.forEach((childSnapshot) => {
+                        attempts.push({
+                            ...childSnapshot.val(),
+                            id: childSnapshot.key
+                        });
+                    });
+
+                    attempts.sort((a, b) => b.timestamp - a.timestamp);
+                    const recentAttempts = attempts.slice(0, 5);
+
+                    recentAttempts.forEach(attempt => {
+                        const li = document.createElement('li');
+                        li.innerHTML = `
+                            Score: ${attempt.score} | 
+                            Time: ${attempt.totalTime}s | 
+                            Avg Time: ${attempt.avgTime}s | 
+                            First Tap: ${attempt.firstTapTime}s | 
+                            Total Taps: ${attempt.totalTaps} | 
+                            Correct: ${attempt.totalCorrectAnswers} | 
+                            Incorrect: ${attempt.totalIncorrectAnswers}
+                        `;
+                        reportList.appendChild(li);
+                    });
+                }
+            } catch (error) {
+                console.error("Error fetching attempts:", error);
+            }
+        }
+
+        function clearReport() {
+            const attemptsRef = ref(db, 'quizAttempts25/');
+            remove(attemptsRef)
+                .then(() => {
+                    document.getElementById('report-list').innerHTML = '';
+                })
+                .catch((error) => {
+                    console.error("Error clearing report:", error);
+                });
+        }
+
+        function showFeedback(message, isCorrect) {
+            const div = document.createElement('div');
+            div.className = `feedback ${isCorrect ? 'correct' : 'incorrect'}`;
+            div.textContent = message;
+            document.body.appendChild(div);
+            setTimeout(() => div.remove(), 2000);
+        }
+
+        // Event listeners
+        checkButton.addEventListener('click', checkAnswers);
+        startOverButton.addEventListener('click', startNewGame);
+
+        // Start the game when the page loads
+        window.onload = startNewGame;
+    </script>
+</body>
+</html>

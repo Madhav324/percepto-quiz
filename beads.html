@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beads Activity</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .pattern-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        .statistics-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        .stat-item {
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .history-list {
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .history-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .target-colors {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 30px;
+        }
+
+        .pattern {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .bead {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 2px solid #333;
+            margin: auto;
+            cursor: grab;
+            transition: transform 0.2s;
+        }
+
+        .bead.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+
+        .empty-bead {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 2px dashed #666;
+            background-color: white;
+            margin: auto;
+        }
+
+        .options-container {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        .feedback {
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .stats {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .sequence-number {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            background-color: #333;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+
+        .bead-container {
+            position: relative;
+            width: 50px;
+            height: 50px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Beads Pattern Building</h1>
+    
+    <div class="pattern-container">
+        <h2>Colors to Use:</h2>
+        <div class="target-colors" id="target-colors">
+            <!-- Target colors will be generated here -->
+        </div>
+
+        <h2>Build Your Pattern:</h2>
+        <div class="pattern" id="user-pattern">
+            <!-- Empty slots will be generated here -->
+        </div>
+    </div>
+
+    <div class="options-container" id="options">
+        <!-- Options will be generated here -->
+    </div>
+
+    <div class="feedback" id="feedback"></div>
+    
+    <div class="stats">
+        <p>Attempts: <span id="attempts">0</span></p>
+        <p>Time: <span id="time">0:00</span></p>
+        <p>Total Moves: <span id="total-moves">0</span></p>
+        <p>Incorrect Moves: <span id="incorrect-moves">0</span></p>
+        <p>Total Taps: <span id="total-taps">0</span></p>
+    </div>
+
+    <button id="check-button">Check Pattern</button>
+    <button id="reset-button">New Pattern</button>
+
+    <div class="statistics-container">
+        <h2>Current Session Statistics</h2>
+        <div class="stats-grid">
+            <div class="stat-item">
+                <h3>Time</h3>
+                <p id="time">0:00</p>
+            </div>
+            <div class="stat-item">
+                <h3>Attempts</h3>
+                <p id="attempts">0</p>
+            </div>
+            <div class="stat-item">
+                <h3>Total Moves</h3>
+                <p id="total-moves">0</p>
+            </div>
+            <div class="stat-item">
+                <h3>Incorrect Moves</h3>
+                <p id="incorrect-moves">0</p>
+            </div>
+            <div class="stat-item">
+                <h3>Total Taps</h3>
+                <p id="total-taps">0</p>
+            </div>
+        </div>
+
+        <h2>Recent History</h2>
+        <div id="history-list" class="history-list">
+            <!-- History items will be loaded here -->
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+        import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-database.js";
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
+            authDomain: "projeccvi.firebaseapp.com",
+            projectId: "projeccvi",
+            storageBucket: "projeccvi.firebasestorage.app",
+            messagingSenderId: "279067566247",
+            appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // Game state variables
+        let startTime = null;
+        let timerInterval;
+        let totalMoves = 0;
+        let incorrectMoves = 0;
+        let totalTaps = 0;
+        let attempts = 0;
+        let nextPosition = 0;
+        let currentSequence = Array(12).fill(null);
+        const colors = ['red', 'blue', 'green', 'yellow'];
+        let availableBeads = {};
+
+        // Track all taps globally
+        document.addEventListener('click', () => {
+            totalTaps++;
+            document.getElementById('total-taps').textContent = totalTaps;
+        });
+
+        // Initialize available beads
+        function initializeAvailableBeads() {
+            availableBeads = {};
+            colors.forEach(color => {
+                availableBeads[color] = 3;
+            });
+        }
+
+        // Function to save attempt to Firebase
+        function saveAttempt(data) {
+            const timestamp = Date.now();
+            const attemptRef = ref(db, 'quizAttempts24/' + timestamp);
+            const attemptData = {
+                timestamp: timestamp,
+                completionTime: data.completionTime,
+                totalMoves: totalMoves,
+                incorrectMoves: incorrectMoves,
+                totalTaps: totalTaps,
+                attempts: attempts
+            };
+            
+            set(attemptRef, attemptData)
+                .then(() => {
+                    console.log("Attempt saved successfully");
+                    loadHistory();
+                })
+                .catch((error) => {
+                    console.error("Error saving attempt:", error);
+                });
+        }
+
+        // Function to load attempt history
+        function loadHistory() {
+            const attemptsRef = ref(db, 'quizAttempts24/');
+            get(attemptsRef)
+                .then((snapshot) => {
+                    if (snapshot.exists()) {
+                        const historyList = document.getElementById('history-list');
+                        historyList.innerHTML = '';
+                        
+                        const attempts = [];
+                        snapshot.forEach((child) => {
+                            attempts.push({
+                                ...child.val(),
+                                key: child.key
+                            });
+                        });
+
+                        // Sort attempts by timestamp (most recent first)
+                        attempts.sort((a, b) => b.timestamp - a.timestamp);
+
+                        // Display only the last 10 attempts
+                        attempts.slice(0, 10).forEach((attempt) => {
+                            const historyItem = document.createElement('div');
+                            historyItem.className = 'history-item';
+                            historyItem.innerHTML = `
+                                <span>Time: ${attempt.completionTime}s</span>
+                                <span>Moves: ${attempt.totalMoves}</span>
+                                <span>Incorrect: ${attempt.incorrectMoves}</span>
+                                <span>Taps: ${attempt.totalTaps}</span>
+                            `;
+                            historyList.appendChild(historyItem);
+                        });
+                    }
+                })
+                .catch((error) => {
+                    console.error("Error loading history:", error);
+                });
+        }
+
+        // Function to check pattern
+        function checkPattern() {
+            attempts++;
+            document.getElementById('attempts').textContent = attempts;
+            
+            if (currentSequence.includes(null)) {
+                showFeedback('Please complete the pattern first!', 'red');
+                return;
+            }
+
+            const colorCounts = {};
+            colors.forEach(color => colorCounts[color] = 0);
+            currentSequence.forEach(color => colorCounts[color]++);
+            const isCorrect = colors.every(color => colorCounts[color] === 3);
+            
+            if (isCorrect) {
+                const endTime = Date.now();
+                const completionTime = ((endTime - startTime) / 1000).toFixed(2);
+                
+                // Save attempt to Firebase
+                saveAttempt({
+                    completionTime: parseFloat(completionTime)
+                });
+
+                showFeedback('Correct! Well done!', 'green');
+                clearInterval(timerInterval);
+            } else {
+                showFeedback('Try again!', 'red');
+                setTimeout(() => {
+                    createUserPattern();
+                }, 1500);
+            }
+        }
+
+        // Function to show feedback
+        function showFeedback(message, color) {
+            const feedback = document.getElementById('feedback');
+            feedback.textContent = message;
+            feedback.style.color = color;
+        }
+
+        // Function to create user pattern
+        function createUserPattern() {
+            const pattern = document.getElementById('user-pattern');
+            pattern.innerHTML = '';
+            currentSequence = Array(12).fill(null);
+            nextPosition = 0;
+
+            for (let i = 0; i < 12; i++) {
+                const beadContainer = document.createElement('div');
+                beadContainer.className = 'bead-container';
+
+                const bead = document.createElement('div');
+                bead.className = 'empty-bead';
+                bead.dataset.position = i;
+
+                const number = document.createElement('div');
+                number.className = 'sequence-number';
+                number.textContent = i + 1;
+
+                beadContainer.appendChild(bead);
+                beadContainer.appendChild(number);
+                pattern.appendChild(beadContainer);
+            }
+
+            document.getElementById('check-button').disabled = true;
+        }
+
+        // Function to display target colors
+        function displayTargetColors() {
+            const targetColorsDiv = document.getElementById('target-colors');
+            targetColorsDiv.innerHTML = '';
+            colors.forEach(color => {
+                const colorDisplay = document.createElement('div');
+                colorDisplay.className = 'bead';
+                colorDisplay.style.backgroundColor = color;
+                targetColorsDiv.appendChild(colorDisplay);
+            });
+        }
+
+        // Function to reset game
+        function resetGame() {
+            clearInterval(timerInterval);
+            startTime = null;
+            nextPosition = 0;
+            attempts = 0;
+            totalMoves = 0;
+            incorrectMoves = 0;
+            totalTaps = 0;
+            
+            // Reset display values
+            document.getElementById('attempts').textContent = '0';
+            document.getElementById('time').textContent = '0:00';
+            document.getElementById('total-moves').textContent = '0';
+            document.getElementById('incorrect-moves').textContent = '0';
+            document.getElementById('total-taps').textContent = '0';
+            document.getElementById('feedback').textContent = '';
+            
+            initializeAvailableBeads();
+            displayTargetColors();
+            createUserPattern();
+            updateOptions();
+            loadHistory();
+        }
+
+        // Function to update options display
+        function updateOptions() {
+            const optionsContainer = document.getElementById('options');
+            optionsContainer.innerHTML = '';
+            
+            // Create array of remaining beads
+            const remainingBeads = [];
+            colors.forEach(color => {
+                for (let i = 0; i < availableBeads[color]; i++) {
+                    remainingBeads.push(color);
+                }
+            });
+
+            // Shuffle the remaining beads
+            const shuffleArray = (array) => {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+                return array;
+            }
+            shuffleArray(remainingBeads);
+
+            // Create beads for each remaining color
+            remainingBeads.forEach(color => {
+                const bead = document.createElement('div');
+                bead.className = 'bead';
+                bead.style.backgroundColor = color;
+                bead.draggable = true;
+                
+                bead.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('text/plain', color);
+                    bead.classList.add('dragging');
+                });
+                
+                bead.addEventListener('dragend', () => {
+                    bead.classList.remove('dragging');
+                });
+
+                bead.addEventListener('click', () => {
+                    totalTaps++;
+                    document.getElementById('total-taps').textContent = totalTaps;
+                });
+                
+                optionsContainer.appendChild(bead);
+            });
+        }
+
+        // Function to handle drop
+        function handleDrop(e) {
+            e.preventDefault();
+            const targetBead = e.target.closest('.empty-bead');
+            if (!targetBead) return;
+
+            totalMoves++;
+            document.getElementById('total-moves').textContent = totalMoves;
+
+            const position = parseInt(targetBead.dataset.position);
+            if (position !== nextPosition) {
+                incorrectMoves++;
+                document.getElementById('incorrect-moves').textContent = incorrectMoves;
+                showFeedback('Please fill the pattern in sequence!', 'red');
+                return;
+            }
+
+            const color = e.dataTransfer.getData('text/plain');
+            
+            // Check if we still have beads of this color available
+            if (availableBeads[color] <= 0) {
+                showFeedback('No more beads of this color available!', 'red');
+                return;
+            }
+
+            targetBead.style.backgroundColor = color;
+            targetBead.style.borderStyle = 'solid';
+            currentSequence[position] = color;
+            nextPosition++;
+
+            // Decrease available beads count and update options
+            availableBeads[color]--;
+            updateOptions();
+
+            if (nextPosition === 12) {
+                document.getElementById('check-button').disabled = false;
+            }
+        }
+
+        // Add event listeners
+        document.getElementById('user-pattern').addEventListener('dragover', (e) => {
+            e.preventDefault();
+        });
+
+        document.getElementById('user-pattern').addEventListener('drop', handleDrop);
+
+        document.getElementById('check-button').addEventListener('click', checkPattern);
+
+        document.getElementById('reset-button').addEventListener('click', resetGame);
+
+        // Initialize the game
+        initializeAvailableBeads();
+        resetGame();
+        loadHistory();
+
+        // Start timer when first bead is placed
+        document.getElementById('user-pattern').addEventListener('drop', () => {
+            if (!startTime) {
+                startTime = Date.now();
+                timerInterval = setInterval(() => {
+                    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                    const minutes = Math.floor(elapsed / 60);
+                    const seconds = elapsed % 60;
+                    document.getElementById('time').textContent = 
+                        `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                }, 1000);
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visual Perceptual Skills</title>
+    <style>
+        /* Your existing CSS */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow-y: auto;
+            margin: 0;
+            flex-direction: column;
+        }
+
+        #quiz-container {
+            text-align: center;
+            padding: 20px;
+            border-radius: 8px;
+            background-color: #fff;
+            box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.1);
+            width: 450px;
+        }
+
+        button {
+            padding: 10px 15px;
+            margin: 10px;
+            border: none;
+            background-color: #4CAF50;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        #question-container {
+            margin-bottom: 20px;
+            font-size: 48px;
+            font-weight: bold;
+        }
+
+        .letter-option {
+            font-size: 36px;
+            font-weight: bold;
+            padding: 20px;
+            margin: 10px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            cursor: pointer;
+            background-color: white;
+            transition: all 0.3s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 80px;
+            height: 80px;
+        }
+
+        .letter-option span {
+            display: inline-block;
+        }
+
+        .mirrored {
+            transform: scaleX(-1);
+        }
+
+        .rotate-90 {
+            transform: rotate(90deg);
+        }
+
+        .rotate-180 {
+            transform: rotate(180deg);
+        }
+
+        .rotate-270 {
+            transform: rotate(270deg);
+        }
+
+        #images-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-top: 20px;
+            padding: 0 20px;
+        }
+
+        #images-container img {
+            display: none;
+        }
+
+        #result-container {
+            display: none;
+            margin-top: 20px;
+        }
+
+        #report-container {
+            margin-top: 40px;
+            width: 80%;
+            max-width: 600px;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #report-container h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        #report-container ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        #report-container li {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+</head>
+<body>
+    <div id="quiz-container">
+        <h1>Visual Perceptual Skills</h1>
+        <div id="question-container"></div>
+        <div id="images-container"></div>
+        <div id="result-container">
+            <h2>Quiz Results</h2>
+            <ul style="list-style: none; padding: 0;">
+                <li><strong>Score:</strong> <span id="score"></span></li>
+                <li><strong>Total Time:</strong> <span id="total-time"></span> seconds</li>
+                <li><strong>Average Time:</strong> <span id="avg-time"></span> seconds</li>
+                <li><strong>First Tap Time:</strong> <span id="first-tap"></span> seconds</li>
+                <li><strong>Total Taps:</strong> <span id="total-taps"></span></li>
+                <li><strong>Total Correct Answers:</strong> <span id="total-correct"></span></li>
+                <li><strong>Total Incorrect Answers:</strong> <span id="total-incorrect"></span></li>
+            </ul>
+            <a href="index.html" style="text-decoration: none;"><button>Return Home</button></a>
+        </div>
+    </div>
+
+    <div id="report-container">
+        <h2>All Quiz Attempts</h2>
+        <ul id="report-list"></ul>
+        <button id="clear-report" onclick="clearReport()">Clear Report</button>
+    </div>
+
+    <script type="module">
+        // Import Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+        import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-database.js";
+
+        // Initialize variables first
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let triesLeft = 3;
+        let timeTaken = [];
+        let startTime;
+        let totalStartTime;
+        let totalTaps = 0;
+        let firstTapTime = 0;
+        let incorrectAnswers = 0;
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
+            authDomain: "projeccvi.firebaseapp.com",
+            projectId: "projeccvi",
+            storageBucket: "projeccvi.firebasestorage.app",
+            messagingSenderId: "279067566247",
+            appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        const questions = [
+            {
+                question: "1",
+                options: [
+                    { text: "1", correct: true },
+                    { text: "1", correct: false, mirrored: true },
+                    { text: "3", correct: false, rotate: 90 },
+                    { text: "4", correct: false, rotate: 270 }
+                ]
+            },
+            {
+                question: "2",
+                options: [
+                    { text: "2", correct: true },
+                    { text: "2", correct: false, mirrored: true },
+                    { text: "1", correct: false, rotate: 180 },
+                    { text: "0", correct: false, rotate: 90 }
+                ]
+            },
+            {
+                question: "3",
+                options: [
+                    { text: "3", correct: true },
+                    { text: "3", correct: false, rotate: 90 },
+                    { text: "9", correct: false, rotate: 180 },
+                    { text: "0", correct: false, rotate: 270 }
+                ]
+            },
+            {
+                question: "8",
+                options: [
+                    { text: "8", correct: true },
+                    { text: "7", correct: false, mirrored: true },
+                    { text: "6", correct: false, rotate: 180 },
+                    { text: "2", correct: false, rotate: 270 }
+                ]
+            }
+        ];
+
+        function displayQuestion() {
+            const question = questions[currentQuestionIndex];
+            shuffleOptions(question.options);
+
+            if (currentQuestionIndex === 0) {
+                totalStartTime = Date.now();
+            }
+            startTime = Date.now();
+            triesLeft = 3;
+
+            const questionContainer = document.getElementById('question-container');
+            questionContainer.innerHTML = question.question;
+
+            const imagesContainer = document.getElementById('images-container');
+            imagesContainer.innerHTML = '';
+
+            question.options.forEach(option => {
+                const letterDiv = document.createElement('div');
+                letterDiv.className = 'letter-option';
+                
+                const letterSpan = document.createElement('span');
+                letterSpan.textContent = option.text;
+                
+                if (option.mirrored) {
+                    letterSpan.classList.add('mirrored');
+                } else if (option.rotate) {
+                    letterSpan.classList.add(`rotate-${option.rotate}`);
+                }
+                
+                letterDiv.appendChild(letterSpan);
+                letterDiv.onclick = () => {
+                    checkAnswer(option.correct);
+                };
+                imagesContainer.appendChild(letterDiv);
+            });
+
+            // Add skip button
+            const skipButton = document.createElement('button');
+            skipButton.innerText = "Skip Question";
+            skipButton.onclick = skipQuestion;
+            skipButton.style.width = '200%';
+            imagesContainer.appendChild(skipButton);
+        }
+
+        document.addEventListener('click', () => {
+            totalTaps++;
+            if (totalTaps === 1) {
+                firstTapTime = (Date.now() - totalStartTime) / 1000;
+            }
+        });
+
+        function checkAnswer(isCorrect) {
+            if (isCorrect) {
+                score++;
+                alert('Correct!');
+                moveToNextQuestion();
+            } else {
+                triesLeft--;
+                if (triesLeft > 0) {
+                    alert(`Wrong! Try again. You have ${triesLeft} tries left.`);
+                } else {
+                    alert('Out of tries! Moving to the next question.');
+                    incorrectAnswers++;
+                    moveToNextQuestion();
+                }
+            }
+        }
+
+        function skipQuestion() {
+            incorrectAnswers++;
+            alert('Question skipped!');
+            moveToNextQuestion();
+        }
+
+        function moveToNextQuestion() {
+            currentQuestionIndex++;
+            if (currentQuestionIndex < questions.length) {
+                displayQuestion();
+            } else {
+                showResults();
+            }
+        }
+
+        function showResults() {
+            document.getElementById('question-container').style.display = 'none';
+            document.getElementById('images-container').style.display = 'none';
+            document.getElementById('result-container').style.display = 'block';
+            document.getElementById('report-container').style.display = 'flex';
+            
+            const totalEndTime = Date.now();
+            const totalTimeInSeconds = ((totalEndTime - totalStartTime) / 1000).toFixed(2);
+            const averageTimeInSeconds = (totalTimeInSeconds / questions.length).toFixed(2);
+            
+            document.getElementById('score').innerText = score;
+            document.getElementById('total-time').innerText = totalTimeInSeconds;
+            document.getElementById('avg-time').innerText = averageTimeInSeconds;
+            document.getElementById('first-tap').innerText = firstTapTime ? firstTapTime.toFixed(2) : "N/A";
+            document.getElementById('total-taps').innerText = totalTaps;
+            document.getElementById('total-correct').innerText = score;
+            document.getElementById('total-incorrect').innerText = incorrectAnswers;
+
+            saveAttempt({
+                score,
+                totalTime: totalTimeInSeconds,
+                avgTime: averageTimeInSeconds,
+                firstTapTime: firstTapTime ? firstTapTime.toFixed(2) : "N/A",
+                totalTaps,
+                totalIncorrectAnswers: incorrectAnswers
+            });
+        }
+
+        function fetchAttempts() {
+            const attemptsRef = ref(db, 'quizAttempts12/');
+            get(attemptsRef)
+                .then(snapshot => {
+                    if (snapshot.exists()) {
+                        const attempts = snapshot.val();
+                        const reportList = document.getElementById('report-list');
+                        reportList.innerHTML = ''; // Clear the existing list
+
+                        for (let attemptId in attempts) {
+                            const attempt = attempts[attemptId];
+                            const listItem = document.createElement('li');
+                            listItem.innerText = `Score: ${attempt.score}, Time Taken: ${attempt.totalTime}s, Incorrect Answers: ${attempt.totalIncorrectAnswers}, Total Taps: ${attempt.totalTaps}, First Tap Time: ${attempt.firstTapTime}s, Avg Time: ${attempt.avgTime}s`;
+                            reportList.appendChild(listItem);
+                        }
+                    } else {
+                        console.log("No data available");
+                    }
+                })
+                .catch(error => {
+                    console.error("Error fetching attempts: ", error);
+                });
+        }
+
+        function saveAttempt(data) {
+            const attemptsRef = ref(db, 'quizAttempts12/');
+            const newAttemptRef = ref(db, 'quizAttempts12/' + Date.now());
+            set(newAttemptRef, data)
+                .then(() => {
+                    console.log("Attempt saved!");
+                    fetchAttempts(); // Refresh the attempts list after saving
+                })
+                .catch(error => {
+                    console.error("Error saving attempt: ", error);
+                });
+        }
+
+        function clearReport() {
+            const reportList = document.getElementById('report-list');
+            if (reportList) {
+                reportList.innerHTML = '';
+            }
+
+            const attemptsRef = ref(db, 'quizAttempts12/');
+            set(attemptsRef, null)
+                .then(() => {
+                    console.log("All attempts cleared from the database.");
+                })
+                .catch((error) => {
+                    console.error("Error clearing attempts: ", error);
+                });
+        }
+
+        function shuffleOptions(options) {
+            for (let i = options.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [options[i], options[j]] = [options[j], options[i]];
+            }
+        }
+
+        // Start the quiz when the page loads
+        window.addEventListener('load', () => {
+            displayQuestion();
+            fetchAttempts();
+        });
+    </script>
+</body>
+</html>
