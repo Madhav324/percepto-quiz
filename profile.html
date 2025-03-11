@@ -144,15 +144,42 @@
 
             // Initialize Firebase
             firebase.initializeApp(firebaseConfig);
+
+            // Enable offline persistence with custom settings
+            await firebase.firestore().enablePersistence({
+                synchronizeTabs: true
+            }).catch(function(err) {
+                if (err.code == 'failed-precondition') {
+                    console.log('Multiple tabs open, persistence can only be enabled in one tab at a time.');
+                } else if (err.code == 'unimplemented') {
+                    console.log('The current browser does not support offline persistence');
+                }
+            });
+
+            // Initialize auth and db after persistence is set up
             const auth = firebase.auth();
             const db = firebase.firestore();
 
-            // Wait for Firebase to initialize
-            await new Promise(resolve => {
-                const unsubscribe = auth.onAuthStateChanged(user => {
-                    unsubscribe();
-                    resolve();
-                });
+            // Set up network status monitoring
+            let isOnline = true;
+            
+            // Check initial connection state
+            if (!navigator.onLine) {
+                isOnline = false;
+                document.getElementById('error-message').textContent = 'You are currently offline. Some features may be limited.';
+                document.getElementById('error-message').style.display = 'block';
+            }
+
+            // Listen for online/offline events
+            window.addEventListener('online', function() {
+                isOnline = true;
+                document.getElementById('error-message').style.display = 'none';
+            });
+
+            window.addEventListener('offline', function() {
+                isOnline = false;
+                document.getElementById('error-message').textContent = 'You are currently offline. Some features may be limited.';
+                document.getElementById('error-message').style.display = 'block';
             });
 
             // Cache DOM elements
@@ -180,6 +207,22 @@
             function toggleSaveButton(disabled) {
                 saveButton.disabled = disabled;
                 saveButton.textContent = disabled ? 'Saving...' : 'Save Profile';
+            }
+
+            // Save profile with connection check
+            async function saveProfile(userId, data) {
+                if (!isOnline) {
+                    throw new Error('Cannot save while offline. Please check your internet connection.');
+                }
+
+                try {
+                    await db.collection('userProfiles').doc(userId).set(data);
+                    sessionStorage.removeItem('editingProfile');
+                    window.location.href = 'index.html';
+                } catch (error) {
+                    console.error('Save error:', error);
+                    throw new Error('Failed to save profile. Please check your internet connection and try again.');
+                }
             }
 
             // Auto-fill profile from Google data
@@ -220,27 +263,6 @@
                 }
             }
 
-            // Save profile with retry
-            async function saveProfile(userId, data) {
-                let attempts = 0;
-                const maxAttempts = 3;
-
-                while (attempts < maxAttempts) {
-                    try {
-                        await db.collection('userProfiles').doc(userId).set(data);
-                        sessionStorage.removeItem('editingProfile');
-                        window.location.href = 'index.html';
-                        return;
-                    } catch (error) {
-                        attempts++;
-                        if (attempts === maxAttempts) {
-                            throw error;
-                        }
-                        await new Promise(resolve => setTimeout(resolve, 1000));
-                    }
-                }
-            }
-
             // Handle form submission
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
@@ -271,9 +293,7 @@
                     await saveProfile(user.uid, profileData);
                 } catch (error) {
                     console.error('Save error:', error);
-                    showError(error.code === 'unavailable' ? 
-                        'You appear to be offline. Please check your internet connection.' : 
-                        'Error saving profile. Please try again.');
+                    showError(error.message);
                     toggleSaveButton(false);
                 }
             });
