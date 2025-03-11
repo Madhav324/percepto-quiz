@@ -144,6 +144,8 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <!-- Firebase Firestore -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <!-- Firebase Realtime Database -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
     <script>
         // Firebase configuration
@@ -160,6 +162,7 @@
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.firestore();
+        const database = firebase.database();
         
         // Handle relative paths for both local and GitHub Pages
         function getPath(page) {
@@ -185,35 +188,80 @@
             }
         }
 
-        // Check authentication state and load profile
+        // Quiz state
+        let userEmail = '';
+        let currentPatientId = null;
+        let isPatientQuiz = false;
+
+        // Load quiz state
+        function loadQuizState() {
+            currentPatientId = localStorage.getItem('currentPatientId');
+            isPatientQuiz = localStorage.getItem('isPatientQuiz') === 'true';
+            
+            if (isPatientQuiz && currentPatientId) {
+                document.querySelector('.nav-buttons').style.display = 'none';
+            }
+        }
+
+        // Save quiz result
+        async function saveQuizResult(quizType, score, details) {
+            const user = auth.currentUser;
+            if (!user) return;
+
+            const resultData = {
+                type: quizType,
+                score: score,
+                details: details,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            };
+
+            try {
+                if (isPatientQuiz && currentPatientId) {
+                    // Save under doctor's patient
+                    await database.ref(`doctors/${user.uid}/patients/${currentPatientId}/quizResults`).push(resultData);
+                    // Clear patient quiz flags after saving
+                    localStorage.removeItem('currentPatientId');
+                    localStorage.removeItem('isPatientQuiz');
+                } else {
+                    // Save to user's results
+                    await database.ref(`userResults/${user.uid}`).push(resultData);
+                }
+            } catch (error) {
+                console.error('Error saving quiz result:', error);
+            }
+        }
+
+        // Auth state observer
         auth.onAuthStateChanged(async (user) => {
             if (user) {
-                // User is signed in
-                console.log("User is signed in:", user.email);
-                document.getElementById('userEmail').textContent = user.email;
+                userEmail = user.email;
+                await checkIfDoctor(user.uid);
+                loadQuizState();
                 
-                // Load user profile
+                // Load user name
                 try {
-                    const doc = await db.collection('userProfiles').doc(user.uid).get();
-                    if (doc.exists) {
-                        const data = doc.data();
-                        document.getElementById('userName').textContent = data.name || 'User';
+                    let profileRef;
+                    if (isPatientQuiz && currentPatientId) {
+                        profileRef = database.ref(`doctors/${user.uid}/patients/${currentPatientId}`);
                     } else {
-                        // No profile, redirect to profile page
-                        window.location.href = getPath('profile.html');
+                        profileRef = database.ref(`userProfiles/${user.uid}`);
+                    }
+                    
+                    const snapshot = await profileRef.once('value');
+                    const profile = snapshot.val();
+                    if (profile && profile.name) {
+                        document.getElementById('userName').textContent = profile.name;
+                    } else {
+                        document.getElementById('userName').textContent = 'User';
                     }
                 } catch (error) {
                     console.error('Error loading profile:', error);
                     document.getElementById('userName').textContent = 'User';
                 }
                 
-                await checkIfDoctor(user.uid);
-                
                 document.getElementById('quiz-container').style.display = 'block';
             } else {
-                // User is signed out
-                console.log("No user signed in, redirecting to login");
-                window.location.href = getPath('login.html');
+                window.location.href = 'login.html';
             }
         });
 

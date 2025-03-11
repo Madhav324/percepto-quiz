@@ -320,78 +320,36 @@
                 saveButton.textContent = disabled ? 'Saving...' : 'Save Profile';
             }
 
-            try {
-                updateOnlineStatus();
+            async function saveProfile(user) {
+                showLoading(true, 'Saving profile...');
+                saveButton.disabled = true;
 
-                // Wait for auth state with timeout
-                const user = await Promise.race([
-                    new Promise((resolve) => {
-                        const unsubscribe = auth.onAuthStateChanged((user) => {
-                            unsubscribe();
-                            resolve(user);
-                        });
-                    }),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error('Auth timeout')), 10000))
-                ]).catch(error => {
-                    console.error('Auth error:', error);
-                    throw new Error('Authentication taking too long. Please refresh.');
-                });
-
-                if (!user) {
-                    console.log('No user found, redirecting to login');
-                    window.location.href = 'login.html';
-                    return;
-                }
-
-                console.log('User authenticated:', user.email);
-                userEmailElement.textContent = user.email;
-
-                // Try to load existing profile
                 try {
-                    showLoading(true, 'Loading your profile...');
-                    const userRef = database.ref('userProfiles/' + user.uid);
-                    
-                    const snapshot = await userRef.get();
-                    if (snapshot.exists()) {
-                        console.log('Profile found:', snapshot.val());
-                        const data = snapshot.val();
-                        nameInput.value = data.name || '';
-                        ageInput.value = data.age || '';
-                        genderInput.value = data.gender || '';
-                        medicalInput.value = data.medicalConditions || '';
-                        isDoctorInput.checked = data.isDoctor || false;
+                    const profileData = {
+                        name: nameInput.value.trim(),
+                        age: parseInt(ageInput.value),
+                        gender: genderInput.value,
+                        medicalConditions: medicalInput.value.trim(),
+                        isDoctor: isDoctorInput.checked,
+                        email: user.email,
+                        lastUpdated: firebase.database.ServerValue.TIMESTAMP
+                    };
+
+                    // Check if this is a patient profile
+                    const currentPatientId = localStorage.getItem('currentPatientId');
+                    const isPatientProfile = localStorage.getItem('isPatientProfile') === 'true';
+
+                    if (isPatientProfile && currentPatientId) {
+                        // Save under the doctor's patient profiles
+                        await database.ref(`doctors/${user.uid}/patients/${currentPatientId}`).update(profileData);
+                        // Clear patient profile flags
+                        localStorage.removeItem('currentPatientId');
+                        localStorage.removeItem('isPatientProfile');
                     } else {
-                        console.log('No profile found, trying Google data');
-                        await fillFromGoogle(user);
-                    }
-                } catch (error) {
-                    console.error('Error loading profile:', error);
-                    showError('Could not load profile. Please check your connection and refresh.');
-                } finally {
-                    showLoading(false);
-                }
-
-                // Form submission handler
-                form.addEventListener('submit', async (e) => {
-                    e.preventDefault();
-                    toggleSaveButton(true);
-                    showError('');
-
-                    try {
-                        const profileData = {
-                            name: nameInput.value.trim(),
-                            age: parseInt(ageInput.value),
-                            gender: genderInput.value,
-                            medicalConditions: medicalInput.value.trim(),
-                            isDoctor: isDoctorInput.checked,
-                            email: user.email,
-                            lastUpdated: firebase.database.ServerValue.TIMESTAMP
-                        };
-
                         // Save to userProfiles
                         await database.ref(`userProfiles/${user.uid}`).set(profileData);
                         
-                        // If they're a doctor, save to doctorProfiles without verification
+                        // If they're a doctor, save to doctorProfiles
                         if (isDoctorInput.checked) {
                             await database.ref(`doctorProfiles/${user.uid}`).set({
                                 name: profileData.name,
@@ -399,20 +357,88 @@
                                 registeredAt: firebase.database.ServerValue.TIMESTAMP
                             });
                         }
-
-                        console.log('Profile saved successfully');
-                        window.location.href = 'index.html';
-                    } catch (error) {
-                        console.error('Save error:', error);
-                        showError('Error saving profile. Please try again.');
-                        toggleSaveButton(false);
                     }
+
+                    console.log('Profile saved successfully');
+                    window.location.href = 'index.html';
+                } catch (error) {
+                    console.error('Save error:', error);
+                    showError('Error saving profile. Please try again.');
+                    saveButton.disabled = false;
+                } finally {
+                    showLoading(false);
+                }
+            }
+
+            async function loadProfile(user) {
+                showLoading(true, 'Loading profile...');
+                try {
+                    // Check if this is a patient profile
+                    const currentPatientId = localStorage.getItem('currentPatientId');
+                    const isPatientProfile = localStorage.getItem('isPatientProfile') === 'true';
+
+                    let profile;
+                    if (isPatientProfile && currentPatientId) {
+                        // Load patient profile from doctor's patients
+                        const snapshot = await database.ref(`doctors/${user.uid}/patients/${currentPatientId}`).once('value');
+                        profile = snapshot.val();
+                        // Hide doctor checkbox for patient profiles
+                        isDoctorInput.parentElement.style.display = 'none';
+                    } else {
+                        // Load user's own profile
+                        const snapshot = await database.ref(`userProfiles/${user.uid}`).once('value');
+                        profile = snapshot.val();
+                    }
+                    
+                    if (profile) {
+                        nameInput.value = profile.name || '';
+                        ageInput.value = profile.age || '';
+                        genderInput.value = profile.gender || '';
+                        medicalInput.value = profile.medicalConditions || '';
+                        isDoctorInput.checked = profile.isDoctor || false;
+                    } else {
+                        // No profile exists, try to fill from Google
+                        await fillFromGoogle(user);
+                    }
+                    
+                    userEmailElement.textContent = user.email;
+                } catch (error) {
+                    console.error('Error loading profile:', error);
+                    showError('Failed to load profile. Please refresh the page.');
+                } finally {
+                    showLoading(false);
+                }
+            }
+
+            try {
+                updateOnlineStatus();
+
+                // Wait for auth state with timeout
+                const user = await Promise.race([
+                    new Promise((resolve, reject) => {
+                        const unsubscribe = auth.onAuthStateChanged(user => {
+                            unsubscribe();
+                            if (user) resolve(user);
+                            else reject(new Error('Not signed in'));
+                        });
+                    }),
+                    new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error('Auth timeout')), 5000)
+                    )
+                ]);
+
+                // Load profile
+                await loadProfile(user);
+
+                // Handle form submission
+                form.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    await saveProfile(user);
                 });
 
             } catch (error) {
-                console.error('Initialization error:', error);
-                showError('Error initializing app. Please refresh the page.');
-                showLoading(false);
+                console.error('Auth error:', error);
+                window.location.href = 'login.html';
             }
 
             async function fillFromGoogle(user) {
