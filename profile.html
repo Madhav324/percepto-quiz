@@ -185,7 +185,24 @@
                     firebase.initializeApp(firebaseConfig);
                 }
 
+                // Get Firestore instance and enable persistence FIRST
                 const db = firebase.firestore();
+                try {
+                    // Enable persistence before any other Firestore operations
+                    await db.enablePersistence({
+                        synchronizeTabs: true
+                    }).catch(err => {
+                        if (err.code === 'failed-precondition') {
+                            console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.');
+                        } else if (err.code === 'unimplemented') {
+                            console.warn('The current browser does not support offline persistence');
+                        }
+                    });
+                    console.log('Persistence enabled successfully');
+                } catch (err) {
+                    console.warn('Persistence already enabled or error:', err);
+                }
+
                 const auth = firebase.auth();
 
                 // Wait for auth state
