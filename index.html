@@ -334,6 +334,41 @@
         .primary-btn:hover {
             background-color: #45a049;
         }
+        
+        .quiz-types {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .quiz-button {
+            padding: 20px;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 18px;
+            color: #212529;
+            transition: all 0.3s ease;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 120px;
+        }
+
+        .quiz-button:hover {
+            background-color: #e9ecef;
+            transform: translateY(-3px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .quiz-icon {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
@@ -356,17 +391,17 @@
         <div class="quiz-container" id="quizContainer" style="display: none;">
             <h2>Select a Quiz Type:</h2>
             <!-- Quiz Type Selection -->
-            <div id="quiz-type">
-                <button onclick="startQuiz('animals')">Fixation to Mirror</button>
-                <a href="VD.html" style="text-decoration: none;"><button>Visual Discrimination</button></a>
-                <a href="VC1.html" style="text-decoration: none;"><button>Visual Closure</button></a>
-                <a href="VFC.html" style="text-decoration: none;"><button>Visual Form Constancy</button></a>
-                <a href="VFigure2.html" style="text-decoration: none;"><button>Figure Ground</button></a>
-                <a href="Vspac.html" style="text-decoration: none;"><button>Spatial Relations</button></a>
-                <a href="VN.html" style="text-decoration: none;"><button>Visual Neglect</button></a>
-                <a href="VSM.html" style="text-decoration: none;"><button>Visual Sequential Memory</button></a>
-                <a href="VM1.html" style="text-decoration: none;"><button>Visual Memory</button></a>
-                <a href="Vmotion1.html" style="text-decoration: none;"><button>Motion Perception</button></a>
+            <div class="quiz-types" id="quiz-type">
+                <button class="quiz-button" onclick="startQuiz('animals')">Fixation to Mirror</button>
+                <a href="VD.html" style="text-decoration: none;"><button class="quiz-button">Visual Discrimination</button></a>
+                <a href="VC1.html" style="text-decoration: none;"><button class="quiz-button">Visual Closure</button></a>
+                <a href="VFC.html" style="text-decoration: none;"><button class="quiz-button">Visual Form Constancy</button></a>
+                <a href="VFigure2.html" style="text-decoration: none;"><button class="quiz-button">Figure Ground</button></a>
+                <a href="Vspac.html" style="text-decoration: none;"><button class="quiz-button">Spatial Relations</button></a>
+                <a href="VN.html" style="text-decoration: none;"><button class="quiz-button">Visual Neglect</button></a>
+                <a href="VSM.html" style="text-decoration: none;"><button class="quiz-button">Visual Sequential Memory</button></a>
+                <a href="VM1.html" style="text-decoration: none;"><button class="quiz-button">Visual Memory</button></a>
+                <a href="Vmotion1.html" style="text-decoration: none;"><button class="quiz-button">Motion Perception</button></a>
             </div>
 
             <!-- Quiz Questions -->
@@ -650,35 +685,94 @@
             async function initializeProfileIcon() {
                 const user = auth.currentUser;
                 if (!user) return;
-
-                const currentPatientId = sessionStorage.getItem('currentPatientId');
-                let profileRef;
-                let roleText = '';
-
-                if (currentPatientId) {
-                    // If accessing as a patient, get patient's profile
-                    const doctorId = sessionStorage.getItem('doctorId');
-                    profileRef = database.ref(`doctors/${doctorId}/patients/${currentPatientId}/profile`);
-                    roleText = '';  // No need to show role for patients
-                } else {
-                    // Get role to determine path
-                    const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
-                    const role = roleSnapshot.val();
-                    profileRef = database.ref(`${role}s/${user.uid}/profile`);
-                    roleText = role === 'doctor' ? 'Dr. ' : '';  // Add "Dr." prefix for doctors
-                }
+                
+                console.log('Initializing profile icon for user:', user.uid);
 
                 try {
-                    const snapshot = await profileRef.once('value');
-                    const profile = snapshot.val();
-                    if (profile && profile.name) {
-                        const fullName = profile.name;
-                        document.getElementById('profileIcon').textContent = fullName.charAt(0).toUpperCase();
-                        document.getElementById('userName').textContent = roleText + fullName;
+                    const currentPatientId = sessionStorage.getItem('currentPatientId');
+                    const doctorId = sessionStorage.getItem('doctorId');
+                    
+                    let displayName = '';
+                    let initial = '';
+                    let roleText = '';
+                    
+                    if (currentPatientId && doctorId) {
+                        // Doctor testing a patient
+                        console.log(`Loading patient profile - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
+                        const patientSnapshot = await database.ref(`doctors/${doctorId}/patients/${currentPatientId}/profile`).once('value');
+                        const patientProfile = patientSnapshot.val();
+                        
+                        if (patientProfile && patientProfile.name) {
+                            displayName = patientProfile.name;
+                            initial = displayName.charAt(0).toUpperCase();
+                            roleText = 'Patient';
+                            
+                            // Show patient context indicator
+                            document.getElementById('userName').innerHTML = `${displayName} <span style="font-size:12px;color:#6c757d;">(Patient)</span>`;
+                        }
+                    } else {
+                        // Get user role
+                        const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                        const role = roleSnapshot.val() || 'user';
+                        
+                        // Get profile based on role
+                        const profileRef = database.ref(`${role}s/${user.uid}/profile`);
+                        const profileSnapshot = await profileRef.once('value');
+                        const profile = profileSnapshot.val();
+                        
+                        if (profile && profile.name) {
+                            displayName = profile.name;
+                            roleText = role === 'doctor' ? 'Dr.' : '';
+                        } else if (user.displayName) {
+                            displayName = user.displayName;
+                        } else {
+                            displayName = user.email.split('@')[0];
+                        }
+                        
+                        initial = displayName.charAt(0).toUpperCase();
+                        
+                        // Update UI with user info
+                        document.getElementById('userName').innerHTML = `${roleText} ${displayName}`;
+                        
+                        // Show/hide patients button for doctors
+                        if (role === 'doctor') {
+                            document.getElementById('patientsBtn').style.display = 'inline-flex';
+                        } else {
+                            document.getElementById('patientsBtn').style.display = 'none';
+                        }
                     }
+                    
+                    // Update profile icon with initial
+                    const profileIcon = document.getElementById('profileIcon');
+                    if (profileIcon) {
+                        profileIcon.textContent = initial;
+                    }
+                    
+                    // Update email display if available
+                    const userEmail = document.getElementById('userEmail');
+                    if (userEmail) {
+                        userEmail.textContent = user.email;
+                    }
+                    
+                    console.log(`Profile icon updated: ${initial} for ${displayName}`);
                 } catch (error) {
-                    console.error('Error loading profile:', error);
-                    document.getElementById('userName').textContent = 'User';
+                    console.error('Error initializing profile:', error);
+                    
+                    // Fallback display
+                    const profileIcon = document.getElementById('profileIcon');
+                    if (profileIcon) {
+                        profileIcon.textContent = user.email.charAt(0).toUpperCase();
+                    }
+                    
+                    const userName = document.getElementById('userName');
+                    if (userName) {
+                        userName.textContent = user.email.split('@')[0];
+                    }
+                    
+                    const userEmail = document.getElementById('userEmail');
+                    if (userEmail) {
+                        userEmail.textContent = user.email;
+                    }
                 }
             }
 
