@@ -285,23 +285,28 @@
 
                 if (patients) {
                     Object.entries(patients).forEach(([id, patientData]) => {
-                        // Ensure patient data has the correct structure
-                        const patient = patientData.profile ? patientData : { profile: patientData };
-                        
-                        const card = document.createElement('div');
-                        card.className = 'patient-card';
-                        card.innerHTML = `
-                            <h3>${patient.profile.name || 'No Name'}</h3>
-                            <div class="patient-info">Age: ${patient.profile.age || 'N/A'}</div>
-                            <div class="patient-info">Gender: ${patient.profile.gender || 'N/A'}</div>
-                            ${patient.profile.medicalCondition ? `<div class="patient-info">Medical Condition: ${patient.profile.medicalCondition}</div>` : ''}
-                            <div class="patient-actions">
-                                <button class="quiz-btn" onclick="startPatientQuiz('${id}')">Start Quiz</button>
-                                <button class="results-btn" onclick="viewPatientResults('${id}')">View Results</button>
-                                <button class="delete-btn" onclick="deletePatient('${id}')">Delete</button>
-                            </div>
-                        `;
-                        patientsGrid.appendChild(card);
+                        try {
+                            // Ensure patient data has the correct structure
+                            const patient = patientData.profile ? patientData : { profile: patientData };
+                            
+                            const card = document.createElement('div');
+                            card.className = 'patient-card';
+                            card.innerHTML = `
+                                <h3>${patient.profile.name || 'No Name'}</h3>
+                                <div class="patient-info">Age: ${patient.profile.age || 'N/A'}</div>
+                                <div class="patient-info">Gender: ${patient.profile.gender || 'N/A'}</div>
+                                ${patient.profile.medicalCondition ? `<div class="patient-info">Medical Condition: ${patient.profile.medicalCondition}</div>` : ''}
+                                <div class="patient-actions">
+                                    <button class="quiz-btn" onclick="startPatientQuiz('${id}')">Start Quiz</button>
+                                    <button class="results-btn" onclick="viewPatientResults('${id}')">View Results</button>
+                                    <button class="delete-btn" onclick="deletePatient('${id}')">Delete</button>
+                                </div>
+                            `;
+                            patientsGrid.appendChild(card);
+                        } catch (cardError) {
+                            console.error('Error creating patient card:', cardError);
+                            // Continue with other patients if one fails
+                        }
                     });
                     noPatients.style.display = 'none';
                 } else {
@@ -310,8 +315,9 @@
             } catch (error) {
                 console.error('Error loading patients:', error);
                 showError('Error loading patients: ' + error.message);
+            } finally {
+                showLoading(false);
             }
-            showLoading(false);
         }
 
         // Add new patient
@@ -357,13 +363,15 @@
                 const newPatientRef = database.ref(`doctors/${user.uid}/patients`).push();
                 await newPatientRef.set(patientData);
                 
-                // Close modal and reload patients
+                // Close modal and reset form
                 closeAddPatientModal();
                 document.getElementById('addPatientForm').reset();
-                showError('Patient added successfully!', true);
                 
-                // Reload patients list
+                // Reload patients list first
                 await loadPatients();
+                
+                // Show success message after reload
+                showError('Patient added successfully!', true);
             } catch (error) {
                 console.error('Error adding patient:', error);
                 showError('Error adding patient: ' + error.message);
