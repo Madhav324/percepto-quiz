@@ -176,6 +176,21 @@
             setTimeout(() => errorDiv.style.display = 'none', 3000);
         }
 
+        // Fill profile from Google data
+        async function fillFromGoogle(user) {
+            try {
+                const googleUser = user.providerData.find(
+                    provider => provider.providerId === 'google.com'
+                );
+
+                if (googleUser && googleUser.displayName) {
+                    document.getElementById('name').value = googleUser.displayName;
+                }
+            } catch (error) {
+                console.error('Error filling from Google:', error);
+            }
+        }
+
         // Load profile data
         async function loadProfile(user) {
             try {
@@ -190,6 +205,9 @@
                     document.getElementById('gender').value = profile.gender || '';
                     document.getElementById('medicalCondition').value = profile.medicalCondition || '';
                     document.getElementById('isDoctor').checked = isDoctor;
+                } else {
+                    // No profile exists, try to fill from Google
+                    await fillFromGoogle(user);
                 }
             } catch (error) {
                 console.error('Error loading profile:', error);
@@ -204,6 +222,8 @@
             const user = auth.currentUser;
             if (!user) return;
 
+            showLoading(true);
+
             const isDoctor = document.getElementById('isDoctor').checked;
             const path = isDoctor ? `doctors/${user.uid}/profile` : `users/${user.uid}/profile`;
 
@@ -211,16 +231,23 @@
                 name: document.getElementById('name').value,
                 age: parseInt(document.getElementById('age').value),
                 gender: document.getElementById('gender').value,
-                medicalCondition: document.getElementById('medicalCondition').value,
-                isDoctor: isDoctor
+                medicalCondition: document.getElementById('medicalCondition').value
             };
 
             try {
                 await database.ref(path).set(profileData);
                 showError('Profile saved successfully!');
+                
+                // Redirect based on user type
+                if (isDoctor) {
+                    window.location.href = 'doctor-dashboard.html';
+                } else {
+                    window.location.href = 'index.html';
+                }
             } catch (error) {
                 console.error('Error saving profile:', error);
                 showError('Error saving profile');
+                showLoading(false);
             }
         }
 
