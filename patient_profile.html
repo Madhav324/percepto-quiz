@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Profile - Percepto</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+        }
+        .profile-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-size: 16px;
+            color: #666;
+        }
+        .logout-btn {
+            padding: 10px 20px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .logout-btn:hover {
+            background-color: #c82333;
+        }
+        .form-group {
+            margin: 15px 0;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: bold;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        .error-message {
+            color: #f44336;
+            margin: 10px 0;
+            display: none;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+            color: #666;
+        }
+        .save-btn {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 20px;
+        }
+        .save-btn:hover {
+            background-color: #45a049;
+        }
+        .profile-form {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Patient Profile</h1>
+        <div class="profile-info">
+            <span id="patientName"></span>
+            <button class="logout-btn" onclick="logout()">Back to Doctor</button>
+        </div>
+    </div>
+
+    <div id="loading" class="loading">Loading profile...</div>
+    <div id="error-message" class="error-message"></div>
+
+    <form id="profileForm" class="profile-form" style="display: none;">
+        <div class="form-group">
+            <label for="name">Full Name</label>
+            <input type="text" id="name" required>
+        </div>
+        <div class="form-group">
+            <label for="age">Age</label>
+            <input type="number" id="age" min="1" max="120" required>
+        </div>
+        <div class="form-group">
+            <label for="gender">Gender</label>
+            <select id="gender" required>
+                <option value="">Select gender</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+                <option value="prefer-not-to-say">Prefer not to say</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="medicalCondition">Medical Condition (if any)</label>
+            <input type="text" id="medicalCondition">
+        </div>
+        <button type="submit" class="save-btn">Save Profile</button>
+    </form>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
+            authDomain: "projeccvi.firebaseapp.com",
+            projectId: "projeccvi",
+            storageBucket: "projeccvi.appspot.com",
+            messagingSenderId: "279067566247",
+            appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const database = firebase.database();
+
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+            document.getElementById('profileForm').style.display = show ? 'none' : 'block';
+        }
+
+        function showError(message, isSuccess = false) {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            errorDiv.style.color = isSuccess ? '#4CAF50' : '#f44336';
+            setTimeout(() => errorDiv.style.display = 'none', 3000);
+        }
+
+        // Load profile data
+        async function loadProfileData() {
+            const user = auth.currentUser;
+            if (!user) return;
+
+            const patientId = sessionStorage.getItem('currentPatientId');
+            const doctorId = sessionStorage.getItem('currentDoctorId');
+            
+            if (!patientId || !doctorId) {
+                window.location.href = 'patients.html';
+                return;
+            }
+
+            showLoading(true);
+            try {
+                const patientRef = database.ref(`doctors/${doctorId}/patients/${patientId}/profile`);
+                const snapshot = await patientRef.once('value');
+                const profile = snapshot.val();
+
+                if (profile) {
+                    document.getElementById('name').value = profile.name || '';
+                    document.getElementById('age').value = profile.age || '';
+                    document.getElementById('gender').value = profile.gender || '';
+                    document.getElementById('medicalCondition').value = profile.medicalCondition || '';
+                    document.getElementById('patientName').textContent = profile.name || '';
+                }
+            } catch (error) {
+                console.error('Error loading profile:', error);
+                showError('Error loading profile data');
+            }
+            showLoading(false);
+        }
+
+        // Save profile data
+        async function saveProfile(e) {
+            e.preventDefault();
+            showLoading(true);
+
+            const user = auth.currentUser;
+            if (!user) {
+                showError('Please sign in first');
+                return;
+            }
+
+            const patientId = sessionStorage.getItem('currentPatientId');
+            const doctorId = sessionStorage.getItem('currentDoctorId');
+
+            if (!patientId || !doctorId) {
+                showError('Patient information not found');
+                return;
+            }
+
+            const profileData = {
+                name: document.getElementById('name').value,
+                age: parseInt(document.getElementById('age').value),
+                gender: document.getElementById('gender').value,
+                medicalCondition: document.getElementById('medicalCondition').value
+            };
+
+            try {
+                await database.ref(`doctors/${doctorId}/patients/${patientId}/profile`).set(profileData);
+                showError('Profile saved successfully!', true);
+                document.getElementById('patientName').textContent = profileData.name;
+            } catch (error) {
+                console.error('Error saving profile:', error);
+                showError('Error saving profile');
+            }
+            showLoading(false);
+        }
+
+        function logout() {
+            window.location.href = 'patients.html';
+        }
+
+        // Auth state observer
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                loadProfileData();
+            } else {
+                window.location.href = 'login.html';
+            }
+        });
+
+        // Event listeners
+        document.getElementById('profileForm').addEventListener('submit', saveProfile);
+    </script>
+</body>
+</html>
