@@ -5,20 +5,342 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Visual Perceptual Skills</title>
     <link rel="stylesheet" href="styles.css">
+    <style>
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .profile-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #2196F3;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: bold;
+            text-decoration: none;
+            transition: background-color 0.3s;
+            font-size: 18px;
+        }
+        
+        .profile-icon:hover {
+            background-color: #1976D2;
+        }
+
+        h1, h2 {
+            color: #2c3e50;
+            margin: 0;
+        }
+
+        .quiz-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .shape-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .shape-option {
+            padding: 20px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .shape-option:hover {
+            border-color: #2196F3;
+            transform: translateY(-2px);
+        }
+
+        .shape-option.selected {
+            border-color: #4CAF50;
+            background-color: #E8F5E9;
+        }
+
+        .shape-option img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            background-color: #4CAF50;
+            color: white;
+            cursor: pointer;
+            margin: 10px;
+            transition: background-color 0.3s;
+        }
+
+        .btn:hover {
+            background-color: #45a049;
+        }
+
+        .btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        .score {
+            font-size: 18px;
+            margin: 20px 0;
+            color: #2c3e50;
+        }
+
+        .timer {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .feedback {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .feedback.correct {
+            background-color: #E8F5E9;
+            color: #2E7D32;
+        }
+
+        .feedback.incorrect {
+            background-color: #FFEBEE;
+            color: #C62828;
+        }
+
+        #finalScore {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 20px 0;
+            color: #2c3e50;
+        }
+    </style>
 </head>
 <body>
-    <div id="quiz-container">
-        <h1>Welcome to the Children's Quiz</h1>
-        <h2>Select a Quiz Type:</h2>
-<br>
-        <!-- Quiz Type Selection -->
+    <div class="container">
+        <div class="header">
+            <h1>Visual Perceptual Skills</h1>
+            <div class="profile-icon" id="profileIcon" title="Back to Home" onclick="window.location.href='index.html'"></div>
+        </div>
+
+        <div id="quiz-container" style="display:none;">
+            <div class="timer" id="timer">Time: 0:00</div>
+            <div class="score" id="score">Score: 0</div>
+            
+            <div class="shape-container" id="shapeContainer">
+                <!-- Shapes will be inserted here -->
+            </div>
+
+            <div class="feedback" id="feedback"></div>
+            <button class="btn" id="nextBtn" disabled>Next</button>
+            <div id="finalScore" style="display: none;"></div>
+        </div>
+
         <div id="quiz-type">
             <a href="VDT1.html" style="text-decoration: none;"><button onclick="startQuiz('animals')">Level 1</button></a>
             <a href="VDT2.html" style="text-decoration: none;"><button onclick="startQuiz('colors')">Level 2</button></a>
         </div>
 
-    </div>
+        <!-- Firebase App (the core Firebase SDK) -->
+        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+        <!-- Firebase Auth -->
+        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+        <!-- Firebase Database -->
+        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
-    <script src="script.js"></script>
+        <script>
+            // Firebase configuration
+            const firebaseConfig = {
+                apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
+                authDomain: "projeccvi.firebaseapp.com",
+                projectId: "projeccvi",
+                storageBucket: "projeccvi.firebasestorage.app",
+                messagingSenderId: "279067566247",
+                appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
+            };
+
+            // Initialize Firebase
+            firebase.initializeApp(firebaseConfig);
+            const auth = firebase.auth();
+            const database = firebase.database();
+
+            // Quiz state
+            let currentScore = 0;
+            let totalQuestions = 10;
+            let currentQuestion = 0;
+            let startTime;
+            let timerInterval;
+
+            // Shapes for the quiz
+            const shapes = [
+                'circle', 'square', 'triangle', 'rectangle', 'pentagon',
+                'hexagon', 'star', 'heart', 'diamond', 'oval'
+            ];
+
+            // Auth state observer
+            auth.onAuthStateChanged(async (user) => {
+                if (user) {
+                    // Get user profile to display first initial
+                    try {
+                        const profileRef = database.ref(`userProfiles/${user.uid}`);
+                        const snapshot = await profileRef.once('value');
+                        const profile = snapshot.val();
+                        
+                        // Get first letter of name or email
+                        let initial = 'U';
+                        if (profile && profile.name) {
+                            initial = profile.name.charAt(0).toUpperCase();
+                        } else if (user.email) {
+                            initial = user.email.charAt(0).toUpperCase();
+                        }
+                        
+                        document.getElementById('profileIcon').textContent = initial;
+                    } catch (error) {
+                        console.error('Error loading profile:', error);
+                        document.getElementById('profileIcon').textContent = 'U';
+                    }
+                    
+                    document.getElementById('quiz-container').style.display = 'block';
+                    startQuiz();
+                } else {
+                    window.location.href = 'login.html';
+                }
+            });
+
+            function startQuiz() {
+                currentScore = 0;
+                currentQuestion = 0;
+                startTime = Date.now();
+                updateTimer();
+                timerInterval = setInterval(updateTimer, 1000);
+                showNextQuestion();
+            }
+
+            function updateTimer() {
+                const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
+                const minutes = Math.floor(timeElapsed / 60);
+                const seconds = timeElapsed % 60;
+                document.getElementById('timer').textContent = 
+                    `Time: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+            }
+
+            function showNextQuestion() {
+                if (currentQuestion >= totalQuestions) {
+                    endQuiz();
+                    return;
+                }
+
+                const shapeContainer = document.getElementById('shapeContainer');
+                shapeContainer.innerHTML = '';
+                document.getElementById('nextBtn').disabled = true;
+                document.getElementById('feedback').className = 'feedback';
+                document.getElementById('feedback').textContent = '';
+
+                // Get random shapes for this question
+                const correctShape = shapes[Math.floor(Math.random() * shapes.length)];
+                const options = [correctShape];
+                while (options.length < 2) {
+                    const shape = shapes[Math.floor(Math.random() * shapes.length)];
+                    if (!options.includes(shape)) {
+                        options.push(shape);
+                    }
+                }
+
+                // Shuffle options
+                for (let i = options.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [options[i], options[j]] = [options[j], options[i]];
+                }
+
+                // Create shape options
+                options.forEach((shape, index) => {
+                    const option = document.createElement('div');
+                    option.className = 'shape-option';
+                    option.innerHTML = `<img src="shapes/${shape}.png" alt="${shape}">`;
+                    option.onclick = () => selectShape(option, shape === correctShape);
+                    shapeContainer.appendChild(option);
+                });
+
+                currentQuestion++;
+            }
+
+            function selectShape(selectedOption, isCorrect) {
+                const options = document.getElementsByClassName('shape-option');
+                Array.from(options).forEach(option => {
+                    option.classList.remove('selected');
+                    option.onclick = null;
+                });
+
+                selectedOption.classList.add('selected');
+                const feedback = document.getElementById('feedback');
+                
+                if (isCorrect) {
+                    currentScore++;
+                    feedback.textContent = 'Correct!';
+                    feedback.className = 'feedback correct';
+                } else {
+                    feedback.textContent = 'Incorrect!';
+                    feedback.className = 'feedback incorrect';
+                }
+
+                document.getElementById('score').textContent = `Score: ${currentScore}`;
+                document.getElementById('nextBtn').disabled = false;
+                document.getElementById('nextBtn').onclick = showNextQuestion;
+            }
+
+            async function endQuiz() {
+                clearInterval(timerInterval);
+                const totalTime = Math.floor((Date.now() - startTime) / 1000);
+                
+                document.getElementById('shapeContainer').style.display = 'none';
+                document.getElementById('nextBtn').style.display = 'none';
+                document.getElementById('feedback').style.display = 'none';
+                
+                const finalScore = document.getElementById('finalScore');
+                finalScore.textContent = `Final Score: ${currentScore}/${totalQuestions}\nTime: ${Math.floor(totalTime/60)}:${(totalTime%60).toString().padStart(2, '0')}`;
+                finalScore.style.display = 'block';
+
+                // Save results
+                try {
+                    const user = auth.currentUser;
+                    if (user) {
+                        const resultsRef = database.ref(`userProfiles/${user.uid}/quizResults`);
+                        await resultsRef.push({
+                            type: 'Shape Exercise',
+                            score: currentScore,
+                            totalQuestions: totalQuestions,
+                            timeSpent: totalTime,
+                            timestamp: firebase.database.ServerValue.TIMESTAMP
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error saving results:', error);
+                }
+            }
+        </script>
+    </div>
 </body>
 </html>
