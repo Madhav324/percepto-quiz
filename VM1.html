@@ -40,7 +40,7 @@
 
         .memory-images {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
+            grid-template-columns: repeat(6, 1fr);
             gap: 10px;
             padding: 15px;
             justify-content: center;
@@ -340,7 +340,7 @@
         <h1>Memory Challenge!</h1>
         
         <div id="instructionsDiv" class="instructions">
-            Remember these 5 images! They will disappear in <span id="timerDisplay">60</span> seconds.
+            Remember these 6 images! They will disappear in <span id="timerDisplay">60</span> seconds.
         </div>
         
         <div id="memoryImagesContainer" class="memory-images">
@@ -348,8 +348,8 @@
         </div>
         
         <div id="selectionInstructions" class="instructions" style="display: none;">
-            Select all 5 images that were shown earlier
-            <div><span id="foundCount">0</span>/5 found</div>
+            Select all 6 images that were shown earlier
+            <div><span id="foundCount">0</span>/6 found</div>
         </div>
         
         <div id="optionsContainer" class="options-container" style="display: none;">
@@ -491,7 +491,7 @@
             
             // Shuffle and select target images
             const shuffled = [...baseImages].sort(() => Math.random() - 0.5);
-            targetImages = shuffled.slice(0, 5);
+            targetImages = shuffled.slice(0, 6);
             
             // Create memory phase display
             memoryImagesContainer.innerHTML = '';
@@ -576,9 +576,9 @@
                 imgElement.classList.remove('selected');
                 selectedImages = selectedImages.filter(img => img !== imgSrc);
             } else {
-                // Don't allow selecting more than 5 images
-                if (selectedImages.length >= 5) {
-                    showFeedback('You can only select 5 images!', false);
+                // Don't allow selecting more than 6 images
+                if (selectedImages.length >= 6) {
+                    showFeedback('You can only select 6 images!', false);
                     return;
                 }
                 
@@ -593,8 +593,8 @@
         function updateFoundCount() {
             foundCountDisplay.textContent = selectedImages.length;
             
-            // Enable the check button only when exactly 5 images are selected
-            checkButton.disabled = selectedImages.length !== 5;
+            // Enable the check button only when exactly 6 images are selected
+            checkButton.disabled = selectedImages.length !== 6;
         }
 
         function checkAnswers() {
@@ -602,39 +602,45 @@
             let wrongSelections = [];
             
             // Count correct selections and identify wrong ones
-            selectedImages.forEach(selected => {
-                if (targetImages.includes(selected)) {
+            selectedImages.forEach(selectedImg => {
+                if (targetImages.includes(selectedImg)) {
                     correctCount++;
                 } else {
-                    wrongSelections.push(selected);
-                    incorrectPlacements++;
+                    wrongSelections.push(selectedImg);
                 }
             });
             
-            // Highlight correct and incorrect selections
+            // Highlight correct and incorrect answers
             document.querySelectorAll('.option-image').forEach(img => {
                 if (img.classList.contains('selected')) {
-                    const imgSrc = img.dataset.src;
-                    
-                    if (targetImages.includes(imgSrc)) {
+                    if (targetImages.includes(img.dataset.src)) {
                         img.classList.add('correct');
                     } else {
                         img.classList.add('incorrect');
+                        incorrectPlacements++;
                     }
                 }
                 
-                // Disable further selection
-                img.style.pointerEvents = 'none';
+                // Highlight missed targets in blue
+                if (targetImages.includes(img.dataset.src) && !selectedImages.includes(img.dataset.src)) {
+                    img.style.borderColor = '#2196F3';
+                    img.style.borderWidth = '3px';
+                }
             });
             
-            // Update incorrect count
+            // Update stats
             document.getElementById('incorrectPlacements').textContent = incorrectPlacements;
             
+            // Show feedback
+            const feedback = correctCount === 6 ? 'Perfect! All correct!' : 
+                             correctCount >= 4 ? 'Good job! You got most of them right.' : 
+                             'Try again to improve your memory.';
+            
             // Show result feedback
-            if (correctCount === 5) {
+            if (correctCount === 6) {
                 showFeedback('Perfect! All correct!', true);
             } else {
-                showFeedback(`${correctCount}/5 correct`, false);
+                showFeedback(`${correctCount}/6 correct`, false);
             }
             
             // Show start over button and hide check button
@@ -649,7 +655,7 @@
             // Update and show the new statistics
             document.getElementById('score').innerText = correctCount;
             document.getElementById('total-time').innerText = totalTime;
-            document.getElementById('avg-time').innerText = (totalTime / 5).toFixed(2);
+            document.getElementById('avg-time').innerText = (totalTime / 6).toFixed(2);
             document.getElementById('first-tap').innerText = firstTapTime ? firstTapTime.toFixed(2) : "N/A";
             document.getElementById('total-taps').innerText = totalTaps;
             document.getElementById('total-correct').innerText = correctCount;
@@ -662,7 +668,7 @@
             saveAttempt({
                 score: correctCount,
                 totalTime: totalTime,
-                avgTime: (totalTime / 5).toFixed(2),
+                avgTime: (totalTime / 6).toFixed(2),
                 firstTapTime: firstTapTime ? firstTapTime.toFixed(2) : "N/A",
                 totalTaps,
                 totalCorrectAnswers: correctCount,
