@@ -307,7 +307,7 @@
 
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
+        const database = getDatabase(app);
 
         const questions = [
             {
@@ -482,39 +482,41 @@
             if (!user) return;
             
             const timestamp = Date.now();
-            const results = {
-                score: score,
-                totalTime: totalTime,
-                averageTime: averageTime,
-                firstTapTime: firstTapTime,
-                totalTaps: totalTaps,
-                correctAnswers: correctAnswers,
-                incorrectAnswers: incorrectAnswers,
-                timestamp: timestamp
-            };
             
-            // Get the userRole from localStorage
-            const role = localStorage.getItem('userRole');
+            // Determine the correct path based on whether a doctor is viewing a patient's quiz
+            let savePath;
+            const administeredBy = {};
             
-            // Get URL parameters to check if a medical professional is administering the quiz to a patient
-            const urlParams = new URLSearchParams(window.location.search);
-            const patientId = urlParams.get('patientId');
-            
-            let dbPath = '';
-            
-            if (role === 'doctor' && patientId) {
-                // If a doctor is administering the quiz to a patient, store in the patient's record
-                dbPath = `quizAttempts2/${patientId}/${timestamp}`;
-                // Also store the doctor's ID who administered the test
-                results.administeredBy = user.uid;
+            if (viewingPatientId && doctorId) {
+                console.log(`Doctor ${doctorId} saving results for patient ${viewingPatientId}`);
+                // Doctor administering quiz to patient - save under patient's ID
+                savePath = `users/${viewingPatientId}/vdt2_attempts/${timestamp}`;
+                // Add doctor reference
+                administeredBy.doctorId = doctorId;
+                administeredBy.timestamp = timestamp;
             } else {
-                // Regular user/patient taking the quiz for themselves
-                dbPath = `quizAttempts2/${user.uid}/${timestamp}`;
+                console.log('User saving own results');
+                // Regular user taking the quiz - save under their own ID
+                savePath = `users/${user.uid}/vdt2_attempts/${timestamp}`;
             }
             
-            const resultsRef = ref(db, dbPath);
+            console.log(`Saving quiz results to path: ${savePath}`);
             
-            set(resultsRef, results)
+            // Construct the results object
+            const quizResults = {
+                score,
+                totalTime,
+                averageTime,
+                firstTapTime,
+                totalTaps,
+                correctAnswers,
+                incorrectAnswers,
+                timestamp,
+                ...administeredBy
+            };
+            
+            // Save to Firebase
+            set(ref(database, savePath), quizResults)
                 .then(() => {
                     console.log("Quiz results saved successfully!");
                 })
@@ -530,14 +532,21 @@
                 return;
             }
             
-            // Get URL parameters to check if viewing a patient's attempts
-            const urlParams = new URLSearchParams(window.location.search);
-            const patientId = urlParams.get('patientId');
+            let attemptsPath;
             
-            // Determine whose attempts to fetch
-            const targetUserId = patientId || user.uid;
+            // Determine the correct path based on whether a doctor is viewing a patient's quiz
+            if (viewingPatientId) {
+                console.log(`Fetching VDT2 attempts for patient ${viewingPatientId}`);
+                attemptsPath = `users/${viewingPatientId}/vdt2_attempts`;
+                // Add a visual indicator that doctor is viewing patient data
+                document.getElementById('report-container').classList.add('doctor-viewing');
+            } else {
+                console.log(`Fetching VDT2 attempts for user ${user.uid}`);
+                attemptsPath = `users/${user.uid}/vdt2_attempts`;
+            }
             
-            const attemptsRef = ref(db, `quizAttempts2/${targetUserId}`);
+            console.log(`Fetching attempts from path: ${attemptsPath}`);
+            const attemptsRef = ref(database, attemptsPath);
             
             get(attemptsRef)
                 .then(snapshot => {
@@ -546,7 +555,7 @@
                         const reportList = document.getElementById('report-list');
                         
                         // Clear the list and add appropriate heading
-                        if (patientId) {
+                        if (viewingPatientId) {
                             reportList.innerHTML = '<h3>Patient\'s Previous Attempts</h3>';
                             // Maybe add visual indicator for doctor viewing patient data
                             document.getElementById('report-container').classList.add('doctor-viewing');
@@ -665,39 +674,30 @@
         function clearReport() {
             const user = auth.currentUser;
             if (!user) {
-                console.log("No user is logged in.");
+                console.log("No user logged in.");
                 return;
             }
-            
-            // Get URL parameters to check if viewing a patient's attempts
-            const urlParams = new URLSearchParams(window.location.search);
-            const patientId = urlParams.get('patientId');
             
             // Determine whose attempts to clear
-            const targetUserId = patientId || user.uid;
+            let clearPath;
             
-            // Get user role to check permissions
-            const role = localStorage.getItem('userRole');
-            
-            // Only allow clearing if it's the user's own data or a doctor clearing a patient's data
-            if (targetUserId !== user.uid && role !== 'doctor') {
-                alert("You don't have permission to clear these reports.");
-                return;
-            }
-            
-            // Clear the report list from the frontend
-            const reportList = document.getElementById('report-list');
-            if (reportList) {
-                reportList.innerHTML = '<h3>' + (patientId ? 'Patient\'s Previous Attempts' : 'Your Previous Attempts') + '</h3>';
+            if (viewingPatientId && userRole === 'doctor') {
+                console.log(`Doctor ${user.uid} clearing reports for patient ${viewingPatientId}`);
+                clearPath = `users/${viewingPatientId}/vdt2_attempts`;
+            } else {
+                console.log(`User ${user.uid} clearing their own reports`);
+                clearPath = `users/${user.uid}/vdt2_attempts`;
             }
         
             // Reference to the Firebase Realtime Database where the attempts are stored
-            const attemptsRef = ref(db, `quizAttempts2/${targetUserId}`);
+            const attemptsRef = ref(database, clearPath);
         
             // Delete all the attempts associated with the target user in the database
             set(attemptsRef, null)
                 .then(() => {
-                    console.log("All attempts cleared from the database.");
+                    console.log("Reports cleared successfully.");
+                    // Clear the displayed reports
+                    document.getElementById('report-list').innerHTML = '<p>No previous attempts found.</p>';
                     alert("Reports cleared successfully.");
                 })
                 .catch((error) => {
@@ -711,6 +711,7 @@
         let currentUser = null;
         let userRole = null;
         let viewingPatientId = null;
+        let doctorId = null;
 
         // Check for user authentication state
         onAuthStateChanged(auth, (user) => {
@@ -718,6 +719,24 @@
                 currentUser = user;
                 // Check for userRole in localStorage
                 userRole = localStorage.getItem('userRole');
+                
+                // Get information from sessionStorage (from VDT.html flow)
+                const sessionPatientId = sessionStorage.getItem('currentPatientId');
+                doctorId = sessionStorage.getItem('doctorId');
+                
+                // Check URL parameters as a fallback
+                const urlParams = new URLSearchParams(window.location.search);
+                const urlPatientId = urlParams.get('patientId');
+                
+                // Determine which patient ID to use (prioritize session storage)
+                viewingPatientId = sessionPatientId || urlPatientId;
+                
+                console.log('Quiz context in VDT2:', { 
+                    userRole,
+                    viewingPatientId: viewingPatientId || 'none',
+                    doctorId: doctorId || 'none',
+                    from: sessionPatientId ? 'sessionStorage' : (urlPatientId ? 'urlParams' : 'direct')
+                });
                 
                 // Set profile icon with user initials
                 const profileIcon = document.getElementById('profileIcon');
@@ -734,10 +753,7 @@
                     }
                 }
                 
-                // Check if viewing a patient's profile
-                const urlParams = new URLSearchParams(window.location.search);
-                viewingPatientId = urlParams.get('patientId');
-                
+                // Handle doctor viewing patient case
                 if (viewingPatientId) {
                     console.log("Doctor viewing patient: " + viewingPatientId);
                     
