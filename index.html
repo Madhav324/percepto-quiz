@@ -6,18 +6,57 @@
     <title>Visual Perceptual Skills</title>
     <link rel="stylesheet" href="styles.css">
     <style>
-        /* Existing styles */
+        /* Reset and base styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
         
-        /* Profile Navigation Styles */
-        .nav-header {
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            text-align: center;
+            border-radius: 8px;
+            background-color: #fff;
+            box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 800px;
+            padding: 30px;
+            position: relative;
+        }
+
+        /* Header and profile styles */
+        .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 10px 20px;
-            background-color: #fff;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            position: relative;
         }
         
+        h1 {
+            font-size: 24px;
+            color: #333;
+            margin: 0;
+        }
+        
+        h2 {
+            font-size: 20px;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        
+        /* Profile Navigation Styles */
         .profile-nav {
             display: flex;
             align-items: center;
@@ -29,7 +68,7 @@
             width: 40px;
             height: 40px;
             border-radius: 50%;
-            background-color: #2196F3;
+            background-color: #4CAF50;
             color: white;
             display: flex;
             align-items: center;
@@ -37,337 +76,207 @@
             cursor: pointer;
             font-weight: bold;
             text-decoration: none;
-            transition: background-color 0.3s;
+            transition: all 0.3s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
         
         .profile-icon:hover {
-            background-color: #1976D2;
+            background-color: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
         }
         
         .user-info {
             display: flex;
             flex-direction: column;
             font-size: 14px;
+            text-align: left;
         }
         
-        .user-name {
+        #userName {
             font-weight: bold;
+            color: #333;
         }
         
-        .user-email {
+        #userEmail {
             color: #666;
             font-size: 12px;
         }
         
-        .nav-buttons {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-        
-        .nav-button {
-            padding: 10px 20px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-        }
-        
-        .nav-button:hover {
-            background-color: #45a049;
-        }
-        
-        .patients-button {
-            background-color: #2196F3;
-        }
-        
-        .patients-button:hover {
-            background-color: #1976D2;
-        }
-        
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f0f0f0;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background-color: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 20px;
-            margin: -20px -20px 20px -20px;
-            background-color: #f8f9fa;
-            border-radius: 8px 8px 0 0;
-            border-bottom: 1px solid #dee2e6;
-        }
-        .header h1 {
-            margin: 0;
-            color: #2c3e50;
-        }
-        .profile-nav {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        .user-info {
-            display: flex;
-            flex-direction: column;
-        }
-        .user-name {
-            font-weight: bold;
-            color: #333;
-            font-size: 16px;
-        }
-        .user-email {
-            color: #666;
-            font-size: 14px;
-        }
-        .dropdown-menu {
+        /* Profile Menu */
+        .profile-menu {
             position: absolute;
-            top: 100%;
+            top: 50px;
             right: 0;
             background-color: white;
             border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            min-width: 200px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            min-width: 180px;
+            z-index: 10;
             display: none;
-            z-index: 1000;
-            margin-top: 10px;
+            overflow: hidden;
         }
-        .dropdown-menu.show {
+        
+        .profile-menu.active {
             display: block;
-            animation: fadeIn 0.2s ease-out;
         }
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        .dropdown-menu::before {
-            content: '';
-            position: absolute;
-            top: -8px;
-            right: 18px;
-            border-left: 8px solid transparent;
-            border-right: 8px solid transparent;
-            border-bottom: 8px solid white;
-        }
-        .dropdown-item {
-            padding: 12px 20px;
+        
+        .menu-item {
+            padding: 12px 15px;
             display: flex;
             align-items: center;
             gap: 10px;
+            cursor: pointer;
+            transition: background-color 0.2s;
             color: #333;
             text-decoration: none;
-            transition: background-color 0.2s;
-            cursor: pointer;
         }
-        .dropdown-item:first-child {
-            border-radius: 8px 8px 0 0;
+        
+        .menu-item:hover {
+            background-color: #f5f5f5;
         }
-        .dropdown-item:last-child {
-            border-radius: 0 0 8px 8px;
-        }
-        .dropdown-item:hover {
-            background-color: #f8f9fa;
-        }
-        .dropdown-item i {
-            font-size: 18px;
-            color: #666;
-        }
+        
         .dropdown-divider {
             height: 1px;
             background-color: #e9ecef;
             margin: 0;
         }
-        h1, h2 {
-            text-align: center;
-            color: #2c3e50;
-            margin-bottom: 20px;
-        }
-        #quiz-type {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-top: 20px;
-        }
-        #quiz-type button {
-            padding: 15px;
-            border: none;
-            border-radius: 5px;
-            background-color: #4CAF50;
-            color: white;
-            cursor: pointer;
-            font-size: 16px;
-            transition: background-color 0.3s;
-        }
-        #quiz-type button:hover {
-            background-color: #45a049;
-        }
-        .report-button {
-            display: inline-block;
-            padding: 12px 24px;
-            background-color: #9c27b0;
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
-            margin-top: 20px;
-            font-size: 16px;
-            border: none;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        .report-button:hover {
-            background-color: #7b1fa2;
-        }
-        .report-section {
-            text-align: center;
-            margin: 20px 0;
-            padding: 20px;
-            background-color: #f8f9fa;
-            border-radius: 8px;
-        }
         
-        .profile-dropdown {
-            position: relative;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .user-name {
-            font-size: 16px;
-            color: #333;
-        }
-
-        .profile-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background-color: #4CAF50;
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            font-size: 20px;
-        }
-
-        .dropdown-content {
-            display: none;
-            position: absolute;
-            right: 0;
-            background-color: #f9f9f9;
-            min-width: 160px;
-            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
-            z-index: 1;
-            border-radius: 4px;
-        }
-
-        .dropdown-content a {
-            color: black;
-            padding: 12px 16px;
-            text-decoration: none;
-            display: block;
-        }
-
-        .dropdown-content a:hover {
-            background-color: #f1f1f1;
-            border-radius: 4px;
-        }
-
-        .profile-dropdown:hover .dropdown-content {
-            display: block;
-        }
-        
-        .doctor-message {
+        /* Quiz styles */
+        .quiz-container {
             text-align: center;
-            padding: 40px;
-            background-color: #f8f9fa;
-            border-radius: 8px;
-            margin: 20px auto;
-            max-width: 600px;
-        }
-
-        .doctor-message h2 {
-            color: #2196F3;
-            margin-bottom: 20px;
-        }
-
-        .doctor-message p {
-            color: #666;
-            margin-bottom: 30px;
-            font-size: 16px;
-            line-height: 1.5;
-        }
-
-        .primary-btn {
-            background-color: #4CAF50;
-            color: white;
-            padding: 12px 24px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-            transition: background-color 0.3s;
-        }
-
-        .primary-btn:hover {
-            background-color: #45a049;
+            padding: 20px 0;
         }
         
         .quiz-types {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
             gap: 15px;
+            width: 100%;
             margin-top: 20px;
         }
-
+        
         .quiz-button {
-            padding: 20px;
-            background-color: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
+            padding: 15px;
+            border: none;
+            background-color: #4CAF50;
+            color: white;
+            font-size: 16px;
             cursor: pointer;
-            font-size: 18px;
-            color: #212529;
-            transition: all 0.3s ease;
-            text-align: center;
+            border-radius: 8px;
+            width: 100%;
+            height: 80px;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 120px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-decoration: none;
         }
-
+        
         .quiz-button:hover {
-            background-color: #e9ecef;
+            background-color: #45a049;
             transform: translateY(-3px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
         }
-
-        .quiz-icon {
-            font-size: 32px;
-            margin-bottom: 10px;
+        
+        /* Form styles */
+        .form-container {
+            max-width: 400px;
+            margin: 0 auto;
+            text-align: left;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        input[type="text"],
+        input[type="email"],
+        input[type="password"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        
+        .primary-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        
+        .primary-btn:hover {
+            background-color: #45a049;
+        }
+        
+        /* Patients button */
+        #patientsBtn {
+            display: inline-flex;
+            align-items: center;
+            padding: 8px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-left: 15px;
+            gap: 8px;
+            transition: all 0.3s;
+        }
+        
+        #patientsBtn:hover {
+            background-color: #45a049;
+            transform: translateY(-2px);
+        }
+        
+        /* Error message */
+        .error-message {
+            color: #d9534f;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+        
+        /* Next button */
+        #next-button {
+            display: none;
+        }
+        
+        /* Result container */
+        #result-container h2 {
+            color: #333;
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+            
+            .header {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .quiz-types {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
