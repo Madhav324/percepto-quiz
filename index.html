@@ -421,15 +421,19 @@
             // Quiz state
             let userEmail = '';
             let currentPatientId = null;
+            let doctorId = null;
             let isPatientQuiz = false;
 
             // Load quiz state
-            function loadQuizState() {
-                currentPatientId = localStorage.getItem('currentPatientId');
-                isPatientQuiz = localStorage.getItem('isPatientQuiz') === 'true';
-                
-                if (isPatientQuiz && currentPatientId) {
-                    document.querySelector('.nav-buttons').style.display = 'none';
+            async function loadQuizState() {
+                currentPatientId = sessionStorage.getItem('currentPatientId');
+                doctorId = sessionStorage.getItem('doctorId');
+                isPatientQuiz = !!currentPatientId;
+
+                if (isPatientQuiz && !doctorId) {
+                    console.error('Doctor ID not found for patient quiz');
+                    window.location.href = 'patients.html';
+                    return;
                 }
             }
 
@@ -438,26 +442,85 @@
                 const user = auth.currentUser;
                 if (!user) return;
 
+                const timestamp = new Date().toISOString();
                 const resultData = {
-                    type: quizType,
-                    score: score,
-                    details: details,
-                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                    score,
+                    timestamp,
+                    details
                 };
 
                 try {
-                    if (isPatientQuiz && currentPatientId) {
-                        // Save under doctor's patient
-                        await database.ref(`doctors/${user.uid}/patients/${currentPatientId}/quizResults`).push(resultData);
-                        // Clear patient quiz flags after saving
-                        localStorage.removeItem('currentPatientId');
-                        localStorage.removeItem('isPatientQuiz');
+                    if (isPatientQuiz && currentPatientId && doctorId) {
+                        // Save to patient's quiz results
+                        await database.ref(`doctors/${doctorId}/patients/${currentPatientId}/quiz/${quizType}/${timestamp}`).set(resultData);
                     } else {
-                        // Save to user's results
-                        await database.ref(`userResults/${user.uid}`).push(resultData);
+                        // Get user role
+                        const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                        const role = roleSnapshot.val();
+                        // Save to user's quiz results
+                        await database.ref(`${role}s/${user.uid}/quiz/${quizType}/${timestamp}`).set(resultData);
                     }
+                    showError('Quiz result saved successfully!', true);
                 } catch (error) {
                     console.error('Error saving quiz result:', error);
+                    showError('Failed to save quiz result');
+                }
+            }
+
+            // Logout function
+            function logout() {
+                // Clear all session data
+                sessionStorage.clear();
+                
+                if (isPatientQuiz) {
+                    window.location.href = 'patients.html';
+                } else {
+                    auth.signOut().then(() => {
+                        console.log('Logged out successfully');
+                        window.location.href = 'login.html';
+                    }).catch((error) => {
+                        console.error('Logout error:', error);
+                    });
+                }
+            }
+
+            // View report function
+            async function viewReport() {
+                const user = auth.currentUser;
+                if (!user) {
+                    showError('Not signed in');
+                    return;
+                }
+
+                try {
+                    if (isPatientQuiz && currentPatientId && doctorId) {
+                        // Check patient's quiz results
+                        const resultsRef = database.ref(`doctors/${doctorId}/patients/${currentPatientId}/quiz`);
+                        const resultsSnap = await resultsRef.once('value');
+                        
+                        if (!resultsSnap.exists()) {
+                            showError('No quiz results found yet. Take a quiz first!');
+                            return;
+                        }
+                    } else {
+                        // Get user role
+                        const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                        const role = roleSnapshot.val();
+                        // Check user's quiz results
+                        const resultsRef = database.ref(`${role}s/${user.uid}/quiz`);
+                        const resultsSnap = await resultsRef.once('value');
+                        
+                        if (!resultsSnap.exists()) {
+                            showError('No quiz results found yet. Take a quiz first!');
+                            return;
+                        }
+                    }
+
+                    // If we have results, go to report page
+                    window.location.href = 'report.html';
+                } catch (error) {
+                    console.error('Error checking results:', error);
+                    showError('Failed to load report. Please try again.');
                 }
             }
 
@@ -472,9 +535,13 @@
                     try {
                         let profileRef;
                         if (isPatientQuiz && currentPatientId) {
-                            profileRef = database.ref(`doctors/${user.uid}/patients/${currentPatientId}`);
+                            // If accessing as a patient, get patient's profile
+                            profileRef = database.ref(`doctors/${doctorId}/patients/${currentPatientId}/profile`);
                         } else {
-                            profileRef = database.ref(`userProfiles/${user.uid}`);
+                            // Get role to determine path
+                            const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                            const role = roleSnapshot.val();
+                            profileRef = database.ref(`${role}s/${user.uid}/profile`);
                         }
                         
                         const snapshot = await profileRef.once('value');
@@ -495,66 +562,6 @@
                 }
             });
 
-            // Logout function
-            function logout() {
-                const isPatientQuiz = localStorage.getItem('isPatientQuiz') === 'true';
-                
-                // Clear all session data
-                localStorage.removeItem('currentPatientId');
-                localStorage.removeItem('isPatientQuiz');
-                localStorage.removeItem('isPatientProfile');
-                
-                if (isPatientQuiz) {
-                    window.location.href = 'patients.html';
-                } else {
-                    auth.signOut().then(() => {
-                        console.log('Logged out successfully');
-                        window.location.href = 'login.html';
-                    }).catch((error) => {
-                        console.error('Logout error:', error);
-                    });
-                }
-            }
-
-            // View report function
-            async function viewReport() {
-                const user = auth.currentUser;
-                const isPatientQuiz = localStorage.getItem('isPatientQuiz') === 'true';
-                const currentPatientId = localStorage.getItem('currentPatientId');
-
-                try {
-                    if (!user) throw new Error('Not signed in');
-
-                    // For patient quiz, check if results exist
-                    if (isPatientQuiz && currentPatientId) {
-                        const doctorId = user.uid;
-                        const resultsRef = database.ref(`doctors/${doctorId}/patients/${currentPatientId}/quizResults`);
-                        const resultsSnap = await resultsRef.once('value');
-                        
-                        if (!resultsSnap.exists()) {
-                            showError('No quiz results found yet. Take a quiz first!');
-                            return;
-                        }
-                    } else {
-                        // For regular user, check their results
-                        const resultsRef = database.ref(`userProfiles/${user.uid}/quizResults`);
-                        const resultsSnap = await resultsRef.once('value');
-                        
-                        if (!resultsSnap.exists()) {
-                            showError('No quiz results found yet. Take a quiz first!');
-                            return;
-                        }
-                    }
-
-                    // If we have results, go to report page
-                    window.location.href = 'report.html';
-                } catch (error) {
-                    console.error('Error checking results:', error);
-                    showError('Failed to load report. Please try again.');
-                }
-            }
-        </script>
-        <script>
             // Initialize profile icon and name
             async function initializeProfileIcon() {
                 const user = auth.currentUser;
