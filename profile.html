@@ -196,24 +196,20 @@
 
             showLoading(true);
             try {
-                // First check if user has any existing roles
-                const userRef = database.ref(`users/${user.uid}`);
-                const doctorRef = database.ref(`doctors/${user.uid}`);
-                
-                const [userSnapshot, doctorSnapshot] = await Promise.all([
-                    userRef.once('value'),
-                    doctorRef.once('value')
-                ]);
+                // First check current role
+                const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                const currentRole = roleSnapshot.val();
 
+                // Check both user and doctor profiles
+                const userSnapshot = await database.ref(`users/${user.uid}/profile`).once('value');
+                const doctorSnapshot = await database.ref(`doctors/${user.uid}/profile`).once('value');
                 const userData = userSnapshot.val();
                 const doctorData = doctorSnapshot.val();
 
-                // Pre-fill form with existing data if available
-                if (userData?.profile || doctorData?.profile) {
-                    // Use doctor data if it exists and checkbox is checked, otherwise use user data
-                    const isDoctor = document.getElementById('isDoctor').checked;
-                    const data = (isDoctor && doctorData?.profile) ? doctorData.profile : userData?.profile;
-                    
+                // Pre-fill form with existing data based on current role
+                if (currentRole) {
+                    const data = currentRole === 'doctor' ? doctorData : userData;
+                    document.getElementById('isDoctor').checked = currentRole === 'doctor';
                     if (data) {
                         document.getElementById('name').value = data.name || '';
                         document.getElementById('age').value = data.age || '';
@@ -221,12 +217,27 @@
                         document.getElementById('medicalCondition').value = data.medicalCondition || '';
                         document.getElementById('doctorRecommendation').value = data.doctorRecommendation || '';
                     }
+                } else if (userData || doctorData) {
+                    // If no role set but profile exists, use the existing profile
+                    const data = userData || doctorData;
+                    document.getElementById('name').value = data.name || '';
+                    document.getElementById('age').value = data.age || '';
+                    document.getElementById('gender').value = data.gender || '';
+                    document.getElementById('medicalCondition').value = data.medicalCondition || '';
+                    document.getElementById('doctorRecommendation').value = data.doctorRecommendation || '';
+                    document.getElementById('isDoctor').checked = !!doctorData;
+                    
+                    // Set initial role
+                    const initialRole = doctorData ? 'doctor' : 'user';
+                    await database.ref(`roles/${user.uid}`).set(initialRole);
                 } else {
                     // If no profile exists, try to get name from Google
                     const displayName = user.displayName;
                     if (displayName) {
                         document.getElementById('name').value = displayName;
                     }
+                    // Set default role as user
+                    await database.ref(`roles/${user.uid}`).set('user');
                 }
             } catch (error) {
                 console.error('Error loading profile:', error);
@@ -256,20 +267,13 @@
             };
 
             try {
-                // Save profile data to the appropriate path
+                // Update role first
+                const newRole = isDoctor ? 'doctor' : 'user';
+                await database.ref(`roles/${user.uid}`).set(newRole);
+
+                // Save to the appropriate path based on current role
                 const path = isDoctor ? `doctors/${user.uid}/profile` : `users/${user.uid}/profile`;
                 await database.ref(path).set(profileData);
-
-                // Update the UIDs
-                if (isDoctor) {
-                    // Set doctor_uid and remove user_uid if exists
-                    await database.ref(`users/${user.uid}/doctor_uid`).set(user.uid);
-                    await database.ref(`users/${user.uid}/user_uid`).remove();
-                } else {
-                    // Set user_uid and remove doctor_uid if exists
-                    await database.ref(`users/${user.uid}/user_uid`).set(user.uid);
-                    await database.ref(`users/${user.uid}/doctor_uid`).remove();
-                }
 
                 showError('Profile saved successfully!', true);
                 
@@ -286,21 +290,25 @@
             }
         }
 
+        // Role change handler
+        document.getElementById('isDoctor').addEventListener('change', async (e) => {
+            const user = auth.currentUser;
+            if (!user) return;
+
+            const newRole = e.target.checked ? 'doctor' : 'user';
+            try {
+                await database.ref(`roles/${user.uid}`).set(newRole);
+                loadProfileData();
+            } catch (error) {
+                console.error('Error updating role:', error);
+                showError('Error updating role');
+            }
+        });
+
         // Auth state observer
-        auth.onAuthStateChanged(async user => {
+        auth.onAuthStateChanged(user => {
             if (user) {
                 document.getElementById('userEmail').textContent = user.email;
-                
-                // Check for existing role
-                const userRef = database.ref(`users/${user.uid}`);
-                const snapshot = await userRef.once('value');
-                const userData = snapshot.val();
-                
-                // Set checkbox based on existing role
-                if (userData) {
-                    document.getElementById('isDoctor').checked = !!userData.doctor_uid;
-                }
-                
                 loadProfileData();
             } else {
                 window.location.href = 'login.html';
@@ -309,7 +317,6 @@
 
         // Event listeners
         document.getElementById('profileForm').addEventListener('submit', saveProfile);
-        document.getElementById('isDoctor').addEventListener('change', loadProfileData);
     </script>
 </body>
 </html>
