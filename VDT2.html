@@ -489,15 +489,19 @@
             
             if (viewingPatientId && doctorId) {
                 console.log(`Doctor ${doctorId} saving results for patient ${viewingPatientId}`);
-                // Doctor administering quiz to patient - save under patient's ID
-                savePath = `users/${viewingPatientId}/vdt2_attempts/${timestamp}`;
+                // Doctor administering quiz to patient - save under patient's ID in the doctors path
+                savePath = `doctors/${doctorId}/patients/${viewingPatientId}/quiz/VDT2`;
                 // Add doctor reference
                 administeredBy.doctorId = doctorId;
                 administeredBy.timestamp = timestamp;
             } else {
                 console.log('User saving own results');
                 // Regular user taking the quiz - save under their own ID
-                savePath = `users/${user.uid}/vdt2_attempts/${timestamp}`;
+                if (userRole === 'doctor') {
+                    savePath = `doctors/${user.uid}/quiz/VDT2`;
+                } else {
+                    savePath = `users/${user.uid}/quiz/VDT2`;
+                }
             }
             
             console.log(`Saving quiz results to path: ${savePath}`);
@@ -535,14 +539,20 @@
             let attemptsPath;
             
             // Determine the correct path based on whether a doctor is viewing a patient's quiz
-            if (viewingPatientId) {
+            if (viewingPatientId && doctorId) {
                 console.log(`Fetching VDT2 attempts for patient ${viewingPatientId}`);
-                attemptsPath = `users/${viewingPatientId}/vdt2_attempts`;
+                attemptsPath = `doctors/${doctorId}/patients/${viewingPatientId}/quiz/VDT2`;
                 // Add a visual indicator that doctor is viewing patient data
                 document.getElementById('report-container').classList.add('doctor-viewing');
             } else {
-                console.log(`Fetching VDT2 attempts for user ${user.uid}`);
-                attemptsPath = `users/${user.uid}/vdt2_attempts`;
+                // Regular user
+                if (userRole === 'doctor') {
+                    console.log(`Fetching doctor's own quiz results: ${user.uid}`);
+                    attemptsPath = `doctors/${user.uid}/quiz/VDT2`;
+                } else {
+                    console.log(`Fetching regular user quiz results: ${user.uid}`);
+                    attemptsPath = `users/${user.uid}/quiz/VDT2`;
+                }
             }
             
             console.log(`Fetching attempts from path: ${attemptsPath}`);
@@ -681,13 +691,21 @@
             // Determine whose attempts to clear
             let clearPath;
             
-            if (viewingPatientId && userRole === 'doctor') {
+            if (viewingPatientId && doctorId && userRole === 'doctor') {
                 console.log(`Doctor ${user.uid} clearing reports for patient ${viewingPatientId}`);
-                clearPath = `users/${viewingPatientId}/vdt2_attempts`;
+                clearPath = `doctors/${doctorId}/patients/${viewingPatientId}/quiz/VDT2`;
             } else {
-                console.log(`User ${user.uid} clearing their own reports`);
-                clearPath = `users/${user.uid}/vdt2_attempts`;
+                // Regular user
+                if (userRole === 'doctor') {
+                    console.log(`Doctor clearing own quiz results: ${user.uid}`);
+                    clearPath = `doctors/${user.uid}/quiz/VDT2`;
+                } else {
+                    console.log(`Regular user clearing quiz results: ${user.uid}`);
+                    clearPath = `users/${user.uid}/quiz/VDT2`;
+                }
             }
+            
+            console.log(`Clearing attempts from path: ${clearPath}`);
         
             // Reference to the Firebase Realtime Database where the attempts are stored
             const attemptsRef = ref(database, clearPath);
@@ -714,11 +732,9 @@
         let doctorId = null;
 
         // Check for user authentication state
-        onAuthStateChanged(auth, (user) => {
+        onAuthStateChanged(auth, async (user) => {
             if (user) {
                 currentUser = user;
-                // Check for userRole in localStorage
-                userRole = localStorage.getItem('userRole');
                 
                 // Get information from sessionStorage (from VDT.html flow)
                 const sessionPatientId = sessionStorage.getItem('currentPatientId');
@@ -730,6 +746,31 @@
                 
                 // Determine which patient ID to use (prioritize session storage)
                 viewingPatientId = sessionPatientId || urlPatientId;
+                
+                // Properly determine user role from Firebase database instead of localStorage
+                try {
+                    // Check if this is a patient quiz (doctor viewing patient)
+                    if (viewingPatientId && doctorId) {
+                        // This is a doctor testing a patient
+                        console.log(`Doctor ${doctorId} administering quiz to patient ${viewingPatientId}`);
+                        userRole = 'doctor';
+                    } else {
+                        // Regular user quiz - check database for role
+                        const roleRef = ref(database, `roles/${user.uid}`);
+                        const roleSnapshot = await get(roleRef);
+                        
+                        if (roleSnapshot.exists()) {
+                            userRole = roleSnapshot.val();
+                            console.log(`User role from database: ${userRole}`);
+                        } else {
+                            userRole = 'user';
+                            console.log('No role found, defaulting to user');
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error determining user role:', error);
+                    userRole = 'user'; // Default
+                }
                 
                 console.log('Quiz context in VDT2:', { 
                     userRole,
