@@ -295,7 +295,7 @@
 </head>
 <body>
     <div class="game-container">
-        <h1>Remember and Find the Object!</h1>
+        <h1>Find the Object!</h1>
         
         <div class="question-section">
             <img id="questionImage" class="question-image" src="" alt="Question Image" style="cursor: pointer;">
@@ -373,6 +373,7 @@
         let firstTapTime;
         let score = 0;
         let incorrectAnswers = 0;
+        let attemptsPerQuestion = 0; // Track attempts for each question
 
         const baseImages = [
             'images/VN/candy.png',
@@ -479,11 +480,34 @@
                 imgElement.classList.add('incorrect');
                 showFeedback(false);
                 setTimeout(() => imgElement.classList.remove('incorrect'), 300);
+                
+                // Increment attempts counter
+                attemptsPerQuestion++;
+                
+                // Check if we've reached the maximum allowed attempts (3)
+                if (attemptsPerQuestion >= 3) {
+                    setTimeout(() => {
+                        alert('Maximum attempts reached. Moving to next item.');
+                        // Reset attempts for next question
+                        attemptsPerQuestion = 0;
+                        
+                        // Move to next question or show results
+                        if (foundCount >= 1) {
+                            // Show the statistics container
+                            document.getElementById('statsContainer').style.display = 'block';
+                            showResults();
+                        } else {
+                            foundCount++;
+                            startNewRound();
+                        }
+                    }, 500);
+                }
             }
         }
 
         function startNewRound() {
             foundCount = 0;
+            attemptsPerQuestion = 0; // Reset attempts counter for new question
             selectRandomQuestion();
             questionImage.style.display = 'block';
             optionsContainer.style.display = 'none';
