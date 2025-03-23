@@ -279,6 +279,12 @@
             text-align: center;
             margin-bottom: 20px;
         }
+        
+        .user-name {
+            font-size: 16px;
+            color: #333;
+            margin-right: 10px;
+        }
     </style>
 </head>
 <body>
@@ -286,6 +292,7 @@
         <div class="header">
             <h1>Percepto Quiz</h1>
             <div class="profile-dropdown">
+                <span id="userName" class="user-name">User</span>
                 <div class="profile-icon" id="profileIcon">P</div>
                 <div class="profile-menu" id="profileMenu">
                     <a href="#" onclick="editProfile()">Profile</a>
@@ -598,92 +605,95 @@
                 const user = auth.currentUser;
                 if (!user) return;
                 
-                console.log('Initializing profile icon for user:', user.uid);
-
                 try {
+                    let profile;
+                    let userDisplayName;
+                    let initial = 'U';
+                    
+                    // Check if this is a patient quiz
                     const currentPatientId = sessionStorage.getItem('currentPatientId');
                     const doctorId = sessionStorage.getItem('doctorId');
+                    const isPatientQuiz = !!currentPatientId;
                     
-                    let displayName = '';
-                    let initial = '';
-                    let roleText = '';
-                    
-                    if (currentPatientId && doctorId) {
-                        // Doctor testing a patient
-                        console.log(`Loading patient profile - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
+                    if (isPatientQuiz) {
+                        // Doctor viewing patient
+                        console.log(`Loading patient profile: ${currentPatientId}`);
                         const patientSnapshot = await database.ref(`doctors/${doctorId}/patients/${currentPatientId}/profile`).once('value');
-                        const patientProfile = patientSnapshot.val();
+                        profile = patientSnapshot.val();
                         
-                        if (patientProfile && patientProfile.name) {
-                            displayName = patientProfile.name;
-                            initial = displayName.charAt(0).toUpperCase();
-                            roleText = 'Patient';
-                            
-                            // Show patient context indicator
-                            document.getElementById('userName').innerHTML = `${displayName} <span style="font-size:12px;color:#6c757d;">(Patient)</span>`;
+                        if (profile && profile.name) {
+                            userDisplayName = profile.name + " (Patient)";
+                            initial = profile.name.charAt(0).toUpperCase();
+                        } else {
+                            userDisplayName = "Patient";
+                            initial = "P";
                         }
                     } else {
                         // Get user role
                         const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
                         const role = roleSnapshot.val() || 'user';
                         
-                        // Get profile based on role
-                        const profileRef = database.ref(`${role}s/${user.uid}/profile`);
-                        const profileSnapshot = await profileRef.once('value');
-                        const profile = profileSnapshot.val();
-                        
-                        if (profile && profile.name) {
-                            displayName = profile.name;
-                            roleText = role === 'doctor' ? 'Dr.' : '';
-                        } else if (user.displayName) {
-                            displayName = user.displayName;
-                        } else {
-                            displayName = user.email.split('@')[0];
-                        }
-                        
-                        initial = displayName.charAt(0).toUpperCase();
-                        
-                        // Update UI with user info
-                        document.getElementById('userName').innerHTML = `${roleText} ${displayName}`;
-                        
-                        // Show/hide patients button for doctors
                         if (role === 'doctor') {
-                            document.getElementById('patientsBtn').style.display = 'inline-flex';
+                            // Doctor
+                            console.log('Loading doctor profile');
+                            const doctorSnapshot = await database.ref(`doctors/${user.uid}/profile`).once('value');
+                            profile = doctorSnapshot.val();
+                            
+                            if (profile && profile.name) {
+                                userDisplayName = "Dr. " + profile.name;
+                                initial = profile.name.charAt(0).toUpperCase();
+                            } else {
+                                userDisplayName = "Doctor";
+                                initial = "D";
+                            }
                         } else {
-                            document.getElementById('patientsBtn').style.display = 'none';
+                            // Regular user
+                            console.log('Loading user profile');
+                            const userSnapshot = await database.ref(`users/${user.uid}/profile`).once('value');
+                            profile = userSnapshot.val();
+                            
+                            if (profile && profile.name) {
+                                userDisplayName = profile.name;
+                                initial = profile.name.charAt(0).toUpperCase();
+                            } else if (user.email) {
+                                userDisplayName = user.email.split('@')[0];
+                                initial = user.email.charAt(0).toUpperCase();
+                            }
                         }
                     }
                     
-                    // Update profile icon with initial
+                    // Set profile icon and user name
                     const profileIcon = document.getElementById('profileIcon');
                     if (profileIcon) {
                         profileIcon.textContent = initial;
                     }
                     
-                    // Update email display if available
-                    const userEmail = document.getElementById('userEmail');
-                    if (userEmail) {
-                        userEmail.textContent = user.email;
+                    const userName = document.getElementById('userName');
+                    if (userName) {
+                        userName.textContent = userDisplayName;
                     }
                     
-                    console.log(`Profile icon updated: ${initial} for ${displayName}`);
-                } catch (error) {
-                    console.error('Error initializing profile:', error);
+                    // Enable correct UI elements based on role
+                    const quizContainer = document.getElementById('quizContainer');
+                    if (quizContainer) {
+                        quizContainer.style.display = 'block';
+                    }
                     
-                    // Fallback display
+                    const doctorMessage = document.getElementById('doctorMessage');
+                    if (doctorMessage) {
+                        doctorMessage.style.display = 'none';
+                    }
+                } catch (error) {
+                    console.error('Error in profile initialization:', error);
+                    
                     const profileIcon = document.getElementById('profileIcon');
                     if (profileIcon) {
-                        profileIcon.textContent = user.email.charAt(0).toUpperCase();
+                        profileIcon.textContent = user.email ? user.email.charAt(0).toUpperCase() : 'U';
                     }
                     
                     const userName = document.getElementById('userName');
                     if (userName) {
-                        userName.textContent = user.email.split('@')[0];
-                    }
-                    
-                    const userEmail = document.getElementById('userEmail');
-                    if (userEmail) {
-                        userEmail.textContent = user.email;
+                        userName.textContent = user.email ? user.email.split('@')[0] : 'User';
                     }
                 }
             }

@@ -179,14 +179,31 @@
         
         .attempt-date {
             font-weight: bold;
+            margin-bottom: 8px;
         }
         
         .attempt-score {
             color: #666;
+            margin-bottom: 5px;
         }
         
-        .attempt-time {
+        .attempt-details {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 5px;
+            margin-top: 10px;
             color: #666;
+            font-size: 14px;
+        }
+        
+        .attempt-detail-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+        }
+        
+        .detail-label {
+            font-weight: bold;
         }
     </style>
 </head>
@@ -505,7 +522,7 @@
                     // Regular user quiz
                     // Check if user is a doctor
                     const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
-                    const role = roleSnapshot.val() || 'user';
+                    const role = roleSnapshot.val();
                     
                     if (role === 'doctor') {
                         console.log(`Fetching doctor's own quiz results: ${user.uid}`);
@@ -550,8 +567,33 @@
                             attemptItem.className = 'attempt-item';
                             attemptItem.innerHTML = `
                                 <div class="attempt-date">${formattedDate}</div>
-                                <div class="attempt-score">Score: ${result.score}</div>
-                                <div class="attempt-time">Time: ${result.totalTime}s</div>
+                                <div class="attempt-score">Score: ${result.score}/${questions.length}</div>
+                                <div class="attempt-details">
+                                    <div class="attempt-detail-item">
+                                        <span class="detail-label">Total Time:</span>
+                                        <span>${result.totalTime}s</span>
+                                    </div>
+                                    <div class="attempt-detail-item">
+                                        <span class="detail-label">Avg Time:</span>
+                                        <span>${result.averageTime}s</span>
+                                    </div>
+                                    <div class="attempt-detail-item">
+                                        <span class="detail-label">First Tap:</span>
+                                        <span>${result.firstTapTime ? result.firstTapTime.toFixed(2) + 's' : 'N/A'}</span>
+                                    </div>
+                                    <div class="attempt-detail-item">
+                                        <span class="detail-label">Total Taps:</span>
+                                        <span>${result.totalTaps || 'N/A'}</span>
+                                    </div>
+                                    <div class="attempt-detail-item">
+                                        <span class="detail-label">Correct:</span>
+                                        <span>${result.correctAnswers || result.score}</span>
+                                    </div>
+                                    <div class="attempt-detail-item">
+                                        <span class="detail-label">Incorrect:</span>
+                                        <span>${result.incorrectAnswers || 'N/A'}</span>
+                                    </div>
+                                </div>
                             `;
                             reportList.appendChild(attemptItem);
                         });
@@ -618,8 +660,11 @@
 
         async function clearReport() {
             const user = auth.currentUser;
-            if (!user) return;
-            
+            if (!user) {
+                alert('You need to be logged in to clear the report.');
+                return;
+            }
+
             try {
                 let path;
                 
@@ -629,27 +674,36 @@
                 
                 if (currentPatientId && doctorId) {
                     // This is a doctor testing a patient
+                    console.log(`Clearing patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
                     path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/VDT1`;
                 } else {
                     // Regular user quiz
                     // Check if user is a doctor
                     const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
-                    const role = roleSnapshot.val() || 'user';
+                    const role = roleSnapshot.val();
                     
                     if (role === 'doctor') {
+                        console.log(`Clearing doctor's own quiz results: ${user.uid}`);
                         path = `doctors/${user.uid}/quiz/VDT1`;
                     } else {
+                        console.log(`Clearing regular user quiz results: ${user.uid}`);
                         path = `users/${user.uid}/quiz/VDT1`;
                     }
                 }
                 
-                console.log(`Clearing reports from path: ${path}`);
+                console.log(`Removing all quiz results from path: ${path}`);
+                
+                // Remove all data at the specified path
                 await database.ref(path).remove();
+                
+                // Reset the results display
                 document.getElementById('report-list').innerHTML = '<h3>Previous Attempts</h3><p>No previous attempts found.</p>';
-                alert('Reports cleared successfully!');
+                
+                alert('All quiz reports have been cleared successfully.');
+                
             } catch (error) {
-                console.error('Error clearing reports:', error);
-                alert('Error clearing reports. Please try again.');
+                console.error('Error clearing report:', error);
+                alert('Failed to clear the report: ' + error.message);
             }
         }
     </script>
