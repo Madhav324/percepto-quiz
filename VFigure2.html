@@ -374,6 +374,7 @@
         let score = 0;
         let incorrectAnswers = 0;
         let attemptsPerQuestion = 0; // Track attempts for each question
+        let failedObjects = 0; // Track how many objects have been failed completely
 
         const baseImages = [
             'images/VN/candy.png',
@@ -470,7 +471,7 @@
                         alert('Congratulations!');
                         // Show the statistics container
                         document.getElementById('statsContainer').style.display = 'block';
-                        showResults();
+                        showResults(false);
                     }, 500);
                 }
             } else {
@@ -486,7 +487,19 @@
                 
                 // Check if we've reached the maximum allowed attempts (3)
                 if (attemptsPerQuestion >= 3) {
+                    // This object has been failed completely
+                    failedObjects++;
+                    
                     setTimeout(() => {
+                        // Check if we've reached the maximum failed objects limit (3)
+                        if (failedObjects >= 3) {
+                            alert('Quiz ended. Too many incorrect answers.');
+                            // Show the statistics container with N/A values
+                            document.getElementById('statsContainer').style.display = 'block';
+                            showResults(true);
+                            return;
+                        }
+                        
                         alert('Maximum attempts reached. Moving to next item.');
                         // Reset attempts for next question
                         attemptsPerQuestion = 0;
@@ -495,7 +508,7 @@
                         if (foundCount >= 1) {
                             // Show the statistics container
                             document.getElementById('statsContainer').style.display = 'block';
-                            showResults();
+                            showResults(false);
                         } else {
                             foundCount++;
                             startNewRound();
@@ -520,29 +533,41 @@
             displayOptions();
         }
 
-        function showResults() {
+        function showResults(failed) {
             const totalEndTime = Date.now();
             const totalTimeInSeconds = ((totalEndTime - totalStartTime) / 1000).toFixed(2);
             const averageTimeInSeconds = (totalTimeInSeconds / 12).toFixed(2);
             
-            document.getElementById('score').innerText = score;
-            document.getElementById('total-time').innerText = totalTimeInSeconds;
-            document.getElementById('avg-time').innerText = averageTimeInSeconds;
-            document.getElementById('first-tap').innerText = firstTapTime ? firstTapTime.toFixed(2) : "N/A";
-            document.getElementById('total-taps').innerText = totalTaps;
-            document.getElementById('total-correct').innerText = score;
-            document.getElementById('total-incorrect').innerText = incorrectAnswers;
+            // If quiz was failed (3 objects failed), set results to N/A
+            if (failed) {
+                document.getElementById('score').innerText = "N/A";
+                document.getElementById('total-time').innerText = totalTimeInSeconds;
+                document.getElementById('avg-time').innerText = "N/A";
+                document.getElementById('first-tap').innerText = firstTapTime ? firstTapTime.toFixed(2) : "N/A";
+                document.getElementById('total-taps').innerText = totalTaps;
+                document.getElementById('total-correct').innerText = "N/A";
+                document.getElementById('total-incorrect').innerText = incorrectAnswers;
+            } else {
+                document.getElementById('score').innerText = score;
+                document.getElementById('total-time').innerText = totalTimeInSeconds;
+                document.getElementById('avg-time').innerText = averageTimeInSeconds;
+                document.getElementById('first-tap').innerText = firstTapTime ? firstTapTime.toFixed(2) : "N/A";
+                document.getElementById('total-taps').innerText = totalTaps;
+                document.getElementById('total-correct').innerText = score;
+                document.getElementById('total-incorrect').innerText = incorrectAnswers;
+            }
 
             document.getElementById('result-container').style.display = 'block';
             document.getElementById('report-container').style.display = 'flex';
             
             saveAttempt({
-                score,
+                score: failed ? "N/A" : score,
                 totalTime: totalTimeInSeconds,
-                avgTime: averageTimeInSeconds,
+                avgTime: failed ? "N/A" : averageTimeInSeconds,
                 firstTapTime: firstTapTime ? firstTapTime.toFixed(2) : "N/A",
                 totalTaps,
                 totalIncorrectAnswers: incorrectAnswers,
+                failedQuiz: failed,
                 timestamp: Date.now()
             });
         }
@@ -609,6 +634,7 @@
 
         // Start the game immediately and set up click handler
         window.onload = () => {
+            failedObjects = 0;
             startNewRound();
             questionImage.onclick = showOptions;
         };
