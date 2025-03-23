@@ -249,7 +249,14 @@
         
         .profile-dropdown {
             position: relative;
-            display: inline-block;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-name {
+            font-size: 16px;
+            color: #333;
         }
 
         .profile-icon {
@@ -298,6 +305,7 @@
         <div class="header">
             <h1>Percepto Quiz</h1>
             <div class="profile-dropdown">
+                <span class="user-name" id="userName">Loading...</span>
                 <div class="profile-icon" id="profileIcon">P</div>
                 <div class="dropdown-content">
                     <a href="#" onclick="editProfile()">Profile</a>
@@ -547,49 +555,45 @@
             }
         </script>
         <script>
-            // Initialize profile icon
+            // Initialize profile icon and name
             async function initializeProfileIcon() {
+                const user = auth.currentUser;
+                if (!user) return;
+
                 const currentPatientId = sessionStorage.getItem('currentPatientId');
-                const doctorId = sessionStorage.getItem('doctorId');
+                let profileRef;
+                let roleText = '';
 
-                if (currentPatientId && doctorId) {
+                if (currentPatientId) {
                     // If accessing as a patient, get patient's profile
-                    try {
-                        const profileRef = database.ref(`doctors/${doctorId}/patients/${currentPatientId}/profile`);
-                        const snapshot = await profileRef.once('value');
-                        const profile = snapshot.val();
-                        if (profile && profile.name) {
-                            document.getElementById('profileIcon').textContent = profile.name.charAt(0).toUpperCase();
-                        }
-                    } catch (error) {
-                        console.error('Error loading patient profile:', error);
-                    }
+                    const doctorId = sessionStorage.getItem('doctorId');
+                    profileRef = database.ref(`doctors/${doctorId}/patients/${currentPatientId}/profile`);
+                    roleText = '';  // No need to show role for patients
                 } else {
-                    // Regular user/doctor profile
-                    const user = auth.currentUser;
-                    if (!user) return;
+                    // Get role to determine path
+                    const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                    const role = roleSnapshot.val();
+                    profileRef = database.ref(`${role}s/${user.uid}/profile`);
+                    roleText = role === 'doctor' ? 'Dr. ' : '';  // Add "Dr." prefix for doctors
+                }
 
-                    try {
-                        // Get role to determine path
-                        const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
-                        const role = roleSnapshot.val();
-                        const profileRef = database.ref(`${role}s/${user.uid}/profile`);
-                        const snapshot = await profileRef.once('value');
-                        const profile = snapshot.val();
-                        if (profile && profile.name) {
-                            document.getElementById('profileIcon').textContent = profile.name.charAt(0).toUpperCase();
-                        }
-                    } catch (error) {
-                        console.error('Error loading profile:', error);
+                try {
+                    const snapshot = await profileRef.once('value');
+                    const profile = snapshot.val();
+                    if (profile && profile.name) {
+                        const fullName = profile.name;
+                        document.getElementById('profileIcon').textContent = fullName.charAt(0).toUpperCase();
+                        document.getElementById('userName').textContent = roleText + fullName;
                     }
+                } catch (error) {
+                    console.error('Error loading profile:', error);
+                    document.getElementById('userName').textContent = 'User';
                 }
             }
 
             function editProfile() {
                 const currentPatientId = sessionStorage.getItem('currentPatientId');
-                const doctorId = sessionStorage.getItem('doctorId');
-                
-                if (currentPatientId && doctorId) {
+                if (currentPatientId) {
                     // If accessing as a patient, go to patient profile page
                     window.location.href = 'patient_profile.html';
                 } else {
@@ -618,18 +622,13 @@
 
             // Auth state observer
             auth.onAuthStateChanged(user => {
-                const currentPatientId = sessionStorage.getItem('currentPatientId');
-                const doctorId = sessionStorage.getItem('doctorId');
-
-                if (currentPatientId && doctorId) {
-                    // Patient mode - initialize profile icon
+                if (user) {
                     initializeProfileIcon();
-                } else if (user) {
-                    // Regular user mode
-                    initializeProfileIcon();
-                } else if (!currentPatientId) {
-                    // Not logged in and not a patient
-                    window.location.href = 'login.html';
+                } else {
+                    const currentPatientId = sessionStorage.getItem('currentPatientId');
+                    if (!currentPatientId) {
+                        window.location.href = 'login.html';
+                    }
                 }
             });
         </script>
