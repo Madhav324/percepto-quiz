@@ -280,15 +280,20 @@
                 const patientsGrid = document.getElementById('patientsGrid');
                 const noPatients = document.getElementById('noPatients');
 
+                // Clear existing content
+                patientsGrid.innerHTML = '';
+
                 if (patients) {
-                    patientsGrid.innerHTML = '';
-                    Object.entries(patients).forEach(([id, patient]) => {
+                    Object.entries(patients).forEach(([id, patientData]) => {
+                        // Ensure patient data has the correct structure
+                        const patient = patientData.profile ? patientData : { profile: patientData };
+                        
                         const card = document.createElement('div');
                         card.className = 'patient-card';
                         card.innerHTML = `
-                            <h3>${patient.profile.name}</h3>
-                            <div class="patient-info">Age: ${patient.profile.age}</div>
-                            <div class="patient-info">Gender: ${patient.profile.gender}</div>
+                            <h3>${patient.profile.name || 'No Name'}</h3>
+                            <div class="patient-info">Age: ${patient.profile.age || 'N/A'}</div>
+                            <div class="patient-info">Gender: ${patient.profile.gender || 'N/A'}</div>
                             ${patient.profile.medicalCondition ? `<div class="patient-info">Medical Condition: ${patient.profile.medicalCondition}</div>` : ''}
                             <div class="patient-actions">
                                 <button class="quiz-btn" onclick="startPatientQuiz('${id}')">Start Quiz</button>
@@ -300,12 +305,11 @@
                     });
                     noPatients.style.display = 'none';
                 } else {
-                    patientsGrid.innerHTML = '';
                     noPatients.style.display = 'block';
                 }
             } catch (error) {
                 console.error('Error loading patients:', error);
-                showError('Error loading patients');
+                showError('Error loading patients: ' + error.message);
             }
             showLoading(false);
         }
@@ -313,36 +317,58 @@
         // Add new patient
         document.getElementById('addPatientForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const user = auth.currentUser;
-            if (!user) return;
-
-            // Verify if the user is a doctor
-            const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
-            const role = roleSnapshot.val();
-
-            if (role !== 'doctor') {
-                showError('Only doctors can add patients');
-                return;
-            }
-
-            const patientData = {
-                profile: {
-                    name: document.getElementById('patientName').value,
-                    age: parseInt(document.getElementById('patientAge').value),
-                    gender: document.getElementById('patientGender').value,
-                    medicalCondition: document.getElementById('patientMedicalCondition').value || ''
-                }
-            };
-
+            showLoading(true);
+            
             try {
-                const newPatientRef = await database.ref(`doctors/${user.uid}/patients`).push();
+                const user = auth.currentUser;
+                if (!user) throw new Error('Not signed in');
+
+                // Verify if the user is a doctor
+                const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                const role = roleSnapshot.val();
+
+                if (role !== 'doctor') {
+                    showError('Only doctors can add patients');
+                    return;
+                }
+
+                // Get form values
+                const name = document.getElementById('patientName').value.trim();
+                const age = document.getElementById('patientAge').value.trim();
+                const gender = document.getElementById('patientGender').value;
+                const medicalCondition = document.getElementById('patientMedicalCondition').value.trim();
+
+                // Validate required fields
+                if (!name || !age || !gender) {
+                    showError('Please fill in all required fields');
+                    return;
+                }
+
+                const patientData = {
+                    profile: {
+                        name,
+                        age: parseInt(age),
+                        gender,
+                        medicalCondition: medicalCondition || ''
+                    }
+                };
+
+                // Add new patient
+                const newPatientRef = database.ref(`doctors/${user.uid}/patients`).push();
                 await newPatientRef.set(patientData);
+                
+                // Close modal and reload patients
                 closeAddPatientModal();
-                loadPatients();
+                document.getElementById('addPatientForm').reset();
                 showError('Patient added successfully!', true);
+                
+                // Reload patients list
+                await loadPatients();
             } catch (error) {
                 console.error('Error adding patient:', error);
-                showError('Error adding patient');
+                showError('Error adding patient: ' + error.message);
+            } finally {
+                showLoading(false);
             }
         });
 
