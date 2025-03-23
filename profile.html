@@ -196,21 +196,31 @@
 
             showLoading(true);
             try {
-                // Check both user and doctor profiles
-                const userSnapshot = await database.ref(`users/${user.uid}/profile`).once('value');
-                const doctorSnapshot = await database.ref(`doctors/${user.uid}/profile`).once('value');
+                // First check if user has any existing roles
+                const userRef = database.ref(`users/${user.uid}`);
+                const doctorRef = database.ref(`doctors/${user.uid}`);
+                
+                const [userSnapshot, doctorSnapshot] = await Promise.all([
+                    userRef.once('value'),
+                    doctorRef.once('value')
+                ]);
+
                 const userData = userSnapshot.val();
                 const doctorData = doctorSnapshot.val();
 
                 // Pre-fill form with existing data if available
-                if (userData || doctorData) {
-                    const data = userData || doctorData;
-                    document.getElementById('name').value = data.name || '';
-                    document.getElementById('age').value = data.age || '';
-                    document.getElementById('gender').value = data.gender || '';
-                    document.getElementById('medicalCondition').value = data.medicalCondition || '';
-                    document.getElementById('doctorRecommendation').value = data.doctorRecommendation || '';
-                    document.getElementById('isDoctor').checked = !!doctorData;
+                if (userData?.profile || doctorData?.profile) {
+                    // Use doctor data if it exists and checkbox is checked, otherwise use user data
+                    const isDoctor = document.getElementById('isDoctor').checked;
+                    const data = (isDoctor && doctorData?.profile) ? doctorData.profile : userData?.profile;
+                    
+                    if (data) {
+                        document.getElementById('name').value = data.name || '';
+                        document.getElementById('age').value = data.age || '';
+                        document.getElementById('gender').value = data.gender || '';
+                        document.getElementById('medicalCondition').value = data.medicalCondition || '';
+                        document.getElementById('doctorRecommendation').value = data.doctorRecommendation || '';
+                    }
                 } else {
                     // If no profile exists, try to get name from Google
                     const displayName = user.displayName;
@@ -246,19 +256,19 @@
             };
 
             try {
-                // Save to the appropriate path based on current role
+                // Save profile data to the appropriate path
                 const path = isDoctor ? `doctors/${user.uid}/profile` : `users/${user.uid}/profile`;
                 await database.ref(path).set(profileData);
 
-                // If changing from doctor to user, keep doctor data but set current role
-                if (!isDoctor) {
-                    await database.ref(`users/${user.uid}/profile`).set(profileData);
-                    // Store current role
-                    await database.ref(`users/${user.uid}/currentRole`).set('user');
+                // Update the UIDs
+                if (isDoctor) {
+                    // Set doctor_uid and remove user_uid if exists
+                    await database.ref(`users/${user.uid}/doctor_uid`).set(user.uid);
+                    await database.ref(`users/${user.uid}/user_uid`).remove();
                 } else {
-                    await database.ref(`doctors/${user.uid}/profile`).set(profileData);
-                    // Store current role
-                    await database.ref(`users/${user.uid}/currentRole`).set('doctor');
+                    // Set user_uid and remove doctor_uid if exists
+                    await database.ref(`users/${user.uid}/user_uid`).set(user.uid);
+                    await database.ref(`users/${user.uid}/doctor_uid`).remove();
                 }
 
                 showError('Profile saved successfully!', true);
@@ -277,9 +287,20 @@
         }
 
         // Auth state observer
-        auth.onAuthStateChanged(user => {
+        auth.onAuthStateChanged(async user => {
             if (user) {
                 document.getElementById('userEmail').textContent = user.email;
+                
+                // Check for existing role
+                const userRef = database.ref(`users/${user.uid}`);
+                const snapshot = await userRef.once('value');
+                const userData = snapshot.val();
+                
+                // Set checkbox based on existing role
+                if (userData) {
+                    document.getElementById('isDoctor').checked = !!userData.doctor_uid;
+                }
+                
                 loadProfileData();
             } else {
                 window.location.href = 'login.html';
@@ -288,10 +309,7 @@
 
         // Event listeners
         document.getElementById('profileForm').addEventListener('submit', saveProfile);
-        document.getElementById('isDoctor').addEventListener('change', () => {
-            const user = auth.currentUser;
-            if (user) loadProfileData();
-        });
+        document.getElementById('isDoctor').addEventListener('change', loadProfileData);
     </script>
 </body>
 </html>
