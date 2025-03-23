@@ -168,6 +168,26 @@
             font-size: 12px;
             margin-left: 8px;
         }
+        
+        .attempt-item {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+        }
+        
+        .attempt-date {
+            font-weight: bold;
+        }
+        
+        .attempt-score {
+            color: #666;
+        }
+        
+        .attempt-time {
+            color: #666;
+        }
     </style>
 </head>
 <body>
@@ -458,6 +478,76 @@
             document.getElementById('total-incorrect').innerText = incorrectAnswers;
 
             saveQuizResults(score, totalTimeInSeconds, averageTimeInSeconds, firstTapTime, totalTaps, score, incorrectAnswers);
+            
+            // Fetch previous attempts
+            fetchPreviousAttempts();
+        }
+        
+        // Fetch previous quiz attempts
+        async function fetchPreviousAttempts() {
+            try {
+                const user = auth.currentUser;
+                if (!user) return;
+                
+                let path;
+                const reportList = document.getElementById('report-list');
+                reportList.innerHTML = '<h3>Previous Attempts</h3>';
+                
+                // Check if this is a patient quiz (doctor viewing patient)
+                const currentPatientId = sessionStorage.getItem('currentPatientId');
+                const doctorId = sessionStorage.getItem('doctorId');
+                
+                if (currentPatientId && doctorId) {
+                    // This is a doctor testing a patient
+                    console.log(`Fetching patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/VDT1`;
+                } else {
+                    // Regular user quiz
+                    // Check if user is a doctor
+                    const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                    const role = roleSnapshot.val() || 'user';
+                    
+                    if (role === 'doctor') {
+                        console.log(`Fetching doctor's own quiz results: ${user.uid}`);
+                        path = `doctors/${user.uid}/quiz/VDT1`;
+                    } else {
+                        console.log(`Fetching regular user quiz results: ${user.uid}`);
+                        path = `users/${user.uid}/quiz/VDT1`;
+                    }
+                }
+                
+                console.log(`Fetching previous attempts from path: ${path}`);
+                const resultsSnapshot = await database.ref(path).orderByChild('timestamp').limitToLast(5).once('value');
+                
+                if (resultsSnapshot.exists()) {
+                    const results = [];
+                    resultsSnapshot.forEach(childSnapshot => {
+                        results.unshift({
+                            id: childSnapshot.key,
+                            ...childSnapshot.val()
+                        });
+                    });
+                    
+                    results.forEach(result => {
+                        const date = new Date(result.timestamp);
+                        const formattedDate = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+                        
+                        const attemptItem = document.createElement('div');
+                        attemptItem.className = 'attempt-item';
+                        attemptItem.innerHTML = `
+                            <div class="attempt-date">${formattedDate}</div>
+                            <div class="attempt-score">Score: ${result.score}</div>
+                            <div class="attempt-time">Time: ${result.totalTime}s</div>
+                        `;
+                        reportList.appendChild(attemptItem);
+                    });
+                } else {
+                    reportList.innerHTML += '<p>No previous attempts found.</p>';
+                }
+            } catch (error) {
+                console.error('Error fetching previous attempts:', error);
+                document.getElementById('report-list').innerHTML += '<p>Error loading previous attempts.</p>';
+            }
         }
 
         async function saveQuizResults(score, totalTime, averageTime, firstTapTime, totalTaps, correctAnswers, incorrectAnswers) {
@@ -509,31 +599,41 @@
             }
         }
 
-        function clearReport() {
-            if (auth.currentUser) {
-                const resultsRef = database.ref(`userProfiles/${auth.currentUser.uid}/quizResults/VDT1`);
-                resultsRef.remove()
-                    .then(() => {
-                        document.getElementById('report-list').innerHTML = '';
-                        alert('Report cleared successfully!');
-                    })
-                    .catch(error => {
-                        console.error('Error clearing report:', error);
-                        alert('Error clearing report. Please try again.');
-                    });
+        async function clearReport() {
+            const user = auth.currentUser;
+            if (!user) return;
+            
+            try {
+                let path;
+                
+                // Check if this is a patient quiz (doctor viewing patient)
+                const currentPatientId = sessionStorage.getItem('currentPatientId');
+                const doctorId = sessionStorage.getItem('doctorId');
+                
+                if (currentPatientId && doctorId) {
+                    // This is a doctor testing a patient
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/VDT1`;
+                } else {
+                    // Regular user quiz
+                    // Check if user is a doctor
+                    const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                    const role = roleSnapshot.val() || 'user';
+                    
+                    if (role === 'doctor') {
+                        path = `doctors/${user.uid}/quiz/VDT1`;
+                    } else {
+                        path = `users/${user.uid}/quiz/VDT1`;
+                    }
+                }
+                
+                console.log(`Clearing reports from path: ${path}`);
+                await database.ref(path).remove();
+                document.getElementById('report-list').innerHTML = '<h3>Previous Attempts</h3><p>No previous attempts found.</p>';
+                alert('Reports cleared successfully!');
+            } catch (error) {
+                console.error('Error clearing reports:', error);
+                alert('Error clearing reports. Please try again.');
             }
-        }
-
-        function restartQuiz() {
-            score = 0;
-            triesLeft = 3;
-            currentQuestionIndex = 0;
-            timeTaken = [];
-            incorrectAnswers = 0;
-            totalTaps = 0;
-            document.getElementById('result-container').style.display = 'none';
-            document.getElementById('quiz-container').style.display = 'block';
-            displayQuestion();
         }
     </script>
 </body>

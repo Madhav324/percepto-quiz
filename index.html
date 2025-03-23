@@ -278,6 +278,23 @@
                 grid-template-columns: 1fr;
             }
         }
+        
+        .report-btn {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 8px 15px;
+            margin-left: 15px;
+            transition: all 0.3s;
+        }
+        
+        .report-btn:hover {
+            background-color: #45a049;
+            transform: translateY(-2px);
+        }
     </style>
 </head>
 <body>
@@ -285,9 +302,9 @@
         <div class="header">
             <h1>Percepto Quiz</h1>
             <div class="profile-dropdown">
-                <span class="user-name" id="userName">Loading...</span>
+                <a href="report.html" class="report-btn">View Reports</a>
                 <div class="profile-icon" id="profileIcon">P</div>
-                <div class="dropdown-content">
+                <div class="profile-menu" id="profileMenu">
                     <a href="#" onclick="editProfile()">Profile</a>
                     <a href="#" onclick="logout()">Logout</a>
                 </div>
@@ -371,13 +388,13 @@
             
             profileIcon.addEventListener('click', (e) => {
                 e.stopPropagation();
-                profileMenu.classList.toggle('show');
+                profileMenu.classList.toggle('active');
             });
 
             // Close dropdown when clicking outside
             document.addEventListener('click', (e) => {
                 if (!profileMenu.contains(e.target) && !profileIcon.contains(e.target)) {
-                    profileMenu.classList.remove('show');
+                    profileMenu.classList.remove('active');
                 }
             });
 
@@ -535,7 +552,7 @@
                     } else {
                         // Get user role
                         const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
-                        const role = roleSnapshot.val();
+                        const role = roleSnapshot.val() || 'user';
                         
                         if (role === 'doctor') {
                             showError('Doctors cannot take quizzes. Please manage your patients instead.');
