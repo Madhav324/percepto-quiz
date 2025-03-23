@@ -240,9 +240,10 @@
             document.getElementById('loading').style.display = show ? 'block' : 'none';
         }
 
-        function showError(message) {
+        function showError(message, success = false) {
             const errorDiv = document.getElementById('error-message');
             errorDiv.textContent = message;
+            errorDiv.style.color = success ? 'green' : 'red';
             errorDiv.style.display = 'block';
             setTimeout(() => errorDiv.style.display = 'none', 3000);
         }
@@ -278,6 +279,15 @@
 
             showLoading(true);
             try {
+                // First verify if the user is a doctor
+                const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                const role = roleSnapshot.val();
+
+                if (role !== 'doctor') {
+                    window.location.href = 'login.html';
+                    return;
+                }
+
                 const patientsRef = database.ref(`doctors/${user.uid}/patients`);
                 const snapshot = await patientsRef.once('value');
                 const patients = snapshot.val();
@@ -307,12 +317,21 @@
             const user = auth.currentUser;
             if (!user) return;
 
+            // Verify if the user is a doctor
+            const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+            const role = roleSnapshot.val();
+
+            if (role !== 'doctor') {
+                showError('Only doctors can add patients');
+                return;
+            }
+
             const patientData = {
                 profile: {
                     name: document.getElementById('patientName').value,
                     age: parseInt(document.getElementById('patientAge').value),
                     gender: document.getElementById('patientGender').value,
-                    medicalCondition: document.getElementById('patientMedicalCondition').value
+                    medicalCondition: document.getElementById('patientMedicalCondition').value || ''
                 }
             };
 
@@ -321,7 +340,7 @@
                 await newPatientRef.set(patientData);
                 closeAddPatientModal();
                 loadPatients();
-                showError('Patient added successfully!');
+                showError('Patient added successfully!', true);
             } catch (error) {
                 console.error('Error adding patient:', error);
                 showError('Error adding patient');
@@ -333,6 +352,15 @@
 
             const user = auth.currentUser;
             if (!user) return;
+
+            // Verify if the user is a doctor
+            const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+            const role = roleSnapshot.val();
+
+            if (role !== 'doctor') {
+                showError('Only doctors can delete patients');
+                return;
+            }
 
             try {
                 await database.ref(`doctors/${user.uid}/patients/${patientId}`).remove();
@@ -374,13 +402,20 @@
         auth.onAuthStateChanged(async (user) => {
             if (user) {
                 // Check if user is a doctor
-                const doctorRef = database.ref(`doctors/${user.uid}/profile`);
-                const snapshot = await doctorRef.once('value');
-                const doctorProfile = snapshot.val();
+                const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                const role = roleSnapshot.val();
 
-                if (doctorProfile) {
-                    document.getElementById('doctorName').textContent = `Dr. ${doctorProfile.name}`;
-                    loadPatients();
+                if (role === 'doctor') {
+                    const doctorRef = database.ref(`doctors/${user.uid}/profile`);
+                    const snapshot = await doctorRef.once('value');
+                    const doctorProfile = snapshot.val();
+
+                    if (doctorProfile) {
+                        document.getElementById('doctorName').textContent = `Dr. ${doctorProfile.name}`;
+                        loadPatients();
+                    } else {
+                        window.location.href = 'profile.html';
+                    }
                 } else {
                     window.location.href = 'login.html';
                 }
