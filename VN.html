@@ -5,20 +5,136 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Visual Perceptual Skills</title>
     <link rel="stylesheet" href="styles.css">
+    <style>
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .profile-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #2196F3;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: bold;
+            text-decoration: none;
+            transition: background-color 0.3s;
+            font-size: 18px;
+        }
+        
+        .profile-icon:hover {
+            background-color: #1976D2;
+        }
+
+        #quiz-type {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        #quiz-type button {
+            padding: 15px;
+            border: none;
+            border-radius: 5px;
+            background-color: #4CAF50;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+
+        #quiz-type button:hover {
+            background-color: #45a049;
+        }
+
+        h1, h2 {
+            color: #2c3e50;
+            margin: 0;
+        }
+    </style>
 </head>
 <body>
-    <div id="quiz-container">
-        <h1>Welcome to the Children's Quiz</h1>
-        <h2>Select a Quiz Type:</h2>
-<br>
-        <!-- Quiz Type Selection -->
-        <div id="quiz-type">
-            <a href="VN1.html" style="text-decoration: none;"><button onclick="startQuiz('animals')">Level 1</button></a>
-            <a href="VN2.html" style="text-decoration: none;"><button onclick="startQuiz('colors')">Level 2</button></a>
+    <div class="container">
+        <div class="header">
+            <h1>Welcome to the Children's Quiz</h1>
+            <div class="profile-icon" id="profileIcon" title="Back to Home" onclick="window.location.href='index.html'"></div>
         </div>
 
-    </div>
+        <div id="quiz-container">
+            <h2>Select a Quiz Type:</h2>
+            <div id="quiz-type">
+                <a href="VN1.html" style="text-decoration: none;"><button>Level 1</button></a>
+                <a href="VN2.html" style="text-decoration: none;"><button>Level 2</button></a>
+            </div>
+        </div>
 
-    <script src="script.js"></script>
+        <script src="script.js"></script>
+        <!-- Firebase App (the core Firebase SDK) -->
+        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+        <!-- Firebase Auth -->
+        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+        <!-- Firebase Database -->
+        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+        <script>
+            // Firebase configuration
+            const firebaseConfig = {
+                apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
+                authDomain: "projeccvi.firebaseapp.com",
+                projectId: "projeccvi",
+                storageBucket: "projeccvi.firebasestorage.app",
+                messagingSenderId: "279067566247",
+                appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
+            };
+
+            // Initialize Firebase
+            firebase.initializeApp(firebaseConfig);
+            const auth = firebase.auth();
+            const database = firebase.database();
+
+            // Auth state observer
+            auth.onAuthStateChanged(async (user) => {
+                if (user) {
+                    // Get user profile to display first initial
+                    try {
+                        const profileRef = database.ref(`userProfiles/${user.uid}`);
+                        const snapshot = await profileRef.once('value');
+                        const profile = snapshot.val();
+                        
+                        // Get first letter of name or email
+                        let initial = 'U';
+                        if (profile && profile.name) {
+                            initial = profile.name.charAt(0).toUpperCase();
+                        } else if (user.email) {
+                            initial = user.email.charAt(0).toUpperCase();
+                        }
+                        
+                        document.getElementById('profileIcon').textContent = initial;
+                    } catch (error) {
+                        console.error('Error loading profile:', error);
+                        document.getElementById('profileIcon').textContent = 'U';
+                    }
+                } else {
+                    window.location.href = 'login.html';
+                }
+            });
+        </script>
+    </div>
 </body>
 </html>
