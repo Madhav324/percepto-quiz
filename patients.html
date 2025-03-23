@@ -89,6 +89,13 @@
         .quiz-btn:hover {
             background-color: #7b1fa2;
         }
+        .report-btn {
+            background-color: #9c27b0;
+            color: white;
+        }
+        .report-btn:hover {
+            background-color: #7b1fa2;
+        }
         .delete-btn {
             background-color: #f44336;
             color: white;
@@ -265,8 +272,9 @@
                 ${patient.medicalConditions ? `<div class="patient-info">Medical: ${patient.medicalConditions}</div>` : ''}
                 <div class="patient-actions">
                     <button class="view-btn" onclick="viewPatientResults('${patientId}')">View Results</button>
-                    <button class="profile-btn" onclick="createPatientProfile('${patientId}')">Create Profile</button>
+                    <button class="profile-btn" onclick="createPatientProfile('${patientId}', '${patient.name || ''}')">Create/Edit Profile</button>
                     <button class="quiz-btn" onclick="startPatientQuiz('${patientId}')">Take Quiz</button>
+                    <button class="report-btn" onclick="viewPatientReport('${patientId}')">View Report</button>
                     <button class="delete-btn" onclick="deletePatient('${patientId}')">Delete</button>
                 </div>
             `;
@@ -362,27 +370,66 @@
             }
         }
 
-        // View patient results
-        function viewPatientResults(patientId) {
-            // Store the current patient ID in localStorage
-            localStorage.setItem('currentPatientId', patientId);
-            window.location.href = 'index.html';
-        }
-
         // Create patient profile
-        async function createPatientProfile(patientId) {
-            // Store the patient ID for the profile page
-            localStorage.setItem('currentPatientId', patientId);
-            localStorage.setItem('isPatientProfile', 'true');
-            window.location.href = 'profile.html';
+        async function createPatientProfile(patientId, patientName) {
+            try {
+                // Store the patient info for the profile page
+                localStorage.setItem('currentPatientId', patientId);
+                localStorage.setItem('isPatientProfile', 'true');
+                localStorage.setItem('patientName', patientName);
+                window.location.href = 'profile.html';
+            } catch (error) {
+                console.error('Error setting up patient profile:', error);
+                showError('Failed to set up patient profile. Please try again.');
+            }
         }
 
         // Start patient quiz
         async function startPatientQuiz(patientId) {
-            // Store the patient ID for the quiz
-            localStorage.setItem('currentPatientId', patientId);
-            localStorage.setItem('isPatientQuiz', 'true');
-            window.location.href = 'index.html';
+            try {
+                // Store the patient ID for the quiz
+                localStorage.setItem('currentPatientId', patientId);
+                localStorage.setItem('isPatientQuiz', 'true');
+                window.location.href = 'index.html';
+            } catch (error) {
+                console.error('Error starting patient quiz:', error);
+                showError('Failed to start quiz. Please try again.');
+            }
+        }
+
+        // View patient results
+        async function viewPatientResults(patientId) {
+            try {
+                const user = auth.currentUser;
+                if (!user) throw new Error('Not signed in');
+
+                const resultsSnapshot = await database.ref(`doctors/${user.uid}/patients/${patientId}/quizResults`).once('value');
+                const results = resultsSnapshot.val();
+
+                if (!results) {
+                    showError('No quiz results found for this patient.');
+                    return;
+                }
+
+                // Store patient ID for results page
+                localStorage.setItem('currentPatientId', patientId);
+                window.location.href = 'report.html';
+            } catch (error) {
+                console.error('Error viewing results:', error);
+                showError('Failed to load results. Please try again.');
+            }
+        }
+
+        // View patient report
+        async function viewPatientReport(patientId) {
+            try {
+                // Store the patient ID for the report page
+                localStorage.setItem('currentPatientId', patientId);
+                window.location.href = 'report.html';
+            } catch (error) {
+                console.error('Error viewing report:', error);
+                showError('Failed to load report. Please try again.');
+            }
         }
 
         // Auth state observer
