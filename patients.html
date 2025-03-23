@@ -257,22 +257,6 @@
             document.getElementById('addPatientForm').reset();
         }
 
-        function createPatientCard(patientId, patient) {
-            return `
-                <div class="patient-card">
-                    <h3>${patient.profile.name}</h3>
-                    <div class="patient-info">Age: ${patient.profile.age}</div>
-                    <div class="patient-info">Gender: ${patient.profile.gender}</div>
-                    ${patient.profile.medicalCondition ? `<div class="patient-info">Medical Condition: ${patient.profile.medicalCondition}</div>` : ''}
-                    <div class="patient-actions">
-                        <button class="quiz-btn" onclick="startPatientQuiz('${patientId}')">Start Quiz</button>
-                        <button class="results-btn" onclick="viewPatientResults('${patientId}')">View Results</button>
-                        <button class="delete-btn" onclick="deletePatient('${patientId}')">Delete</button>
-                    </div>
-                </div>
-            `;
-        }
-
         async function loadPatients() {
             const user = auth.currentUser;
             if (!user) return;
@@ -288,6 +272,7 @@
                     return;
                 }
 
+                // Get doctor's patients
                 const patientsRef = database.ref(`doctors/${user.uid}/patients`);
                 const snapshot = await patientsRef.once('value');
                 const patients = snapshot.val();
@@ -296,9 +281,23 @@
                 const noPatients = document.getElementById('noPatients');
 
                 if (patients) {
-                    patientsGrid.innerHTML = Object.entries(patients)
-                        .map(([id, patient]) => createPatientCard(id, patient))
-                        .join('');
+                    patientsGrid.innerHTML = '';
+                    Object.entries(patients).forEach(([id, patient]) => {
+                        const card = document.createElement('div');
+                        card.className = 'patient-card';
+                        card.innerHTML = `
+                            <h3>${patient.profile.name}</h3>
+                            <div class="patient-info">Age: ${patient.profile.age}</div>
+                            <div class="patient-info">Gender: ${patient.profile.gender}</div>
+                            ${patient.profile.medicalCondition ? `<div class="patient-info">Medical Condition: ${patient.profile.medicalCondition}</div>` : ''}
+                            <div class="patient-actions">
+                                <button class="quiz-btn" onclick="startPatientQuiz('${id}')">Start Quiz</button>
+                                <button class="results-btn" onclick="viewPatientResults('${id}')">View Results</button>
+                                <button class="delete-btn" onclick="deletePatient('${id}')">Delete</button>
+                            </div>
+                        `;
+                        patientsGrid.appendChild(card);
+                    });
                     noPatients.style.display = 'none';
                 } else {
                     patientsGrid.innerHTML = '';
@@ -336,7 +335,7 @@
             };
 
             try {
-                const newPatientRef = database.ref(`doctors/${user.uid}/patients`).push();
+                const newPatientRef = await database.ref(`doctors/${user.uid}/patients`).push();
                 await newPatientRef.set(patientData);
                 closeAddPatientModal();
                 loadPatients();
@@ -365,7 +364,7 @@
             try {
                 await database.ref(`doctors/${user.uid}/patients/${patientId}`).remove();
                 loadPatients();
-                showError('Patient deleted successfully!');
+                showError('Patient deleted successfully!', true);
             } catch (error) {
                 console.error('Error deleting patient:', error);
                 showError('Error deleting patient');
