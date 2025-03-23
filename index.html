@@ -507,12 +507,15 @@
 
             // Logout function
             function logout() {
-                // Clear all session data
-                sessionStorage.clear();
-                
                 if (isPatientQuiz) {
+                    // For patient quiz mode, just remove patient-specific data
+                    // but keep doctor authentication
+                    sessionStorage.removeItem('currentPatientId');
+                    sessionStorage.removeItem('isPatientQuiz');
                     window.location.href = 'patients.html';
                 } else {
+                    // For regular user logout, clear everything
+                    sessionStorage.clear();
                     auth.signOut().then(() => {
                         console.log('Logged out successfully');
                         window.location.href = 'login.html';

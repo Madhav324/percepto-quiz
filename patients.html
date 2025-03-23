@@ -312,10 +312,16 @@
                     throw new Error('User not authenticated');
                 }
                 
+                console.log('Loading patients for doctor:', user.uid);
+                
                 // Get doctor's patients
                 const patientsRef = database.ref(`doctors/${user.uid}/patients`);
+                console.log('Fetching from path:', patientsRef.toString());
+                
                 const snapshot = await patientsRef.once('value');
                 const patients = snapshot.val();
+                
+                console.log('Patients data retrieved:', patients ? Object.keys(patients).length : 0, 'patients found');
                 
                 // Clear existing content
                 patientsGrid.innerHTML = '';
