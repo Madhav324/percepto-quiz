@@ -385,18 +385,19 @@
                 // Check if user is a doctor's patient
                 const doctorSnapshot = await database.ref('doctors').orderByChild(`patients/${user.uid}`).once('value');
                 const doctor = doctorSnapshot.val();
+                const timestamp = Date.now();
                 
                 let path;
                 if (doctor) {
                     // User is a patient, save under doctor's patients
                     const doctorId = Object.keys(doctor)[0];
-                    path = `doctors/${doctorId}/patients/${user.uid}/quiz/VDT1/${Date.now()}`;
+                    path = `doctors/${doctorId}/patients/${user.uid}/quiz/VDT1/${timestamp}`;
                 } else {
                     // Check if user is a doctor
                     const isDoctor = await database.ref(`doctors/${user.uid}`).once('value');
                     path = isDoctor.exists() ? 
-                        `doctors/${user.uid}/quiz/VDT1/${Date.now()}` : 
-                        `users/${user.uid}/quiz/VDT1/${Date.now()}`;
+                        `doctors/${user.uid}/quiz/VDT1/${timestamp}` : 
+                        `users/${user.uid}/quiz/VDT1/${timestamp}`;
                 }
 
                 await database.ref(path).set({
