@@ -436,15 +436,25 @@
             });
 
             // Logout function
-            window.logout = async () => {
-                try {
-                    await auth.signOut();
-                    console.log("User signed out successfully");
-                    window.location.href = getPath('login.html');
-                } catch (error) {
-                    console.error('Error signing out:', error);
+            function logout() {
+                const isPatientQuiz = localStorage.getItem('isPatientQuiz') === 'true';
+                
+                // Clear all session data
+                localStorage.removeItem('currentPatientId');
+                localStorage.removeItem('isPatientQuiz');
+                localStorage.removeItem('isPatientProfile');
+                
+                if (isPatientQuiz) {
+                    window.location.href = 'patients.html';
+                } else {
+                    auth.signOut().then(() => {
+                        console.log('Logged out successfully');
+                        window.location.href = 'login.html';
+                    }).catch((error) => {
+                        console.error('Logout error:', error);
+                    });
                 }
-            };
+            }
         </script>
         <script src="script.js"></script>
     </body>
