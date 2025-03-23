@@ -172,38 +172,68 @@
         .attempt-item {
             background-color: #f9f9f9;
             padding: 15px;
-            margin-bottom: 10px;
-            border-radius: 5px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+            margin-bottom: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .attempt-item:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         }
         
         .attempt-date {
             font-weight: bold;
             margin-bottom: 8px;
+            color: #333;
+            font-size: 16px;
         }
         
         .attempt-score {
-            color: #666;
-            margin-bottom: 5px;
+            color: #4CAF50;
+            margin-bottom: 10px;
+            font-weight: bold;
+            font-size: 18px;
         }
         
         .attempt-details {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 5px;
-            margin-top: 10px;
-            color: #666;
+            gap: 10px;
+            margin-top: 15px;
+            background-color: #f0f0f0;
+            padding: 12px;
+            border-radius: 6px;
+            color: #333;
             font-size: 14px;
         }
         
         .attempt-detail-item {
             display: flex;
             justify-content: space-between;
-            padding: 3px 0;
+            padding: 5px 0;
+            border-bottom: 1px solid #e0e0e0;
         }
         
         .detail-label {
             font-weight: bold;
+            color: #555;
+        }
+        
+        .toggle-details-btn {
+            margin-top: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        
+        .toggle-details-btn:hover {
+            background-color: #45a049;
         }
     </style>
 </head>
@@ -565,36 +595,67 @@
                             
                             const attemptItem = document.createElement('div');
                             attemptItem.className = 'attempt-item';
-                            attemptItem.innerHTML = `
+                            
+                            // Create main display with date and score
+                            const dateScoreDiv = document.createElement('div');
+                            dateScoreDiv.innerHTML = `
                                 <div class="attempt-date">${formattedDate}</div>
                                 <div class="attempt-score">Score: ${result.score}/${questions.length}</div>
-                                <div class="attempt-details">
-                                    <div class="attempt-detail-item">
-                                        <span class="detail-label">Total Time:</span>
-                                        <span>${result.totalTime}s</span>
-                                    </div>
-                                    <div class="attempt-detail-item">
-                                        <span class="detail-label">Avg Time:</span>
-                                        <span>${result.averageTime}s</span>
-                                    </div>
-                                    <div class="attempt-detail-item">
-                                        <span class="detail-label">First Tap:</span>
-                                        <span>${result.firstTapTime ? result.firstTapTime.toFixed(2) + 's' : 'N/A'}</span>
-                                    </div>
-                                    <div class="attempt-detail-item">
-                                        <span class="detail-label">Total Taps:</span>
-                                        <span>${result.totalTaps || 'N/A'}</span>
-                                    </div>
-                                    <div class="attempt-detail-item">
-                                        <span class="detail-label">Correct:</span>
-                                        <span>${result.correctAnswers || result.score}</span>
-                                    </div>
-                                    <div class="attempt-detail-item">
-                                        <span class="detail-label">Incorrect:</span>
-                                        <span>${result.incorrectAnswers || 'N/A'}</span>
-                                    </div>
+                            `;
+                            attemptItem.appendChild(dateScoreDiv);
+                            
+                            // Create the details section
+                            const detailsDiv = document.createElement('div');
+                            detailsDiv.className = 'attempt-details';
+                            
+                            // Always show these fields
+                            const detailsHtml = `
+                                <div class="attempt-detail-item">
+                                    <span class="detail-label">Total Time:</span>
+                                    <span>${result.totalTime || 'N/A'}s</span>
+                                </div>
+                                <div class="attempt-detail-item">
+                                    <span class="detail-label">Avg Time:</span>
+                                    <span>${result.averageTime || 'N/A'}s</span>
+                                </div>
+                                <div class="attempt-detail-item">
+                                    <span class="detail-label">First Tap:</span>
+                                    <span>${result.firstTapTime ? result.firstTapTime.toFixed(2) + 's' : 'N/A'}</span>
+                                </div>
+                                <div class="attempt-detail-item">
+                                    <span class="detail-label">Total Taps:</span>
+                                    <span>${result.totalTaps || 'N/A'}</span>
+                                </div>
+                                <div class="attempt-detail-item">
+                                    <span class="detail-label">Correct:</span>
+                                    <span>${result.correctAnswers || result.score || 'N/A'}</span>
+                                </div>
+                                <div class="attempt-detail-item">
+                                    <span class="detail-label">Incorrect:</span>
+                                    <span>${result.incorrectAnswers || 'N/A'}</span>
                                 </div>
                             `;
+                            detailsDiv.innerHTML = detailsHtml;
+                            attemptItem.appendChild(detailsDiv);
+                            
+                            // Add a button to toggle details
+                            const toggleBtn = document.createElement('button');
+                            toggleBtn.className = 'toggle-details-btn';
+                            toggleBtn.textContent = 'Show Details';
+                            toggleBtn.onclick = function() {
+                                if (detailsDiv.style.display === 'none' || !detailsDiv.style.display) {
+                                    detailsDiv.style.display = 'grid';
+                                    this.textContent = 'Hide Details';
+                                } else {
+                                    detailsDiv.style.display = 'none';
+                                    this.textContent = 'Show Details';
+                                }
+                            };
+                            dateScoreDiv.appendChild(toggleBtn);
+                            
+                            // Initially hide details
+                            detailsDiv.style.display = 'none';
+                            
                             reportList.appendChild(attemptItem);
                         });
                     } else {
