@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visual Perceptual Skills</title>
+    <title>Figure-Ground Constancy</title>
     <link rel="stylesheet" href="styles.css">
     <style>
         .container {
@@ -72,19 +72,68 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>Visual Perceptual Skills</h1>
+            <h1>Figure-Ground Constancy</h1>
             <div class="profile-icon" id="profileIcon" title="Back to Home" onclick="window.location.href='index.html'"></div>
         </div>
 
         <div id="quiz-container">
-            <h2>Select a Quiz Type:</h2>
+            <h2>Select a Level:</h2>
             <div id="quiz-type">
                 <a href="VFC1.html" style="text-decoration: none;"><button>Level 1</button></a>
                 <a href="VFC2.html" style="text-decoration: none;"><button>Level 2</button></a>
             </div>
         </div>
 
-        <script src="script.js"></script>
+        <!-- Firebase App (the core Firebase SDK) -->
+        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+        <!-- Firebase Auth -->
+        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+        <!-- Firebase Database -->
+        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+        <script>
+            // Firebase configuration
+            const firebaseConfig = {
+                apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
+                authDomain: "projeccvi.firebaseapp.com",
+                projectId: "projeccvi",
+                storageBucket: "projeccvi.firebasestorage.app",
+                messagingSenderId: "279067566247",
+                appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
+            };
+
+            // Initialize Firebase
+            firebase.initializeApp(firebaseConfig);
+            const auth = firebase.auth();
+            const database = firebase.database();
+
+            // Auth state observer
+            auth.onAuthStateChanged(async (user) => {
+                if (user) {
+                    // Get user profile to display first initial
+                    try {
+                        const profileRef = database.ref(`userProfiles/${user.uid}`);
+                        const snapshot = await profileRef.once('value');
+                        const profile = snapshot.val();
+                        
+                        // Get first letter of name or email
+                        let initial = 'U';
+                        if (profile && profile.name) {
+                            initial = profile.name.charAt(0).toUpperCase();
+                        } else if (user.email) {
+                            initial = user.email.charAt(0).toUpperCase();
+                        }
+                        
+                        document.getElementById('profileIcon').textContent = initial;
+                    } catch (error) {
+                        console.error('Error loading profile:', error);
+                        document.getElementById('profileIcon').textContent = 'U';
+                    }
+                } else {
+                    window.location.href = 'login.html';
+                }
+            });
+        </script>
     </div>
 </body>
 </html>
