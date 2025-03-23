@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Patient Management - Percepto</title>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -50,6 +50,7 @@
             border-radius: 5px;
             cursor: pointer;
             font-size: 16px;
+            margin-bottom: 20px;
         }
         .add-patient:hover {
             background-color: #45a049;
@@ -86,12 +87,12 @@
             cursor: pointer;
             font-size: 14px;
         }
-        .profile-btn {
-            background-color: #ff9800;
+        .results-btn {
+            background-color: #2196F3;
             color: white;
         }
-        .profile-btn:hover {
-            background-color: #f57c00;
+        .results-btn:hover {
+            background-color: #1976D2;
         }
         .quiz-btn {
             background-color: #9c27b0;
@@ -175,6 +176,8 @@
         </div>
     </div>
 
+    <button class="add-patient" onclick="openAddPatientModal()">Add New Patient</button>
+
     <div id="loading" class="loading">Loading patients...</div>
     <div id="error-message" class="error-message"></div>
     
@@ -182,8 +185,6 @@
     <div id="noPatients" class="no-patients" style="display: none;">
         No patients added yet. Click "Add New Patient" to get started.
     </div>
-
-    <button class="add-patient" onclick="openAddPatientModal()">Add New Patient</button>
 
     <!-- Add Patient Modal -->
     <div id="addPatientModal" class="modal">
@@ -202,15 +203,16 @@
                 <div class="form-group">
                     <label for="patientGender">Gender</label>
                     <select id="patientGender" required>
-                        <option value="">Select Gender</option>
+                        <option value="">Select gender</option>
                         <option value="male">Male</option>
                         <option value="female">Female</option>
                         <option value="other">Other</option>
+                        <option value="prefer-not-to-say">Prefer not to say</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="patientMedical">Medical Conditions (if any)</label>
-                    <input type="text" id="patientMedical">
+                    <label for="patientMedicalCondition">Medical Condition (if any)</label>
+                    <input type="text" id="patientMedicalCondition">
                 </div>
                 <button type="submit" class="add-patient">Add Patient</button>
             </form>
@@ -218,212 +220,161 @@
     </div>
 
     <script>
-        // Initialize Firebase
+        // Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
             authDomain: "projeccvi.firebaseapp.com",
             projectId: "projeccvi",
             storageBucket: "projeccvi.appspot.com",
             messagingSenderId: "279067566247",
-            appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82",
-            databaseURL: "https://projeccvi-default-rtdb.firebaseio.com"
+            appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
         };
 
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
-        }
-
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const database = firebase.database();
 
-        // DOM Elements
-        const doctorNameElement = document.getElementById('doctorName');
-        const patientsGrid = document.getElementById('patientsGrid');
-        const loadingElement = document.getElementById('loading');
-        const errorMessage = document.getElementById('error-message');
-        const noPatients = document.getElementById('noPatients');
-        const addPatientModal = document.getElementById('addPatientModal');
-        const addPatientForm = document.getElementById('addPatientForm');
-
         // Helper Functions
         function showLoading(show) {
-            loadingElement.style.display = show ? 'block' : 'none';
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
         }
 
         function showError(message) {
-            errorMessage.textContent = message;
-            errorMessage.style.display = 'block';
-            setTimeout(() => {
-                errorMessage.style.display = 'none';
-            }, 5000);
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => errorDiv.style.display = 'none', 3000);
         }
 
         function openAddPatientModal() {
-            addPatientModal.style.display = 'block';
+            document.getElementById('addPatientModal').style.display = 'block';
         }
 
         function closeAddPatientModal() {
-            addPatientModal.style.display = 'none';
-            addPatientForm.reset();
+            document.getElementById('addPatientModal').style.display = 'none';
+            document.getElementById('addPatientForm').reset();
         }
 
-        // Create patient card
         function createPatientCard(patientId, patient) {
-            const card = document.createElement('div');
-            card.className = 'patient-card';
-            card.innerHTML = `
-                <h3>${patient.name}</h3>
-                <div class="patient-info">Age: ${patient.age}</div>
-                <div class="patient-info">Gender: ${patient.gender}</div>
-                ${patient.medicalConditions ? `<div class="patient-info">Medical: ${patient.medicalConditions}</div>` : ''}
-                <div class="patient-actions">
-                    <button class="profile-btn" onclick="createPatientProfile('${patientId}', '${patient.name || ''}')">Create/Edit Profile</button>
-                    <button class="quiz-btn" onclick="startPatientQuiz('${patientId}')">Take Quiz</button>
-                    <button class="delete-btn" onclick="deletePatient('${patientId}')">Delete</button>
+            return `
+                <div class="patient-card">
+                    <h3>${patient.profile.name}</h3>
+                    <div class="patient-info">Age: ${patient.profile.age}</div>
+                    <div class="patient-info">Gender: ${patient.profile.gender}</div>
+                    ${patient.profile.medicalCondition ? `<div class="patient-info">Medical Condition: ${patient.profile.medicalCondition}</div>` : ''}
+                    <div class="patient-actions">
+                        <button class="quiz-btn" onclick="startPatientQuiz('${patientId}')">Start Quiz</button>
+                        <button class="results-btn" onclick="viewPatientResults('${patientId}')">View Results</button>
+                        <button class="delete-btn" onclick="deletePatient('${patientId}')">Delete</button>
+                    </div>
                 </div>
             `;
-            return card;
         }
 
-        // Load patients
         async function loadPatients() {
+            const user = auth.currentUser;
+            if (!user) return;
+
             showLoading(true);
-            patientsGrid.innerHTML = '';
-            
             try {
-                const user = auth.currentUser;
-                if (!user) {
-                    window.location.href = 'login.html';
-                    return;
-                }
+                const patientsRef = database.ref(`doctors/${user.uid}/patients`);
+                const snapshot = await patientsRef.once('value');
+                const patients = snapshot.val();
 
-                // Check if user is a doctor
-                const doctorSnapshot = await database.ref(`doctorProfiles/${user.uid}`).once('value');
-                const doctorProfile = doctorSnapshot.val();
-                
-                if (!doctorProfile) {
-                    window.location.href = 'profile.html';
-                    return;
-                }
-
-                doctorNameElement.textContent = `Dr. ${doctorProfile.name}`;
-
-                // Load patients
-                const patientsSnapshot = await database.ref(`doctors/${user.uid}/patients`).once('value');
-                const patients = patientsSnapshot.val();
+                const patientsGrid = document.getElementById('patientsGrid');
+                const noPatients = document.getElementById('noPatients');
 
                 if (patients) {
+                    patientsGrid.innerHTML = Object.entries(patients)
+                        .map(([id, patient]) => createPatientCard(id, patient))
+                        .join('');
                     noPatients.style.display = 'none';
-                    Object.entries(patients).forEach(([patientId, patient]) => {
-                        patientsGrid.appendChild(createPatientCard(patientId, patient));
-                    });
                 } else {
+                    patientsGrid.innerHTML = '';
                     noPatients.style.display = 'block';
                 }
             } catch (error) {
                 console.error('Error loading patients:', error);
-                showError('Failed to load patients. Please refresh the page.');
-            } finally {
-                showLoading(false);
+                showError('Error loading patients');
             }
+            showLoading(false);
         }
 
         // Add new patient
-        addPatientForm.addEventListener('submit', async (e) => {
+        document.getElementById('addPatientForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            
+            const user = auth.currentUser;
+            if (!user) return;
+
             const patientData = {
-                name: document.getElementById('patientName').value.trim(),
-                age: parseInt(document.getElementById('patientAge').value),
-                gender: document.getElementById('patientGender').value,
-                medicalConditions: document.getElementById('patientMedical').value.trim(),
-                addedAt: firebase.database.ServerValue.TIMESTAMP
+                profile: {
+                    name: document.getElementById('patientName').value,
+                    age: parseInt(document.getElementById('patientAge').value),
+                    gender: document.getElementById('patientGender').value,
+                    medicalCondition: document.getElementById('patientMedicalCondition').value
+                }
             };
 
             try {
-                const user = auth.currentUser;
-                if (!user) throw new Error('Not signed in');
-
-                // Add to doctor's patients
-                const newPatientRef = await database.ref(`doctors/${user.uid}/patients`).push(patientData);
-                
-                // Add the new patient card
-                patientsGrid.appendChild(createPatientCard(newPatientRef.key, patientData));
-                noPatients.style.display = 'none';
-                
+                const newPatientRef = database.ref(`doctors/${user.uid}/patients`).push();
+                await newPatientRef.set(patientData);
                 closeAddPatientModal();
+                loadPatients();
+                showError('Patient added successfully!');
             } catch (error) {
                 console.error('Error adding patient:', error);
-                showError('Failed to add patient. Please try again.');
+                showError('Error adding patient');
             }
         });
 
-        // Delete patient
         async function deletePatient(patientId) {
             if (!confirm('Are you sure you want to delete this patient?')) return;
 
-            try {
-                const user = auth.currentUser;
-                if (!user) throw new Error('Not signed in');
+            const user = auth.currentUser;
+            if (!user) return;
 
+            try {
                 await database.ref(`doctors/${user.uid}/patients/${patientId}`).remove();
-                await loadPatients(); // Reload the list
+                loadPatients();
+                showError('Patient deleted successfully!');
             } catch (error) {
                 console.error('Error deleting patient:', error);
-                showError('Failed to delete patient. Please try again.');
+                showError('Error deleting patient');
             }
         }
 
-        // Create patient profile
-        async function createPatientProfile(patientId, patientName) {
-            try {
-                // Store the patient info for the profile page
-                localStorage.setItem('currentPatientId', patientId);
-                localStorage.setItem('isPatientProfile', 'true');
-                localStorage.setItem('patientName', patientName);
-                window.location.href = 'profile.html';
-            } catch (error) {
-                console.error('Error setting up patient profile:', error);
-                showError('Failed to set up patient profile. Please try again.');
-            }
+        function startPatientQuiz(patientId) {
+            // Store patient ID in session storage for quiz access
+            sessionStorage.setItem('currentPatientId', patientId);
+            window.location.href = 'VDT1.html';
         }
 
-        // Start patient quiz
-        async function startPatientQuiz(patientId) {
-            try {
-                // Store the patient ID for the quiz
-                localStorage.setItem('currentPatientId', patientId);
-                localStorage.setItem('isPatientQuiz', 'true');
-                window.location.href = 'index.html';
-            } catch (error) {
-                console.error('Error starting patient quiz:', error);
-                showError('Failed to start quiz. Please try again.');
-            }
+        function viewPatientResults(patientId) {
+            // Store patient ID in session storage for results access
+            sessionStorage.setItem('currentPatientId', patientId);
+            window.location.href = 'report.html';
         }
 
-        // Logout function
-        async function logout() {
-            try {
-                await auth.signOut();
-                console.log('Logged out successfully');
-                window.location.href = 'login.html';
-            } catch (error) {
-                console.error('Logout error:', error);
-                showError('Failed to logout. Please try again.');
-            }
+        function logout() {
+            auth.signOut()
+                .then(() => window.location.href = 'login.html')
+                .catch(error => showError('Error logging out'));
         }
 
         // Auth state observer
         auth.onAuthStateChanged(async (user) => {
             if (user) {
-                const doctorSnapshot = await database.ref(`doctorProfiles/${user.uid}`).once('value');
-                const doctorData = doctorSnapshot.val();
+                // Check if user is a doctor
+                const doctorRef = database.ref(`doctors/${user.uid}/profile`);
+                const snapshot = await doctorRef.once('value');
+                const doctorProfile = snapshot.val();
 
-                if (doctorData) {
-                    document.getElementById('doctorName').textContent = `Dr. ${doctorData.name}`;
+                if (doctorProfile) {
+                    document.getElementById('doctorName').textContent = `Dr. ${doctorProfile.name}`;
                     loadPatients();
                 } else {
-                    window.location.href = 'index.html';
+                    window.location.href = 'login.html';
                 }
             } else {
                 window.location.href = 'login.html';
@@ -432,7 +383,8 @@
 
         // Close modal when clicking outside
         window.onclick = function(event) {
-            if (event.target == addPatientModal) {
+            const modal = document.getElementById('addPatientModal');
+            if (event.target === modal) {
                 closeAddPatientModal();
             }
         }
