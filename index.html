@@ -298,6 +298,42 @@
         .profile-dropdown:hover .dropdown-content {
             display: block;
         }
+        
+        .doctor-message {
+            text-align: center;
+            padding: 40px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            margin: 20px auto;
+            max-width: 600px;
+        }
+
+        .doctor-message h2 {
+            color: #2196F3;
+            margin-bottom: 20px;
+        }
+
+        .doctor-message p {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+
+        .primary-btn {
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+
+        .primary-btn:hover {
+            background-color: #45a049;
+        }
     </style>
 </head>
 <body>
@@ -314,16 +350,10 @@
             </div>
         </div>
 
-        <div id="quiz-container">
-            <div class="nav-buttons">
-                <a href="patients.html" id="patientsButton" class="nav-button patients-button" style="display: none;">Manage Patients</a>
-            </div>
+        <div id="loading" class="loading">Loading...</div>
+        <div id="error-message" class="error-message"></div>
 
-            <div class="report-section">
-                <h3>View Your Progress</h3>
-                <button onclick="viewReport()" class="report-button">View Report</button>
-            </div>
-
+        <div class="quiz-container" id="quizContainer" style="display: none;">
             <h2>Select a Quiz Type:</h2>
             <!-- Quiz Type Selection -->
             <div id="quiz-type">
@@ -351,6 +381,12 @@
                 <h2>Your Score: <span id="score"></span></h2>
                 <button onclick="restartQuiz()">Restart Quiz</button>
             </div>
+        </div>
+
+        <div id="doctorMessage" class="doctor-message" style="display: none;">
+            <h2>Doctor's Dashboard</h2>
+            <p>As a doctor, you can manage your patients and view their quiz results. You cannot take quizzes yourself.</p>
+            <button class="primary-btn" onclick="window.location.href='patients.html'">Manage Patients</button>
         </div>
 
         <!-- Firebase App (the core Firebase SDK) -->
@@ -430,41 +466,43 @@
                 doctorId = sessionStorage.getItem('doctorId');
                 isPatientQuiz = !!currentPatientId;
 
-                if (isPatientQuiz && !doctorId) {
-                    console.error('Doctor ID not found for patient quiz');
-                    window.location.href = 'patients.html';
-                    return;
-                }
-            }
-
-            // Save quiz result
-            async function saveQuizResult(quizType, score, details) {
                 const user = auth.currentUser;
                 if (!user) return;
 
-                const timestamp = new Date().toISOString();
-                const resultData = {
-                    score,
-                    timestamp,
-                    details
-                };
+                // Check if user is a doctor
+                const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                const role = roleSnapshot.val();
 
-                try {
-                    if (isPatientQuiz && currentPatientId && doctorId) {
-                        // Save to patient's quiz results
-                        await database.ref(`doctors/${doctorId}/patients/${currentPatientId}/quiz/${quizType}/${timestamp}`).set(resultData);
-                    } else {
-                        // Get user role
-                        const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
-                        const role = roleSnapshot.val();
-                        // Save to user's quiz results
-                        await database.ref(`${role}s/${user.uid}/quiz/${quizType}/${timestamp}`).set(resultData);
+                if (role === 'doctor') {
+                    if (!currentPatientId) {
+                        // If doctor is not accessing as a patient, show doctor message
+                        document.getElementById('quizContainer').style.display = 'none';
+                        document.getElementById('doctorMessage').style.display = 'block';
+                        return;
                     }
-                    showError('Quiz result saved successfully!', true);
-                } catch (error) {
-                    console.error('Error saving quiz result:', error);
-                    showError('Failed to save quiz result');
                 }
+
+                // Show quiz container for patients and regular users
+                document.getElementById('quizContainer').style.display = 'block';
+                document.getElementById('doctorMessage').style.display = 'none';
+            }
+
+            // Start quiz function
+            async function startQuiz(quizType) {
+                const user = auth.currentUser;
+                if (!user) return;
+
+                // Check if user is a doctor
+                const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                const role = roleSnapshot.val();
+
+                if (role === 'doctor' && !currentPatientId) {
+                    showError('Doctors cannot take quizzes. Please manage your patients instead.');
+                    return;
+                }
+
+                // Proceed with quiz
+                window.location.href = `${quizType}.html`;
             }
 
             // Logout function
@@ -521,6 +559,42 @@
                 } catch (error) {
                     console.error('Error checking results:', error);
                     showError('Failed to load report. Please try again.');
+                }
+            }
+
+            // Save quiz result
+            async function saveQuizResult(quizType, score, details) {
+                const user = auth.currentUser;
+                if (!user) return;
+
+                const timestamp = new Date().toISOString();
+                const resultData = {
+                    score,
+                    timestamp,
+                    details
+                };
+
+                try {
+                    if (isPatientQuiz && currentPatientId && doctorId) {
+                        // Save to patient's quiz results
+                        await database.ref(`doctors/${doctorId}/patients/${currentPatientId}/quiz/${quizType}/${timestamp}`).set(resultData);
+                    } else {
+                        // Get user role
+                        const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                        const role = roleSnapshot.val();
+                        
+                        if (role === 'doctor') {
+                            showError('Doctors cannot take quizzes. Please manage your patients instead.');
+                            return;
+                        }
+                        
+                        // Save to user's quiz results
+                        await database.ref(`${role}s/${user.uid}/quiz/${quizType}/${timestamp}`).set(resultData);
+                    }
+                    showError('Quiz result saved successfully!', true);
+                } catch (error) {
+                    console.error('Error saving quiz result:', error);
+                    showError('Failed to save quiz result');
                 }
             }
 
