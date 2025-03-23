@@ -220,7 +220,7 @@
     </div>
 
     <script>
-        // Firebase configuration
+        // Initialize Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
             authDomain: "projeccvi.firebaseapp.com",
@@ -230,149 +230,138 @@
             appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
         };
 
-        // Initialize Firebase app
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
-        }
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const database = firebase.database();
 
-        // Enable offline persistence
-        database.enablePersistence()
-            .catch((err) => {
-                if (err.code === 'failed-precondition') {
-                    console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.');
-                } else if (err.code === 'unimplemented') {
-                    console.warn('The current browser does not support offline persistence.');
-                }
-            });
+        // DOM elements
+        const patientsGrid = document.getElementById('patientsGrid');
+        const noPatients = document.getElementById('noPatients');
+        const addPatientForm = document.getElementById('addPatientForm');
+        const addPatientModal = document.getElementById('addPatientModal');
+        const errorMessage = document.getElementById('error-message');
+        const loading = document.getElementById('loading');
 
         // Helper Functions
         function showLoading(show) {
-            document.getElementById('loading').style.display = show ? 'block' : 'none';
+            loading.style.display = show ? 'block' : 'none';
         }
 
-        function showError(message, success = false) {
-            const errorDiv = document.getElementById('error-message');
-            errorDiv.textContent = message;
-            errorDiv.style.color = success ? 'green' : 'red';
-            errorDiv.style.display = 'block';
-            setTimeout(() => errorDiv.style.display = 'none', 3000);
+        function showError(message, isSuccess = false) {
+            errorMessage.textContent = message;
+            errorMessage.style.color = isSuccess ? 'green' : 'red';
+            errorMessage.style.display = 'block';
+            setTimeout(() => errorMessage.style.display = 'none', 3000);
         }
 
         function openAddPatientModal() {
-            document.getElementById('addPatientModal').style.display = 'block';
+            addPatientModal.style.display = 'block';
         }
 
         function closeAddPatientModal() {
-            document.getElementById('addPatientModal').style.display = 'none';
-            document.getElementById('addPatientForm').reset();
+            addPatientModal.style.display = 'none';
+            addPatientForm.reset();
         }
 
-        async function loadPatients() {
-            const user = auth.currentUser;
-            if (!user) {
-                console.log('No user found');
-                return;
-            }
-
-            showLoading(true);
+        // Simple patient card creation
+        function createPatientCard(id, patient) {
             try {
-                // First verify if the user is a doctor
-                const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
-                const role = roleSnapshot.val();
-                console.log('User role:', role);
+                // Handle different data structures
+                const profile = patient.profile || patient;
+                
+                const card = document.createElement('div');
+                card.className = 'patient-card';
+                
+                card.innerHTML = `
+                    <h3>${profile.name || 'No Name'}</h3>
+                    <div class="patient-info">Age: ${profile.age || 'N/A'}</div>
+                    <div class="patient-info">Gender: ${profile.gender || 'N/A'}</div>
+                    ${profile.medicalCondition ? `<div class="patient-info">Medical Condition: ${profile.medicalCondition}</div>` : ''}
+                    <div class="patient-actions">
+                        <button class="quiz-btn" onclick="startPatientQuiz('${id}')">Start Quiz</button>
+                        <button class="results-btn" onclick="viewPatientResults('${id}')">View Results</button>
+                        <button class="delete-btn" onclick="deletePatient('${id}')">Delete</button>
+                    </div>
+                `;
+                return card;
+            } catch (error) {
+                console.error('Error creating patient card:', error);
+                
+                // Create a fallback card with error info
+                const errorCard = document.createElement('div');
+                errorCard.className = 'patient-card';
+                errorCard.innerHTML = `
+                    <h3>Error Loading Patient</h3>
+                    <div class="patient-info">ID: ${id}</div>
+                    <div class="patient-actions">
+                        <button class="delete-btn" onclick="deletePatient('${id}')">Delete</button>
+                    </div>
+                `;
+                return errorCard;
+            }
+        }
 
-                if (role !== 'doctor') {
-                    console.log('Not a doctor, redirecting');
-                    window.location.href = 'login.html';
-                    return;
+        // Load patients
+        async function loadPatients() {
+            showLoading(true);
+            
+            try {
+                const user = auth.currentUser;
+                if (!user) {
+                    throw new Error('User not authenticated');
                 }
-
+                
                 // Get doctor's patients
                 const patientsRef = database.ref(`doctors/${user.uid}/patients`);
-                console.log('Fetching patients from:', patientsRef.toString());
                 const snapshot = await patientsRef.once('value');
                 const patients = snapshot.val();
-                console.log('Patients data:', patients);
-
-                const patientsGrid = document.getElementById('patientsGrid');
-                const noPatients = document.getElementById('noPatients');
-
+                
                 // Clear existing content
                 patientsGrid.innerHTML = '';
 
                 if (patients) {
-                    Object.entries(patients).forEach(([id, patientData]) => {
-                        try {
-                            console.log('Processing patient:', id, patientData);
-                            // Ensure patient data has the correct structure
-                            const patient = patientData.profile ? patientData : { profile: patientData };
-                            console.log('Structured patient data:', patient);
-                            
-                            const card = document.createElement('div');
-                            card.className = 'patient-card';
-                            card.innerHTML = `
-                                <h3>${patient.profile.name || 'No Name'}</h3>
-                                <div class="patient-info">Age: ${patient.profile.age || 'N/A'}</div>
-                                <div class="patient-info">Gender: ${patient.profile.gender || 'N/A'}</div>
-                                ${patient.profile.medicalCondition ? `<div class="patient-info">Medical Condition: ${patient.profile.medicalCondition}</div>` : ''}
-                                <div class="patient-actions">
-                                    <button class="quiz-btn" onclick="startPatientQuiz('${id}')">Start Quiz</button>
-                                    <button class="results-btn" onclick="viewPatientResults('${id}')">View Results</button>
-                                    <button class="delete-btn" onclick="deletePatient('${id}')">Delete</button>
-                                </div>
-                            `;
-                            patientsGrid.appendChild(card);
-                        } catch (cardError) {
-                            console.error('Error creating patient card:', cardError, 'for patient:', id);
-                        }
+                    // Add each patient card
+                    Object.entries(patients).forEach(([id, data]) => {
+                        const card = createPatientCard(id, data);
+                        patientsGrid.appendChild(card);
                     });
                     noPatients.style.display = 'none';
                 } else {
-                    console.log('No patients found');
                     noPatients.style.display = 'block';
                 }
             } catch (error) {
                 console.error('Error loading patients:', error);
                 showError('Error loading patients: ' + error.message);
+                noPatients.style.display = 'block';
             } finally {
                 showLoading(false);
             }
         }
 
         // Add new patient
-        document.getElementById('addPatientForm').addEventListener('submit', async (e) => {
+        addPatientForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             showLoading(true);
             
             try {
                 const user = auth.currentUser;
-                if (!user) throw new Error('Not signed in');
-                console.log('Adding patient for doctor:', user.uid);
-
-                // Verify if the user is a doctor
-                const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
-                const role = roleSnapshot.val();
-                console.log('User role:', role);
-
-                if (role !== 'doctor') {
-                    showError('Only doctors can add patients');
-                    return;
+                if (!user) {
+                    throw new Error('Not signed in');
                 }
-
+                
                 // Get form values
                 const name = document.getElementById('patientName').value.trim();
                 const age = document.getElementById('patientAge').value.trim();
                 const gender = document.getElementById('patientGender').value;
                 const medicalCondition = document.getElementById('patientMedicalCondition').value.trim();
-
+                
                 // Validate required fields
                 if (!name || !age || !gender) {
-                    showError('Please fill in all required fields');
-                    return;
+                    throw new Error('Please fill in all required fields');
                 }
-
+                
+                // Create patient data with proper structure
                 const patientData = {
                     profile: {
                         name,
@@ -381,76 +370,78 @@
                         medicalCondition: medicalCondition || ''
                     }
                 };
-                console.log('Patient data to save:', patientData);
-
-                // Add new patient
-                const newPatientRef = database.ref(`doctors/${user.uid}/patients`).push();
-                console.log('Saving to:', newPatientRef.toString());
-                await newPatientRef.set(patientData);
-                console.log('Patient saved successfully');
                 
-                // Close modal and reset form
+                // Add patient to database
+                const patientsRef = database.ref(`doctors/${user.uid}/patients`);
+                await patientsRef.push(patientData);
+                
+                // Reset and close form
                 closeAddPatientModal();
-                document.getElementById('addPatientForm').reset();
-                
-                // Reload patients list first
-                await loadPatients();
-                
-                // Show success message after reload
                 showError('Patient added successfully!', true);
+                
+                // Reload patient list
+                setTimeout(loadPatients, 500);
             } catch (error) {
                 console.error('Error adding patient:', error);
-                showError('Error adding patient: ' + error.message);
+                showError(error.message);
             } finally {
                 showLoading(false);
             }
         });
 
+        // Delete patient
         async function deletePatient(patientId) {
             if (!confirm('Are you sure you want to delete this patient?')) return;
-
-            const user = auth.currentUser;
-            if (!user) return;
-
-            // Verify if the user is a doctor
-            const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
-            const role = roleSnapshot.val();
-
-            if (role !== 'doctor') {
-                showError('Only doctors can delete patients');
-                return;
-            }
-
+            
+            showLoading(true);
+            
             try {
+                const user = auth.currentUser;
+                if (!user) {
+                    throw new Error('Not signed in');
+                }
+                
+                // Delete the patient
                 await database.ref(`doctors/${user.uid}/patients/${patientId}`).remove();
-                loadPatients();
                 showError('Patient deleted successfully!', true);
+                
+                // Reload patient list
+                setTimeout(loadPatients, 500);
             } catch (error) {
                 console.error('Error deleting patient:', error);
-                showError('Error deleting patient');
+                showError('Error deleting patient: ' + error.message);
+            } finally {
+                showLoading(false);
             }
         }
 
+        // Start quiz for patient
         function startPatientQuiz(patientId) {
             const user = auth.currentUser;
             if (!user) return;
             
-            // Store both patient ID and doctor ID in session storage
+            // Store patient and doctor IDs
             sessionStorage.setItem('currentPatientId', patientId);
             sessionStorage.setItem('doctorId', user.uid);
+            
+            // Navigate to quiz page
             window.location.href = 'index.html';
         }
 
+        // View patient results
         function viewPatientResults(patientId) {
             const user = auth.currentUser;
             if (!user) return;
             
-            // Store both patient ID and doctor ID in session storage
+            // Store patient and doctor IDs
             sessionStorage.setItem('currentPatientId', patientId);
             sessionStorage.setItem('doctorId', user.uid);
+            
+            // Navigate to results page
             window.location.href = 'report.html';
         }
 
+        // Logout
         function logout() {
             auth.signOut()
                 .then(() => window.location.href = 'login.html')
@@ -460,36 +451,46 @@
         // Auth state observer
         auth.onAuthStateChanged(async (user) => {
             if (user) {
-                // Check if user is a doctor
-                const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
-                const role = roleSnapshot.val();
-
-                if (role === 'doctor') {
-                    const doctorRef = database.ref(`doctors/${user.uid}/profile`);
-                    const snapshot = await doctorRef.once('value');
-                    const doctorProfile = snapshot.val();
-
+                try {
+                    // Check if user is a doctor
+                    const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                    const role = roleSnapshot.val();
+                    
+                    if (role !== 'doctor') {
+                        window.location.href = 'index.html';
+                        return;
+                    }
+                    
+                    // Get doctor profile
+                    const doctorSnapshot = await database.ref(`doctors/${user.uid}/profile`).once('value');
+                    const doctorProfile = doctorSnapshot.val();
+                    
                     if (doctorProfile) {
+                        // Set doctor name
                         document.getElementById('doctorName').textContent = `Dr. ${doctorProfile.name}`;
+                        
+                        // Load patients
                         loadPatients();
                     } else {
+                        // Doctor without profile should set it up
                         window.location.href = 'profile.html';
                     }
-                } else {
-                    window.location.href = 'login.html';
+                } catch (error) {
+                    console.error('Auth error:', error);
+                    showError('Authentication error: ' + error.message);
                 }
             } else {
+                // Not signed in
                 window.location.href = 'login.html';
             }
         });
 
         // Close modal when clicking outside
         window.onclick = function(event) {
-            const modal = document.getElementById('addPatientModal');
-            if (event.target === modal) {
+            if (event.target === addPatientModal) {
                 closeAddPatientModal();
             }
-        }
+        };
     </script>
 </body>
 </html>
