@@ -549,37 +549,47 @@
         <script>
             // Initialize profile icon
             async function initializeProfileIcon() {
-                const user = auth.currentUser;
-                if (!user) return;
-
                 const currentPatientId = sessionStorage.getItem('currentPatientId');
-                let profileRef;
+                const doctorId = sessionStorage.getItem('doctorId');
 
-                if (currentPatientId) {
+                if (currentPatientId && doctorId) {
                     // If accessing as a patient, get patient's profile
-                    const doctorId = sessionStorage.getItem('doctorId');
-                    profileRef = database.ref(`doctors/${doctorId}/patients/${currentPatientId}/profile`);
-                } else {
-                    // Get role to determine path
-                    const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
-                    const role = roleSnapshot.val();
-                    profileRef = database.ref(`${role}s/${user.uid}/profile`);
-                }
-
-                try {
-                    const snapshot = await profileRef.once('value');
-                    const profile = snapshot.val();
-                    if (profile && profile.name) {
-                        document.getElementById('profileIcon').textContent = profile.name.charAt(0).toUpperCase();
+                    try {
+                        const profileRef = database.ref(`doctors/${doctorId}/patients/${currentPatientId}/profile`);
+                        const snapshot = await profileRef.once('value');
+                        const profile = snapshot.val();
+                        if (profile && profile.name) {
+                            document.getElementById('profileIcon').textContent = profile.name.charAt(0).toUpperCase();
+                        }
+                    } catch (error) {
+                        console.error('Error loading patient profile:', error);
                     }
-                } catch (error) {
-                    console.error('Error loading profile:', error);
+                } else {
+                    // Regular user/doctor profile
+                    const user = auth.currentUser;
+                    if (!user) return;
+
+                    try {
+                        // Get role to determine path
+                        const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                        const role = roleSnapshot.val();
+                        const profileRef = database.ref(`${role}s/${user.uid}/profile`);
+                        const snapshot = await profileRef.once('value');
+                        const profile = snapshot.val();
+                        if (profile && profile.name) {
+                            document.getElementById('profileIcon').textContent = profile.name.charAt(0).toUpperCase();
+                        }
+                    } catch (error) {
+                        console.error('Error loading profile:', error);
+                    }
                 }
             }
 
             function editProfile() {
                 const currentPatientId = sessionStorage.getItem('currentPatientId');
-                if (currentPatientId) {
+                const doctorId = sessionStorage.getItem('doctorId');
+                
+                if (currentPatientId && doctorId) {
                     // If accessing as a patient, go to patient profile page
                     window.location.href = 'patient_profile.html';
                 } else {
@@ -608,13 +618,18 @@
 
             // Auth state observer
             auth.onAuthStateChanged(user => {
-                if (user) {
+                const currentPatientId = sessionStorage.getItem('currentPatientId');
+                const doctorId = sessionStorage.getItem('doctorId');
+
+                if (currentPatientId && doctorId) {
+                    // Patient mode - initialize profile icon
                     initializeProfileIcon();
-                } else {
-                    const currentPatientId = sessionStorage.getItem('currentPatientId');
-                    if (!currentPatientId) {
-                        window.location.href = 'login.html';
-                    }
+                } else if (user) {
+                    // Regular user mode
+                    initializeProfileIcon();
+                } else if (!currentPatientId) {
+                    // Not logged in and not a patient
+                    window.location.href = 'login.html';
                 }
             });
         </script>
