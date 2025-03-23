@@ -374,18 +374,42 @@
             document.getElementById('total-correct').innerText = score;
             document.getElementById('total-incorrect').innerText = incorrectAnswers;
 
-            if (auth.currentUser) {
-                const resultsRef = database.ref(`userProfiles/${auth.currentUser.uid}/quizResults/VDT1`);
-                resultsRef.push({
-                    score: score,
-                    totalTime: totalTimeInSeconds,
-                    averageTime: averageTimeInSeconds,
-                    firstTapTime: firstTapTime ? firstTapTime.toFixed(2) : "N/A",
-                    totalTaps: totalTaps,
-                    correctAnswers: score,
-                    incorrectAnswers: incorrectAnswers,
-                    timestamp: firebase.database.ServerValue.TIMESTAMP
+            saveQuizResults(score, totalTimeInSeconds, averageTimeInSeconds, firstTapTime, totalTaps, score, incorrectAnswers);
+        }
+
+        async function saveQuizResults(score, totalTime, averageTime, firstTapTime, totalTaps, correctAnswers, incorrectAnswers) {
+            const user = auth.currentUser;
+            if (!user) return;
+
+            try {
+                // Check if user is a doctor's patient
+                const doctorSnapshot = await database.ref('doctors').orderByChild(`patients/${user.uid}`).once('value');
+                const doctor = doctorSnapshot.val();
+                
+                let path;
+                if (doctor) {
+                    // User is a patient, save under doctor's patients
+                    const doctorId = Object.keys(doctor)[0];
+                    path = `doctors/${doctorId}/patients/${user.uid}/quiz/VDT1/${Date.now()}`;
+                } else {
+                    // Check if user is a doctor
+                    const isDoctor = await database.ref(`doctors/${user.uid}`).once('value');
+                    path = isDoctor.exists() ? 
+                        `doctors/${user.uid}/quiz/VDT1/${Date.now()}` : 
+                        `users/${user.uid}/quiz/VDT1/${Date.now()}`;
+                }
+
+                await database.ref(path).set({
+                    score,
+                    totalTime,
+                    averageTime,
+                    firstTapTime,
+                    totalTaps,
+                    correctAnswers,
+                    incorrectAnswers
                 });
+            } catch (error) {
+                console.error('Error saving quiz results:', error);
             }
         }
 
