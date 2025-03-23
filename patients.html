@@ -19,10 +19,28 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 30px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
         }
         .doctor-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
             font-size: 16px;
             color: #666;
+        }
+        .logout-btn {
+            padding: 10px 20px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .logout-btn:hover {
+            background-color: #c82333;
         }
         .add-patient {
             background-color: #4CAF50;
@@ -68,13 +86,6 @@
             cursor: pointer;
             font-size: 14px;
         }
-        .view-btn {
-            background-color: #2196F3;
-            color: white;
-        }
-        .view-btn:hover {
-            background-color: #1976D2;
-        }
         .profile-btn {
             background-color: #ff9800;
             color: white;
@@ -87,13 +98,6 @@
             color: white;
         }
         .quiz-btn:hover {
-            background-color: #7b1fa2;
-        }
-        .report-btn {
-            background-color: #9c27b0;
-            color: white;
-        }
-        .report-btn:hover {
             background-color: #7b1fa2;
         }
         .delete-btn {
@@ -164,11 +168,11 @@
 </head>
 <body>
     <div class="header">
+        <h1>Patient Management</h1>
         <div class="doctor-info">
-            <h1>Patient Management</h1>
-            <p>Doctor: <span id="doctorName">Loading...</span></p>
+            <span id="doctorName"></span>
+            <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
-        <button class="add-patient" onclick="openAddPatientModal()">Add New Patient</button>
     </div>
 
     <div id="loading" class="loading">Loading patients...</div>
@@ -178,6 +182,8 @@
     <div id="noPatients" class="no-patients" style="display: none;">
         No patients added yet. Click "Add New Patient" to get started.
     </div>
+
+    <button class="add-patient" onclick="openAddPatientModal()">Add New Patient</button>
 
     <!-- Add Patient Modal -->
     <div id="addPatientModal" class="modal">
@@ -271,10 +277,8 @@
                 <div class="patient-info">Gender: ${patient.gender}</div>
                 ${patient.medicalConditions ? `<div class="patient-info">Medical: ${patient.medicalConditions}</div>` : ''}
                 <div class="patient-actions">
-                    <button class="view-btn" onclick="viewPatientResults('${patientId}')">View Results</button>
                     <button class="profile-btn" onclick="createPatientProfile('${patientId}', '${patient.name || ''}')">Create/Edit Profile</button>
                     <button class="quiz-btn" onclick="startPatientQuiz('${patientId}')">Take Quiz</button>
-                    <button class="report-btn" onclick="viewPatientReport('${patientId}')">View Report</button>
                     <button class="delete-btn" onclick="deletePatient('${patientId}')">Delete</button>
                 </div>
             `;
@@ -302,7 +306,7 @@
                     return;
                 }
 
-                doctorNameElement.textContent = doctorProfile.name;
+                doctorNameElement.textContent = `Dr. ${doctorProfile.name}`;
 
                 // Load patients
                 const patientsSnapshot = await database.ref(`doctors/${user.uid}/patients`).once('value');
@@ -397,38 +401,15 @@
             }
         }
 
-        // View patient results
-        async function viewPatientResults(patientId) {
+        // Logout function
+        async function logout() {
             try {
-                const user = auth.currentUser;
-                if (!user) throw new Error('Not signed in');
-
-                const resultsSnapshot = await database.ref(`doctors/${user.uid}/patients/${patientId}/quizResults`).once('value');
-                const results = resultsSnapshot.val();
-
-                if (!results) {
-                    showError('No quiz results found for this patient.');
-                    return;
-                }
-
-                // Store patient ID for results page
-                localStorage.setItem('currentPatientId', patientId);
-                window.location.href = 'report.html';
+                await auth.signOut();
+                console.log('Logged out successfully');
+                window.location.href = 'login.html';
             } catch (error) {
-                console.error('Error viewing results:', error);
-                showError('Failed to load results. Please try again.');
-            }
-        }
-
-        // View patient report
-        async function viewPatientReport(patientId) {
-            try {
-                // Store the patient ID for the report page
-                localStorage.setItem('currentPatientId', patientId);
-                window.location.href = 'report.html';
-            } catch (error) {
-                console.error('Error viewing report:', error);
-                showError('Failed to load report. Please try again.');
+                console.error('Logout error:', error);
+                showError('Failed to logout. Please try again.');
             }
         }
 
@@ -436,11 +417,14 @@
         auth.onAuthStateChanged(async (user) => {
             if (user) {
                 const doctorSnapshot = await database.ref(`doctorProfiles/${user.uid}`).once('value');
-                if (!doctorSnapshot.exists()) {
-                    window.location.href = 'profile.html';
-                    return;
+                const doctorData = doctorSnapshot.val();
+
+                if (doctorData) {
+                    document.getElementById('doctorName').textContent = `Dr. ${doctorData.name}`;
+                    loadPatients();
+                } else {
+                    window.location.href = 'index.html';
                 }
-                loadPatients();
             } else {
                 window.location.href = 'login.html';
             }
