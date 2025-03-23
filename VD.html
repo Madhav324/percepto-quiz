@@ -98,6 +98,26 @@
             border-radius: 4px;
             margin-bottom: 20px;
         }
+        
+        #quiz-type {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        #quiz-type button {
+            padding: 15px;
+            border: none;
+            border-radius: 5px;
+            background-color: #4CAF50;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        #quiz-type button:hover {
+            background-color: #45a049;
+        }
     </style>
 </head>
 <body>
@@ -132,10 +152,10 @@
             <h2>Select a Quiz Type:</h2>
             <!-- Quiz Type Selection -->
             <div id="quiz-type">
-                <a href="VDT.html" style="text-decoration: none;"><button onclick="startQuiz('animals')">Shape Exercise</button></a>
-                <a href="VDTS1.html" style="text-decoration: none;"><button onclick="startQuiz('colors')">Size Exercise</button></a>
-                <a href="VDTSE1.html" style="text-decoration: none;"><button onclick="startQuiz('colors')">Emotion Exercise</button></a>
-                <a href="VDTCC1.html" style="text-decoration: none;"><button onclick="startQuiz('colors')">Colour Exercise</button></a>
+                <a href="VDT.html" style="text-decoration: none;"><button>Shape Exercise</button></a>
+                <a href="VDTS1.html" style="text-decoration: none;"><button>Size Exercise</button></a>
+                <a href="VDTSE1.html" style="text-decoration: none;"><button>Emotion Exercise</button></a>
+                <a href="VDTCC1.html" style="text-decoration: none;"><button>Colour Exercise</button></a>
             </div>
         </div>
 
@@ -180,14 +200,12 @@
                 profileMenu.classList.toggle('show');
             });
 
-            // Close dropdown when clicking outside
             document.addEventListener('click', (e) => {
                 if (!profileMenu.contains(e.target) && !profileIcon.contains(e.target)) {
                     profileMenu.classList.remove('show');
                 }
             });
 
-            // Profile navigation
             function goToProfile() {
                 sessionStorage.setItem('editingProfile', 'true');
                 window.location.href = getPath('profile.html');
@@ -219,6 +237,62 @@
                 }
             }
 
+            // Auth state observer
+            auth.onAuthStateChanged(async (user) => {
+                if (user) {
+                    userEmail = user.email;
+                    await checkIfDoctor(user.uid);
+                    loadQuizState();
+                    
+                    // Load user name
+                    try {
+                        let profileRef;
+                        if (isPatientQuiz && currentPatientId) {
+                            profileRef = database.ref(`doctors/${user.uid}/patients/${currentPatientId}`);
+                        } else {
+                            profileRef = database.ref(`userProfiles/${user.uid}`);
+                        }
+                        
+                        const snapshot = await profileRef.once('value');
+                        const profile = snapshot.val();
+                        if (profile && profile.name) {
+                            document.getElementById('userName').textContent = profile.name;
+                        } else {
+                            document.getElementById('userName').textContent = 'User';
+                        }
+                        document.getElementById('userEmail').textContent = userEmail;
+                    } catch (error) {
+                        console.error('Error loading profile:', error);
+                        document.getElementById('userName').textContent = 'User';
+                    }
+                    
+                    document.getElementById('quiz-container').style.display = 'block';
+                } else {
+                    window.location.href = getPath('login.html');
+                }
+            });
+
+            // Logout function
+            function logout() {
+                const isPatientQuiz = localStorage.getItem('isPatientQuiz') === 'true';
+                
+                // Clear all session data
+                localStorage.removeItem('currentPatientId');
+                localStorage.removeItem('isPatientQuiz');
+                localStorage.removeItem('isPatientProfile');
+                
+                if (isPatientQuiz) {
+                    window.location.href = getPath('patients.html');
+                } else {
+                    auth.signOut().then(() => {
+                        console.log('Logged out successfully');
+                        window.location.href = getPath('login.html');
+                    }).catch((error) => {
+                        console.error('Logout error:', error);
+                    });
+                }
+            }
+
             // Show/hide loading
             function showLoading(show, message = 'Loading...') {
                 const loadingDiv = document.getElementById('loading');
@@ -237,56 +311,6 @@
                     setTimeout(() => {
                         errorDiv.style.display = 'none';
                     }, 5000);
-                }
-            }
-
-            // Auth state observer
-            auth.onAuthStateChanged(async (user) => {
-                showLoading(true);
-                if (user) {
-                    userEmail = user.email;
-                    document.getElementById('userEmail').textContent = userEmail;
-                    document.getElementById('userName').textContent = user.displayName || 'User';
-                    document.getElementById('quiz-container').style.display = 'block';
-
-                    // Check if user is a doctor
-                    await checkIfDoctor(user.uid);
-
-                    // Load quiz state
-                    loadQuizState();
-
-                    // Store quiz context
-                    window.quizContext = {
-                        userId: user.uid,
-                        isPatientQuiz: localStorage.getItem('isPatientQuiz') === 'true',
-                        currentPatientId: localStorage.getItem('currentPatientId'),
-                        isDoctor: false
-                    };
-
-                    // Initialize quiz
-                    if (typeof initializeQuiz === 'function') {
-                        initializeQuiz();
-                    }
-                } else {
-                    window.location.href = getPath('login.html');
-                }
-                showLoading(false);
-            });
-
-            // Logout function
-            function logout() {
-                if (isPatientQuiz) {
-                    // Clear patient quiz state
-                    localStorage.removeItem('currentPatientId');
-                    localStorage.removeItem('isPatientQuiz');
-                    window.location.href = getPath('patients.html');
-                } else {
-                    // Regular user logout
-                    auth.signOut().then(() => {
-                        window.location.href = getPath('login.html');
-                    }).catch((error) => {
-                        console.error('Error signing out:', error);
-                    });
                 }
             }
 
