@@ -3,79 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visual Discrimination</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Visual Discrimination Quiz</title>
+    <link rel="stylesheet" href="style.css">
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f9;
+        /* Profile Navigation Styles */
+        .nav-header {
             display: flex;
-            flex-direction: column;
+            justify-content: space-between;
             align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
-        }
-
-        .container {
-            width: 100%;
-            max-width: 1200px;
-            background-color: white;
-            padding: 20px;
-            border-radius: 10px;
+            padding: 10px 20px;
+            background-color: #fff;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-
-        h1, h2 {
-            text-align: center;
-            color: #2c3e50;
-            margin-bottom: 20px;
-        }
-
-        #quiz-type {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        
+        .profile-nav {
+            display: flex;
+            align-items: center;
             gap: 15px;
-            margin-top: 20px;
+            position: relative;
         }
-
-        #quiz-type button {
-            padding: 15px;
-            border: none;
-            border-radius: 5px;
-            background-color: #4CAF50;
-            color: white;
-            cursor: pointer;
-            font-size: 16px;
-            transition: background-color 0.3s;
-            width: 100%;
-        }
-
-        #quiz-type button:hover {
-            background-color: #45a049;
-        }
-
-        .return-home {
-            display: block;
-            width: fit-content;
-            margin: 20px auto;
-            padding: 12px 24px;
-            background-color: #2196F3;
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
-            font-size: 16px;
-            transition: background-color 0.3s;
-        }
-
-        .return-home:hover {
-            background-color: #1976D2;
-        }
-
+        
         .profile-icon {
-            position: absolute;
-            top: 20px;
-            right: 20px;
             width: 40px;
             height: 40px;
             border-radius: 50%;
@@ -88,12 +36,21 @@
             font-weight: bold;
             text-decoration: none;
             transition: background-color 0.3s;
+            position: absolute;
+            top: 20px;
+            right: 20px;
         }
-
+        
         .profile-icon:hover {
             background-color: #1976D2;
         }
-
+        
+        .user-info {
+            display: flex;
+            flex-direction: column;
+            font-size: 14px;
+        }
+        
         .dropdown-menu {
             position: absolute;
             top: 70px;
@@ -104,11 +61,11 @@
             display: none;
             z-index: 1000;
         }
-
+        
         .dropdown-menu.show {
             display: block;
         }
-
+        
         .dropdown-item {
             padding: 8px 16px;
             color: #333;
@@ -117,26 +74,69 @@
             align-items: center;
             gap: 8px;
             cursor: pointer;
+            white-space: nowrap;
         }
-
+        
         .dropdown-item:hover {
             background-color: #f8f9fa;
         }
-
+        
         .dropdown-divider {
             height: 1px;
             background-color: #e9ecef;
             margin: 0;
         }
+        
+        /* Your existing styles */
+        #loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        #error-message {
+            display: none;
+            background-color: #f44336;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        #quiz-type {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+            padding: 20px;
+        }
+        #quiz-type button {
+            padding: 15px;
+            border: none;
+            border-radius: 5px;
+            background-color: #4CAF50;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+            width: 100%;
+        }
+        #quiz-type button:hover {
+            background-color: #45a049;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Visual Discrimination</h1>
+        <div id="error-message"></div>
         <div class="profile-icon" id="profileIcon" title="Menu">P</div>
         <div class="dropdown-menu" id="profileMenu">
             <a class="dropdown-item" onclick="goToProfile()">
                 <i>👤</i> Profile
+            </a>
+            <a class="dropdown-item" onclick="goHome()">
+                <i>🏠</i> Return Home
             </a>
             <div class="dropdown-divider"></div>
             <a class="dropdown-item" onclick="logout()">
@@ -144,20 +144,29 @@
             </a>
         </div>
 
+        <h1>Visual Perceptual Skills</h1>
+        <div class="header">
+            <div class="profile-nav">
+                <div class="user-info">
+                    <span class="user-name" id="userName">Loading...</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="loading">Loading...</div>
         <div id="quiz-container" style="display:none;">
             <div class="nav-buttons">
                 <a href="patients.html" id="patientsButton" class="nav-button patients-button" style="display: none;">Manage Patients</a>
             </div>
 
             <h2>Select a Quiz Type:</h2>
+            <!-- Quiz Type Selection -->
             <div id="quiz-type">
                 <a href="VDT.html" style="text-decoration: none;"><button>Shape Exercise</button></a>
                 <a href="VDTS1.html" style="text-decoration: none;"><button>Size Exercise</button></a>
                 <a href="VDTSE1.html" style="text-decoration: none;"><button>Emotion Exercise</button></a>
                 <a href="VDTCC1.html" style="text-decoration: none;"><button>Colour Exercise</button></a>
             </div>
-
-            <a href="index.html" class="return-home">Return Home</a>
         </div>
 
         <!-- Firebase App (the core Firebase SDK) -->
@@ -212,6 +221,10 @@
                 window.location.href = getPath('profile.html');
             }
 
+            function goHome() {
+                window.location.href = getPath('index.html');
+            }
+
             // Check if user is a doctor and show patients button
             async function checkIfDoctor(userId) {
                 try {
@@ -257,11 +270,14 @@
                         const snapshot = await profileRef.once('value');
                         const profile = snapshot.val();
                         if (profile && profile.name) {
-                            document.getElementById('profileIcon').textContent = profile.name.charAt(0).toUpperCase();
+                            document.getElementById('userName').textContent = profile.name;
+                        } else {
+                            document.getElementById('userName').textContent = 'User';
                         }
+                        // document.getElementById('userEmail').textContent = userEmail;
                     } catch (error) {
                         console.error('Error loading profile:', error);
-                        document.getElementById('profileIcon').textContent = 'P';
+                        document.getElementById('userName').textContent = 'User';
                     }
                     
                     document.getElementById('quiz-container').style.display = 'block';
@@ -288,6 +304,55 @@
                     }).catch((error) => {
                         console.error('Logout error:', error);
                     });
+                }
+            }
+
+            // Show/hide loading
+            function showLoading(show, message = 'Loading...') {
+                const loadingDiv = document.getElementById('loading');
+                if (loadingDiv) {
+                    loadingDiv.textContent = message;
+                    loadingDiv.style.display = show ? 'block' : 'none';
+                }
+            }
+
+            // Show error message
+            function showError(message) {
+                const errorDiv = document.getElementById('error-message');
+                if (errorDiv) {
+                    errorDiv.textContent = message;
+                    errorDiv.style.display = 'block';
+                    setTimeout(() => {
+                        errorDiv.style.display = 'none';
+                    }, 5000);
+                }
+            }
+
+            // Save quiz results
+            async function saveQuizResults(results) {
+                try {
+                    const { userId, isPatientQuiz, currentPatientId } = window.quizContext;
+                    
+                    let resultsRef;
+                    if (isPatientQuiz && currentPatientId) {
+                        resultsRef = database.ref(`doctors/${userId}/patients/${currentPatientId}/quizResults`);
+                    } else {
+                        resultsRef = database.ref(`userProfiles/${userId}/quizResults`);
+                    }
+
+                    const quizData = {
+                        type: 'Visual Discrimination',
+                        score: results.score,
+                        totalTime: results.totalTime,
+                        timestamp: firebase.database.ServerValue.TIMESTAMP,
+                        answers: results.answers
+                    };
+
+                    await resultsRef.push(quizData);
+                    console.log('Quiz results saved successfully');
+                } catch (error) {
+                    console.error('Error saving results:', error);
+                    showError('Failed to save quiz results. Please try again.');
                 }
             }
         </script>
