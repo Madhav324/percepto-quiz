@@ -113,7 +113,7 @@
             <p id="userEmail"></p>
         </div>
         <div id="error-message"></div>
-        <div id="loadingMessage" class="loading">Loading profile...</div>
+        <div id="loading" class="loading">Loading profile...</div>
         <form id="profileForm" class="profile-form" style="display: none;">
             <div class="form-group">
                 <label for="name">Full Name</label>
@@ -163,70 +163,66 @@
         const auth = firebase.auth();
         const database = firebase.database();
 
-        // Helper functions
         function showLoading(show) {
-            document.getElementById('loadingMessage').style.display = show ? 'block' : 'none';
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
             document.getElementById('profileForm').style.display = show ? 'none' : 'block';
         }
 
-        function showError(message) {
+        function showError(message, isSuccess = false) {
             const errorDiv = document.getElementById('error-message');
             errorDiv.textContent = message;
             errorDiv.style.display = 'block';
+            errorDiv.style.color = isSuccess ? '#4CAF50' : '#f44336';
             setTimeout(() => errorDiv.style.display = 'none', 3000);
         }
 
-        // Fill profile from Google data
-        async function fillFromGoogle(user) {
-            try {
-                const googleUser = user.providerData.find(
-                    provider => provider.providerId === 'google.com'
-                );
-
-                if (googleUser && googleUser.displayName) {
-                    document.getElementById('name').value = googleUser.displayName;
-                }
-            } catch (error) {
-                console.error('Error filling from Google:', error);
-            }
-        }
-
         // Load profile data
-        async function loadProfile(user) {
-            try {
-                const isDoctor = document.getElementById('isDoctor').checked;
-                const path = isDoctor ? `doctors/${user.uid}/profile` : `users/${user.uid}/profile`;
-                const snapshot = await database.ref(path).once('value');
-                const profile = snapshot.val();
+        async function loadProfileData() {
+            const user = auth.currentUser;
+            if (!user) return;
 
-                if (profile) {
-                    document.getElementById('name').value = profile.name || '';
-                    document.getElementById('age').value = profile.age || '';
-                    document.getElementById('gender').value = profile.gender || '';
-                    document.getElementById('medicalCondition').value = profile.medicalCondition || '';
-                    document.getElementById('isDoctor').checked = isDoctor;
+            showLoading(true);
+            try {
+                // Check both user and doctor profiles
+                const userSnapshot = await database.ref(`users/${user.uid}/profile`).once('value');
+                const doctorSnapshot = await database.ref(`doctors/${user.uid}/profile`).once('value');
+                const userData = userSnapshot.val();
+                const doctorData = doctorSnapshot.val();
+
+                // Pre-fill form with existing data if available
+                if (userData || doctorData) {
+                    const data = userData || doctorData;
+                    document.getElementById('name').value = data.name || '';
+                    document.getElementById('age').value = data.age || '';
+                    document.getElementById('gender').value = data.gender || '';
+                    document.getElementById('medicalCondition').value = data.medicalCondition || '';
+                    document.getElementById('isDoctor').checked = !!doctorData;
                 } else {
-                    // No profile exists, try to fill from Google
-                    await fillFromGoogle(user);
+                    // If no profile exists, try to get name from Google
+                    const displayName = user.displayName;
+                    if (displayName) {
+                        document.getElementById('name').value = displayName;
+                    }
                 }
             } catch (error) {
                 console.error('Error loading profile:', error);
-                showError('Error loading profile');
+                showError('Error loading profile data');
             }
             showLoading(false);
         }
 
         // Save profile data
-        async function saveProfile(event) {
-            event.preventDefault();
-            const user = auth.currentUser;
-            if (!user) return;
-
+        async function saveProfile(e) {
+            e.preventDefault();
             showLoading(true);
 
-            const isDoctor = document.getElementById('isDoctor').checked;
-            const path = isDoctor ? `doctors/${user.uid}/profile` : `users/${user.uid}/profile`;
+            const user = auth.currentUser;
+            if (!user) {
+                showError('Please sign in first');
+                return;
+            }
 
+            const isDoctor = document.getElementById('isDoctor').checked;
             const profileData = {
                 name: document.getElementById('name').value,
                 age: parseInt(document.getElementById('age').value),
@@ -235,10 +231,24 @@
             };
 
             try {
+                // Save to the appropriate path based on current role
+                const path = isDoctor ? `doctors/${user.uid}/profile` : `users/${user.uid}/profile`;
                 await database.ref(path).set(profileData);
-                showError('Profile saved successfully!');
+
+                // If changing from doctor to user, keep doctor data but set current role
+                if (!isDoctor) {
+                    await database.ref(`users/${user.uid}/profile`).set(profileData);
+                    // Store current role
+                    await database.ref(`users/${user.uid}/currentRole`).set('user');
+                } else {
+                    await database.ref(`doctors/${user.uid}/profile`).set(profileData);
+                    // Store current role
+                    await database.ref(`users/${user.uid}/currentRole`).set('doctor');
+                }
+
+                showError('Profile saved successfully!', true);
                 
-                // Redirect based on user type
+                // Redirect based on current role
                 if (isDoctor) {
                     window.location.href = 'patients.html';
                 } else {
@@ -255,7 +265,7 @@
         auth.onAuthStateChanged(user => {
             if (user) {
                 document.getElementById('userEmail').textContent = user.email;
-                loadProfile(user);
+                loadProfileData();
             } else {
                 window.location.href = 'login.html';
             }
@@ -265,7 +275,7 @@
         document.getElementById('profileForm').addEventListener('submit', saveProfile);
         document.getElementById('isDoctor').addEventListener('change', () => {
             const user = auth.currentUser;
-            if (user) loadProfile(user);
+            if (user) loadProfileData();
         });
     </script>
 </body>
