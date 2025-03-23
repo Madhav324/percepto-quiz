@@ -76,7 +76,7 @@
             <div class="profile-icon" id="profileIcon" title="Back to Home" onclick="window.location.href='index.html'"></div>
         </div>
 
-        <div id="quiz-container">
+        <div id="quiz-container" style="display: none;">
             <h2>Select a Level:</h2>
             <div id="quiz-type">
                 <a href="VDT1.html" style="text-decoration: none;"><button>Level 1</button></a>
@@ -85,11 +85,11 @@
         </div>
 
         <!-- Firebase App (the core Firebase SDK) -->
-        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
         <!-- Firebase Auth -->
-        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
         <!-- Firebase Database -->
-        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
         <script>
             // Firebase configuration
@@ -97,24 +97,60 @@
                 apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
                 authDomain: "projeccvi.firebaseapp.com",
                 projectId: "projeccvi",
-                storageBucket: "projeccvi.firebasestorage.app",
+                storageBucket: "projeccvi.appspot.com",
                 messagingSenderId: "279067566247",
                 appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
             };
-
+            
             // Initialize Firebase
             firebase.initializeApp(firebaseConfig);
             const auth = firebase.auth();
             const database = firebase.database();
-
+            
+            // Get quiz context from session storage
+            const currentPatientId = sessionStorage.getItem('currentPatientId');
+            const doctorId = sessionStorage.getItem('doctorId');
+            const isPatientQuiz = !!currentPatientId;
+            
+            console.log('Quiz context in VDT:', { 
+                isPatientQuiz, 
+                currentPatientId: currentPatientId || 'none',
+                doctorId: doctorId || 'none'
+            });
+            
             // Auth state observer
             auth.onAuthStateChanged(async (user) => {
                 if (user) {
-                    // Get user profile to display first initial
+                    console.log('User authenticated in VDT:', user.uid);
+                    
                     try {
-                        const profileRef = database.ref(`userProfiles/${user.uid}`);
-                        const snapshot = await profileRef.once('value');
-                        const profile = snapshot.val();
+                        // Check if user is a doctor
+                        if (!isPatientQuiz) {
+                            const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                            const role = roleSnapshot.val();
+                            
+                            if (role === 'doctor') {
+                                console.log('Doctor detected without patient context, redirecting');
+                                // Redirect doctors without patient context back to index
+                                alert('Please select a patient first to administer the quiz.');
+                                window.location.href = 'index.html';
+                                return;
+                            }
+                        }
+                        
+                        // Load user profile
+                        let profile;
+                        if (isPatientQuiz) {
+                            // Doctor viewing patient
+                            console.log(`Loading patient profile in VDT: ${currentPatientId}`);
+                            const patientSnapshot = await database.ref(`doctors/${doctorId}/patients/${currentPatientId}/profile`).once('value');
+                            profile = patientSnapshot.val();
+                        } else {
+                            // Regular user
+                            console.log('Loading user profile in VDT');
+                            const userSnapshot = await database.ref(`users/${user.uid}/profile`).once('value');
+                            profile = userSnapshot.val();
+                        }
                         
                         // Get first letter of name or email
                         let initial = 'U';
@@ -126,9 +162,11 @@
                         
                         document.getElementById('profileIcon').textContent = initial;
                     } catch (error) {
-                        console.error('Error loading profile:', error);
+                        console.error('Error loading profile in VDT:', error);
                         document.getElementById('profileIcon').textContent = 'U';
                     }
+                    
+                    document.getElementById('quiz-container').style.display = 'block';
                 } else {
                     window.location.href = 'login.html';
                 }

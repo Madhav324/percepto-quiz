@@ -382,24 +382,33 @@
             if (!user) return;
 
             try {
-                // Check if user is a doctor's patient
-                const doctorSnapshot = await database.ref('doctors').orderByChild(`patients/${user.uid}`).once('value');
-                const doctor = doctorSnapshot.val();
                 const timestamp = Date.now();
-                
                 let path;
-                if (doctor) {
-                    // User is a patient, save under doctor's patients
-                    const doctorId = Object.keys(doctor)[0];
-                    path = `doctors/${doctorId}/patients/${user.uid}/quiz/VDT1/${timestamp}`;
+
+                // Check if this is a patient quiz (doctor viewing patient)
+                const currentPatientId = sessionStorage.getItem('currentPatientId');
+                const doctorId = sessionStorage.getItem('doctorId');
+                
+                if (currentPatientId && doctorId) {
+                    // This is a doctor testing a patient
+                    console.log(`Saving patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/VDT1/${timestamp}`;
                 } else {
+                    // Regular user quiz
                     // Check if user is a doctor
-                    const isDoctor = await database.ref(`doctors/${user.uid}`).once('value');
-                    path = isDoctor.exists() ? 
-                        `doctors/${user.uid}/quiz/VDT1/${timestamp}` : 
-                        `users/${user.uid}/quiz/VDT1/${timestamp}`;
+                    const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                    const role = roleSnapshot.val();
+                    
+                    if (role === 'doctor') {
+                        console.log(`Saving doctor's own quiz results: ${user.uid}`);
+                        path = `doctors/${user.uid}/quiz/VDT1/${timestamp}`;
+                    } else {
+                        console.log(`Saving regular user quiz results: ${user.uid}`);
+                        path = `users/${user.uid}/quiz/VDT1/${timestamp}`;
+                    }
                 }
 
+                console.log(`Saving quiz results to path: ${path}`);
                 await database.ref(path).set({
                     score,
                     totalTime,
@@ -407,8 +416,11 @@
                     firstTapTime,
                     totalTaps,
                     correctAnswers,
-                    incorrectAnswers
+                    incorrectAnswers,
+                    timestamp
                 });
+                
+                console.log('Quiz results saved successfully');
             } catch (error) {
                 console.error('Error saving quiz results:', error);
             }
