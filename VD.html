@@ -1,16 +1,33 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visual Perceptual Skills</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Visual Discrimination Quiz</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Your existing styles */
+        #loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        #error-message {
+            display: none;
+            background-color: #f44336;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+    </style>
 </head>
 <body>
-    <div id="quiz-container">
+    <div id="loading">Loading...</div>
+    <div id="error-message"></div>
+    <div id="quiz-container" style="display: none;">
         <h1>Visual Perceptual Skills</h1>
         <h2>Select a Quiz Type:</h2>
-<br>
+        <br>
         <!-- Quiz Type Selection -->
         <div id="quiz-type">
             <a href="VDT.html" style="text-decoration: none;"><button onclick="startQuiz('animals')">Shape Exercise</button></a>
@@ -18,16 +35,15 @@
             <a href="VDTSE1.html" style="text-decoration: none;"><button onclick="startQuiz('colors')">Emotion Exercise</button></a>
             <a href="VDTCC1.html" style="text-decoration: none;"><button onclick="startQuiz('colors')">Colour Exercise</button></a>
         </div>
-
     </div>
 
-    <!-- Firebase -->
+    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-    
-    <!-- Firebase Config -->
+
     <script>
+        // Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
             authDomain: "projeccvi.firebaseapp.com",
@@ -36,53 +52,83 @@
             messagingSenderId: "279067566247",
             appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
         };
+
+        // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
-    </script>
+        const auth = firebase.auth();
+        const database = firebase.database();
 
-    <!-- Auth Helper -->
-    <script src="auth.js"></script>
-
-    <script>
-        // Check authentication on page load
-        document.addEventListener('DOMContentLoaded', async () => {
-            try {
-                showLoading(true, 'Loading quiz...');
-                const authData = await checkAuth();
-                const { user, isDoctor, currentPatientId, isPatientQuiz } = authData;
-
-                // Store quiz context for saving results
-                window.quizContext = {
-                    userId: user.uid,
-                    isPatientQuiz,
-                    currentPatientId,
-                    isDoctor
-                };
-
-                // Initialize quiz after auth check
-                initializeQuiz();
-            } catch (error) {
-                console.error('Auth error:', error);
-                showError('Authentication failed. Please login again.');
-                window.location.href = 'login.html';
-            } finally {
-                showLoading(false);
+        // Show/hide loading
+        function showLoading(show, message = 'Loading...') {
+            const loadingDiv = document.getElementById('loading');
+            if (loadingDiv) {
+                loadingDiv.textContent = message;
+                loadingDiv.style.display = show ? 'block' : 'none';
             }
+        }
+
+        // Show error message
+        function showError(message) {
+            const errorDiv = document.getElementById('error-message');
+            if (errorDiv) {
+                errorDiv.textContent = message;
+                errorDiv.style.display = 'block';
+                setTimeout(() => {
+                    errorDiv.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        // Auth state observer
+        auth.onAuthStateChanged(async (user) => {
+            showLoading(true);
+            if (user) {
+                try {
+                    // Get user profile
+                    const profileRef = database.ref(`userProfiles/${user.uid}`);
+                    const profileSnap = await profileRef.once('value');
+                    const userProfile = profileSnap.val();
+
+                    if (!userProfile) {
+                        window.location.href = 'profile.html';
+                        return;
+                    }
+
+                    // Show quiz container
+                    document.getElementById('quiz-container').style.display = 'block';
+                    
+                    // Store quiz context
+                    window.quizContext = {
+                        userId: user.uid,
+                        isPatientQuiz: localStorage.getItem('isPatientQuiz') === 'true',
+                        currentPatientId: localStorage.getItem('currentPatientId'),
+                        isDoctor: userProfile.isDoctor
+                    };
+
+                    // Initialize quiz
+                    initializeQuiz();
+                } catch (error) {
+                    console.error('Error loading profile:', error);
+                    showError('Failed to load profile. Please try again.');
+                }
+            } else {
+                window.location.href = 'login.html';
+            }
+            showLoading(false);
         });
 
-        // Save quiz results with proper context
+        // Save quiz results
         async function saveQuizResults(results) {
             try {
                 const { userId, isPatientQuiz, currentPatientId } = window.quizContext;
                 
-                // Determine where to save results
                 let resultsRef;
                 if (isPatientQuiz && currentPatientId) {
-                    resultsRef = firebase.database().ref(`doctors/${userId}/patients/${currentPatientId}/quizResults`);
+                    resultsRef = database.ref(`doctors/${userId}/patients/${currentPatientId}/quizResults`);
                 } else {
-                    resultsRef = firebase.database().ref(`userProfiles/${userId}/quizResults`);
+                    resultsRef = database.ref(`userProfiles/${userId}/quizResults`);
                 }
 
-                // Add quiz results
                 const quizData = {
                     type: 'Visual Discrimination',
                     score: results.score,
@@ -100,6 +146,8 @@
         }
     </script>
 
+    <!-- Your existing quiz scripts -->
     <script src="script.js"></script>
+    <script src="auth.js"></script>
 </body>
 </html>
