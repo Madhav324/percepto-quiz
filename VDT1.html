@@ -54,6 +54,20 @@
             background-color: #1976D2;
         }
 
+        .profile-icon:hover::after {
+            content: attr(title);
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: #333;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            margin-top: 5px;
+        }
+
         button {
             padding: 10px 15px;
             margin: 10px;
@@ -135,6 +149,25 @@
             color: #2c3e50;
             margin: 0;
         }
+
+        .user-info {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            text-align: right;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .patient-indicator {
+            display: inline-block;
+            background-color: #e9f5e9;
+            color: #4CAF50;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-left: 8px;
+        }
     </style>
 </head>
 <body>
@@ -142,6 +175,9 @@
         <div class="header">
             <h1>Shape Exercise - Level 1</h1>
             <div class="profile-icon" id="profileIcon" title="Back to Home" onclick="window.location.href='index.html'"></div>
+            <div class="user-info">
+                <span id="patient-indicator" class="patient-indicator"></span>
+            </div>
         </div>
         <div id="question-container"></div>
         <div id="images-container"></div>
@@ -167,11 +203,11 @@
     </div>
 
     <!-- Firebase App (the core Firebase SDK) -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <!-- Firebase Auth -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <!-- Firebase Database -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
     <script>
         // Firebase configuration
@@ -179,7 +215,7 @@
             apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
             authDomain: "projeccvi.firebaseapp.com",
             projectId: "projeccvi",
-            storageBucket: "projeccvi.firebasestorage.app",
+            storageBucket: "projeccvi.appspot.com",
             messagingSenderId: "279067566247",
             appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
         };
@@ -188,15 +224,51 @@
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const database = firebase.database();
+        
+        // Get quiz context from session storage
+        const currentPatientId = sessionStorage.getItem('currentPatientId');
+        const doctorId = sessionStorage.getItem('doctorId');
+        const isPatientQuiz = !!currentPatientId;
+        
+        console.log('Quiz context in VDT1:', { 
+            isPatientQuiz, 
+            currentPatientId: currentPatientId || 'none',
+            doctorId: doctorId || 'none'
+        });
 
         // Auth state observer
         auth.onAuthStateChanged(async (user) => {
             if (user) {
-                // Get user profile to display first initial
+                console.log('User authenticated in VDT1:', user.uid);
+                
                 try {
-                    const profileRef = database.ref(`userProfiles/${user.uid}`);
-                    const snapshot = await profileRef.once('value');
-                    const profile = snapshot.val();
+                    // Check if user is a doctor
+                    if (!isPatientQuiz) {
+                        const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                        const role = roleSnapshot.val();
+                        
+                        if (role === 'doctor') {
+                            console.log('Doctor detected without patient context, redirecting');
+                            // Redirect doctors without patient context back to index
+                            alert('Please select a patient first to administer the quiz.');
+                            window.location.href = 'index.html';
+                            return;
+                        }
+                    }
+                    
+                    // Load user profile
+                    let profile;
+                    if (isPatientQuiz) {
+                        // Doctor viewing patient
+                        console.log(`Loading patient profile in VDT1: ${currentPatientId}`);
+                        const patientSnapshot = await database.ref(`doctors/${doctorId}/patients/${currentPatientId}/profile`).once('value');
+                        profile = patientSnapshot.val();
+                    } else {
+                        // Regular user
+                        console.log('Loading user profile in VDT1');
+                        const userSnapshot = await database.ref(`users/${user.uid}/profile`).once('value');
+                        profile = userSnapshot.val();
+                    }
                     
                     // Get first letter of name or email
                     let initial = 'U';
@@ -206,11 +278,22 @@
                         initial = user.email.charAt(0).toUpperCase();
                     }
                     
+                    // Display patient indicator
+                    if (isPatientQuiz) {
+                        const patientIndicator = document.getElementById('patient-indicator');
+                        patientIndicator.textContent = 'Patient';
+                        patientIndicator.style.display = 'inline-block';
+                    } else {
+                        const patientIndicator = document.getElementById('patient-indicator');
+                        patientIndicator.style.display = 'none';
+                    }
+                    
                     document.getElementById('profileIcon').textContent = initial;
                     displayQuestion();
                 } catch (error) {
-                    console.error('Error loading profile:', error);
+                    console.error('Error loading profile in VDT1:', error);
                     document.getElementById('profileIcon').textContent = 'U';
+                    displayQuestion();
                 }
             } else {
                 window.location.href = 'login.html';
