@@ -225,15 +225,26 @@
         }
         .report-button {
             display: inline-block;
-            padding: 10px 20px;
-            background-color: #2196F3;
+            padding: 12px 24px;
+            background-color: #9c27b0;
             color: white;
             text-decoration: none;
-            border-radius: 5px;
-            margin: 10px 0;
+            border-radius: 4px;
+            margin-top: 20px;
+            font-size: 16px;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
         }
         .report-button:hover {
-            background-color: #1976D2;
+            background-color: #7b1fa2;
+        }
+        .report-section {
+            text-align: center;
+            margin: 20px 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
         }
     </style>
 </head>
@@ -262,6 +273,11 @@
         <div id="quiz-container">
             <div class="nav-buttons">
                 <a href="patients.html" id="patientsButton" class="nav-button patients-button" style="display: none;">Manage Patients</a>
+            </div>
+
+            <div class="report-section">
+                <h3>View Your Progress</h3>
+                <button onclick="viewReport()" class="report-button">View Report</button>
             </div>
 
             <h2>Select a Quiz Type:</h2>
@@ -453,6 +469,44 @@
                     }).catch((error) => {
                         console.error('Logout error:', error);
                     });
+                }
+            }
+
+            // View report function
+            async function viewReport() {
+                const user = auth.currentUser;
+                const isPatientQuiz = localStorage.getItem('isPatientQuiz') === 'true';
+                const currentPatientId = localStorage.getItem('currentPatientId');
+
+                try {
+                    if (!user) throw new Error('Not signed in');
+
+                    // For patient quiz, check if results exist
+                    if (isPatientQuiz && currentPatientId) {
+                        const doctorId = user.uid;
+                        const resultsRef = database.ref(`doctors/${doctorId}/patients/${currentPatientId}/quizResults`);
+                        const resultsSnap = await resultsRef.once('value');
+                        
+                        if (!resultsSnap.exists()) {
+                            showError('No quiz results found yet. Take a quiz first!');
+                            return;
+                        }
+                    } else {
+                        // For regular user, check their results
+                        const resultsRef = database.ref(`userProfiles/${user.uid}/quizResults`);
+                        const resultsSnap = await resultsRef.once('value');
+                        
+                        if (!resultsSnap.exists()) {
+                            showError('No quiz results found yet. Take a quiz first!');
+                            return;
+                        }
+                    }
+
+                    // If we have results, go to report page
+                    window.location.href = 'report.html';
+                } catch (error) {
+                    console.error('Error checking results:', error);
+                    showError('Failed to load report. Please try again.');
                 }
             }
         </script>
