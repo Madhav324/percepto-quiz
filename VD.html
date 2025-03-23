@@ -1,9 +1,88 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Visual Discrimination Quiz</title>
     <link rel="stylesheet" href="style.css">
     <style>
+        /* Profile Navigation Styles */
+        .nav-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background-color: #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .profile-nav {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            position: relative;
+        }
+        
+        .profile-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #2196F3;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: bold;
+            text-decoration: none;
+            transition: background-color 0.3s;
+        }
+        
+        .profile-icon:hover {
+            background-color: #1976D2;
+        }
+        
+        .user-info {
+            display: flex;
+            flex-direction: column;
+            font-size: 14px;
+        }
+        
+        .dropdown-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background-color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-radius: 4px;
+            display: none;
+            z-index: 1000;
+        }
+        
+        .dropdown-menu.show {
+            display: block;
+        }
+        
+        .dropdown-item {
+            padding: 8px 16px;
+            color: #333;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+        
+        .dropdown-item:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .dropdown-divider {
+            height: 1px;
+            background-color: #e9ecef;
+            margin: 0;
+        }
+        
         /* Your existing styles */
         #loading {
             display: none;
@@ -22,132 +101,226 @@
     </style>
 </head>
 <body>
-    <div id="loading">Loading...</div>
-    <div id="error-message"></div>
-    <div id="quiz-container" style="display: none;">
-        <h1>Visual Perceptual Skills</h1>
-        <h2>Select a Quiz Type:</h2>
-        <br>
-        <!-- Quiz Type Selection -->
-        <div id="quiz-type">
-            <a href="VDT.html" style="text-decoration: none;"><button onclick="startQuiz('animals')">Shape Exercise</button></a>
-            <a href="VDTS1.html" style="text-decoration: none;"><button onclick="VD.html">Size Exercise</button></a>
-            <a href="VDTSE1.html" style="text-decoration: none;"><button onclick="startQuiz('colors')">Emotion Exercise</button></a>
-            <a href="VDTCC1.html" style="text-decoration: none;"><button onclick="startQuiz('colors')">Colour Exercise</button></a>
+    <div class="container">
+        <div class="header">
+            <h1>Visual Perceptual Skills</h1>
+            <div class="profile-nav">
+                <div class="user-info">
+                    <span class="user-name" id="userName">Loading...</span>
+                    <span class="user-email" id="userEmail"></span>
+                </div>
+                <div class="profile-icon" id="profileIcon" title="Menu">P</div>
+                <div class="dropdown-menu" id="profileMenu">
+                    <a class="dropdown-item" onclick="goToProfile()">
+                        <i>👤</i> Profile
+                    </a>
+                    <div class="dropdown-divider"></div>
+                    <a class="dropdown-item" onclick="logout()">
+                        <i>🚪</i> Logout
+                    </a>
+                </div>
+            </div>
         </div>
-    </div>
 
-    <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+        <div id="loading">Loading...</div>
+        <div id="error-message"></div>
+        <div id="quiz-container" style="display:none;">
+            <div class="nav-buttons">
+                <a href="patients.html" id="patientsButton" class="nav-button patients-button" style="display: none;">Manage Patients</a>
+            </div>
 
-    <script>
-        // Firebase configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
-            authDomain: "projeccvi.firebaseapp.com",
-            projectId: "projeccvi",
-            storageBucket: "projeccvi.appspot.com",
-            messagingSenderId: "279067566247",
-            appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
-        };
+            <h2>Select a Quiz Type:</h2>
+            <!-- Quiz Type Selection -->
+            <div id="quiz-type">
+                <a href="VDT.html" style="text-decoration: none;"><button onclick="startQuiz('animals')">Shape Exercise</button></a>
+                <a href="VDTS1.html" style="text-decoration: none;"><button onclick="startQuiz('colors')">Size Exercise</button></a>
+                <a href="VDTSE1.html" style="text-decoration: none;"><button onclick="startQuiz('colors')">Emotion Exercise</button></a>
+                <a href="VDTCC1.html" style="text-decoration: none;"><button onclick="startQuiz('colors')">Colour Exercise</button></a>
+            </div>
+        </div>
 
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const database = firebase.database();
+        <!-- Firebase App (the core Firebase SDK) -->
+        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+        <!-- Firebase Auth -->
+        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+        <!-- Firebase Firestore -->
+        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+        <!-- Firebase Realtime Database -->
+        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
-        // Show/hide loading
-        function showLoading(show, message = 'Loading...') {
-            const loadingDiv = document.getElementById('loading');
-            if (loadingDiv) {
-                loadingDiv.textContent = message;
-                loadingDiv.style.display = show ? 'block' : 'none';
+        <script>
+            // Firebase configuration
+            const firebaseConfig = {
+                apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
+                authDomain: "projeccvi.firebaseapp.com",
+                projectId: "projeccvi",
+                storageBucket: "projeccvi.firebasestorage.app",
+                messagingSenderId: "279067566247",
+                appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
+            };
+
+            // Initialize Firebase
+            firebase.initializeApp(firebaseConfig);
+            const auth = firebase.auth();
+            const db = firebase.firestore();
+            const database = firebase.database();
+            
+            // Handle relative paths for both local and GitHub Pages
+            function getPath(page) {
+                const baseUrl = window.location.href.split('/').slice(0, -1).join('/');
+                return `${baseUrl}/${page}`;
             }
-        }
 
-        // Show error message
-        function showError(message) {
-            const errorDiv = document.getElementById('error-message');
-            if (errorDiv) {
-                errorDiv.textContent = message;
-                errorDiv.style.display = 'block';
-                setTimeout(() => {
-                    errorDiv.style.display = 'none';
-                }, 5000);
+            // Profile dropdown
+            const profileIcon = document.getElementById('profileIcon');
+            const profileMenu = document.getElementById('profileMenu');
+            
+            profileIcon.addEventListener('click', (e) => {
+                e.stopPropagation();
+                profileMenu.classList.toggle('show');
+            });
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!profileMenu.contains(e.target) && !profileIcon.contains(e.target)) {
+                    profileMenu.classList.remove('show');
+                }
+            });
+
+            // Profile navigation
+            function goToProfile() {
+                sessionStorage.setItem('editingProfile', 'true');
+                window.location.href = getPath('profile.html');
             }
-        }
 
-        // Auth state observer
-        auth.onAuthStateChanged(async (user) => {
-            showLoading(true);
-            if (user) {
+            // Check if user is a doctor and show patients button
+            async function checkIfDoctor(userId) {
                 try {
-                    // Get user profile
-                    const profileRef = database.ref(`userProfiles/${user.uid}`);
-                    const profileSnap = await profileRef.once('value');
-                    const userProfile = profileSnap.val();
+                    const doctorSnapshot = await db.collection('doctorProfiles').doc(userId).get();
+                    const patientsButton = document.getElementById('patientsButton');
+                    patientsButton.style.display = doctorSnapshot.exists() ? 'inline-flex' : 'none';
+                } catch (error) {
+                    console.error('Error checking doctor status:', error);
+                }
+            }
 
-                    if (!userProfile) {
-                        window.location.href = 'profile.html';
-                        return;
-                    }
+            // Quiz state
+            let userEmail = '';
+            let currentPatientId = null;
+            let isPatientQuiz = false;
 
-                    // Show quiz container
+            // Load quiz state
+            function loadQuizState() {
+                currentPatientId = localStorage.getItem('currentPatientId');
+                isPatientQuiz = localStorage.getItem('isPatientQuiz') === 'true';
+                
+                if (isPatientQuiz && currentPatientId) {
+                    document.querySelector('.nav-buttons').style.display = 'none';
+                }
+            }
+
+            // Show/hide loading
+            function showLoading(show, message = 'Loading...') {
+                const loadingDiv = document.getElementById('loading');
+                if (loadingDiv) {
+                    loadingDiv.textContent = message;
+                    loadingDiv.style.display = show ? 'block' : 'none';
+                }
+            }
+
+            // Show error message
+            function showError(message) {
+                const errorDiv = document.getElementById('error-message');
+                if (errorDiv) {
+                    errorDiv.textContent = message;
+                    errorDiv.style.display = 'block';
+                    setTimeout(() => {
+                        errorDiv.style.display = 'none';
+                    }, 5000);
+                }
+            }
+
+            // Auth state observer
+            auth.onAuthStateChanged(async (user) => {
+                showLoading(true);
+                if (user) {
+                    userEmail = user.email;
+                    document.getElementById('userEmail').textContent = userEmail;
+                    document.getElementById('userName').textContent = user.displayName || 'User';
                     document.getElementById('quiz-container').style.display = 'block';
-                    
+
+                    // Check if user is a doctor
+                    await checkIfDoctor(user.uid);
+
+                    // Load quiz state
+                    loadQuizState();
+
                     // Store quiz context
                     window.quizContext = {
                         userId: user.uid,
                         isPatientQuiz: localStorage.getItem('isPatientQuiz') === 'true',
                         currentPatientId: localStorage.getItem('currentPatientId'),
-                        isDoctor: userProfile.isDoctor
+                        isDoctor: false
                     };
 
                     // Initialize quiz
-                    initializeQuiz();
-                } catch (error) {
-                    console.error('Error loading profile:', error);
-                    showError('Failed to load profile. Please try again.');
-                }
-            } else {
-                window.location.href = 'login.html';
-            }
-            showLoading(false);
-        });
-
-        // Save quiz results
-        async function saveQuizResults(results) {
-            try {
-                const { userId, isPatientQuiz, currentPatientId } = window.quizContext;
-                
-                let resultsRef;
-                if (isPatientQuiz && currentPatientId) {
-                    resultsRef = database.ref(`doctors/${userId}/patients/${currentPatientId}/quizResults`);
+                    if (typeof initializeQuiz === 'function') {
+                        initializeQuiz();
+                    }
                 } else {
-                    resultsRef = database.ref(`userProfiles/${userId}/quizResults`);
+                    window.location.href = getPath('login.html');
                 }
+                showLoading(false);
+            });
 
-                const quizData = {
-                    type: 'Visual Discrimination',
-                    score: results.score,
-                    totalTime: results.totalTime,
-                    timestamp: firebase.database.ServerValue.TIMESTAMP,
-                    answers: results.answers
-                };
-
-                await resultsRef.push(quizData);
-                console.log('Quiz results saved successfully');
-            } catch (error) {
-                console.error('Error saving results:', error);
-                showError('Failed to save quiz results. Please try again.');
+            // Logout function
+            function logout() {
+                if (isPatientQuiz) {
+                    // Clear patient quiz state
+                    localStorage.removeItem('currentPatientId');
+                    localStorage.removeItem('isPatientQuiz');
+                    window.location.href = getPath('patients.html');
+                } else {
+                    // Regular user logout
+                    auth.signOut().then(() => {
+                        window.location.href = getPath('login.html');
+                    }).catch((error) => {
+                        console.error('Error signing out:', error);
+                    });
+                }
             }
-        }
-    </script>
 
-    <!-- Your existing quiz scripts -->
-    <script src="script.js"></script>
-    <script src="auth.js"></script>
+            // Save quiz results
+            async function saveQuizResults(results) {
+                try {
+                    const { userId, isPatientQuiz, currentPatientId } = window.quizContext;
+                    
+                    let resultsRef;
+                    if (isPatientQuiz && currentPatientId) {
+                        resultsRef = database.ref(`doctors/${userId}/patients/${currentPatientId}/quizResults`);
+                    } else {
+                        resultsRef = database.ref(`userProfiles/${userId}/quizResults`);
+                    }
+
+                    const quizData = {
+                        type: 'Visual Discrimination',
+                        score: results.score,
+                        totalTime: results.totalTime,
+                        timestamp: firebase.database.ServerValue.TIMESTAMP,
+                        answers: results.answers
+                    };
+
+                    await resultsRef.push(quizData);
+                    console.log('Quiz results saved successfully');
+                } catch (error) {
+                    console.error('Error saving results:', error);
+                    showError('Failed to save quiz results. Please try again.');
+                }
+            }
+        </script>
+
+        <script src="script.js"></script>
+        <script src="auth.js"></script>
+    </div>
 </body>
 </html>
