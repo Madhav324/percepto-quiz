@@ -13,6 +13,14 @@
             text-align: center;
         }
 
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
         .profile-icon {
             width: 40px;
             height: 40px;
@@ -26,9 +34,7 @@
             font-weight: bold;
             text-decoration: none;
             transition: background-color 0.3s;
-            position: absolute;
-            top: 20px;
-            right: 20px;
+            font-size: 18px;
         }
         
         .profile-icon:hover {
@@ -59,15 +65,17 @@
 
         h1, h2 {
             color: #2c3e50;
-            margin-bottom: 20px;
+            margin: 0;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="profile-icon" id="profileIcon" title="Home" onclick="window.location.href='index.html'">H</div>
+        <div class="header">
+            <h1>Visual Discrimination</h1>
+            <div class="profile-icon" id="profileIcon" title="Back to Home" onclick="window.location.href='index.html'"></div>
+        </div>
         
-        <h1>Visual Discrimination</h1>
         <div id="quiz-container" style="display:none;">
             <h2>Select a Quiz Type:</h2>
             <div id="quiz-type">
@@ -104,6 +112,26 @@
             // Auth state observer
             auth.onAuthStateChanged(async (user) => {
                 if (user) {
+                    // Get user profile to display first initial
+                    try {
+                        const profileRef = database.ref(`userProfiles/${user.uid}`);
+                        const snapshot = await profileRef.once('value');
+                        const profile = snapshot.val();
+                        
+                        // Get first letter of name or email
+                        let initial = 'U';
+                        if (profile && profile.name) {
+                            initial = profile.name.charAt(0).toUpperCase();
+                        } else if (user.email) {
+                            initial = user.email.charAt(0).toUpperCase();
+                        }
+                        
+                        document.getElementById('profileIcon').textContent = initial;
+                    } catch (error) {
+                        console.error('Error loading profile:', error);
+                        document.getElementById('profileIcon').textContent = 'U';
+                    }
+                    
                     document.getElementById('quiz-container').style.display = 'block';
                 } else {
                     window.location.href = 'login.html';
