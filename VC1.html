@@ -6,7 +6,7 @@
     <title>Visual Perceptual Skills</title>
     <style>
         /* Your existing CSS */
-        body {
+body {
             font-family: Arial, sans-serif;
             background-color: #f4f4f9;
             display: flex;
@@ -131,84 +131,7 @@
         <button id="clear-report" onclick="clearReport()">Clear Report</button>
     </div>
 
-    <!-- Firebase -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-    
-    <!-- Firebase Config -->
-    <script>
-        const firebaseConfig = {
-            apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
-            authDomain: "projeccvi.firebaseapp.com",
-            projectId: "projeccvi",
-            storageBucket: "projeccvi.appspot.com",
-            messagingSenderId: "279067566247",
-            appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
-        };
-        firebase.initializeApp(firebaseConfig);
-    </script>
-
-    <!-- Auth Helper -->
-    <script src="auth.js"></script>
-
-    <script>
-        // Check authentication on page load
-        document.addEventListener('DOMContentLoaded', async () => {
-            try {
-                showLoading(true, 'Loading quiz...');
-                const authData = await checkAuth();
-                const { user, isDoctor, currentPatientId, isPatientQuiz } = authData;
-
-                // Store quiz context for saving results
-                window.quizContext = {
-                    userId: user.uid,
-                    isPatientQuiz,
-                    currentPatientId,
-                    isDoctor
-                };
-
-                // Initialize quiz after auth check
-                initializeQuiz();
-            } catch (error) {
-                console.error('Auth error:', error);
-                showError('Authentication failed. Please login again.');
-                window.location.href = 'login.html';
-            } finally {
-                showLoading(false);
-            }
-        });
-
-        // Save quiz results with proper context
-        async function saveQuizResults(results) {
-            try {
-                const { userId, isPatientQuiz, currentPatientId } = window.quizContext;
-                
-                // Determine where to save results
-                let resultsRef;
-                if (isPatientQuiz && currentPatientId) {
-                    resultsRef = firebase.database().ref(`doctors/${userId}/patients/${currentPatientId}/quizResults`);
-                } else {
-                    resultsRef = firebase.database().ref(`userProfiles/${userId}/quizResults`);
-                }
-
-                // Add quiz results
-                const quizData = {
-                    type: 'Visual Closure',
-                    score: results.score,
-                    totalTime: results.totalTime,
-                    timestamp: firebase.database.ServerValue.TIMESTAMP,
-                    answers: results.answers
-                };
-
-                await resultsRef.push(quizData);
-                console.log('Quiz results saved successfully');
-            } catch (error) {
-                console.error('Error saving results:', error);
-                showError('Failed to save quiz results. Please try again.');
-            }
-        }
-
+    <script type="module">
         // Import Firebase
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
         import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-database.js";
@@ -446,22 +369,28 @@
             document.getElementById('total-correct').innerText = correctAnswers;
             document.getElementById('total-incorrect').innerText = incorrectAnswers;
 
-            saveQuizResults({
+            saveAttempt({
                 score: score,
                 totalTime: totalTime.toFixed(2),
-                answers: questions.map((question, index) => {
-                    return {
-                        question: question.questionImage,
-                        answer: question.options.find(option => option.correct).src,
-                        correct: index < correctAnswers
-                    };
-                })
+                avgTime: avgTime.toFixed(2),
+                firstTapTime: firstTapTime.toFixed(2),
+                totalTaps: totalTaps,
+                correctAnswers: correctAnswers,
+                incorrectAnswers: incorrectAnswers,
+                timestamp: new Date().toISOString()
             });
         }
 
-        function initializeQuiz() {
-            displayQuestion();
-            fetchAttempts();  // Fetch attempts when the page loads
+        function saveAttempt(data) {
+            const attemptsRef = ref(db, 'quizAttempts6/');
+            const newAttemptRef = ref(db, 'quizAttempts6/' + Date.now());
+            set(newAttemptRef, data)
+                .then(() => {
+                    console.log("Attempt saved!");
+                })
+                .catch(error => {
+                    console.error("Error saving attempt: ", error);
+                });
         }
 
         function fetchAttempts() {
@@ -542,6 +471,10 @@
             correctAnswers = 0;
             displayQuestion();
         }
+
+        // Start the quiz
+        displayQuestion();
+        fetchAttempts();  // Fetch attempts when the page loads
     </script>
 </body>
 </html>
