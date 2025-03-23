@@ -197,11 +197,75 @@
             margin-top: 5px;
             font-style: italic;
         }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .profile-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #2196F3;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: bold;
+            text-decoration: none;
+            transition: background-color 0.3s;
+            font-size: 18px;
+        }
+        
+        .profile-icon:hover {
+            background-color: #1976D2;
+        }
+
+        .profile-icon:hover::after {
+            content: attr(title);
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: #333;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            margin-top: 5px;
+        }
+        
+        .user-info {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            text-align: right;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .patient-indicator {
+            display: inline-block;
+            background-color: #e9f5e9;
+            color: #4CAF50;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-left: 8px;
+        }
     </style>
 </head>
 <body>
     <div id="quiz-container">
-        <h1>Visual Perceptual Skills</h1>
+        <div class="header">
+            <h1>Visual Perceptual Skills</h1>
+            <div class="profile-icon" id="profileIcon" title="Back to Home" onclick="window.location.href='index.html'"></div>
+        </div>
         <div id="question-container"></div>
         <div id="images-container"></div>
         <div id="result-container">
@@ -655,13 +719,39 @@
                 // Check for userRole in localStorage
                 userRole = localStorage.getItem('userRole');
                 
+                // Set profile icon with user initials
+                const profileIcon = document.getElementById('profileIcon');
+                if (profileIcon) {
+                    const displayName = user.displayName || user.email || 'User';
+                    const initials = displayName.split(' ').map(name => name[0]).join('').toUpperCase();
+                    profileIcon.innerText = initials;
+                    
+                    // Set color based on user role
+                    if (userRole === 'doctor') {
+                        profileIcon.style.backgroundColor = '#4285F4'; // Blue for doctors
+                    } else if (userRole === 'patient') {
+                        profileIcon.style.backgroundColor = '#4CAF50'; // Green for patients
+                    }
+                }
+                
                 // Check if viewing a patient's profile
                 const urlParams = new URLSearchParams(window.location.search);
                 viewingPatientId = urlParams.get('patientId');
                 
                 if (viewingPatientId) {
                     console.log("Doctor viewing patient: " + viewingPatientId);
-                    // Show doctor viewing indicator if needed
+                    
+                    // Add patient indicator to the UI
+                    const userInfo = document.createElement('div');
+                    userInfo.className = 'user-info';
+                    userInfo.innerHTML = `
+                        Doctor Mode
+                        <span class="patient-indicator">Patient ID: ${viewingPatientId.substring(0, 6)}...</span>
+                    `;
+                    document.body.appendChild(userInfo);
+                    
+                    // Set different background for quiz container when in doctor mode
+                    document.getElementById('quiz-container').style.borderLeft = '5px solid #4285F4';
                 }
                 
                 // Fetch attempts after authentication is confirmed
