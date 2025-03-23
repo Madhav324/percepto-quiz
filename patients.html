@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Patient Management - Percepto</title>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -230,10 +230,22 @@
             appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
         };
 
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
+        // Initialize Firebase app
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
         const auth = firebase.auth();
         const database = firebase.database();
+
+        // Enable offline persistence
+        database.enablePersistence()
+            .catch((err) => {
+                if (err.code === 'failed-precondition') {
+                    console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.');
+                } else if (err.code === 'unimplemented') {
+                    console.warn('The current browser does not support offline persistence.');
+                }
+            });
 
         // Helper Functions
         function showLoading(show) {
@@ -259,23 +271,30 @@
 
         async function loadPatients() {
             const user = auth.currentUser;
-            if (!user) return;
+            if (!user) {
+                console.log('No user found');
+                return;
+            }
 
             showLoading(true);
             try {
                 // First verify if the user is a doctor
                 const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
                 const role = roleSnapshot.val();
+                console.log('User role:', role);
 
                 if (role !== 'doctor') {
+                    console.log('Not a doctor, redirecting');
                     window.location.href = 'login.html';
                     return;
                 }
 
                 // Get doctor's patients
                 const patientsRef = database.ref(`doctors/${user.uid}/patients`);
+                console.log('Fetching patients from:', patientsRef.toString());
                 const snapshot = await patientsRef.once('value');
                 const patients = snapshot.val();
+                console.log('Patients data:', patients);
 
                 const patientsGrid = document.getElementById('patientsGrid');
                 const noPatients = document.getElementById('noPatients');
@@ -286,8 +305,10 @@
                 if (patients) {
                     Object.entries(patients).forEach(([id, patientData]) => {
                         try {
+                            console.log('Processing patient:', id, patientData);
                             // Ensure patient data has the correct structure
                             const patient = patientData.profile ? patientData : { profile: patientData };
+                            console.log('Structured patient data:', patient);
                             
                             const card = document.createElement('div');
                             card.className = 'patient-card';
@@ -304,12 +325,12 @@
                             `;
                             patientsGrid.appendChild(card);
                         } catch (cardError) {
-                            console.error('Error creating patient card:', cardError);
-                            // Continue with other patients if one fails
+                            console.error('Error creating patient card:', cardError, 'for patient:', id);
                         }
                     });
                     noPatients.style.display = 'none';
                 } else {
+                    console.log('No patients found');
                     noPatients.style.display = 'block';
                 }
             } catch (error) {
@@ -328,10 +349,12 @@
             try {
                 const user = auth.currentUser;
                 if (!user) throw new Error('Not signed in');
+                console.log('Adding patient for doctor:', user.uid);
 
                 // Verify if the user is a doctor
                 const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
                 const role = roleSnapshot.val();
+                console.log('User role:', role);
 
                 if (role !== 'doctor') {
                     showError('Only doctors can add patients');
@@ -358,10 +381,13 @@
                         medicalCondition: medicalCondition || ''
                     }
                 };
+                console.log('Patient data to save:', patientData);
 
                 // Add new patient
                 const newPatientRef = database.ref(`doctors/${user.uid}/patients`).push();
+                console.log('Saving to:', newPatientRef.toString());
                 await newPatientRef.set(patientData);
+                console.log('Patient saved successfully');
                 
                 // Close modal and reset form
                 closeAddPatientModal();
