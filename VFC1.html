@@ -3,23 +3,230 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visual Perceptual Skills</title>
+    <title>Figure Ground 1</title>
     <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f7f9fc;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            background-color: #ffffff;
+            padding: 15px 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin: 0;
+        }
+        .profile-icon {
+            width: 40px;
+            height: 40px;
+            background-color: #4CAF50;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 18px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            position: relative;
+        }
+        .profile-icon:hover::after {
+            content: attr(title);
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: #333;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            margin-top: 5px;
+        }
+        #quiz-container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h2 {
+            color: #444;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+            min-width: 150px;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+        button:hover {
+            background-color: #45a049;
+            transform: translateY(-2px);
+        }
+        #quiz-type {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+        }
+        .user-info {
+            text-align: right;
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .patient-indicator {
+            display: inline-block;
+            background-color: #e9f5e9;
+            color: #4CAF50;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+    </style>
 </head>
 <body>
-    <div id="quiz-container">
-        <h1>Visual Perceptual Skills</h1>
-        <h2>Select a Quiz Type:</h2>
-<br>
-        <!-- Quiz Type Selection -->
-        <div id="quiz-type">
-            <a href="VFC11.html" style="text-decoration: none;"><button onclick="startQuiz('animals')">Numbers Exercise</button></a>
-            <a href="VFC12.html" style="text-decoration: none;"><button onclick="VD.html">Letters Exercise</button></a>
-            <a href="VFC13.html" style="text-decoration: none;"><button onclick="VD.html">Size and Shape Exercise</button></a>
+    <div class="container">
+        <div class="header">
+            <h1>Figure Ground 1</h1>
+            <div class="profile-icon" id="profileIcon" title="Back to Home" onclick="window.location.href='index.html'"></div>
+            <div class="user-info">
+                <span id="patient-indicator" class="patient-indicator"></span>
             </div>
+        </div>
+        
+        <div id="quiz-container" style="display:none;">
+            <h2>Select a Quiz Type:</h2>
+            <div id="quiz-type">
+                <a href="VFC11.html" style="text-decoration: none;"><button onclick="startQuiz('animals')">Numbers Exercise</button></a>
+<a href="VFC12.html" style="text-decoration: none;"><button onclick="VD.html">Letters Exercise</button></a>
+<a href="VFC13.html" style="text-decoration: none;"><button onclick="VD.html">Size and Shape Exercise</button></a>
+            </div>
+        </div>
 
+        <!-- Firebase App (the core Firebase SDK) -->
+        <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+        <!-- Firebase Auth -->
+        <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+        <!-- Firebase Database -->
+        <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+        <script>
+            // Firebase configuration
+            const firebaseConfig = {
+                apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
+                authDomain: "projeccvi.firebaseapp.com",
+                projectId: "projeccvi",
+                storageBucket: "projeccvi.appspot.com",
+                messagingSenderId: "279067566247",
+                appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
+            };
+
+            // Initialize Firebase
+            firebase.initializeApp(firebaseConfig);
+            const auth = firebase.auth();
+            const database = firebase.database();
+
+            // Get quiz context from session storage
+            const currentPatientId = sessionStorage.getItem('currentPatientId');
+            const doctorId = sessionStorage.getItem('doctorId');
+            const isPatientQuiz = !!currentPatientId;
+
+            console.log('Quiz context:', { 
+                isPatientQuiz, 
+                currentPatientId: currentPatientId || 'none',
+                doctorId: doctorId || 'none'
+            });
+
+            // Auth state observer
+            auth.onAuthStateChanged(async (user) => {
+                if (user) {
+                    console.log('User authenticated:', user.uid);
+
+                    try {
+                        // Check if user is a doctor
+                        if (!isPatientQuiz) {
+                            const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                            const role = roleSnapshot.val();
+
+                            if (role === 'doctor') {
+                                console.log('Doctor detected without patient context, redirecting');
+                                // Redirect doctors without patient context back to index
+                                alert('Please select a patient first to administer the quiz.');
+                                window.location.href = 'index.html';
+                                return;
+                            }
+                        }
+
+                        // Load user profile
+                        let profile;
+                        if (isPatientQuiz) {
+                            // Doctor viewing patient
+                            console.log(`Loading patient profile: ${currentPatientId}`);
+                            const patientSnapshot = await database.ref(`doctors/${doctorId}/patients/${currentPatientId}/profile`).once('value');
+                            profile = patientSnapshot.val();
+                        } else {
+                            // Regular user
+                            console.log('Loading user profile');
+                            const userSnapshot = await database.ref(`users/${user.uid}/profile`).once('value');
+                            profile = userSnapshot.val();
+                        }
+
+                        // Get first letter of name or email
+                        let initial = 'U';
+                        if (profile && profile.name) {
+                            initial = profile.name.charAt(0).toUpperCase();
+                        } else if (user.email) {
+                            initial = user.email.charAt(0).toUpperCase();
+                        }
+
+                        document.getElementById('profileIcon').textContent = initial;
+
+                        // Display patient indicator
+                        if (isPatientQuiz) {
+                            const patientIndicator = document.getElementById('patient-indicator');
+                            patientIndicator.textContent = 'Patient';
+                            patientIndicator.style.display = 'inline-block';
+                        } else {
+                            const patientIndicator = document.getElementById('patient-indicator');
+                            patientIndicator.style.display = 'none';
+                        }
+                    } catch (error) {
+                        console.error('Error loading profile:', error);
+                        document.getElementById('profileIcon').textContent = 'U';
+                    }
+
+                    document.getElementById('quiz-container').style.display = 'block';
+                } else {
+                    window.location.href = 'login.html';
+                }
+            });
+        </script>
     </div>
-
-    <script src="script.js"></script>
 </body>
 </html>
