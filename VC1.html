@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shape Exercise - Level 1</title>
+    <title>Visual Closure - Level 1</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -85,6 +85,7 @@
 
         #question-container {
             margin-bottom: 20px;
+            position: relative;
         }
 
         #question-container img {
@@ -121,7 +122,7 @@
             margin-top: 40px;
             width: 80%;
             max-width: 600px;
-            display: none;  
+            display: none;
             flex-direction: column;
             align-items: center;
             justify-content: center;
@@ -240,7 +241,7 @@
 <body>
     <div id="quiz-container">
         <div class="header">
-            <h1>Shape Exercise - Level 1</h1>
+            <h1>Visual Closure - Level 1</h1>
             <div class="profile-icon" id="profileIcon" title="Back to Home" onclick="window.location.href='index.html'"></div>
             <div class="user-info">
                 <span id="patient-indicator" class="patient-indicator"></span>
@@ -264,8 +265,8 @@
     </div>
 
     <div id="report-container">
-        <h2>All Quiz Attempts</h2>
-        <ul id="report-list"></ul>
+        <h2>Previous Attempts</h2>
+        <div id="report-list"></div>
         <button id="clear-report" onclick="clearReport()">Clear Report</button>
     </div>
 
@@ -289,21 +290,71 @@
 
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
         const database = firebase.database();
+        const auth = firebase.auth();
         
-        // Get quiz context from session storage
+        // Quiz context handling
         const currentPatientId = sessionStorage.getItem('currentPatientId');
         const doctorId = sessionStorage.getItem('doctorId');
-        const isPatientQuiz = !!currentPatientId;
+        const isPatientQuiz = !!(currentPatientId && doctorId);
         
-        console.log('Quiz context in VC1:', { 
+        console.log('Quiz context:', {
             isPatientQuiz, 
             currentPatientId: currentPatientId || 'none',
             doctorId: doctorId || 'none'
         });
 
-        // Auth state observer
+        const questions = [
+            {
+                questionImage: "images/VC/puzzle/fear1.png",
+                options: [
+                    { src: "images/VC/puzzle/fear1.png", correct: true },
+                    { src: "images/VC/puzzle/sad1.png", correct: false },
+                    { src: "images/VC/puzzle/angry1.png", correct: false },
+                    { src: "images/VC/puzzle/happy1.png", correct: false }
+                ]
+            },
+            {
+                questionImage: "images/VC/puzzle/sad1.png",
+                options: [
+                    { src: "images/VC/puzzle/fear1.png", correct: false },
+                    { src: "images/VC/puzzle/sad1.png", correct: true },
+                    { src: "images/VC/puzzle/angry1.png", correct: false },
+                    { src: "images/VC/puzzle/happy1.png", correct: false }
+                ]
+            },
+            {
+                questionImage: "images/VC/puzzle/angry1.png",
+                options: [
+                    { src: "images/VC/puzzle/fear1.png", correct: false },
+                    { src: "images/VC/puzzle/sad1.png", correct: false },
+                    { src: "images/VC/puzzle/angry1.png", correct: true },
+                    { src: "images/VC/puzzle/happy1.png", correct: false }
+                ]
+            },
+            {
+                questionImage: "images/VC/puzzle/happy1.png",
+                options: [
+                    { src: "images/VC/puzzle/fear1.png", correct: false },
+                    { src: "images/VC/puzzle/sad1.png", correct: false },
+                    { src: "images/VC/puzzle/angry1.png", correct: false },
+                    { src: "images/VC/puzzle/happy1.png", correct: true }
+                ]
+            }
+        ];
+
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let startTime;
+        let totalStartTime;
+        let triesLeft = 3;
+        let timeTaken = [];
+        let totalTaps = 0;
+        let firstTapTime;
+        let incorrectAnswers = 0;
+        let correctAnswers = 0;
+
+        // Firebase authentication observer
         auth.onAuthStateChanged(async (user) => {
             if (user) {
                 console.log('User authenticated in VC1:', user.uid);
@@ -356,65 +407,20 @@
                     }
                     
                     document.getElementById('profileIcon').textContent = initial;
+                    document.getElementById('profileIcon').title = 'Back to Home';
+                    
+                    totalStartTime = Date.now();
                     displayQuestion();
                 } catch (error) {
                     console.error('Error loading profile in VC1:', error);
                     document.getElementById('profileIcon').textContent = 'U';
+                    totalStartTime = Date.now();
                     displayQuestion();
                 }
             } else {
-                window.location.href = 'login.html';
+                window.location.href = 'index.html';
             }
         });
-
-        const questions = [
-            {
-                questionImage: "images/VC/puzzle/fear1.png",
-                options: [
-                    { src: "images/VC/puzzle/fear1.png", correct: true },
-                    { src: "images/VC/puzzle/sad1.png", correct: false },
-                    { src: "images/VC/puzzle/angry1.png", correct: false },
-                    { src: "images/VC/puzzle/happy1.png", correct: false }
-                ]
-            },
-            {
-                questionImage: "images/VC/puzzle/sad1.png",
-                options: [
-                    { src: "images/VC/puzzle/fear1.png", correct: false },
-                    { src: "images/VC/puzzle/sad1.png", correct: true },
-                    { src: "images/VC/puzzle/angry1.png", correct: false },
-                    { src: "images/VC/puzzle/happy1.png", correct: false }
-                ]
-            },
-            {
-                questionImage: "images/VC/puzzle/angry1.png",
-                options: [
-                    { src: "images/VC/puzzle/fear1.png", correct: false },
-                    { src: "images/VC/puzzle/sad1.png", correct: false },
-                    { src: "images/VC/puzzle/angry1.png", correct: true },
-                    { src: "images/VC/puzzle/happy1.png", correct: false }
-                ]
-            },
-            {
-                questionImage: "images/VC/puzzle/happy1.png",
-                options: [
-                    { src: "images/VC/puzzle/fear1.png", correct: false },
-                    { src: "images/VC/puzzle/sad1.png", correct: false },
-                    { src: "images/VC/puzzle/angry1.png", correct: false },
-                    { src: "images/VC/puzzle/happy1.png", correct: true }
-                ]
-            }
-        ];
-
-        let currentQuestionIndex = 0;
-        let score = 0;
-        let triesLeft = 3;
-        let timeTaken = [];
-        let startTime;
-        let totalStartTime;
-        let totalTaps = 0;
-        let firstTapTime;
-        let incorrectAnswers = 0;
 
         document.addEventListener("click", () => {
             totalTaps++;
@@ -423,38 +429,99 @@
             }
         });
 
+        function generateRandomBlock(imageWidth, imageHeight) {
+            const numBlocks = Math.floor(Math.random() * 2) + 2; // Randomly 2 or 3 blocks
+            
+            // Store existing block positions to check for collisions
+            const existingBlocks = [];
+
+            for (let i = 0; i < numBlocks; i++) {
+                // Random width and height
+                const blockWidth = Math.floor(Math.random() * (imageWidth / 3)) + 30; // Random width between 30px and imageWidth/3
+                const blockHeight = Math.floor(Math.random() * (imageHeight / 3)) + 30; // Random height between 30px and imageHeight/3
+
+                // Generate random position and check for collisions
+                let blockX, blockY;
+                let collisionDetected;
+
+                do {
+                    collisionDetected = false;
+                    blockX = Math.floor(Math.random() * (imageWidth - blockWidth + 150));
+                    blockY = Math.floor(Math.random() * (imageHeight - blockHeight));
+
+                    // Check if the new block collides with any existing block
+                    for (let j = 0; j < existingBlocks.length; j++) {
+                        const existingBlock = existingBlocks[j];
+                        const distanceX = Math.abs(blockX - existingBlock.x);
+                        const distanceY = Math.abs(blockY - existingBlock.y);
+
+                        if (distanceX < (blockWidth + existingBlock.width) / 2 && distanceY < (blockHeight + existingBlock.height) / 2) {
+                            collisionDetected = true;
+                            break;
+                        }
+                    }
+                } while (collisionDetected); // Keep generating until no collision is detected
+
+                // Create a div element for the block
+                const block = document.createElement('div');
+                block.style.position = 'absolute';
+                block.style.backgroundColor = 'white';
+                block.style.width = `${blockWidth}px`;
+                block.style.height = `${blockHeight}px`;
+                block.style.top = `${blockY}px`;
+                block.style.left = `${blockX}px`;
+
+                // Add the block's position and size to the existing blocks array
+                existingBlocks.push({ x: blockX, y: blockY, width: blockWidth, height: blockHeight });
+
+                // Append the block to the question image container
+                const questionImage = document.querySelector('#question-container img');
+                questionImage.parentElement.style.position = 'relative'; // Make the container relative
+                questionImage.parentElement.appendChild(block);
+            }
+        }
+
         function displayQuestion() {
+            if (currentQuestionIndex >= questions.length) {
+                showResults();
+                return;
+            }
+            
+            startTime = Date.now();
+            
             const question = questions[currentQuestionIndex];
             shuffleOptions(question.options);
-
-            if (currentQuestionIndex === 0) {
-                totalStartTime = Date.now();
-            }
-            startTime = Date.now();
-
+            
             const questionContainer = document.getElementById('question-container');
             questionContainer.innerHTML = '';
+            
             const questionImage = document.createElement('img');
             questionImage.src = question.questionImage;
             questionContainer.appendChild(questionImage);
 
+            // Wait for the image to load to get its dimensions
+            questionImage.onload = function () {
+                generateRandomBlock(questionImage.width, questionImage.height); // Generate blocks after image loads
+            };
+
             const imagesContainer = document.getElementById('images-container');
             imagesContainer.innerHTML = '';
-
+            
             question.options.forEach(option => {
                 const img = document.createElement('img');
                 img.src = option.src;
-                img.onclick = () => {
+                img.onclick = function() {
                     checkAnswer(option);
                 };
                 imagesContainer.appendChild(img);
             });
-
+            
+            // Add a skip button
             const skipButton = document.createElement('button');
-            skipButton.innerText = "Skip Question";
+            skipButton.textContent = 'Skip Question';
             skipButton.onclick = skipQuestion;
-            skipButton.style.width = '200%';
-            imagesContainer.appendChild(skipButton);
+            skipButton.style.marginTop = '20px';
+            document.getElementById('quiz-container').appendChild(skipButton);
         }
 
         function shuffleOptions(options) {
@@ -465,21 +532,17 @@
             const endTime = Date.now();
             const timeSpent = (endTime - startTime) / 1000;
             
-            totalTaps++;
-            if (totalTaps === 1) {
-                firstTapTime = (Date.now() - totalStartTime) / 1000;
-            }
-
             timeTaken.push(timeSpent);
+            
             if (option.correct) {
                 score++;
+                correctAnswers++;
                 alert('Correct!');
                 moveToNextQuestion();
             } else {
                 triesLeft--;
                 if (triesLeft > 0) {
                     alert(`Wrong! Try again. You have ${triesLeft} tries left.`);
-                    displayQuestion();
                 } else {
                     alert('Out of tries! Moving to the next question.');
                     incorrectAnswers++;
@@ -489,14 +552,18 @@
         }
 
         function skipQuestion() {
-            const endTime = Date.now();
-            const timeSpent = (endTime - startTime) / 1000;
             incorrectAnswers++;
             alert('You skipped this question!');
             moveToNextQuestion();
         }
 
         function moveToNextQuestion() {
+            // Remove any existing skip button
+            const existingSkipButton = document.querySelector('#quiz-container > button');
+            if (existingSkipButton) {
+                existingSkipButton.remove();
+            }
+            
             triesLeft = 3;
             currentQuestionIndex++;
             if (currentQuestionIndex < questions.length) {
@@ -507,6 +574,12 @@
         }
 
         function showResults() {
+            // Remove any existing skip button
+            const existingSkipButton = document.querySelector('#quiz-container > button');
+            if (existingSkipButton) {
+                existingSkipButton.remove();
+            }
+            
             document.getElementById('question-container').style.display = 'none';
             document.getElementById('images-container').style.display = 'none';
             document.getElementById('result-container').style.display = 'block';
@@ -514,17 +587,17 @@
             
             const totalEndTime = Date.now();
             const totalTimeInSeconds = ((totalEndTime - totalStartTime) / 1000).toFixed(2);
-            const averageTimeInSeconds = (totalTimeInSeconds / questions.length).toFixed(2);
+            const averageTimeInSeconds = (timeTaken.reduce((a, b) => a + b, 0) / questions.length).toFixed(2);
             
             document.getElementById('score').innerText = score;
             document.getElementById('total-time').innerText = totalTimeInSeconds;
             document.getElementById('avg-time').innerText = averageTimeInSeconds;
             document.getElementById('first-tap').innerText = firstTapTime ? firstTapTime.toFixed(2) : "N/A";
             document.getElementById('total-taps').innerText = totalTaps;
-            document.getElementById('total-correct').innerText = score;
+            document.getElementById('total-correct').innerText = correctAnswers;
             document.getElementById('total-incorrect').innerText = incorrectAnswers;
 
-            saveQuizResults(score, totalTimeInSeconds, averageTimeInSeconds, firstTapTime, totalTaps, score, incorrectAnswers);
+            saveQuizResults(score, totalTimeInSeconds, averageTimeInSeconds, firstTapTime, totalTaps, correctAnswers, incorrectAnswers);
             
             // Fetch previous attempts
             fetchPreviousAttempts();
@@ -541,9 +614,6 @@
                 reportList.innerHTML = '<h3>Previous Attempts</h3>';
                 
                 // Check if this is a patient quiz (doctor viewing patient)
-                const currentPatientId = sessionStorage.getItem('currentPatientId');
-                const doctorId = sessionStorage.getItem('doctorId');
-                
                 if (currentPatientId && doctorId) {
                     // This is a doctor testing a patient
                     console.log(`Fetching patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
@@ -679,9 +749,6 @@
                 let path;
 
                 // Check if this is a patient quiz (doctor viewing patient)
-                const currentPatientId = sessionStorage.getItem('currentPatientId');
-                const doctorId = sessionStorage.getItem('doctorId');
-                
                 if (currentPatientId && doctorId) {
                     // This is a doctor testing a patient
                     console.log(`Saving patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
@@ -720,54 +787,75 @@
         }
 
         async function clearReport() {
-            const user = auth.currentUser;
-            if (!user) {
-                alert('You need to be logged in to clear the report.');
-                return;
-            }
-
             try {
-                let path;
+                const user = auth.currentUser;
+                if (!user) {
+                    alert('You must be logged in to clear reports.');
+                    return;
+                }
                 
-                // Check if this is a patient quiz (doctor viewing patient)
+                // First, let's confirm the action
+                const confirmClear = confirm('Are you sure you want to clear all reports? This action cannot be undone.');
+                if (!confirmClear) {
+                    return;
+                }
+                
+                // Get patient context from sessionStorage
                 const currentPatientId = sessionStorage.getItem('currentPatientId');
                 const doctorId = sessionStorage.getItem('doctorId');
                 
+                // Determine path based solely on sessionStorage
+                let path = '';
+                
                 if (currentPatientId && doctorId) {
-                    // This is a doctor testing a patient
-                    console.log(`Clearing patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
+                    // Doctor viewing patient quiz
+                    console.log(`Clearing reports for patient ${currentPatientId} viewed by doctor ${doctorId}`);
                     path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/VC1`;
                 } else {
-                    // Regular user quiz
-                    // Check if user is a doctor
-                    const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
-                    const role = roleSnapshot.val();
-                    
-                    if (role === 'doctor') {
-                        console.log(`Clearing doctor's own quiz results: ${user.uid}`);
-                        path = `doctors/${user.uid}/quiz/VC1`;
-                    } else {
-                        console.log(`Clearing regular user quiz results: ${user.uid}`);
-                        path = `users/${user.uid}/quiz/VC1`;
-                    }
+                    // Regular user's own quiz results
+                    console.log(`Clearing reports for user ${user.uid}`);
+                    path = `users/${user.uid}/quiz/VC1`;
                 }
                 
-                console.log(`Removing all quiz results from path: ${path}`);
+                console.log('Clearing reports at path:', path);
                 
-                // Remove all data at the specified path
-                await database.ref(path).remove();
+                // Remove the data (use set with null as a fallback if remove doesn't work)
+                try {
+                    await database.ref(path).remove();
+                } catch (removeError) {
+                    console.warn('Remove failed, trying set(null):', removeError);
+                    await database.ref(path).set(null);
+                }
                 
-                // Reset the results display
-                document.getElementById('report-list').innerHTML = '<h3>Previous Attempts</h3><p>No previous attempts found.</p>';
+                // Show confirmation and refresh the report list
+                alert('All reports have been cleared successfully!');
                 
-                alert('All quiz reports have been cleared successfully.');
+                // Update UI
+                const reportList = document.getElementById('report-list');
+                reportList.innerHTML = '<h3>Previous Attempts</h3><p>No previous attempts found.</p>';
                 
+                console.log('Reports cleared successfully');
             } catch (error) {
-                console.error('Error clearing report:', error);
-                alert('Failed to clear the report: ' + error.message);
+                console.error('Error clearing reports:', error);
+                alert('Failed to clear reports: ' + error.message);
             }
+        }
+
+        function restartQuiz() {
+            document.getElementById('result-container').style.display = 'none';
+            document.getElementById('report-container').style.display = 'none';
+            document.getElementById('question-container').style.display = 'block';
+            document.getElementById('images-container').style.display = 'grid';
+            currentQuestionIndex = 0;
+            score = 0;
+            triesLeft = 3;
+            timeTaken = [];
+            incorrectAnswers = 0;
+            totalTaps = 0;
+            correctAnswers = 0;
+            totalStartTime = Date.now();
+            displayQuestion();
         }
     </script>
 </body>
 </html>
-
