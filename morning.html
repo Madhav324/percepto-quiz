@@ -802,87 +802,85 @@
                 console.log('User authenticated in Morning Quiz:', userId);
                 
                 try {
-                    // Check if user is a doctor (checking both possible paths for compatibility)
-                    let isUserDoctor = false;
+                    // Get quiz context from session storage (match VSM.html pattern)
+                    patientId = sessionStorage.getItem('currentPatientId');
+                    const doctorId = sessionStorage.getItem('doctorId');
+                    const isPatientQuiz = !!patientId;
                     
-                    // First try the roles path (used in VSM.html)
-                    const roleSnapshot = await db.ref(`roles/${user.uid}`).once('value');
-                    const role = roleSnapshot.val();
-                    if (role === 'doctor') {
-                        isUserDoctor = true;
-                    }
-                    
-                    // Also check the users path with role property
-                    const userSnapshot = await db.ref(`users/${userId}`).once('value');
-                    const userData = userSnapshot.val();
-                    if (userData && userData.role === 'doctor') {
-                        isUserDoctor = true;
-                    }
-                    
-                    if (isUserDoctor) {
-                        isDoctor = true;
-                        // Get patient context from session storage
-                        patientId = sessionStorage.getItem('currentPatientId');
-                        const doctorId = sessionStorage.getItem('doctorId') || userId;
+                    // Check if user is a doctor (using the same pattern as VSM.html)
+                    if (!isPatientQuiz) {
+                        const roleSnapshot = await db.ref(`roles/${user.uid}`).once('value');
+                        const role = roleSnapshot.val();
                         
-                        if (patientId) {
-                            isDoctorViewingPatient = true;
-                            // Update profile to show viewing patient
-                            // Check both possible paths for patient data
-                            let patientData = null;
-                            
-                            // First try the doctors/patients path (used in some pages)
-                            const doctorPatientSnapshot = await db.ref(`doctors/${doctorId}/patients/${patientId}/profile`).once('value');
-                            patientData = doctorPatientSnapshot.val();
-                            
-                            // If not found, try the users path
-                            if (!patientData) {
-                                const patientDataSnapshot = await db.ref(`users/${patientId}`).once('value');
-                                patientData = patientDataSnapshot.val();
-                            }
-                            
-                            if (patientData) {
-                                const patientName = patientData.name || patientData.email || 'Patient';
-                                const patientIndicator = document.getElementById('patient-indicator');
-                                patientIndicator.innerText = `Viewing: ${patientName}`;
-                                patientIndicator.style.display = 'inline-block';
-                            }
-                        } else {
-                            // Redirect to index.html if doctor doesn't have a patientId
-                            window.location.href = 'index.html';
+                        if (role === 'doctor') {
+                            console.log('Doctor detected without patient context, redirecting');
+                            alert('Please select a patient first to administer the quiz.');
+                            window.location.href = 'VSM.html';
                             return;
                         }
                     }
                     
-                    // Set profile icon initials regardless of navigation source
-                    if (userData && userData.name) {
-                        const nameParts = userData.name.split(' ');
-                        let initials = '';
-                        if (nameParts.length >= 2) {
-                            initials = nameParts[0].charAt(0) + nameParts[1].charAt(0);
-                        } else {
-                            initials = userData.name.substring(0, 2);
+                    // Load user profile (using the same pattern as VSM.html)
+                    let profile;
+                    if (isPatientQuiz) {
+                        // Doctor viewing patient
+                        isDoctorViewingPatient = true;
+                        isDoctor = true;
+                        
+                        console.log(`Loading patient profile: ${patientId}`);
+                        const patientSnapshot = await db.ref(`doctors/${doctorId || userId}/patients/${patientId}/profile`).once('value');
+                        profile = patientSnapshot.val();
+                        
+                        // Show patient indicator
+                        if (profile) {
+                            const patientName = profile.name || 'Patient';
+                            const patientIndicator = document.getElementById('patient-indicator');
+                            patientIndicator.innerText = `Viewing: ${patientName}`;
+                            patientIndicator.style.display = 'inline-block';
                         }
-                        profileIcon.textContent = initials.toUpperCase();
-                    } else if (user.email) {
-                        profileIcon.textContent = user.email.substring(0, 2).toUpperCase();
                     } else {
-                        profileIcon.textContent = 'U';
+                        // Regular user
+                        const userSnapshot = await db.ref(`users/${user.uid}`).once('value');
+                        profile = userSnapshot.val();
+                        
+                        if (profile && profile.role === 'doctor') {
+                            isDoctor = true;
+                        }
                     }
-
-                    // Initialize the quiz after fetching user info
+                    
+                    // Set profile icon initials
+                    if (profile && profile.name) {
+                        setProfileInitials(profile.name);
+                    } else {
+                        const email = user.email || 'User';
+                        setProfileInitials(email);
+                    }
+                    
+                    // Initialize the game
                     initializeGame();
-
+                    loadPreviousAttempts();
+                    
                 } catch (error) {
-                    console.error('Error fetching user data:', error);
-                    profileIcon.textContent = 'U';
-                    initializeGame();
+                    console.error('Error setting up quiz:', error);
+                    alert('Error loading profile. Please try again.');
                 }
             } else {
-                // Redirect to login page if not authenticated
-                window.location.href = 'index.html?redirect=morning.html';
+                // Not logged in, redirect to login page
+                window.location.href = 'login.html';
             }
         });
+        
+        // Set profile initials helper function
+        function setProfileInitials(name) {
+            const nameParts = name.split(' ');
+            let initials = nameParts[0].charAt(0).toUpperCase();
+            
+            if (nameParts.length > 1 && nameParts[1].length > 0) {
+                initials += nameParts[1].charAt(0).toUpperCase();
+            }
+            
+            document.getElementById('profileIcon').textContent = initials;
+        }
 
         // Initialize on DOMContentLoaded to ensure everything is ready
         document.addEventListener('DOMContentLoaded', () => {

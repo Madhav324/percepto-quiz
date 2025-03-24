@@ -194,40 +194,41 @@
                             profile = patientSnapshot.val();
                         } else {
                             // Regular user
-                            console.log('Loading user profile');
-                            const userSnapshot = await database.ref(`users/${user.uid}/profile`).once('value');
+                            const userSnapshot = await database.ref(`users/${user.uid}`).once('value');
                             profile = userSnapshot.val();
                         }
 
-                        // Get first letter of name or email
-                        let initial = 'U';
+                        // Set profile icon initials
                         if (profile && profile.name) {
-                            initial = profile.name.charAt(0).toUpperCase();
-                        } else if (user.email) {
-                            initial = user.email.charAt(0).toUpperCase();
-                        }
-
-                        document.getElementById('profileIcon').textContent = initial;
-
-                        // Display patient indicator
-                        if (isPatientQuiz) {
-                            const patientIndicator = document.getElementById('patient-indicator');
-                            patientIndicator.textContent = 'Patient';
-                            patientIndicator.style.display = 'inline-block';
+                            setProfileInitials(profile.name);
                         } else {
-                            const patientIndicator = document.getElementById('patient-indicator');
-                            patientIndicator.style.display = 'none';
+                            const email = user.email || 'User';
+                            setProfileInitials(email);
                         }
-                    } catch (error) {
-                        console.error('Error loading profile:', error);
-                        document.getElementById('profileIcon').textContent = 'U';
-                    }
 
-                    document.getElementById('quiz-container').style.display = 'block';
+                        // Show patient indicator if doctor is viewing a patient's quiz
+                        if (isPatientQuiz) {
+                            const patientName = profile?.name || currentPatientId;
+                            document.getElementById('patient-indicator').innerHTML = `Viewing: ${patientName}`;
+                            document.getElementById('patient-indicator').style.display = 'inline-block';
+                        }
+
+                        // Show the quiz container
+                        document.getElementById('quiz-container').style.display = 'block';
+                    } catch (error) {
+                        console.error('Error setting up quiz:', error);
+                        alert('Error loading profile. Please try again.');
+                    }
                 } else {
+                    // Not logged in, redirect to login page
                     window.location.href = 'login.html';
                 }
             });
+
+            function setProfileInitials(name) {
+                const initial = name.charAt(0).toUpperCase();
+                document.getElementById('profileIcon').textContent = initial;
+            }
         </script>
     </div>
 </body>
