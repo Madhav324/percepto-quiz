@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Position Quiz</title>
+    <title>Spatial Awareness Exercise - Level 1</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -12,6 +12,7 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh;
+            overflow-y: auto;
             margin: 0;
             flex-direction: column;
         }
@@ -22,7 +23,68 @@
             border-radius: 8px;
             background-color: #fff;
             box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.1);
-            width: 600px;
+            width: 450px;
+        }
+        
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .profile-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #2196F3;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: bold;
+            text-decoration: none;
+            transition: background-color 0.3s;
+            font-size: 18px;
+        }
+        
+        .profile-icon:hover {
+            background-color: #1976D2;
+        }
+
+        .profile-icon:hover::after {
+            content: attr(title);
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: #333;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            margin-top: 5px;
+        }
+
+        .user-info {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            text-align: right;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .patient-indicator {
+            display: inline-block;
+            background-color: #e9f5e9;
+            color: #4CAF50;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-left: 8px;
         }
 
         .game-area {
@@ -94,6 +156,7 @@
 
         .draggable:hover {
             transform: scale(1.05);
+            border-color: #4CAF50;
         }
 
         .instruction {
@@ -113,16 +176,108 @@
             font-size: 16px;
             cursor: pointer;
             border-radius: 5px;
+            transition: background-color 0.3s;
         }
 
         button:hover {
             background-color: #45a049;
         }
 
-        #quiz-type {
-            font-size: 18px;
-            color: #2196F3;
+        #result-container {
+            display: none;
+            margin-top: 20px;
+            text-align: center;
+            padding: 20px;
+            border-radius: 8px;
+            background-color: #fff;
+            box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.1);
+            width: 450px;
+        }
+
+        #report-container {
+            margin-top: 40px;
+            width: 80%;
+            max-width: 600px;
+            display: none;  
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background-color: white;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+        }
+        
+        h1, h2 {
+            color: #2c3e50;
+            margin: 0;
+        }
+
+        .attempt-item {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .attempt-item:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .attempt-date {
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 16px;
+        }
+        
+        .attempt-score {
+            color: #4CAF50;
             margin-bottom: 10px;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        
+        .attempt-details {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+            background-color: #f0f0f0;
+            padding: 12px;
+            border-radius: 6px;
+            color: #333;
+            font-size: 14px;
+        }
+        
+        .attempt-detail-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .detail-label {
+            font-weight: bold;
+            color: #555;
+        }
+        
+        .toggle-details-btn {
+            margin-top: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        
+        .toggle-details-btn:hover {
+            background-color: #45a049;
         }
 
         .statistics-container {
@@ -160,17 +315,6 @@
             border-bottom: 1px solid #eee;
             display: flex;
             justify-content: space-between;
-        }
-
-        #result-container {
-            display: none;
-            margin-top: 20px;
-            text-align: center;
-            padding: 20px;
-            border-radius: 8px;
-            background-color: #fff;
-            box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.1);
-            width: 450px;
         }
 
         #result-container h2 {
@@ -217,37 +361,6 @@
             background-color: #45a049;
         }
 
-        #report-container {
-            margin-top: 40px;
-            width: 80%;
-            max-width: 600px;
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-        }
-
-        #report-container h2 {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-
-        #report-list {
-            list-style-type: none;
-            padding: 0;
-            width: 100%;
-        }
-
-        #report-list li {
-            background-color: #f9f9f9;
-            padding: 15px;
-            margin-bottom: 10px;
-            border-radius: 5px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
-            font-size: 14px;
-            line-height: 1.4;
-        }
-
         #clear-report {
             margin-top: 20px;
             padding: 10px 20px;
@@ -265,369 +378,653 @@
 </head>
 <body>
     <div id="quiz-container">
-        <h1>Image Position Quiz</h1>
-        <div id="quiz-type"></div>
+        <div class="header">
+            <h1>Spatial Awareness Exercise - Level 1</h1>
+            <div class="profile-icon" id="profileIcon" title="Back to Home" onclick="window.location.href='index.html'"></div>
+            <div class="user-info">
+                <span id="patient-indicator" class="patient-indicator"></span>
+            </div>
+        </div>
         <div class="instruction" id="instruction"></div>
         
         <div class="game-area">
-            <img id="question-image" src="circle.png" alt="Question Image">
+            <img id="question-image" src="images/VSpac/background.jpg" alt="Background Image">
             <div class="drop-area" id="upper-area"></div>
             <div class="drop-area" id="lower-area"></div>
         </div>
-
+        
         <div class="options-container" id="options-container"></div>
-        <button id="check-button" onclick="checkAnswer()">Check Answer</button>
-        <button id="reload-button" onclick="reloadRandomQuestion()">Try Different Question</button>
+        
+        <button id="check-btn">Check Answer</button>
+        <button id="next-btn" style="display: none;">Next Level</button>
+        <button id="skip-btn">Skip Question</button>
     </div>
-
-    <div class="statistics-container">
-        <h2>Statistics</h2>
-        <div class="stats-grid">
-            <div class="stat-item">
-                <strong>Time:</strong> <span id="time">0:00</span>
-            </div>
-            <div class="stat-item">
-                <strong>Total Moves:</strong> <span id="total-moves">0</span>
-            </div>
-            <div class="stat-item">
-                <strong>Incorrect Placements:</strong> <span id="incorrect-moves">0</span>
-            </div>
-            <div class="stat-item">
-                <strong>Total Taps:</strong> <span id="total-taps">0</span>
-            </div>
-        </div>
-        <h3>Previous Attempts</h3>
-        <div class="history-list" id="history-list">
-            <!-- History items will be loaded here -->
-        </div>
-    </div>
-
+    
     <div id="result-container">
         <h2>Quiz Results</h2>
-        <ul>
-            <li><strong>Score:</strong> <span id="score">0</span></li>
-            <li><strong>Total Time:</strong> <span id="total-time">0</span> seconds</li>
-            <li><strong>Average Time:</strong> <span id="avg-time">0</span> seconds</li>
-            <li><strong>First Placement Time:</strong> <span id="first-tap">0</span> seconds</li>
-            <li><strong>Total Taps:</strong> <span id="total-taps">0</span></li>
-            <li><strong>Total Correct Answers:</strong> <span id="total-correct">0</span></li>
-            <li><strong>Total Incorrect Answers:</strong> <span id="total-incorrect">0</span></li>
-        </ul>
-        <a href="index.html" style="text-decoration: none; margin-top: 20px; display: block;">
-            <button class="home-button">Return Home</button>
-        </a>
+        <div id="result-details">
+            <p>Score: <span id="total-correct">0</span> correct out of <span id="total-questions">0</span></p>
+            <p>Incorrect Answers: <span id="total-incorrect">0</span></p>
+            <p>Total Time: <span id="total-time">0</span> seconds</p>
+            <p>Average Time: <span id="avg-time">0</span> seconds</p>
+            <p>First Attempt Time: <span id="first-attempt">0</span> seconds</p>
+            <p>Total Interactions: <span id="total-interactions">0</span></p>
+        </div>
+        <button id="try-again-btn">Try Again</button>
+        <button id="back-to-home-btn" onclick="window.location.href='index.html'">Back to Home</button>
     </div>
-
+    
     <div id="report-container">
-        <h2>All Quiz Attempts</h2>
-        <ul id="report-list"></ul>
+        <h2>Previous Attempts</h2>
+        <div id="report-list"></div>
         <button id="clear-report" onclick="clearReport()">Clear Report</button>
     </div>
 
+    <!-- Firebase App (the core Firebase SDK) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <!-- Firebase Auth -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <!-- Firebase Database -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
     <script>
-        const questionTypes = {
-            topOnly: {
-                type: "TOP",
-                questionImage: "images/SR/table.png",
-                options: ["images/SR/gift1.png", "images/SR/gift2.png", "images/SR/gift3.png"],
-                instruction: "Place ALL shapes in the TOP HALF of the table.",
-                correctArea: "upper"
-            },
-            bottomOnly: {
-                type: "BOTTOM",
-                questionImage: "images/SR/table.png",
-                options: ["images/SR/gift1.png", "images/SR/gift2.png", "images/SR/gift3.png"],
-                instruction: "Place ALL shapes in the BOTTOM HALF of the table.",
-                correctArea: "lower"
-            }
-        };
-
-        let currentQuestion;
-        let placedImages = new Map();
-
-        function selectRandomQuestion() {
-            const questions = Object.values(questionTypes);
-            return questions[Math.floor(Math.random() * questions.length)];
-        }
-
-        function rearrangeImages(dropArea, isUpper) {
-            const placedImgs = Array.from(dropArea.getElementsByClassName('placed-image'));
-            const imageWidth = 60;
-            const gap = 10;
-            const totalWidth = placedImgs.length * (imageWidth + gap) - gap;
-            const startX = (dropArea.offsetWidth - totalWidth) / 2;
-            
-            // Calculate Y position at bottom of respective area
-            const areaHeight = dropArea.offsetHeight;
-            const y = areaHeight - imageWidth - 10; // 10px padding from bottom
-
-            placedImgs.forEach((img, index) => {
-                const x = startX + index * (imageWidth + gap);
-                img.style.left = `${x}px`;
-                img.style.top = `${y}px`;
-            });
-        }
-
-        function initializeQuiz(questionType = null) {
-            currentQuestion = questionType || selectRandomQuestion();
-            
-            const questionImage = document.getElementById('question-image');
-            const optionsContainer = document.getElementById('options-container');
-            const instruction = document.getElementById('instruction');
-            const quizType = document.getElementById('quiz-type');
-            
-            // Set the table image
-            questionImage.src = currentQuestion.questionImage;
-            instruction.textContent = currentQuestion.instruction;
-            quizType.textContent = `Question Type: ${currentQuestion.type} PLACEMENT`;
-            
-            optionsContainer.innerHTML = '';
-            
-            // Create draggable options
-            currentQuestion.options.forEach(option => {
-                const img = document.createElement('img');
-                img.src = option;
-                img.className = 'draggable';
-                img.draggable = true;
-                img.addEventListener('dragstart', dragStart);
-                img.addEventListener('dragend', dragEnd);
-                optionsContainer.appendChild(img);
-            });
-
-            // Clear any previously placed images
-            document.querySelectorAll('.placed-image').forEach(img => img.remove());
-            placedImages.clear();
-        }
-
-        function dragStart(e) {
-            e.dataTransfer.setData('text/plain', e.target.src);
-            e.target.classList.add('dragging');
-        }
-
-        function dragEnd(e) {
-            e.target.classList.remove('dragging');
-        }
-
-        function handleDrop(e, isUpper) {
-            e.preventDefault();
-            const imageSrc = e.dataTransfer.getData('text/plain');
-            const dropArea = isUpper ? document.getElementById('upper-area') : document.getElementById('lower-area');
-            
-            // Create and position the new image
-            const newImage = document.createElement('img');
-            newImage.src = imageSrc;
-            newImage.className = 'placed-image';
-            
-            // Calculate initial position
-            const areaHeight = dropArea.offsetHeight;
-            const imageWidth = 60;
-            newImage.style.top = `${areaHeight - imageWidth - 10}px`; // 10px padding from bottom
-            
-            dropArea.appendChild(newImage);
-            
-            // Remove the original draggable
-            const originalImage = Array.from(document.getElementsByClassName('draggable'))
-                .find(img => img.src === imageSrc);
-            if (originalImage) {
-                originalImage.remove();
-            }
-            
-            // Store the placement
-            placedImages.set(imageSrc, isUpper ? 'upper' : 'lower');
-            
-            // Rearrange images in the drop area
-            rearrangeImages(dropArea, isUpper);
-        }
-
-        function setupDropAreas() {
-            const upperArea = document.getElementById('upper-area');
-            const lowerArea = document.getElementById('lower-area');
-            
-            [upperArea, lowerArea].forEach((area, index) => {
-                const isUpper = index === 0;
-                
-                area.addEventListener('dragover', (e) => {
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = 'move';
-                });
-                
-                area.addEventListener('drop', (e) => handleDrop(e, isUpper));
-            });
-        }
-
-        function checkAnswer() {
-            const allImagesPlaced = document.getElementsByClassName('draggable').length === 0;
-            if (!allImagesPlaced) {
-                alert('Please place all shapes before checking!');
-                return;
-            }
-
-            const correctArea = currentQuestion.correctArea;
-            let isCorrect = true;
-
-            placedImages.forEach((area, imageSrc) => {
-                if (area !== correctArea) {
-                    isCorrect = false;
-                }
-            });
-
-            if (isCorrect) {
-                alert('Correct! All shapes are in the right place.');
-            } else {
-                alert('Try again! Some shapes are in the wrong area.');
-            }
-            showResults();
-        }
-
-        function reloadRandomQuestion() {
-            initializeQuiz();
-        }
-
-        // Initialize the quiz
-        initializeQuiz();
-        setupDropAreas();
-    </script>
-
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-        import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-database.js";
-
+        // Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
             authDomain: "projeccvi.firebaseapp.com",
             projectId: "projeccvi",
-            storageBucket: "projeccvi.firebasestorage.app",
+            storageBucket: "projeccvi.appspot.com",
             messagingSenderId: "279067566247",
             appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
         };
 
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-
-        let totalStartTime = Date.now();
-        let totalTaps = 0;
-        let firstPlacementTime = null;
-        let score = 0;
-        let incorrectAnswers = 0;
-
-        document.addEventListener("click", () => {
-            totalTaps++;
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const database = firebase.database();
+        
+        // Get quiz context from session storage
+        const currentPatientId = sessionStorage.getItem('currentPatientId');
+        const doctorId = sessionStorage.getItem('doctorId');
+        const isPatientQuiz = !!currentPatientId;
+        
+        console.log('Quiz context in VSpac1:', { 
+            isPatientQuiz, 
+            currentPatientId: currentPatientId || 'none',
+            doctorId: doctorId || 'none'
         });
 
-        function handleDrop(event) {
-            if (firstPlacementTime === null) {
-                firstPlacementTime = (Date.now() - totalStartTime) / 1000;
+        // Quiz variables
+        let currentLevel = 0;
+        let score = 0;
+        let startTime;
+        let totalStartTime;
+        let timeTaken = [];
+        let totalInteractions = 0;
+        let firstInteractionTime;
+        let incorrectAnswers = 0;
+        
+        // Game elements
+        const questionImage = document.getElementById('question-image');
+        const upperArea = document.getElementById('upper-area');
+        const lowerArea = document.getElementById('lower-area');
+        const optionsContainer = document.getElementById('options-container');
+        const checkBtn = document.getElementById('check-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const skipBtn = document.getElementById('skip-btn');
+        const instructionText = document.getElementById('instruction');
+        
+        // Quiz questions data
+        const levels = [
+            {
+                instruction: "Drag the items to indicate which are above the line and which are below.",
+                backgroundImage: "images/VSpac/background1.jpg",
+                objects: [
+                    { id: "obj1", image: "images/VSpac/item1.png", correctPosition: "upper" },
+                    { id: "obj2", image: "images/VSpac/item2.png", correctPosition: "lower" },
+                    { id: "obj3", image: "images/VSpac/item3.png", correctPosition: "upper" },
+                    { id: "obj4", image: "images/VSpac/item4.png", correctPosition: "lower" }
+                ]
+            },
+            {
+                instruction: "Drag the items to indicate which are to the left of the line and which are to the right.",
+                backgroundImage: "images/VSpac/background2.jpg",
+                objects: [
+                    { id: "obj1", image: "images/VSpac/item5.png", correctPosition: "upper" }, // Using upper for left
+                    { id: "obj2", image: "images/VSpac/item6.png", correctPosition: "lower" }, // Using lower for right
+                    { id: "obj3", image: "images/VSpac/item7.png", correctPosition: "upper" },
+                    { id: "obj4", image: "images/VSpac/item8.png", correctPosition: "lower" }
+                ]
+            },
+            {
+                instruction: "Drag the items to indicate which are inside the circle and which are outside.",
+                backgroundImage: "images/VSpac/background3.jpg",
+                objects: [
+                    { id: "obj1", image: "images/VSpac/item9.png", correctPosition: "upper" }, // Using upper for inside
+                    { id: "obj2", image: "images/VSpac/item10.png", correctPosition: "lower" }, // Using lower for outside
+                    { id: "obj3", image: "images/VSpac/item11.png", correctPosition: "upper" },
+                    { id: "obj4", image: "images/VSpac/item12.png", correctPosition: "lower" }
+                ]
+            }
+        ];
+        
+        // Auth state observer
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                console.log('User authenticated in VSpac1:', user.uid);
+                
+                try {
+                    // Check if user is a doctor
+                    if (!isPatientQuiz) {
+                        const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                        const role = roleSnapshot.val();
+                        
+                        if (role === 'doctor') {
+                            console.log('Doctor detected without patient context, redirecting');
+                            // Redirect doctors without patient context back to index
+                            alert('Please select a patient first to administer the quiz.');
+                            window.location.href = 'index.html';
+                            return;
+                        }
+                    }
+                    
+                    // Load user profile
+                    let profile;
+                    if (isPatientQuiz) {
+                        // Doctor viewing patient
+                        console.log(`Loading patient profile in VSpac1: ${currentPatientId}`);
+                        const patientSnapshot = await database.ref(`doctors/${doctorId}/patients/${currentPatientId}/profile`).once('value');
+                        profile = patientSnapshot.val();
+                    } else {
+                        // Regular user
+                        console.log('Loading user profile in VSpac1');
+                        const userSnapshot = await database.ref(`users/${user.uid}/profile`).once('value');
+                        profile = userSnapshot.val();
+                    }
+                    
+                    // Get first letter of name or email
+                    let initial = 'U';
+                    if (profile && profile.name) {
+                        initial = profile.name.charAt(0).toUpperCase();
+                    } else if (user.email) {
+                        initial = user.email.charAt(0).toUpperCase();
+                    }
+                    
+                    // Display patient indicator
+                    if (isPatientQuiz) {
+                        const patientIndicator = document.getElementById('patient-indicator');
+                        patientIndicator.textContent = 'Patient';
+                        patientIndicator.style.display = 'inline-block';
+                    } else {
+                        const patientIndicator = document.getElementById('patient-indicator');
+                        patientIndicator.style.display = 'none';
+                    }
+                    
+                    document.getElementById('profileIcon').textContent = initial;
+                    
+                    // Start the quiz
+                    initializeLevel();
+                    
+                    // Fetch previous attempts
+                    fetchPreviousAttempts();
+                    
+                } catch (error) {
+                    console.error('Error loading profile in VSpac1:', error);
+                    document.getElementById('profileIcon').textContent = 'U';
+                    
+                    // Start the quiz even if there's an error
+                    initializeLevel();
+                }
+            } else {
+                window.location.href = 'login.html';
+            }
+        });
+
+        // Initialize drag and drop
+        function initializeLevel() {
+            if (currentLevel === 0) {
+                totalStartTime = Date.now();
+            }
+            startTime = Date.now();
+            
+            const level = levels[currentLevel];
+            questionImage.src = level.backgroundImage;
+            instructionText.textContent = level.instruction;
+            
+            // Clear any existing elements
+            upperArea.innerHTML = '';
+            lowerArea.innerHTML = '';
+            optionsContainer.innerHTML = '';
+            
+            // Create draggable objects
+            level.objects.forEach(obj => {
+                const draggable = document.createElement('img');
+                draggable.src = obj.image;
+                draggable.className = 'draggable';
+                draggable.id = obj.id;
+                draggable.setAttribute('data-correct-position', obj.correctPosition);
+                draggable.setAttribute('draggable', 'true');
+                optionsContainer.appendChild(draggable);
+                
+                // Add drag events
+                draggable.addEventListener('dragstart', dragStart);
+            });
+            
+            // Add drop events to drop areas
+            upperArea.addEventListener('dragover', dragOver);
+            upperArea.addEventListener('drop', drop);
+            lowerArea.addEventListener('dragover', dragOver);
+            lowerArea.addEventListener('drop', drop);
+            
+            // Reset button states
+            checkBtn.style.display = 'inline-block';
+            nextBtn.style.display = 'none';
+            
+            // Add interaction tracking
+            document.addEventListener('mousedown', trackInteraction);
+            document.addEventListener('touchstart', trackInteraction);
+        }
+        
+        // Drag and drop functions
+        function dragStart(e) {
+            e.dataTransfer.setData('text/plain', e.target.id);
+        }
+        
+        function dragOver(e) {
+            e.preventDefault();
+        }
+        
+        function drop(e) {
+            e.preventDefault();
+            const id = e.dataTransfer.getData('text/plain');
+            const draggable = document.getElementById(id);
+            
+            if (!draggable) return;
+            
+            // Create a placed version of the image
+            const placedImage = document.createElement('img');
+            placedImage.src = draggable.src;
+            placedImage.className = 'placed-image';
+            placedImage.id = `placed-${id}`;
+            placedImage.setAttribute('data-id', id);
+            
+            // Position relative to the drop area
+            const rect = e.target.getBoundingClientRect();
+            const x = e.clientX - rect.left - 30; // Center the image (half of width)
+            const y = e.clientY - rect.top - 30;  // Center the image (half of height)
+            
+            placedImage.style.left = `${x}px`;
+            placedImage.style.top = `${y}px`;
+            
+            // Remove any existing placed image for this object
+            const existingPlaced = document.querySelector(`[data-id="${id}"]`);
+            if (existingPlaced) {
+                existingPlaced.parentNode.removeChild(existingPlaced);
+            }
+            
+            // Add to the appropriate drop area
+            e.target.appendChild(placedImage);
+            
+            // Hide the original draggable
+            draggable.style.visibility = 'hidden';
+        }
+        
+        // Track interactions (mouse/touch)
+        function trackInteraction() {
+            totalInteractions++;
+            if (totalInteractions === 1) {
+                firstInteractionTime = (Date.now() - totalStartTime) / 1000;
             }
         }
-
-        document.querySelectorAll('.drop-area').forEach(zone => {
-            zone.addEventListener('drop', handleDrop);
+        
+        // Check answer button click
+        checkBtn.addEventListener('click', () => {
+            const level = levels[currentLevel];
+            let allCorrect = true;
+            
+            level.objects.forEach(obj => {
+                const draggable = document.getElementById(obj.id);
+                const placedImage = document.querySelector(`[data-id="${obj.id}"]`);
+                
+                if (!placedImage) {
+                    allCorrect = false;
+                    return;
+                }
+                
+                const isUpper = placedImage.parentNode.id === 'upper-area';
+                const correctPosition = obj.correctPosition === 'upper';
+                
+                if (isUpper !== correctPosition) {
+                    allCorrect = false;
+                }
+            });
+            
+            if (allCorrect) {
+                score++;
+                alert('Correct placement! Move to the next level.');
+                nextBtn.style.display = 'inline-block';
+                checkBtn.style.display = 'none';
+            } else {
+                incorrectAnswers++;
+                alert('Some items are not in the correct position. Try again.');
+            }
         });
-
+        
+        // Next level button click
+        nextBtn.addEventListener('click', () => {
+            const endTime = Date.now();
+            const timeSpent = (endTime - startTime) / 1000;
+            timeTaken.push(timeSpent);
+            
+            currentLevel++;
+            if (currentLevel < levels.length) {
+                initializeLevel();
+            } else {
+                showResults();
+            }
+        });
+        
+        // Skip button click
+        skipBtn.addEventListener('click', () => {
+            const endTime = Date.now();
+            const timeSpent = (endTime - startTime) / 1000;
+            timeTaken.push(timeSpent);
+            incorrectAnswers++;
+            
+            currentLevel++;
+            if (currentLevel < levels.length) {
+                initializeLevel();
+            } else {
+                showResults();
+            }
+        });
+        
+        // Show final results
         function showResults() {
             const totalEndTime = Date.now();
             const totalTimeInSeconds = ((totalEndTime - totalStartTime) / 1000).toFixed(2);
-            const averageTimeInSeconds = totalTimeInSeconds; // Since there's only one question
             
-            document.getElementById('score').innerText = score;
-            document.getElementById('total-time').innerText = totalTimeInSeconds;
-            document.getElementById('avg-time').innerText = averageTimeInSeconds;
-            document.getElementById('first-tap').innerText = firstPlacementTime ? firstPlacementTime.toFixed(2) : "N/A";
-            document.getElementById('total-taps').innerText = totalTaps;
-            document.getElementById('total-correct').innerText = score;
-            document.getElementById('total-incorrect').innerText = incorrectAnswers;
-
+            // Calculate average time per question
+            let totalTimeForQuestions = 0;
+            timeTaken.forEach(time => {
+                totalTimeForQuestions += time;
+            });
+            const averageTimeInSeconds = (totalTimeForQuestions / timeTaken.length).toFixed(2);
+            
+            // Update result elements
+            document.getElementById('total-correct').textContent = score;
+            document.getElementById('total-questions').textContent = levels.length;
+            document.getElementById('total-incorrect').textContent = incorrectAnswers;
+            document.getElementById('total-time').textContent = totalTimeInSeconds;
+            document.getElementById('avg-time').textContent = averageTimeInSeconds;
+            document.getElementById('first-attempt').textContent = firstInteractionTime ? firstInteractionTime.toFixed(2) : "N/A";
+            document.getElementById('total-interactions').textContent = totalInteractions;
+            
+            // Show result container and hide quiz container
+            document.getElementById('quiz-container').style.display = 'none';
             document.getElementById('result-container').style.display = 'block';
             document.getElementById('report-container').style.display = 'flex';
             
-            saveAttempt({
-                score,
-                totalTime: totalTimeInSeconds,
-                avgTime: averageTimeInSeconds,
-                firstPlacementTime: firstPlacementTime ? firstPlacementTime.toFixed(2) : "N/A",
-                totalTaps,
-                totalIncorrectAnswers: incorrectAnswers,
-                timestamp: Date.now()
-            });
+            // Save the results to Firebase
+            saveQuizResults(score, totalTimeInSeconds, averageTimeInSeconds, firstInteractionTime, totalInteractions, score, incorrectAnswers);
         }
-
-        function saveAttempt(data) {
-            const attemptsRef = ref(db, 'quizAttempts16/');
-            const newAttemptRef = ref(db, 'quizAttempts16/' + Date.now());
+        
+        // Try again button
+        document.getElementById('try-again-btn').addEventListener('click', () => {
+            currentLevel = 0;
+            score = 0;
+            timeTaken = [];
+            totalInteractions = 0;
+            firstInteractionTime = null;
+            incorrectAnswers = 0;
             
-            set(newAttemptRef, data)
-                .then(() => {
-                    console.log("Attempt saved!");
-                    fetchAttempts();
-                })
-                .catch(error => {
-                    console.error("Error saving attempt: ", error);
-                });
-        }
+            document.getElementById('quiz-container').style.display = 'block';
+            document.getElementById('result-container').style.display = 'none';
+            document.getElementById('report-container').style.display = 'none';
+            
+            initializeLevel();
+        });
 
-        function fetchAttempts() {
-            const attemptsRef = ref(db, 'quizAttempts16/');
-            get(attemptsRef)
-                .then(snapshot => {
-                    if (snapshot.exists()) {
-                        const attempts = snapshot.val();
-                        const reportList = document.getElementById('report-list');
-                        reportList.innerHTML = '';
-
-                        const sortedAttempts = Object.entries(attempts)
-                            .map(([id, attempt]) => ({...attempt, id}))
-                            .sort((a, b) => b.timestamp - a.timestamp)
-                            .slice(0, 5);
-
-                        sortedAttempts.forEach(attempt => {
-                            const listItem = document.createElement('li');
-                            listItem.innerText = `Score: ${attempt.score}, Time: ${attempt.totalTime}s, Incorrect: ${attempt.totalIncorrectAnswers}, Taps: ${attempt.totalTaps}, First Tap: ${attempt.firstPlacementTime}s, Avg Time: ${attempt.avgTime}s`;
-                            reportList.appendChild(listItem);
-                        });
+        // Fetch previous quiz attempts
+        async function fetchPreviousAttempts() {
+            try {
+                const user = auth.currentUser;
+                if (!user) return;
+                
+                let path;
+                const reportList = document.getElementById('report-list');
+                reportList.innerHTML = '<h3>Previous Attempts</h3>';
+                
+                // Check if this is a patient quiz (doctor viewing patient)
+                const currentPatientId = sessionStorage.getItem('currentPatientId');
+                const doctorId = sessionStorage.getItem('doctorId');
+                
+                if (currentPatientId && doctorId) {
+                    // This is a doctor testing a patient
+                    console.log(`Fetching patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/VSpac1`;
+                } else {
+                    // Regular user quiz
+                    // Check if user is a doctor
+                    const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                    const role = roleSnapshot.val();
+                    
+                    if (role === 'doctor') {
+                        console.log(`Fetching doctor's own quiz results: ${user.uid}`);
+                        path = `doctors/${user.uid}/quiz/VSpac1`;
+                    } else {
+                        console.log(`Fetching regular user quiz results: ${user.uid}`);
+                        path = `users/${user.uid}/quiz/VSpac1`;
                     }
-                })
-                .catch(error => {
-                    console.error("Error fetching attempts: ", error);
-                });
+                }
+                
+                console.log(`Fetching previous attempts from path: ${path}`);
+                const resultsSnapshot = await database.ref(path).once('value');
+                
+                if (resultsSnapshot.exists()) {
+                    const results = [];
+                    resultsSnapshot.forEach(childSnapshot => {
+                        results.push({
+                            id: childSnapshot.key,
+                            ...childSnapshot.val()
+                        });
+                    });
+                    
+                    // Sort by timestamp if available (newest first)
+                    results.sort((a, b) => {
+                        return b.timestamp - a.timestamp;
+                    });
+                    
+                    // Take only the most recent 5
+                    const recentResults = results.slice(0, 5);
+                    
+                    if (recentResults.length > 0) {
+                        recentResults.forEach(result => {
+                            const timestamp = result.timestamp;
+                            // Check if timestamp is a number (milliseconds) or a string (ISO format)
+                            const date = typeof timestamp === 'number' 
+                                ? new Date(timestamp) 
+                                : new Date(timestamp);
+                                
+                            const formattedDate = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+                            
+                            const attemptItem = document.createElement('div');
+                            attemptItem.className = 'attempt-item';
+                            
+                            // Create main display with date and score
+                            const dateScoreDiv = document.createElement('div');
+                            dateScoreDiv.innerHTML = `
+                                <div class="attempt-date">${formattedDate}</div>
+                                <div class="attempt-score">Score: ${result.score}/${levels.length}</div>
+                            `;
+                            attemptItem.appendChild(dateScoreDiv);
+                            
+                            // Create the details section
+                            const detailsDiv = document.createElement('div');
+                            detailsDiv.className = 'attempt-details';
+                            
+                            // Always show these fields
+                            const detailsHtml = `
+                                <div class="attempt-detail-item">
+                                    <span class="detail-label">Total Time:</span>
+                                    <span>${result.totalTime || 'N/A'}s</span>
+                                </div>
+                                <div class="attempt-detail-item">
+                                    <span class="detail-label">Avg Time:</span>
+                                    <span>${result.averageTime || 'N/A'}s</span>
+                                </div>
+                                <div class="attempt-detail-item">
+                                    <span class="detail-label">First Interaction:</span>
+                                    <span>${result.firstInteractionTime ? result.firstInteractionTime.toFixed(2) + 's' : 'N/A'}</span>
+                                </div>
+                                <div class="attempt-detail-item">
+                                    <span class="detail-label">Total Interactions:</span>
+                                    <span>${result.totalInteractions || 'N/A'}</span>
+                                </div>
+                                <div class="attempt-detail-item">
+                                    <span class="detail-label">Correct:</span>
+                                    <span>${result.correctAnswers || result.score || 'N/A'}</span>
+                                </div>
+                                <div class="attempt-detail-item">
+                                    <span class="detail-label">Incorrect:</span>
+                                    <span>${result.incorrectAnswers || 'N/A'}</span>
+                                </div>
+                            `;
+                            detailsDiv.innerHTML = detailsHtml;
+                            attemptItem.appendChild(detailsDiv);
+                            
+                            // Add a button to toggle details
+                            const toggleBtn = document.createElement('button');
+                            toggleBtn.className = 'toggle-details-btn';
+                            toggleBtn.textContent = 'Show Details';
+                            toggleBtn.onclick = function() {
+                                if (detailsDiv.style.display === 'none' || !detailsDiv.style.display) {
+                                    detailsDiv.style.display = 'grid';
+                                    this.textContent = 'Hide Details';
+                                } else {
+                                    detailsDiv.style.display = 'none';
+                                    this.textContent = 'Show Details';
+                                }
+                            };
+                            dateScoreDiv.appendChild(toggleBtn);
+                            
+                            // Initially hide details
+                            detailsDiv.style.display = 'none';
+                            
+                            reportList.appendChild(attemptItem);
+                        });
+                    } else {
+                        reportList.innerHTML += '<p>No previous attempts found.</p>';
+                    }
+                } else {
+                    reportList.innerHTML += '<p>No previous attempts found.</p>';
+                }
+            } catch (error) {
+                console.error('Error fetching previous attempts:', error);
+                document.getElementById('report-list').innerHTML += '<p>Error loading previous attempts: ' + error.message + '</p>';
+            }
         }
 
-        function clearReport() {
-            const attemptsRef = ref(db, 'quizAttempts16/');
-            set(attemptsRef, null)
-                .then(() => {
-                    console.log("Report cleared!");
-                    document.getElementById('report-list').innerHTML = '';
-                })
-                .catch(error => {
-                    console.error("Error clearing report: ", error);
+        async function saveQuizResults(score, totalTime, averageTime, firstInteractionTime, totalInteractions, correctAnswers, incorrectAnswers) {
+            const user = auth.currentUser;
+            if (!user) return;
+
+            try {
+                const timestamp = Date.now();
+                let path;
+
+                // Check if this is a patient quiz (doctor viewing patient)
+                const currentPatientId = sessionStorage.getItem('currentPatientId');
+                const doctorId = sessionStorage.getItem('doctorId');
+                
+                if (currentPatientId && doctorId) {
+                    // This is a doctor testing a patient
+                    console.log(`Saving patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/VSpac1/${timestamp}`;
+                } else {
+                    // Regular user quiz
+                    // Check if user is a doctor
+                    const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                    const role = roleSnapshot.val();
+                    
+                    if (role === 'doctor') {
+                        console.log(`Saving doctor's own quiz results: ${user.uid}`);
+                        path = `doctors/${user.uid}/quiz/VSpac1/${timestamp}`;
+                    } else {
+                        console.log(`Saving regular user quiz results: ${user.uid}`);
+                        path = `users/${user.uid}/quiz/VSpac1/${timestamp}`;
+                    }
+                }
+
+                console.log(`Saving quiz results to path: ${path}`);
+                await database.ref(path).set({
+                    score,
+                    totalTime,
+                    averageTime,
+                    firstInteractionTime,
+                    totalInteractions,
+                    correctAnswers,
+                    incorrectAnswers,
+                    timestamp
                 });
+                
+                console.log('Quiz results saved successfully');
+                
+                // Fetch updated attempts after saving
+                fetchPreviousAttempts();
+            } catch (error) {
+                console.error('Error saving quiz results:', error);
+            }
         }
 
-        window.checkAnswer = function() {
-            const allImagesPlaced = document.getElementsByClassName('draggable').length === 0;
-            if (!allImagesPlaced) {
-                alert('Please place all objects before checking!');
+        async function clearReport() {
+            const user = auth.currentUser;
+            if (!user) {
+                alert('You need to be logged in to clear the report.');
                 return;
             }
 
-            const correctArea = currentQuestion.correctArea;
-            let isCorrect = true;
-
-            placedImages.forEach((area, imageSrc) => {
-                if (area !== correctArea) {
-                    isCorrect = false;
-                    incorrectAnswers++;
+            try {
+                let path;
+                
+                // Check if this is a patient quiz (doctor viewing patient)
+                const currentPatientId = sessionStorage.getItem('currentPatientId');
+                const doctorId = sessionStorage.getItem('doctorId');
+                
+                if (currentPatientId && doctorId) {
+                    // This is a doctor testing a patient
+                    console.log(`Clearing patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/VSpac1`;
+                } else {
+                    // Regular user quiz
+                    // Check if user is a doctor
+                    const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                    const role = roleSnapshot.val();
+                    
+                    if (role === 'doctor') {
+                        console.log(`Clearing doctor's own quiz results: ${user.uid}`);
+                        path = `doctors/${user.uid}/quiz/VSpac1`;
+                    } else {
+                        console.log(`Clearing regular user quiz results: ${user.uid}`);
+                        path = `users/${user.uid}/quiz/VSpac1`;
+                    }
                 }
-            });
-
-            if (isCorrect) {
-                score++;
-                alert('Correct! You have completed the exercise.');
-            } else {
-                alert('Try again! Some objects are in the wrong area.');
+                
+                console.log(`Removing all quiz results from path: ${path}`);
+                
+                // Remove all data at the specified path
+                await database.ref(path).remove();
+                
+                // Reset the results display
+                document.getElementById('report-list').innerHTML = '<h3>Previous Attempts</h3><p>No previous attempts found.</p>';
+                
+                alert('All quiz reports have been cleared successfully.');
+                
+            } catch (error) {
+                console.error('Error clearing report:', error);
+                alert('Failed to clear the report: ' + error.message);
             }
-            showResults();
-        };
+        }
     </script>
 </body>
 </html>
