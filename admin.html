@@ -430,17 +430,19 @@
     <script>
         // Firebase configuration
         const firebaseConfig = {
-            apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
-            authDomain: "projeccvi.firebaseapp.com",
-            projectId: "projeccvi",
-            databaseURL: "https://projeccvi-default-rtdb.firebaseio.com",
-            storageBucket: "projeccvi.appspot.com",
-            messagingSenderId: "279067566247",
-            appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
+            apiKey: "AIzaSyAOv75B9XNmQeYZpHYB0nS-6pYYmqZUXZI",
+            authDomain: "percepto-quiz.firebaseapp.com",
+            databaseURL: "https://percepto-quiz-default-rtdb.firebaseio.com",
+            projectId: "percepto-quiz",
+            storageBucket: "percepto-quiz.appspot.com",
+            messagingSenderId: "1016963473207",
+            appId: "1:1016963473207:web:7e5f13d376a0aa6dc1c0cb"
         };
 
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
+        
+        // Get Firebase services
         const auth = firebase.auth();
         const db = firebase.database();
         const firestore = firebase.firestore();
@@ -470,6 +472,8 @@
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
             
+            console.log("Login attempt with:", username);
+            
             if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
                 try {
                     // Sign in anonymously with Firebase to access data without a full user account
@@ -487,12 +491,16 @@
                     loadRecentActivity();
                     loadTopQuizzes();
                     loadDoctorPatientData();
+                    
+                    // Set default active tab
+                    switchTab('overview');
                 } catch (error) {
                     console.error("Firebase authentication error:", error);
                     loginError.textContent = `Authentication error: ${error.message}`;
                 }
             } else {
                 loginError.textContent = 'Invalid username or password';
+                console.error("Invalid login credentials provided");
             }
         }
         
@@ -680,8 +688,6 @@
                     // Patients' quizzes
                     const patientsSnapshot = await db.ref(`doctors/${doctorId}/patients`).once('value');
                     if (patientsSnapshot.exists() && patientsSnapshot.val()) {
-                        const doctorName = userProfiles.get(doctorId)?.name || 'Doctor';
-                        
                         Object.entries(patientsSnapshot.val()).forEach(([patientId, patientData]) => {
                             // Try to get patient name from profile
                             let patientName = 'Patient';
@@ -697,7 +703,7 @@
                                             recentActivity.push({
                                                 timestamp: parseInt(timestamp),
                                                 date: new Date(parseInt(timestamp)).toLocaleString(),
-                                                user: `${patientName} (patient of ${doctorName})`,
+                                                user: `${patientName} (patient of ${userProfiles.get(doctorId)?.name || 'Unknown Doctor'})`,
                                                 action: `Completed ${quizType} quiz`,
                                                 score: result.score !== undefined ? `${result.score}%` : 'N/A',
                                                 type: 'patient'
@@ -1140,11 +1146,7 @@
         
         // Helper function to process quiz data
         function processQuizData(quizData, quizzes, userType) {
-            Object.keys(quizzes).forEach(quizType => {
-                const attempts = quizzes[quizType];
-                if (!attempts) return;
-                
-                // Initialize quiz data if not exists
+            Object.entries(quizzes).forEach(([quizType, attempts]) => {
                 if (!quizData[quizType]) {
                     quizData[quizType] = {
                         doctorAttempts: 0,
@@ -1154,20 +1156,20 @@
                     };
                 }
                 
-                // Count attempts by user type
-                const attemptCount = Object.keys(attempts).length;
-                if (userType === 'Doctor') {
-                    quizData[quizType].doctorAttempts += attemptCount;
-                } else if (userType === 'Patient') {
-                    quizData[quizType].patientAttempts += attemptCount;
-                } else {
-                    quizData[quizType].userAttempts += attemptCount;
-                }
-                
-                // Sum scores for average calculation
                 Object.values(attempts).forEach(attempt => {
                     if (attempt.score !== undefined) {
-                        quizData[quizType].totalScore += parseFloat(attempt.score);
+                        const scoreValue = parseFloat(attempt.score);
+                        if (!isNaN(scoreValue)) {
+                            quizData[quizType].totalScore += scoreValue;
+                            
+                            if (userType === 'Doctor') {
+                                quizData[quizType].doctorAttempts++;
+                            } else if (userType === 'Patient') {
+                                quizData[quizType].patientAttempts++;
+                            } else {
+                                quizData[quizType].userAttempts++;
+                            }
+                        }
                     }
                 });
             });
@@ -1226,7 +1228,32 @@
         }
         
         // Add event listener to login button
-        document.getElementById('loginBtn').addEventListener('click', login);
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log("DOM fully loaded, adding event listeners");
+            const loginBtn = document.getElementById('loginBtn');
+            if (loginBtn) {
+                console.log("Login button found, adding click event");
+                loginBtn.addEventListener('click', login);
+                
+                // Also enable Enter key for login
+                document.getElementById('password').addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        login();
+                    }
+                });
+            } else {
+                console.error("Login button not found");
+            }
+            
+            // Add listeners to tab buttons
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const tabName = this.textContent.toLowerCase();
+                    switchTab(tabName);
+                });
+            });
+        });
     </script>
 </body>
 </html>
