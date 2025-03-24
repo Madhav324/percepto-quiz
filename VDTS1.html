@@ -349,7 +349,7 @@
     <script type="module">
         // Import Firebase modules
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-        import { getDatabase, ref, set, get, push, child, remove } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-database.js";
+        import { getDatabase, ref, set, get, push, child, remove, update } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-database.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
 
         // Firebase configuration
@@ -428,14 +428,12 @@
             }      
         ];
 
-        let currentQuestionIndex = 0;
         let score = 0;
-        let triesLeft = 3;
-        let timeTaken = [];
-        let startTime;
-        let totalStartTime;
+        let currentQuestionIndex = 0;
         let totalTaps = 0;
-        let firstTapTime;
+        let startTime = 0;
+        let totalStartTime = 0;
+        let firstTapTime = 0;
         let incorrectAnswers = 0;
 
         // Auth state observer
@@ -514,6 +512,12 @@
         });
 
         function displayQuestion() {
+            // Remove any existing skip button container
+            const existingButtonContainer = document.getElementById('skip-button-container');
+            if (existingButtonContainer) {
+                existingButtonContainer.remove();
+            }
+            
             const question = questions[currentQuestionIndex];
             shuffleOptions(question.options);
 
@@ -539,7 +543,9 @@
                 imagesContainer.appendChild(img);
             });
 
+            // Add skip button (separate from the images row)
             const buttonContainer = document.createElement('div');
+            buttonContainer.id = 'skip-button-container'; // Add ID for easy removal
             buttonContainer.style.textAlign = 'center';
             buttonContainer.style.marginTop = '20px';
             buttonContainer.style.width = '100%';
@@ -549,7 +555,7 @@
             skipButton.onclick = skipQuestion;
             skipButton.style.width = 'auto';
             skipButton.style.margin = '0 auto';
-
+            
             buttonContainer.appendChild(skipButton);
             document.getElementById('quiz-container').insertBefore(buttonContainer, document.getElementById('result-container'));
         }
@@ -562,9 +568,9 @@
             const endTime = Date.now();
             const timeSpent = (endTime - startTime) / 1000;
             
-            // Record first tap time if this is the first tap
             totalTaps++;
-            if (totalTaps === 1) {
+            
+            if (!firstTapTime) {
                 firstTapTime = (Date.now() - totalStartTime) / 1000;
             }
 
@@ -573,15 +579,8 @@
                 alert('Correct!');
                 moveToNextQuestion();
             } else {
-                triesLeft--;
-                if (triesLeft > 0) {
-                    alert(`Wrong! Try again. You have ${triesLeft} tries left.`);
-                    displayQuestion();
-                } else {
-                    alert('Out of tries! Moving to the next question.');
-                    incorrectAnswers++;
-                    moveToNextQuestion();
-                }
+                incorrectAnswers++;
+                alert('Incorrect. Try again.');
             }
         }
 
@@ -594,7 +593,6 @@
         }
 
         function moveToNextQuestion() {
-            triesLeft = 3;
             currentQuestionIndex++;
             if (currentQuestionIndex < questions.length) {
                 displayQuestion();
@@ -607,7 +605,7 @@
             document.getElementById('question-container').style.display = 'none';
             document.getElementById('images-container').style.display = 'none';
             document.getElementById('result-container').style.display = 'block';
-            document.getElementById('report-container').style.display = 'flex';  // Show report container after quiz completion
+            document.getElementById('report-container').style.display = 'flex';  
             
             const totalEndTime = Date.now();
             const totalTimeInSeconds = ((totalEndTime - totalStartTime) / 1000).toFixed(2);
@@ -831,7 +829,7 @@
                         path = `users/${user.uid}/quiz/VDTS1`;
                     }
                 }
-                
+
                 // Clear the data from Firebase
                 await set(ref(database, path), null);
                 
