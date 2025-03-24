@@ -826,47 +826,54 @@
         }
 
         async function clearReport() {
-            const user = auth.currentUser;
-            if (!user) {
-                alert('You need to be logged in to clear the report.');
-                return;
-            }
-
             try {
-                let path;
+                const user = auth.currentUser;
+                if (!user) {
+                    alert('You must be logged in to clear reports.');
+                    return;
+                }
                 
-                // Check if this is a patient quiz (doctor viewing patient)
+                // First, let's confirm the action
+                const confirmClear = confirm('Are you sure you want to clear all reports? This action cannot be undone.');
+                if (!confirmClear) {
+                    return;
+                }
+                
+                // Get patient context from sessionStorage
                 const currentPatientId = sessionStorage.getItem('currentPatientId');
                 const doctorId = sessionStorage.getItem('doctorId');
                 
+                // Determine path based solely on sessionStorage
+                let path = '';
+                
                 if (currentPatientId && doctorId) {
-                    // This is a doctor testing a patient
-                    console.log(`Clearing patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
+                    // Doctor viewing patient quiz
+                    console.log(`Clearing reports for patient ${currentPatientId} viewed by doctor ${doctorId}`);
                     path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/VDTS1`;
                 } else {
-                    // Regular user quiz
-                    // Check if user is a doctor
-                    const roleSnapshot = await get(ref(database, `roles/${user.uid}`));
-                    const role = roleSnapshot.val();
-                    
-                    if (role === 'doctor') {
-                        console.log(`Clearing doctor's own quiz results: ${user.uid}`);
-                        path = `doctors/${user.uid}/quiz/VDTS1`;
-                    } else {
-                        console.log(`Clearing regular user quiz results: ${user.uid}`);
-                        path = `users/${user.uid}/quiz/VDTS1`;
-                    }
+                    // Regular user's own quiz results
+                    console.log(`Clearing reports for user ${user.uid}`);
+                    path = `users/${user.uid}/quiz/VDTS1`;
                 }
                 
-                console.log(`Removing all quiz results from path: ${path}`);
+                console.log('Clearing reports at path:', path);
                 
-                // Remove all data at the specified path
-                await remove(ref(database, path));
+                // Remove the data (use set with null as a fallback if remove doesn't work)
+                try {
+                    await remove(ref(database, path));
+                } catch (removeError) {
+                    console.warn('Remove failed, trying set(null):', removeError);
+                    await set(ref(database, path), null);
+                }
                 
-                // Reset the results display
-                document.getElementById('report-list').innerHTML = '<h3>Previous Attempts</h3><p>No previous attempts found.</p>';
-                
+                // Show confirmation and refresh the report list
                 alert('All reports have been cleared successfully!');
+                
+                // Update UI
+                const reportList = document.getElementById('report-list');
+                reportList.innerHTML = '<h3>Previous Attempts</h3><p>No previous attempts found.</p>';
+                
+                console.log('Reports cleared successfully');
             } catch (error) {
                 console.error('Error clearing reports:', error);
                 alert('Failed to clear reports: ' + error.message);
