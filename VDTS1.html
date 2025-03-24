@@ -828,29 +828,42 @@
         async function clearReport() {
             try {
                 const user = auth.currentUser;
-                if (!user) return;
-                
-                let path;
-                
-                // Determine the correct path based on user context
-                if (sessionStorage.getItem('currentPatientId') && sessionStorage.getItem('doctorId')) {
-                    path = `doctors/${sessionStorage.getItem('doctorId')}/patients/${sessionStorage.getItem('currentPatientId')}/quiz/VDTS1`;
-                } else {
-                    const roleSnapshot = await get(ref(database, `roles/${user.uid}`));
-                    const role = roleSnapshot.val();
-                    
-                    if (role === 'doctor') {
-                        path = `doctors/${user.uid}/quiz/VDTS1`;
-                    } else {
-                        path = `users/${user.uid}/quiz/VDTS1`;
-                    }
+                if (!user) {
+                    alert('You must be logged in to clear reports.');
+                    return;
                 }
-
-                // Clear the data from Firebase
-                await set(ref(database, path), null);
                 
-                // Update the UI
-                document.getElementById('report-list').innerHTML = '<h3>Previous Attempts</h3><p>All reports cleared.</p>';
+                // First, let's confirm the action
+                const confirmClear = confirm('Are you sure you want to clear all reports? This action cannot be undone.');
+                if (!confirmClear) {
+                    return;
+                }
+                
+                // Get the correct path based on context
+                let path = '';
+                const currentPatientId = sessionStorage.getItem('currentPatientId');
+                const doctorId = sessionStorage.getItem('doctorId');
+                
+                if (currentPatientId && doctorId) {
+                    // Doctor viewing patient quiz
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/VDTS1`;
+                } else {
+                    // Regular user quiz
+                    path = `users/${user.uid}/quiz/VDTS1`;
+                }
+                
+                console.log('Clearing reports at path:', path);
+                
+                // Remove the data at the specified path
+                await remove(ref(database, path));
+                
+                // Show confirmation and refresh the report list (which should now be empty)
+                alert('All reports have been cleared successfully!');
+                
+                // Clear the report list UI
+                const reportList = document.getElementById('report-list');
+                reportList.innerHTML = '<h3>Previous Attempts</h3>';
+                
                 console.log('Reports cleared successfully');
             } catch (error) {
                 console.error('Error clearing reports:', error);
