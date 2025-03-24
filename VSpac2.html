@@ -535,7 +535,9 @@
         const profileIcon = document.getElementById('profileIcon');
 
         // Quiz state variables
+        let currentLevel = 0;
         let currentQuestion = 0;
+        let questionsPerLevel = 3;
         let score = 0;
         let startTime = null;
         let firstInteractionTime = null;
@@ -548,7 +550,8 @@
         let patientId = null;
         let isDoctorViewingPatient = false;
         let userId = null;
-        
+        let levelQuestions = [];
+
         // Question types with fruit images and directional targets
         const questionTypes = {
             left: {
@@ -559,8 +562,7 @@
                 options: [
                     "images/SR/apple.png",
                     "images/SR/orange.png",
-                    "images/SR/straw.png",
-                    "images/SR/gift1.png"
+                    "images/SR/straw.png"
                 ]
             },
             right: {
@@ -571,8 +573,7 @@
                 options: [
                     "images/SR/apple.png",
                     "images/SR/orange.png",
-                    "images/SR/straw.png",
-                    "images/SR/gift2.png"
+                    "images/SR/straw.png"
                 ]
             },
             top: {
@@ -583,8 +584,7 @@
                 options: [
                     "images/SR/apple.png",
                     "images/SR/orange.png",
-                    "images/SR/straw.png",
-                    "images/SR/gift3.png"
+                    "images/SR/straw.png"
                 ]
             },
             bottom: {
@@ -595,19 +595,29 @@
                 options: [
                     "images/SR/apple.png",
                     "images/SR/orange.png",
-                    "images/SR/straw.png",
-                    "images/SR/gift1.png"
+                    "images/SR/straw.png"
                 ]
             }
         };
-        
-        // Generate random question sequence
-        const questionSequence = [];
-        const possibleTypes = Object.keys(questionTypes);
-        for (let i = 0; i < 10; i++) {
-            const randomType = possibleTypes[Math.floor(Math.random() * possibleTypes.length)];
-            questionSequence.push(randomType);
-        }
+
+        // Define levels - 3 levels with increasing difficulty
+        const levels = [
+            {
+                id: 1,
+                questionTypes: ["left", "right"],
+                description: "Level 1: Left and Right directions"
+            },
+            {
+                id: 2,
+                questionTypes: ["top", "bottom"],
+                description: "Level 2: Top and Bottom directions"
+            },
+            {
+                id: 3,
+                questionTypes: ["left", "right", "top", "bottom"],
+                description: "Level 3: All directions"
+            }
+        ];
 
         // Auth state change listener
         auth.onAuthStateChanged(async (user) => {
@@ -679,6 +689,7 @@
 
         // Quiz initialization
         function initializeQuiz() {
+            currentLevel = 0;
             currentQuestion = 0;
             score = 0;
             interactionCount = 0;
@@ -687,13 +698,29 @@
             correctAnswers = 0;
             incorrectAnswers = 0;
             
+            loadLevel();
+        }
+        
+        // Load current level
+        function loadLevel() {
+            const level = levels[currentLevel];
+            const questionTypes = level.questionTypes;
+            const questions = [];
+
+            // Generate random questions for the level
+            for (let i = 0; i < questionsPerLevel; i++) {
+                const randomType = questionTypes[Math.floor(Math.random() * questionTypes.length)];
+                questions.push(randomType);
+            }
+
+            levelQuestions = questions;
             loadQuestion();
         }
         
         // Load current question
         function loadQuestion() {
             placedObjects = {};
-            const questionType = questionSequence[currentQuestion];
+            const questionType = levelQuestions[currentQuestion];
             const question = questionTypes[questionType];
             
             // Set instruction and center image
@@ -707,7 +734,7 @@
             loadOptions(question.options);
             
             // Update progress
-            const progress = `Question ${currentQuestion + 1}/${questionSequence.length}`;
+            const progress = `Level ${currentLevel + 1}: Question ${currentQuestion + 1}/${questionsPerLevel}`;
             document.querySelector('.instruction-container').innerHTML = 
                 `<p>${progress}</p><p id="question-instruction">${question.instruction}</p>`;
             
@@ -908,7 +935,7 @@
 
         // Check answer
         function checkAnswer() {
-            const questionType = questionSequence[currentQuestion];
+            const questionType = levelQuestions[currentQuestion];
             const question = questionTypes[questionType];
             const correctArea = question.correctArea;
             
@@ -940,9 +967,12 @@
             }
             
             // Show next button if there are more questions, otherwise show results
-            if (currentQuestion < questionSequence.length - 1) {
+            if (currentQuestion < levelQuestions.length - 1) {
                 checkBtn.style.display = 'none';
                 nextBtn.style.display = 'inline-block';
+            } else if (currentLevel < levels.length - 1) {
+                currentLevel++;
+                loadLevel();
             } else {
                 endTime = new Date();
                 showResults();
@@ -953,12 +983,15 @@
         function nextQuestion() {
             currentQuestion++;
             
-            if (currentQuestion < questionSequence.length) {
+            if (currentQuestion < levelQuestions.length) {
                 loadQuestion();
                 
                 // Reinitialize touch events for new draggable elements
                 const touchEvents = initializeTouchEvents();
                 touchEvents.addTouchEvents();
+            } else if (currentLevel < levels.length - 1) {
+                currentLevel++;
+                loadLevel();
             } else {
                 // Show results
                 showResults();
@@ -1009,10 +1042,10 @@
             const totalTime = (endTime - startTime) / 1000; // in seconds
             const reactionTime = firstInteractionTime ? (firstInteractionTime - startTime) / 1000 : 0;
             const finalScore = score;
-            const accuracy = Math.round((correctAnswers / questionSequence.length) * 100);
+            const accuracy = Math.round((correctAnswers / (levels.length * questionsPerLevel)) * 100);
             
             // Display results
-            document.getElementById('final-score').textContent = `${finalScore}/${questionSequence.length}`;
+            document.getElementById('final-score').textContent = `${finalScore}/${levels.length * questionsPerLevel}`;
             document.getElementById('total-time').textContent = `${totalTime.toFixed(2)}s`;
             document.getElementById('accuracy').textContent = `${accuracy}%`;
             document.getElementById('interactions').textContent = interactionCount;
@@ -1027,15 +1060,15 @@
         function saveQuizAttempt(score, totalTime, reactionTime, interactions, correct, incorrect) {
             const attempt = {
                 score: score,
-                totalQuestions: questionSequence.length,
+                totalQuestions: levels.length * questionsPerLevel,
                 totalTime: totalTime.toFixed(2),
                 reactionTime: reactionTime.toFixed(2),
                 interactions: interactions,
                 correctAnswers: correct,
                 incorrectAnswers: incorrect,
-                accuracy: Math.round((correct / questionSequence.length) * 100),
+                accuracy: Math.round((correct / (levels.length * questionsPerLevel)) * 100),
                 timestamp: firebase.database.ServerValue.TIMESTAMP,
-                questionTypes: questionSequence
+                questionTypes: levelQuestions
             };
             
             let dbRef;
