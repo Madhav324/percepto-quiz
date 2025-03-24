@@ -343,47 +343,42 @@
         const auth = firebase.auth();
         const db = firebase.database();
 
-        // Variables to store user information
+        // Variables
         let userId = null;
-        let isDoctor = false;
         let patientId = null;
+        let isDoctor = false;
         let isDoctorViewingPatient = false;
-        
-        // Game state and statistics variables
-        let totalStartTime = Date.now();
+
+        // Game variables
+        let currentIndex = 0;
+        let score = 0;
+        let totalStartTime = 0;
         let firstTapTime = null;
         let totalMoves = 0;
         let incorrectMoves = 0;
         let totalTaps = 0;
-        let score = 0;
         let correctPlacements = 0;
         let incorrectPlacements = 0;
-        let gameActive = true;
-        const profileIcon = document.getElementById('profileIcon');
+        let gameActive = false;
 
-        // Images for the game
+        // List of images in correct order
         const images = [
-            './images/VSM/morning/1.jpg',
-            './images/VSM/morning/2.jpg',
-            './images/VSM/morning/3.jpg',
-            './images/VSM/morning/4.jpg',
-            './images/VSM/morning/5.jpg',
-            './images/VSM/morning/6.jpg'
+            './images/VSM/morning/wake_up.png',
+            './images/VSM/morning/brush.png',
+            './images/VSM/morning/bathe.png',
+            './images/VSM/morning/dress_up.png',
+            './images/VSM/morning/breakfast.png',
+            './images/VSM/morning/school.png'
         ];
 
-        // Correct sequence order: 0=alarm, 1=brush, 2=shower, 3=clothes, 4=breakfast, 5=bag
-        const correctSequence = [0, 1, 2, 3, 4, 5];
-        
-        // Current active box index
-        let currentIndex = 0;
-        
         // DOM elements
         const sequenceContainer = document.getElementById('sequence-container');
         const optionsContainer = document.getElementById('options-container');
         const targetBox = document.getElementById('target-box');
         const feedbackElement = document.getElementById('feedback');
         const resultContainer = document.getElementById('result-container');
-        
+        const profileIcon = document.getElementById('profileIcon');
+
         // Initialize the game
         function initializeGame() {
             // Set up the placeholders
@@ -392,53 +387,53 @@
                 placeholder.style.backgroundImage = '';
                 placeholder.dataset.filled = 'false';
             });
-            
+
             // Set the target box position to the first placeholder
             const firstPlaceholder = placeholders[0];
             const rect = firstPlaceholder.getBoundingClientRect();
             const containerRect = sequenceContainer.getBoundingClientRect();
-            
+
             targetBox.style.left = (firstPlaceholder.offsetLeft) + 'px';
             targetBox.style.top = (firstPlaceholder.offsetTop) + 'px';
-            
+
             // Set up option images (shuffled)
             optionsContainer.innerHTML = '';
             const shuffledImages = shuffleArray([...images]);
-            
+
             shuffledImages.forEach((image, index) => {
                 const optionElement = document.createElement('div');
                 optionElement.classList.add('image-option');
                 optionElement.style.backgroundImage = `url(${image})`;
                 optionElement.dataset.index = images.indexOf(image);
-                
+
                 // Set up drag for desktop
                 optionElement.draggable = true;
                 optionElement.addEventListener('dragstart', handleDragStart);
                 optionElement.addEventListener('dragend', handleDragEnd);
-                
+
                 // Set up touch for mobile
                 optionElement.addEventListener('touchstart', handleTouchStart, false);
                 optionElement.addEventListener('touchmove', handleTouchMove, false);
                 optionElement.addEventListener('touchend', handleTouchEnd, false);
-                
+
                 // Add click event for selecting an image
                 optionElement.addEventListener('click', function() {
                     if (!gameActive) return;
-                    
+
                     // Track first tap time
                     if (firstTapTime === null) {
                         firstTapTime = (Date.now() - totalStartTime) / 1000;
                     }
-                    
+
                     totalTaps++;
-                    
+
                     const selectedIndex = parseInt(this.dataset.index);
                     placeImage(this, selectedIndex);
                 });
-                
+
                 optionsContainer.appendChild(optionElement);
             });
-            
+
             // Reset game variables
             currentIndex = 0;
             totalStartTime = Date.now();
@@ -450,12 +445,12 @@
             correctPlacements = 0;
             incorrectPlacements = 0;
             gameActive = true;
-            
+
             feedbackElement.textContent = "Place the morning routine activities in the correct order.";
-            
+
             document.querySelector('.container').style.display = 'block';
             resultContainer.style.display = 'none';
-            
+
             // Set up drag and drop target
             targetBox.addEventListener('dragover', handleDragOver);
             targetBox.addEventListener('drop', handleDrop);
@@ -481,17 +476,17 @@
         function handleDrop(e) {
             e.preventDefault();
             if (!gameActive) return;
-            
+
             // Track first tap time
             if (firstTapTime === null) {
                 firstTapTime = (Date.now() - totalStartTime) / 1000;
             }
-            
+
             totalTaps++;
-            
+
             const selectedIndex = parseInt(e.dataTransfer.getData('text/plain'));
             const optionElement = document.querySelector(`.image-option[data-index="${selectedIndex}"]`);
-            
+
             placeImage(optionElement, selectedIndex);
         }
 
@@ -504,12 +499,12 @@
         function handleTouchStart(e) {
             if (!gameActive) return;
             e.preventDefault();
-            
+
             touchedElement = this;
             const touch = e.touches[0];
             initialTouchX = touch.clientX;
             initialTouchY = touch.clientY;
-            
+
             // Create a clone for visual feedback during drag
             clonedElement = this.cloneNode(true);
             clonedElement.style.position = 'fixed';
@@ -519,14 +514,14 @@
             clonedElement.style.left = (touch.clientX - this.offsetWidth / 2) + 'px';
             clonedElement.style.top = (touch.clientY - this.offsetHeight / 2) + 'px';
             document.body.appendChild(clonedElement);
-            
+
             this.classList.add('dragging');
         }
 
         function handleTouchMove(e) {
             if (!touchedElement || !clonedElement) return;
             e.preventDefault();
-            
+
             const touch = e.touches[0];
             clonedElement.style.left = (touch.clientX - touchedElement.offsetWidth / 2) + 'px';
             clonedElement.style.top = (touch.clientY - touchedElement.offsetHeight / 2) + 'px';
@@ -535,27 +530,27 @@
         function handleTouchEnd(e) {
             if (!touchedElement || !clonedElement) return;
             e.preventDefault();
-            
+
             touchedElement.classList.remove('dragging');
-            
+
             // Track first tap time
             if (firstTapTime === null) {
                 firstTapTime = (Date.now() - totalStartTime) / 1000;
             }
-            
+
             totalTaps++;
-            
+
             // Check if touch ended over target box
             const targetRect = targetBox.getBoundingClientRect();
             const touch = e.changedTouches[0];
-            
+
             if (touch.clientX >= targetRect.left && touch.clientX <= targetRect.right &&
                 touch.clientY >= targetRect.top && touch.clientY <= targetRect.bottom) {
                 // Touch ended over target, consider it a drop
                 const selectedIndex = parseInt(touchedElement.dataset.index);
                 placeImage(touchedElement, selectedIndex);
             }
-            
+
             // Clean up
             if (clonedElement && clonedElement.parentNode) {
                 clonedElement.parentNode.removeChild(clonedElement);
@@ -563,68 +558,63 @@
             clonedElement = null;
             touchedElement = null;
         }
-        
+
         // Place an image in the current target position
         function placeImage(optionElement, imageIndex) {
             const currentPlaceholder = sequenceContainer.children[currentIndex];
-            
+
             if (currentPlaceholder.dataset.filled === 'true') {
                 return; // This placeholder is already filled
             }
-            
+
             totalMoves++;
-            
-            // Check if the placement is correct
-            if (imageIndex === correctSequence[currentIndex]) {
+
+            // Check if the image is correct for this position
+            if (imageIndex === currentIndex) {
                 // Correct placement
-                optionElement.classList.add('placed');
                 currentPlaceholder.style.backgroundImage = optionElement.style.backgroundImage;
                 currentPlaceholder.dataset.filled = 'true';
-                currentPlaceholder.dataset.imageIndex = imageIndex;
-                
-                feedbackElement.textContent = "Correct placement!";
-                feedbackElement.style.color = "#4CAF50";
-                
+                optionElement.style.visibility = 'hidden';
+
+                // Update score and feedback
                 score += 10;
                 correctPlacements++;
-                
-                // Move to the next position
+                feedbackElement.textContent = "Correct! Keep going.";
+                feedbackElement.style.color = '#4CAF50';
+
+                // Move to next position
                 currentIndex++;
-                
+
                 // If all positions are filled, end the game
                 if (currentIndex >= sequenceContainer.children.length - 1) {
-                    endGame(true);
+                    // End with a short delay to let the user see the completed sequence
+                    setTimeout(() => {
+                        endGame(true);
+                    }, 500);
                     return;
                 }
-                
+
                 // Move the target box to the next position
                 const nextPlaceholder = sequenceContainer.children[currentIndex];
                 targetBox.style.left = (nextPlaceholder.offsetLeft) + 'px';
                 targetBox.style.top = (nextPlaceholder.offsetTop) + 'px';
             } else {
                 // Incorrect placement
-                optionElement.classList.add('invalid');
-                
-                feedbackElement.textContent = "Incorrect placement. Try again!";
-                feedbackElement.style.color = "#f44336";
-                
-                incorrectMoves++;
+                score = Math.max(0, score - 5);
                 incorrectPlacements++;
-                
-                // Remove the invalid class after animation completes
-                setTimeout(() => {
-                    optionElement.classList.remove('invalid');
-                }, 500);
+
+                feedbackElement.textContent = "Not quite right. Try again!";
+                feedbackElement.style.color = '#f44336';
             }
         }
-        
+
         // End the game and show results
         function endGame(completed) {
             gameActive = false;
-            
+
             const totalTime = (Date.now() - totalStartTime) / 1000;
             const avgTime = (totalMoves > 0) ? (totalTime / totalMoves) : 0;
-            
+
             document.getElementById('score').textContent = score;
             document.getElementById('total-time-result').textContent = totalTime.toFixed(2);
             document.getElementById('avg-time').textContent = avgTime.toFixed(2);
@@ -632,21 +622,21 @@
             document.getElementById('total-taps-result').textContent = totalTaps;
             document.getElementById('total-correct').textContent = correctPlacements;
             document.getElementById('total-incorrect').textContent = incorrectPlacements;
-            
+
             document.querySelector('.container').style.display = 'none';
             resultContainer.style.display = 'block';
-            
+
             // Save results to Firebase
             if (userId) {
                 saveQuizResults();
                 fetchPreviousAttempts();
             }
         }
-        
+
         // Save quiz results to Firebase
         function saveQuizResults() {
             const totalTime = (Date.now() - totalStartTime) / 1000;
-            
+
             const quizData = {
                 type: "morning",
                 score: score,
@@ -659,7 +649,7 @@
                 incorrectPlacements: incorrectPlacements,
                 timestamp: firebase.database.ServerValue.TIMESTAMP
             };
-            
+
             // Determine the correct path based on user type
             let dbPath = '';
             if (isDoctorViewingPatient) {
@@ -667,7 +657,7 @@
             } else {
                 dbPath = `quiz_results/${userId}/morning`;
             }
-            
+
             db.ref(`${dbPath}/${Date.now()}`).set(quizData)
                 .then(() => {
                     console.log("Quiz results saved successfully");
@@ -687,12 +677,12 @@
                 } else {
                     path = `quiz_results/${userId}/morning`;
                 }
-                
+
                 console.log(`Fetching previous attempts from path: ${path}`);
                 const resultsSnapshot = await db.ref(path).once('value');
                 const attemptsList = document.getElementById('attempts-list');
                 attemptsList.innerHTML = '';
-                
+
                 if (resultsSnapshot.exists()) {
                     const results = [];
                     resultsSnapshot.forEach(childSnapshot => {
@@ -701,51 +691,51 @@
                             ...childSnapshot.val()
                         });
                     });
-                    
+
                     // Sort by timestamp (newest first)
                     results.sort((a, b) => {
                         return b.timestamp - a.timestamp;
                     });
-                    
+
                     // Take only the most recent 5
                     const recentResults = results.slice(0, 5);
-                    
+
                     if (recentResults.length > 0) {
                         recentResults.forEach(result => {
                             const timestamp = result.timestamp;
                             // Check if timestamp is a number (milliseconds) or a string (ISO format)
-                            const date = typeof timestamp === 'number' 
-                                ? new Date(timestamp) 
+                            const date = typeof timestamp === 'number'
+                                ? new Date(timestamp)
                                 : new Date(timestamp);
-                            
+
                             const formattedDate = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
-                            
+
                             const attemptItem = document.createElement('div');
                             attemptItem.className = 'attempt-item';
-                            
+
                             const dateDiv = document.createElement('div');
                             dateDiv.className = 'attempt-date';
                             dateDiv.textContent = formattedDate;
-                            
+
                             const statsDiv = document.createElement('div');
                             statsDiv.className = 'attempt-stats';
-                            
+
                             // Add score
                             const scoreDiv = createStatItem('Score', result.score || 0);
                             statsDiv.appendChild(scoreDiv);
-                            
+
                             // Add time
                             const timeDiv = createStatItem('Time', `${result.totalTime || 0}s`);
                             statsDiv.appendChild(timeDiv);
-                            
+
                             // Add correct placements
                             const correctDiv = createStatItem('Correct', result.correctPlacements || 0);
                             statsDiv.appendChild(correctDiv);
-                            
+
                             // Add incorrect placements
                             const incorrectDiv = createStatItem('Incorrect', result.incorrectPlacements || 0);
                             statsDiv.appendChild(incorrectDiv);
-                            
+
                             attemptItem.appendChild(dateDiv);
                             attemptItem.appendChild(statsDiv);
                             attemptsList.appendChild(attemptItem);
@@ -758,36 +748,36 @@
                 }
             } catch (error) {
                 console.error('Error fetching previous attempts:', error);
-                document.getElementById('attempts-list').innerHTML = 
+                document.getElementById('attempts-list').innerHTML =
                     '<p>Error loading previous attempts. Please try again later.</p>';
             }
         }
-        
+
         // Helper function to create stat item for attempts list
         function createStatItem(label, value) {
             const div = document.createElement('div');
             div.className = 'attempt-stat';
-            
+
             const labelSpan = document.createElement('span');
             labelSpan.className = 'attempt-stat-label';
             labelSpan.textContent = label + ':';
-            
+
             const valueSpan = document.createElement('span');
             valueSpan.className = 'attempt-stat-value';
             valueSpan.textContent = value;
-            
+
             div.appendChild(labelSpan);
             div.appendChild(valueSpan);
             return div;
         }
-        
+
         // Clear previous attempts
         async function clearAttempts() {
             try {
                 if (!confirm('Are you sure you want to clear all previous attempts?')) {
                     return;
                 }
-                
+
                 // Determine the path based on user type
                 let path = '';
                 if (isDoctorViewingPatient) {
@@ -795,7 +785,7 @@
                 } else {
                     path = `quiz_results/${userId}/morning`;
                 }
-                
+
                 await db.ref(path).remove();
                 document.getElementById('attempts-list').innerHTML = '<p>All attempts cleared.</p>';
                 console.log('Attempts cleared successfully');
@@ -804,29 +794,29 @@
                 alert('Error clearing attempts. Please try again.');
             }
         }
-        
+
         // Check authentication state and initialize
         auth.onAuthStateChanged(async (user) => {
             if (user) {
                 userId = user.uid;
                 console.log('User authenticated in Morning Quiz:', userId);
-                
+
                 try {
                     // Check if user is a doctor
                     const userSnapshot = await db.ref(`users/${userId}`).once('value');
                     const userData = userSnapshot.val();
-                    
+
                     if (userData && userData.role === 'doctor') {
                         isDoctor = true;
                         // Get patient context from session storage
                         patientId = sessionStorage.getItem('currentPatientId');
-                        
+
                         if (patientId) {
                             isDoctorViewingPatient = true;
                             // Update profile to show viewing patient
                             const patientDataSnapshot = await db.ref(`users/${patientId}`).once('value');
                             const patientData = patientDataSnapshot.val();
-                            
+
                             if (patientData) {
                                 const patientName = patientData.name || patientData.email || 'Patient';
                                 const patientIndicator = document.getElementById('patient-indicator');
@@ -839,8 +829,8 @@
                             return;
                         }
                     }
-                    
-                    // Set profile icon initials
+
+                    // Set profile icon initials regardless of navigation source
                     if (userData && userData.name) {
                         const nameParts = userData.name.split(' ');
                         let initials = '';
@@ -855,10 +845,10 @@
                     } else {
                         profileIcon.textContent = 'U';
                     }
-                    
+
                     // Initialize the quiz after fetching user info
                     initializeGame();
-                    
+
                 } catch (error) {
                     console.error('Error fetching user data:', error);
                     profileIcon.textContent = 'U';
@@ -869,12 +859,20 @@
                 window.location.href = 'index.html?redirect=morning.html';
             }
         });
-        
-        // Initialize the game when the page loads
+
+        // Initialize on DOMContentLoaded to ensure everything is ready
         document.addEventListener('DOMContentLoaded', () => {
+            // Ensure images are preloaded
+            images.forEach(src => {
+                const img = new Image();
+                img.src = src;
+                img.onload = () => console.log(`Image preloaded: ${src}`);
+                img.onerror = () => console.error(`Failed to load image: ${src}`);
+            });
+
             // The game will be initialized after authentication check
         });
-        
+
         // Helper function to shuffle array
         function shuffleArray(array) {
             for (let i = array.length - 1; i > 0; i--) {
