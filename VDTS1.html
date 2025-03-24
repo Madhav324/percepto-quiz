@@ -365,21 +365,10 @@
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const database = getDatabase(app);
-        const auth = getAuth(app);
-        
-        // Quiz context handling
-        const currentPatientId = sessionStorage.getItem('currentPatientId');
-        const doctorId = sessionStorage.getItem('doctorId');
-        const isPatientQuiz = !!(currentPatientId && doctorId);
-        
-        console.log('Quiz context:', {
-            isPatientQuiz, 
-            currentPatientId: currentPatientId || 'none',
-            doctorId: doctorId || 'none'
-        });
+        const auth = getAuth();
 
-        // Quiz questions
-        const questions = [
+        // Variables to track quiz state
+        let questions = [
             {
                 questionImage: "images/VD/size/size1.png",
                 options: [
@@ -435,74 +424,82 @@
         let totalStartTime = 0;
         let firstTapTime = 0;
         let incorrectAnswers = 0;
+        let currentTriesLeft = 3; // Track tries for current question
+
+        // Shuffle questions on page load
+        function shuffleQuestions(questions) {
+            return [...questions].sort(() => Math.random() - 0.5);
+        }
 
         // Auth state observer
-        auth.onAuthStateChanged(async (user) => {
+        onAuthStateChanged(auth, (user) => {
             if (user) {
-                console.log('User authenticated in VDTS1:', user.uid);
+                console.log('User is signed in');
+                updateUIForUser(user);
                 
-                try {
-                    // Check if user is a doctor
-                    if (!isPatientQuiz) {
-                        const roleSnapshot = await get(ref(database, `roles/${user.uid}`));
-                        const role = roleSnapshot.val();
-                        
-                        if (role === 'doctor') {
-                            console.log('Doctor detected without patient context, redirecting');
-                            // Redirect doctors without patient context back to index
-                            alert('Please select a patient first to administer the quiz.');
-                            window.location.href = 'index.html';
-                            return;
-                        }
-                    }
-                    
-                    // Load user profile
-                    let profile;
-                    if (isPatientQuiz) {
-                        // Doctor viewing patient
-                        console.log(`Loading patient profile in VDTS1: ${currentPatientId}`);
-                        const patientSnapshot = await get(ref(database, `doctors/${doctorId}/patients/${currentPatientId}/profile`));
-                        profile = patientSnapshot.val();
-                    } else {
-                        // Regular user
-                        console.log('Loading user profile in VDTS1');
-                        const userSnapshot = await get(ref(database, `users/${user.uid}/profile`));
-                        profile = userSnapshot.val();
-                    }
-                    
-                    // Get first letter of name or email
-                    let initial = 'U';
-                    if (profile && profile.name) {
-                        initial = profile.name.charAt(0).toUpperCase();
-                    } else if (user.email) {
-                        initial = user.email.charAt(0).toUpperCase();
-                    }
-                    
-                    // Display patient indicator
-                    if (isPatientQuiz) {
-                        const patientIndicator = document.getElementById('patient-indicator');
-                        patientIndicator.textContent = 'Patient';
-                        patientIndicator.style.display = 'inline-block';
-                    } else {
-                        const patientIndicator = document.getElementById('patient-indicator');
-                        patientIndicator.style.display = 'none';
-                    }
-                    
-                    document.getElementById('profileIcon').textContent = initial;
-                    document.getElementById('profileIcon').title = 'Back to Home';
-                    document.getElementById('profileIcon').onclick = function() {
-                        window.location.href = 'index.html';
-                    };
-                    displayQuestion();
-                } catch (error) {
-                    console.error('Error loading profile in VDTS1:', error);
-                    document.getElementById('profileIcon').textContent = 'U';
-                    displayQuestion();
-                }
+                // Initialize the quiz when user is authenticated
+                // Shuffle the questions
+                questions = shuffleQuestions(questions);
+                
+                totalStartTime = Date.now();
+                displayQuestion();
+                
+                // Check for patient context
+                checkPatientContext();
             } else {
+                console.log('No user is signed in');
                 window.location.href = 'index.html';
             }
         });
+
+        function updateUIForUser(user) {
+            // Load user profile
+            let profile;
+            const currentPatientId = sessionStorage.getItem('currentPatientId');
+            const doctorId = sessionStorage.getItem('doctorId');
+            const isPatientQuiz = !!(currentPatientId && doctorId);
+            
+            if (isPatientQuiz) {
+                // Doctor viewing patient
+                console.log(`Loading patient profile in VDTS1: ${currentPatientId}`);
+                get(ref(database, `doctors/${doctorId}/patients/${currentPatientId}/profile`)).then((patientSnapshot) => {
+                    profile = patientSnapshot.val();
+                    updateProfileIcon(profile, user);
+                });
+            } else {
+                // Regular user
+                get(ref(database, `users/${user.uid}/profile`)).then((userSnapshot) => {
+                    profile = userSnapshot.val();
+                    updateProfileIcon(profile, user);
+                });
+            }
+        }
+
+        function updateProfileIcon(profile, user) {
+            // Get first letter of name or email
+            let initial = 'U';
+            if (profile && profile.name) {
+                initial = profile.name.charAt(0).toUpperCase();
+            } else if (user.email) {
+                initial = user.email.charAt(0).toUpperCase();
+            }
+            
+            // Display patient indicator
+            if (sessionStorage.getItem('currentPatientId') && sessionStorage.getItem('doctorId')) {
+                const patientIndicator = document.getElementById('patient-indicator');
+                patientIndicator.textContent = 'Patient';
+                patientIndicator.style.display = 'inline-block';
+            } else {
+                const patientIndicator = document.getElementById('patient-indicator');
+                patientIndicator.style.display = 'none';
+            }
+            
+            document.getElementById('profileIcon').textContent = initial;
+            document.getElementById('profileIcon').title = 'Back to Home';
+            document.getElementById('profileIcon').onclick = function() {
+                window.location.href = 'index.html';
+            };
+        }
 
         document.addEventListener("click", () => {
             totalTaps++;
@@ -517,6 +514,9 @@
             if (existingButtonContainer) {
                 existingButtonContainer.remove();
             }
+            
+            // Reset tries for new question
+            currentTriesLeft = 3;
             
             const question = questions[currentQuestionIndex];
             shuffleOptions(question.options);
@@ -543,21 +543,23 @@
                 imagesContainer.appendChild(img);
             });
 
-            // Add skip button (separate from the images row)
-            const buttonContainer = document.createElement('div');
-            buttonContainer.id = 'skip-button-container'; // Add ID for easy removal
-            buttonContainer.style.textAlign = 'center';
-            buttonContainer.style.marginTop = '20px';
-            buttonContainer.style.width = '100%';
-
-            const skipButton = document.createElement('button');
-            skipButton.innerText = "Skip Question";
-            skipButton.onclick = skipQuestion;
-            skipButton.style.width = 'auto';
-            skipButton.style.margin = '0 auto';
-            
-            buttonContainer.appendChild(skipButton);
-            document.getElementById('quiz-container').insertBefore(buttonContainer, document.getElementById('result-container'));
+            // Add skip button (separate from the images row) - only when showing questions
+            if (currentQuestionIndex < questions.length) {
+                const buttonContainer = document.createElement('div');
+                buttonContainer.id = 'skip-button-container'; // Add ID for easy removal
+                buttonContainer.style.textAlign = 'center';
+                buttonContainer.style.marginTop = '20px';
+                buttonContainer.style.width = '100%';
+    
+                const skipButton = document.createElement('button');
+                skipButton.innerText = "Skip Question";
+                skipButton.onclick = skipQuestion;
+                skipButton.style.width = 'auto';
+                skipButton.style.margin = '0 auto';
+                
+                buttonContainer.appendChild(skipButton);
+                document.getElementById('quiz-container').insertBefore(buttonContainer, document.getElementById('result-container'));
+            }
         }
 
         function shuffleOptions(options) {
@@ -579,8 +581,15 @@
                 alert('Correct!');
                 moveToNextQuestion();
             } else {
-                incorrectAnswers++;
-                alert('Incorrect. Try again.');
+                currentTriesLeft--;
+                
+                if (currentTriesLeft > 0) {
+                    alert(`Incorrect! Tries left: ${currentTriesLeft}`);
+                } else {
+                    incorrectAnswers++;
+                    alert('Out of tries! Moving to next question.');
+                    moveToNextQuestion();
+                }
             }
         }
 
@@ -604,13 +613,20 @@
         function showResults() {
             document.getElementById('question-container').style.display = 'none';
             document.getElementById('images-container').style.display = 'none';
+            
+            // Remove skip button when showing results
+            const skipButtonContainer = document.getElementById('skip-button-container');
+            if (skipButtonContainer) {
+                skipButtonContainer.remove();
+            }
+            
             document.getElementById('result-container').style.display = 'block';
-            document.getElementById('report-container').style.display = 'flex';  
+            document.getElementById('report-container').style.display = 'flex';
             
             const totalEndTime = Date.now();
             const totalTimeInSeconds = ((totalEndTime - totalStartTime) / 1000).toFixed(2);
             const averageTimeInSeconds = (totalTimeInSeconds / questions.length).toFixed(2);
-            
+
             document.getElementById('score').innerText = score;
             document.getElementById('total-time').innerText = totalTimeInSeconds;
             document.getElementById('avg-time').innerText = averageTimeInSeconds;
@@ -634,10 +650,10 @@
                 let path;
 
                 // Check if this is a patient quiz (doctor viewing patient)
-                if (isPatientQuiz) {
+                if (sessionStorage.getItem('currentPatientId') && sessionStorage.getItem('doctorId')) {
                     // This is a doctor testing a patient
-                    console.log(`Saving patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
-                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/VDTS1/${timestamp}`;
+                    console.log(`Saving patient quiz results - Doctor: ${sessionStorage.getItem('doctorId')}, Patient: ${sessionStorage.getItem('currentPatientId')}`);
+                    path = `doctors/${sessionStorage.getItem('doctorId')}/patients/${sessionStorage.getItem('currentPatientId')}/quiz/VDTS1/${timestamp}`;
                 } else {
                     // Regular user quiz
                     // Check if user is a doctor
@@ -683,10 +699,10 @@
                 reportList.innerHTML = '<h3>Previous Attempts</h3>';
                 
                 // Check if this is a patient quiz (doctor viewing patient)
-                if (isPatientQuiz) {
+                if (sessionStorage.getItem('currentPatientId') && sessionStorage.getItem('doctorId')) {
                     // This is a doctor testing a patient
-                    console.log(`Fetching patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
-                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/VDTS1`;
+                    console.log(`Fetching patient quiz results - Doctor: ${sessionStorage.getItem('doctorId')}, Patient: ${sessionStorage.getItem('currentPatientId')}`);
+                    path = `doctors/${sessionStorage.getItem('doctorId')}/patients/${sessionStorage.getItem('currentPatientId')}/quiz/VDTS1`;
                 } else {
                     // Regular user quiz
                     // Check if user is a doctor
@@ -817,8 +833,8 @@
                 let path;
                 
                 // Determine the correct path based on user context
-                if (isPatientQuiz) {
-                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/VDTS1`;
+                if (sessionStorage.getItem('currentPatientId') && sessionStorage.getItem('doctorId')) {
+                    path = `doctors/${sessionStorage.getItem('doctorId')}/patients/${sessionStorage.getItem('currentPatientId')}/quiz/VDTS1`;
                 } else {
                     const roleSnapshot = await get(ref(database, `roles/${user.uid}`));
                     const role = roleSnapshot.val();
@@ -839,6 +855,27 @@
             } catch (error) {
                 console.error('Error clearing reports:', error);
                 alert('Failed to clear reports: ' + error.message);
+            }
+        }
+
+        function checkPatientContext() {
+            const currentPatientId = sessionStorage.getItem('currentPatientId');
+            const doctorId = sessionStorage.getItem('doctorId');
+            const isPatientQuiz = !!(currentPatientId && doctorId);
+            
+            if (isPatientQuiz) {
+                // Check if user is a doctor
+                get(ref(database, `roles/${auth.currentUser.uid}`)).then((roleSnapshot) => {
+                    const role = roleSnapshot.val();
+                    
+                    if (role !== 'doctor') {
+                        console.log('Non-doctor detected with patient context, redirecting');
+                        // Redirect non-doctors with patient context back to index
+                        alert('Please select a patient first to administer the quiz.');
+                        window.location.href = 'index.html';
+                        return;
+                    }
+                });
             }
         }
     </script>
