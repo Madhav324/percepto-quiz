@@ -645,32 +645,23 @@
             const user = auth.currentUser;
             if (!user) return;
 
+            // Default path for storing data
+            let path = `users/${user.uid}/quiz/VDTS1`;
+            
+            // Check if this is a doctor viewing/testing for a patient
+            const urlParams = new URLSearchParams(window.location.search);
+            const patientUID = urlParams.get('patientUID');
+            
+            if (patientUID) {
+                path = `users/${patientUID}/quiz/VDTS1`;
+            }
+            
+            // Record the timestamp
+            const timestamp = new Date().toISOString();
+            
             try {
-                const timestamp = Date.now();
-                let path;
-
-                // Check if this is a patient quiz (doctor viewing patient)
-                if (sessionStorage.getItem('currentPatientId') && sessionStorage.getItem('doctorId')) {
-                    // This is a doctor testing a patient
-                    console.log(`Saving patient quiz results - Doctor: ${sessionStorage.getItem('doctorId')}, Patient: ${sessionStorage.getItem('currentPatientId')}`);
-                    path = `doctors/${sessionStorage.getItem('doctorId')}/patients/${sessionStorage.getItem('currentPatientId')}/quiz/VDTS1/${timestamp}`;
-                } else {
-                    // Regular user quiz
-                    // Check if user is a doctor
-                    const roleSnapshot = await get(ref(database, `roles/${user.uid}`));
-                    const role = roleSnapshot.val();
-                    
-                    if (role === 'doctor') {
-                        console.log(`Saving doctor's own quiz results: ${user.uid}`);
-                        path = `doctors/${user.uid}/quiz/VDTS1/${timestamp}`;
-                    } else {
-                        console.log(`Saving regular user quiz results: ${user.uid}`);
-                        path = `users/${user.uid}/quiz/VDTS1/${timestamp}`;
-                    }
-                }
-
-                // Save quiz results to Firebase
-                const quizData = {
+                const newAttemptKey = push(child(ref(database), path)).key;
+                const attemptData = {
                     score,
                     totalTime,
                     averageTime,
@@ -681,147 +672,58 @@
                     timestamp
                 };
 
-                await set(ref(database, path), quizData);
-                console.log("Quiz results saved successfully!");
+                const updates = {};
+                updates[`${path}/${newAttemptKey}`] = attemptData;
+                
+                await update(ref(database), updates);
+                console.log('Quiz results saved successfully!');
             } catch (error) {
-                console.error("Error saving quiz results:", error);
+                console.error('Error saving quiz results:', error);
             }
         }
 
-        // Fetch previous quiz attempts
         async function fetchPreviousAttempts() {
+            const user = auth.currentUser;
+            if (!user) return;
+            
             try {
-                const user = auth.currentUser;
-                if (!user) return;
+                // Default path for retrieving data
+                let path = `users/${user.uid}/quiz/VDTS1`;
                 
-                let path;
+                // Check if this is a doctor viewing/testing for a patient
+                const urlParams = new URLSearchParams(window.location.search);
+                const patientUID = urlParams.get('patientUID');
+                
+                if (patientUID) {
+                    path = `users/${patientUID}/quiz/VDTS1`;
+                }
+                
+                const quizRef = ref(database, path);
+                const snapshot = await get(quizRef);
+                
                 const reportList = document.getElementById('report-list');
+                
+                if (!snapshot.exists()) {
+                    reportList.innerHTML = '<h3>Previous Attempts</h3><p>No previous attempts found.</p>';
+                    return;
+                }
+                
+                const data = snapshot.val();
+                
+                const attempts = Object.entries(data).map(([key, value]) => ({
+                    id: key,
+                    ...value
+                })).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                
                 reportList.innerHTML = '<h3>Previous Attempts</h3>';
                 
-                // Check if this is a patient quiz (doctor viewing patient)
-                if (sessionStorage.getItem('currentPatientId') && sessionStorage.getItem('doctorId')) {
-                    // This is a doctor testing a patient
-                    console.log(`Fetching patient quiz results - Doctor: ${sessionStorage.getItem('doctorId')}, Patient: ${sessionStorage.getItem('currentPatientId')}`);
-                    path = `doctors/${sessionStorage.getItem('doctorId')}/patients/${sessionStorage.getItem('currentPatientId')}/quiz/VDTS1`;
-                } else {
-                    // Regular user quiz
-                    // Check if user is a doctor
-                    const roleSnapshot = await get(ref(database, `roles/${user.uid}`));
-                    const role = roleSnapshot.val();
-                    
-                    if (role === 'doctor') {
-                        console.log(`Fetching doctor's own quiz results: ${user.uid}`);
-                        path = `doctors/${user.uid}/quiz/VDTS1`;
-                    } else {
-                        console.log(`Fetching regular user quiz results: ${user.uid}`);
-                        path = `users/${user.uid}/quiz/VDTS1`;
-                    }
-                }
+                attempts.forEach(result => {
+                    createAttemptItem(result, reportList);
+                });
                 
-                console.log(`Fetching previous attempts from path: ${path}`);
-                const resultsSnapshot = await get(ref(database, path));
-                
-                if (resultsSnapshot.exists()) {
-                    const results = [];
-                    resultsSnapshot.forEach(childSnapshot => {
-                        results.push({
-                            id: childSnapshot.key,
-                            ...childSnapshot.val()
-                        });
-                    });
-                    
-                    // Sort by timestamp if available (newest first)
-                    results.sort((a, b) => {
-                        return b.timestamp - a.timestamp;
-                    });
-                    
-                    // Take only the most recent 5
-                    const recentResults = results.slice(0, 5);
-                    
-                    if (recentResults.length > 0) {
-                        recentResults.forEach(result => {
-                            const timestamp = result.timestamp;
-                            // Check if timestamp is a number (milliseconds) or a string (ISO format)
-                            const date = typeof timestamp === 'number' 
-                                ? new Date(timestamp) 
-                                : new Date(timestamp);
-                                
-                            const formattedDate = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
-                            
-                            const attemptItem = document.createElement('div');
-                            attemptItem.className = 'attempt-item';
-                            
-                            // Create main display with date and score
-                            const dateScoreDiv = document.createElement('div');
-                            dateScoreDiv.innerHTML = `
-                                <div class="attempt-date">${formattedDate}</div>
-                                <div class="attempt-score">Score: ${result.score}/${questions.length}</div>
-                            `;
-                            attemptItem.appendChild(dateScoreDiv);
-                            
-                            // Create the details section
-                            const detailsDiv = document.createElement('div');
-                            detailsDiv.className = 'attempt-details';
-                            
-                            // Always show these fields
-                            const detailsHtml = `
-                                <div class="attempt-detail-item">
-                                    <span class="detail-label">Total Time:</span>
-                                    <span>${result.totalTime || 'N/A'}s</span>
-                                </div>
-                                <div class="attempt-detail-item">
-                                    <span class="detail-label">Avg Time:</span>
-                                    <span>${result.averageTime || 'N/A'}s</span>
-                                </div>
-                                <div class="attempt-detail-item">
-                                    <span class="detail-label">First Tap:</span>
-                                    <span>${result.firstTapTime || 'N/A'}</span>
-                                </div>
-                                <div class="attempt-detail-item">
-                                    <span class="detail-label">Total Taps:</span>
-                                    <span>${result.totalTaps || 'N/A'}</span>
-                                </div>
-                                <div class="attempt-detail-item">
-                                    <span class="detail-label">Correct:</span>
-                                    <span>${result.correctAnswers || result.score || 'N/A'}</span>
-                                </div>
-                                <div class="attempt-detail-item">
-                                    <span class="detail-label">Incorrect:</span>
-                                    <span>${result.incorrectAnswers || 'N/A'}</span>
-                                </div>
-                            `;
-                            detailsDiv.innerHTML = detailsHtml;
-                            attemptItem.appendChild(detailsDiv);
-                            
-                            // Add a button to toggle details
-                            const toggleBtn = document.createElement('button');
-                            toggleBtn.className = 'toggle-details-btn';
-                            toggleBtn.textContent = 'Show Details';
-                            toggleBtn.onclick = function() {
-                                if (detailsDiv.style.display === 'none' || !detailsDiv.style.display) {
-                                    detailsDiv.style.display = 'grid';
-                                    this.textContent = 'Hide Details';
-                                } else {
-                                    detailsDiv.style.display = 'none';
-                                    this.textContent = 'Show Details';
-                                }
-                            };
-                            dateScoreDiv.appendChild(toggleBtn);
-                            
-                            // Initially hide details
-                            detailsDiv.style.display = 'none';
-                            
-                            reportList.appendChild(attemptItem);
-                        });
-                    } else {
-                        reportList.innerHTML += '<p>No previous attempts found.</p>';
-                    }
-                } else {
-                    reportList.innerHTML += '<p>No previous attempts found.</p>';
-                }
             } catch (error) {
                 console.error('Error fetching previous attempts:', error);
-                document.getElementById('report-list').innerHTML += '<p>Error loading previous attempts: ' + error.message + '</p>';
+                document.getElementById('report-list').innerHTML = '<h3>Previous Attempts</h3><p>Error loading previous attempts.</p>';
             }
         }
 
@@ -839,17 +741,15 @@
                     return;
                 }
                 
-                // Get the correct path based on context
-                let path = '';
-                const currentPatientId = sessionStorage.getItem('currentPatientId');
-                const doctorId = sessionStorage.getItem('doctorId');
+                // Get the correct path based on context - use same logic as saveQuizResults
+                let path = `users/${user.uid}/quiz/VDTS1`;
                 
-                if (currentPatientId && doctorId) {
-                    // Doctor viewing patient quiz
-                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/VDTS1`;
-                } else {
-                    // Regular user quiz
-                    path = `users/${user.uid}/quiz/VDTS1`;
+                // Check if this is a doctor viewing/testing for a patient
+                const urlParams = new URLSearchParams(window.location.search);
+                const patientUID = urlParams.get('patientUID');
+                
+                if (patientUID) {
+                    path = `users/${patientUID}/quiz/VDTS1`;
                 }
                 
                 console.log('Clearing reports at path:', path);
@@ -862,13 +762,80 @@
                 
                 // Clear the report list UI
                 const reportList = document.getElementById('report-list');
-                reportList.innerHTML = '<h3>Previous Attempts</h3>';
+                reportList.innerHTML = '<h3>Previous Attempts</h3><p>No previous attempts found.</p>';
                 
                 console.log('Reports cleared successfully');
             } catch (error) {
                 console.error('Error clearing reports:', error);
                 alert('Failed to clear reports: ' + error.message);
             }
+        }
+
+        function createAttemptItem(result, reportList) {
+            const attemptItem = document.createElement('div');
+            attemptItem.className = 'attempt-item';
+            
+            // Create main display with date and score
+            const dateScoreDiv = document.createElement('div');
+            dateScoreDiv.innerHTML = `
+                <div class="attempt-date">${new Date(result.timestamp).toLocaleString()}</div>
+                <div class="attempt-score">Score: ${result.score}/${questions.length}</div>
+            `;
+            attemptItem.appendChild(dateScoreDiv);
+            
+            // Create the details section
+            const detailsDiv = document.createElement('div');
+            detailsDiv.className = 'attempt-details';
+            
+            // Always show these fields
+            const detailsHtml = `
+                <div class="attempt-detail-item">
+                    <span class="detail-label">Total Time:</span>
+                    <span>${result.totalTime || 'N/A'}s</span>
+                </div>
+                <div class="attempt-detail-item">
+                    <span class="detail-label">Avg Time:</span>
+                    <span>${result.averageTime || 'N/A'}s</span>
+                </div>
+                <div class="attempt-detail-item">
+                    <span class="detail-label">First Tap:</span>
+                    <span>${result.firstTapTime || 'N/A'}</span>
+                </div>
+                <div class="attempt-detail-item">
+                    <span class="detail-label">Total Taps:</span>
+                    <span>${result.totalTaps || 'N/A'}</span>
+                </div>
+                <div class="attempt-detail-item">
+                    <span class="detail-label">Correct:</span>
+                    <span>${result.correctAnswers || result.score || 'N/A'}</span>
+                </div>
+                <div class="attempt-detail-item">
+                    <span class="detail-label">Incorrect:</span>
+                    <span>${result.incorrectAnswers || 'N/A'}</span>
+                </div>
+            `;
+            detailsDiv.innerHTML = detailsHtml;
+            attemptItem.appendChild(detailsDiv);
+            
+            // Add a button to toggle details
+            const toggleBtn = document.createElement('button');
+            toggleBtn.className = 'toggle-details-btn';
+            toggleBtn.textContent = 'Show Details';
+            toggleBtn.onclick = function() {
+                if (detailsDiv.style.display === 'none' || !detailsDiv.style.display) {
+                    detailsDiv.style.display = 'grid';
+                    this.textContent = 'Hide Details';
+                } else {
+                    detailsDiv.style.display = 'none';
+                    this.textContent = 'Show Details';
+                }
+            };
+            dateScoreDiv.appendChild(toggleBtn);
+            
+            // Initially hide details
+            detailsDiv.style.display = 'none';
+            
+            reportList.appendChild(attemptItem);
         }
 
         function checkPatientContext() {
