@@ -87,7 +87,11 @@
         }
 
         .instruction-container {
-            margin-bottom: 20px;
+            background-color: #e3f2fd;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-weight: bold;
         }
 
         .game-board {
@@ -97,8 +101,8 @@
             width: 400px;
             height: 400px;
             margin: 20px auto;
-            border: 2px solid #ddd;
-            border-radius: 10px;
+            border: 2px solid #4CAF50;
+            border-radius: 8px;
             background-color: #f8f8f8;
             position: relative;
             max-width: 95vw;
@@ -210,6 +214,7 @@
             width: 80px;
             height: 80px;
             object-fit: contain;
+            filter: drop-shadow(0 0 3px rgba(0,0,0,0.3));
         }
 
         .drop-area.highlight {
@@ -232,26 +237,30 @@
         .options-container {
             display: flex;
             flex-wrap: wrap;
-            gap: 15px;
+            gap: 10px;
             justify-content: center;
             margin-top: 20px;
             padding: 10px;
-            background-color: #f1f8e9;
+            background-color: #f8f8f8;
             border-radius: 8px;
         }
 
         .draggable {
             width: 60px;
             height: 60px;
-            cursor: grab;
-            border-radius: 5px;
+            cursor: move;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            transition: transform 0.2s;
+            background-color: white;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            transition: transform 0.3s ease;
             object-fit: contain;
+            touch-action: none; /* Ensure touch works properly */
         }
 
         .draggable:hover {
             transform: scale(1.05);
+            border-color: #4CAF50;
         }
 
         .button-container {
@@ -260,13 +269,13 @@
 
         button {
             padding: 10px 20px;
-            margin: 5px;
+            margin: 10px 5px;
+            border: none;
             background-color: #4CAF50;
             color: white;
-            border: none;
-            border-radius: 5px;
+            font-size: 16px;
             cursor: pointer;
-            font-size: 14px;
+            border-radius: 5px;
             transition: background-color 0.3s;
         }
 
@@ -288,6 +297,14 @@
 
         .next-btn:hover {
             background-color: #388E3C;
+        }
+
+        .skip-btn {
+            background-color: #FF9800;
+        }
+
+        .skip-btn:hover {
+            background-color: #F57C00;
         }
 
         .retry-btn {
@@ -461,6 +478,7 @@
             <div class="button-container">
                 <button id="check-btn" class="check-btn">Check Answer</button>
                 <button id="next-btn" class="next-btn" style="display: none;">Next Question</button>
+                <button id="skip-btn" class="skip-btn" style="display: none;">Skip Question</button>
             </div>
         </div>
 
@@ -529,6 +547,7 @@
         const resultContainer = document.getElementById('result-container');
         const checkBtn = document.getElementById('check-btn');
         const nextBtn = document.getElementById('next-btn');
+        const skipBtn = document.getElementById('skip-btn');
         const retryBtn = document.getElementById('retry-btn');
         const homeBtn = document.getElementById('home-btn');
         const reportBtn = document.getElementById('report-btn');
@@ -746,6 +765,7 @@
             // Show check button, hide next button
             checkBtn.style.display = 'inline-block';
             nextBtn.style.display = 'none';
+            skipBtn.style.display = 'inline-block';
         }
         
         // Clear all drop areas
@@ -975,6 +995,7 @@
             if (currentQuestion < levelQuestions.length - 1) {
                 checkBtn.style.display = 'none';
                 nextBtn.style.display = 'inline-block';
+                skipBtn.style.display = 'none';
             } else if (currentLevel < levels.length - 1) {
                 currentLevel++;
                 loadLevel();
@@ -1003,9 +1024,26 @@
             }
         }
         
+        // Skip question
+        function skipQuestion() {
+            // Show next button if there are more questions, otherwise show results
+            if (currentQuestion < levelQuestions.length - 1) {
+                checkBtn.style.display = 'none';
+                nextBtn.style.display = 'inline-block';
+                skipBtn.style.display = 'none';
+            } else if (currentLevel < levels.length - 1) {
+                currentLevel++;
+                loadLevel();
+            } else {
+                endTime = new Date();
+                showResults();
+            }
+        }
+        
         // Event listeners
         checkBtn.addEventListener('click', checkAnswer);
         nextBtn.addEventListener('click', nextQuestion);
+        skipBtn.addEventListener('click', skipQuestion);
         
         retryBtn.addEventListener('click', () => {
             resultContainer.style.display = 'none';
