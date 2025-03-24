@@ -940,7 +940,7 @@
             Object.entries(quizzes).forEach(([quizType, attempts]) => {
                 if (!attempts) return;
                 
-                // Initialize quiz data if not exists
+                // Initialize quiz stats if needed
                 if (!quizData[quizType]) {
                     quizData[quizType] = {
                         totalScore: 0,
@@ -979,187 +979,291 @@
                 // Get user profiles from Firestore
                 let userArray = [];
                 
+                // First try to get all users from the centralized allUsers path
                 try {
-                    // First, try to get user profiles from Firestore (this should work if permissions are set correctly)
-                    const profilesSnapshot = await firestore.collection('userProfiles').get();
+                    console.log("Attempting to get users from allUsers path...");
+                    const allUsersSnapshot = await db.ref('allUsers').once('value');
                     
-                    console.log(`Loading ${profilesSnapshot.size} user profiles from Firestore`);
-                    
-                    // Process each user profile
-                    for (const doc of profilesSnapshot.docs) {
-                        const userData = doc.data();
-                        const userId = doc.id;
+                    if (allUsersSnapshot.exists()) {
+                        const allUsersData = allUsersSnapshot.val();
+                        console.log(`Found ${Object.keys(allUsersData).length} users in allUsers path`);
                         
-                        // Get user role
-                        const role = userData.role || 'user';
-                        
-                        // User data object
-                        const user = {
-                            id: userId,
-                            name: userData.name || 'Unknown',
-                            email: userData.email || 'No email',
-                            role: role,
-                            quizCount: 0,
-                            lastActive: 'Never'
-                        };
-                        
-                        // Get user's quiz data based on role
-                        try {
-                            if (role === 'doctor') {
-                                // Doctor's own quizzes
-                                const doctorQuizzes = await db.ref(`doctors/${userId}/quiz`).once('value');
-                                if (doctorQuizzes.exists() && doctorQuizzes.val()) {
-                                    let totalQuizzes = 0;
-                                    let latestTimestamp = 0;
-                                    
-                                    Object.keys(doctorQuizzes.val()).forEach(quizType => {
-                                        const attempts = doctorQuizzes.val()[quizType];
-                                        if (attempts) {
-                                            const attemptCount = Object.keys(attempts).length;
-                                            totalQuizzes += attemptCount;
-                                            
-                                            // Find the latest attempt
-                                            Object.keys(attempts).forEach(timestamp => {
-                                                const ts = parseInt(timestamp);
-                                                if (ts > latestTimestamp) {
-                                                    latestTimestamp = ts;
-                                                }
-                                            });
+                        // Process each user
+                        for (const [userId, userData] of Object.entries(allUsersData)) {
+                            // User data object with email from centralized storage
+                            const user = {
+                                id: userId,
+                                name: userData.name || 'Unknown',
+                                email: userData.email || 'No email',
+                                role: userData.role || 'user',
+                                quizCount: 0,
+                                lastActive: userData.updatedAt ? new Date(userData.updatedAt).toLocaleString() : 'Never'
+                            };
+                            
+                            // Get user's quiz data based on role
+                            try {
+                                if (user.role === 'doctor') {
+                                    // Doctor's own quizzes
+                                    const doctorQuizzes = await db.ref(`doctors/${userId}/quiz`).once('value');
+                                    if (doctorQuizzes.exists() && doctorQuizzes.val()) {
+                                        let totalQuizzes = 0;
+                                        let latestTimestamp = 0;
+                                        
+                                        Object.keys(doctorQuizzes.val()).forEach(quizType => {
+                                            const attempts = doctorQuizzes.val()[quizType];
+                                            if (attempts) {
+                                                totalQuizzes += Object.keys(attempts).length;
+                                                
+                                                // Find the latest attempt
+                                                Object.keys(attempts).forEach(timestamp => {
+                                                    const ts = parseInt(timestamp);
+                                                    if (ts > latestTimestamp) {
+                                                        latestTimestamp = ts;
+                                                    }
+                                                });
+                                            }
+                                        });
+                                        
+                                        user.quizCount = totalQuizzes;
+                                        if (latestTimestamp > 0) {
+                                            user.lastActive = new Date(latestTimestamp).toLocaleString();
                                         }
-                                    });
-                                    
-                                    user.quizCount = totalQuizzes;
-                                    if (latestTimestamp > 0) {
-                                        user.lastActive = new Date(latestTimestamp).toLocaleString();
                                     }
-                                }
-                                
-                                // Count doctor's patients
-                                const patientsSnapshot = await db.ref(`doctors/${userId}/patients`).once('value');
-                                if (patientsSnapshot.exists() && patientsSnapshot.val()) {
-                                    user.patientCount = Object.keys(patientsSnapshot.val()).length;
+                                    
+                                    // Count doctor's patients
+                                    const patientsSnapshot = await db.ref(`doctors/${userId}/patients`).once('value');
+                                    if (patientsSnapshot.exists() && patientsSnapshot.val()) {
+                                        user.patientCount = Object.keys(patientsSnapshot.val()).length;
+                                    } else {
+                                        user.patientCount = 0;
+                                    }
                                 } else {
-                                    user.patientCount = 0;
-                                }
-                            } else {
-                                // Regular user quizzes
-                                const userQuizzes = await db.ref(`users/${userId}/quiz`).once('value');
-                                if (userQuizzes.exists() && userQuizzes.val()) {
-                                    let totalQuizzes = 0;
-                                    let latestTimestamp = 0;
-                                    
-                                    Object.keys(userQuizzes.val()).forEach(quizType => {
-                                        const attempts = userQuizzes.val()[quizType];
-                                        if (attempts) {
-                                            const attemptCount = Object.keys(attempts).length;
-                                            totalQuizzes += attemptCount;
-                                            
-                                            // Find the latest attempt
-                                            Object.keys(attempts).forEach(timestamp => {
-                                                const ts = parseInt(timestamp);
-                                                if (ts > latestTimestamp) {
-                                                    latestTimestamp = ts;
-                                                }
-                                            });
+                                    // Regular user quizzes
+                                    const userQuizzes = await db.ref(`users/${userId}/quiz`).once('value');
+                                    if (userQuizzes.exists() && userQuizzes.val()) {
+                                        let totalQuizzes = 0;
+                                        let latestTimestamp = 0;
+                                        
+                                        Object.keys(userQuizzes.val()).forEach(quizType => {
+                                            const attempts = userQuizzes.val()[quizType];
+                                            if (attempts) {
+                                                totalQuizzes += Object.keys(attempts).length;
+                                                
+                                                // Find the latest attempt
+                                                Object.keys(attempts).forEach(timestamp => {
+                                                    const ts = parseInt(timestamp);
+                                                    if (ts > latestTimestamp) {
+                                                        latestTimestamp = ts;
+                                                    }
+                                                });
+                                            }
+                                        });
+                                        
+                                        user.quizCount = totalQuizzes;
+                                        if (latestTimestamp > 0) {
+                                            user.lastActive = new Date(latestTimestamp).toLocaleString();
                                         }
-                                    });
-                                    
-                                    user.quizCount = totalQuizzes;
-                                    if (latestTimestamp > 0) {
-                                        user.lastActive = new Date(latestTimestamp).toLocaleString();
                                     }
                                 }
-                                
-                                // Check if user is a patient
-                                const roleSnapshot = await db.ref(`roles/${userId}`).once('value');
-                                if (roleSnapshot.exists() && roleSnapshot.val() === 'patient') {
-                                    user.role = 'patient';
-                                }
+                            } catch (error) {
+                                console.warn(`Could not load quiz data for user ${userId}:`, error);
+                                // Still add the user with default values
                             }
-                        } catch (error) {
-                            console.warn(`Could not load quiz data for user ${userId}:`, error);
-                            // Still add the user with default values
+                            
+                            // Add user to array
+                            userArray.push(user);
                         }
-                        
-                        // Add user to array
-                        userArray.push(user);
+                    } else {
+                        console.log("No users found in allUsers path, falling back to other methods");
                     }
                 } catch (error) {
-                    console.error("Error loading user profiles from Firestore:", error);
-                    // Fallback method - try to get users from Realtime Database roles
+                    console.warn("Error loading from allUsers path:", error);
+                }
+                
+                // If we didn't get any users from allUsers, try other methods
+                if (userArray.length === 0) {
                     try {
-                        const rolesSnapshot = await db.ref('roles').once('value');
-                        if (rolesSnapshot.exists()) {
-                            const roles = rolesSnapshot.val();
+                        // Try to get user profiles from Firestore
+                        const profilesSnapshot = await firestore.collection('userProfiles').get();
+                        
+                        console.log(`Loading ${profilesSnapshot.size} user profiles from Firestore`);
+                        
+                        // Process each user profile
+                        for (const doc of profilesSnapshot.docs) {
+                            const userData = doc.data();
+                            const userId = doc.id;
                             
-                            // Process each user role
-                            for (const [userId, role] of Object.entries(roles)) {
-                                // Create a basic user object
-                                const user = {
-                                    id: userId,
-                                    name: 'Unknown',
-                                    email: 'No email',
-                                    role: role,
-                                    quizCount: 0,
-                                    lastActive: 'Never'
-                                };
-                                
-                                // Try to get more user info from Realtime Database
-                                try {
-                                    const userPath = role === 'doctor' ? `doctors/${userId}` : `users/${userId}`;
-                                    const userSnapshot = await db.ref(userPath).once('value');
-                                    
-                                    if (userSnapshot.exists()) {
-                                        // Extract user name if available
-                                        const userData = userSnapshot.val();
-                                        if (userData.profile) {
-                                            user.name = userData.profile.name || 'Unknown';
-                                            user.email = userData.profile.email || 'No email';
-                                        }
+                            // Get user role
+                            const role = userData.role || 'user';
+                            
+                            // User data object
+                            const user = {
+                                id: userId,
+                                name: userData.name || 'Unknown',
+                                email: userData.email || 'No email',
+                                role: role,
+                                quizCount: 0,
+                                lastActive: userData.lastLogin ? userData.lastLogin.toDate().toLocaleString() : 'Never'
+                            };
+                            
+                            // Get user's quiz data based on role
+                            try {
+                                if (role === 'doctor') {
+                                    // Doctor's own quizzes
+                                    const doctorQuizzes = await db.ref(`doctors/${userId}/quiz`).once('value');
+                                    if (doctorQuizzes.exists() && doctorQuizzes.val()) {
+                                        let totalQuizzes = 0;
+                                        let latestTimestamp = 0;
                                         
-                                        // Count quizzes
-                                        if (userData.quiz) {
-                                            let totalQuizzes = 0;
-                                            let latestTimestamp = 0;
-                                            
-                                            Object.keys(userData.quiz).forEach(quizType => {
-                                                const attempts = userData.quiz[quizType];
-                                                if (attempts) {
-                                                    totalQuizzes += Object.keys(attempts).length;
-                                                    
-                                                    // Find latest timestamp
-                                                    Object.keys(attempts).forEach(timestamp => {
-                                                        const ts = parseInt(timestamp);
-                                                        if (ts > latestTimestamp) {
-                                                            latestTimestamp = ts;
-                                                        }
-                                                    });
-                                                }
-                                            });
-                                            
-                                            user.quizCount = totalQuizzes;
-                                            if (latestTimestamp > 0) {
-                                                user.lastActive = new Date(latestTimestamp).toLocaleString();
+                                        Object.keys(doctorQuizzes.val()).forEach(quizType => {
+                                            const attempts = doctorQuizzes.val()[quizType];
+                                            if (attempts) {
+                                                const attemptCount = Object.keys(attempts).length;
+                                                totalQuizzes += attemptCount;
+                                                
+                                                // Find the latest attempt
+                                                Object.keys(attempts).forEach(timestamp => {
+                                                    const ts = parseInt(timestamp);
+                                                    if (ts > latestTimestamp) {
+                                                        latestTimestamp = ts;
+                                                    }
+                                                });
                                             }
-                                        }
+                                        });
                                         
-                                        // Count patients for doctors
-                                        if (role === 'doctor' && userData.patients) {
-                                            user.patientCount = Object.keys(userData.patients).length;
-                                        } else {
-                                            user.patientCount = 0;
+                                        user.quizCount = totalQuizzes;
+                                        if (latestTimestamp > 0) {
+                                            user.lastActive = new Date(latestTimestamp).toLocaleString();
                                         }
                                     }
-                                } catch (innerError) {
-                                    console.warn(`Could not load details for user ${userId}:`, innerError);
+                                    
+                                    // Count doctor's patients
+                                    const patientsSnapshot = await db.ref(`doctors/${userId}/patients`).once('value');
+                                    if (patientsSnapshot.exists() && patientsSnapshot.val()) {
+                                        user.patientCount = Object.keys(patientsSnapshot.val()).length;
+                                    } else {
+                                        user.patientCount = 0;
+                                    }
+                                } else {
+                                    // Regular user quizzes
+                                    const userQuizzes = await db.ref(`users/${userId}/quiz`).once('value');
+                                    if (userQuizzes.exists() && userQuizzes.val()) {
+                                        let totalQuizzes = 0;
+                                        let latestTimestamp = 0;
+                                        
+                                        Object.keys(userQuizzes.val()).forEach(quizType => {
+                                            const attempts = userQuizzes.val()[quizType];
+                                            if (attempts) {
+                                                const attemptCount = Object.keys(attempts).length;
+                                                totalQuizzes += attemptCount;
+                                                
+                                                // Find the latest attempt
+                                                Object.keys(attempts).forEach(timestamp => {
+                                                    const ts = parseInt(timestamp);
+                                                    if (ts > latestTimestamp) {
+                                                        latestTimestamp = ts;
+                                                    }
+                                                });
+                                            }
+                                        });
+                                        
+                                        user.quizCount = totalQuizzes;
+                                        if (latestTimestamp > 0) {
+                                            user.lastActive = new Date(latestTimestamp).toLocaleString();
+                                        }
+                                    }
+                                    
+                                    // Check if user is a patient
+                                    const roleSnapshot = await db.ref(`roles/${userId}`).once('value');
+                                    if (roleSnapshot.exists() && roleSnapshot.val() === 'patient') {
+                                        user.role = 'patient';
+                                    }
                                 }
-                                
-                                userArray.push(user);
+                            } catch (error) {
+                                console.warn(`Could not load quiz data for user ${userId}:`, error);
+                                // Still add the user with default values
                             }
+                            
+                            // Add user to array
+                            userArray.push(user);
                         }
-                    } catch (fbError) {
-                        console.error("Fallback method also failed:", fbError);
-                        throw new Error("Could not load user data from any source. Please check Firebase permissions.");
+                    } catch (error) {
+                        console.error("Error loading user profiles from Firestore:", error);
+                        // Fallback method - try to get users from Realtime Database roles
+                        try {
+                            const rolesSnapshot = await db.ref('roles').once('value');
+                            if (rolesSnapshot.exists()) {
+                                const roles = rolesSnapshot.val();
+                                
+                                // Process each user role
+                                for (const [userId, role] of Object.entries(roles)) {
+                                    // Create a basic user object
+                                    const user = {
+                                        id: userId,
+                                        name: 'Unknown',
+                                        email: 'No email',
+                                        role: role,
+                                        quizCount: 0,
+                                        lastActive: 'Never'
+                                    };
+                                    
+                                    // Try to get more user info from Realtime Database
+                                    try {
+                                        const userPath = role === 'doctor' ? `doctors/${userId}` : `users/${userId}`;
+                                        const userSnapshot = await db.ref(userPath).once('value');
+                                        
+                                        if (userSnapshot.exists()) {
+                                            // Extract user name if available
+                                            const userData = userSnapshot.val();
+                                            if (userData.profile) {
+                                                user.name = userData.profile.name || 'Unknown';
+                                                user.email = userData.profile.email || 'No email';
+                                            }
+                                            
+                                            // Count quizzes
+                                            if (userData.quiz) {
+                                                let totalQuizzes = 0;
+                                                let latestTimestamp = 0;
+                                                
+                                                Object.keys(userData.quiz).forEach(quizType => {
+                                                    const attempts = userData.quiz[quizType];
+                                                    if (attempts) {
+                                                        totalQuizzes += Object.keys(attempts).length;
+                                                        
+                                                        // Find latest timestamp
+                                                        Object.keys(attempts).forEach(timestamp => {
+                                                            const ts = parseInt(timestamp);
+                                                            if (ts > latestTimestamp) {
+                                                                latestTimestamp = ts;
+                                                            }
+                                                        });
+                                                    }
+                                                });
+                                                
+                                                user.quizCount = totalQuizzes;
+                                                if (latestTimestamp > 0) {
+                                                    user.lastActive = new Date(latestTimestamp).toLocaleString();
+                                                }
+                                            }
+                                            
+                                            // Count patients for doctors
+                                            if (role === 'doctor' && userData.patients) {
+                                                user.patientCount = Object.keys(userData.patients).length;
+                                            } else {
+                                                user.patientCount = 0;
+                                            }
+                                        }
+                                    } catch (innerError) {
+                                        console.warn(`Could not load details for user ${userId}:`, innerError);
+                                    }
+                                    
+                                    userArray.push(user);
+                                }
+                            }
+                        } catch (fbError) {
+                            console.error("Fallback method also failed:", fbError);
+                            throw new Error("Could not load user data from any source. Please check Firebase permissions.");
+                        }
                     }
                 }
                 

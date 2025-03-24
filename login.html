@@ -208,8 +208,42 @@
                 const result = await auth.signInWithPopup(googleProvider);
                 console.log("Google sign-in successful:", result.user.email);
                 
+                // Get user info from Google
+                const user = result.user;
+                const userId = user.uid;
+                const userEmail = user.email;
+                const displayName = user.displayName || '';
+                const photoURL = user.photoURL || '';
+                
                 // Check if user has a profile
-                const hasProfile = await checkUserProfile(result.user.uid);
+                const hasProfile = await checkUserProfile(userId);
+                
+                // If no profile exists, create one with Google info
+                if (!hasProfile) {
+                    try {
+                        // Create user profile in Firestore
+                        await db.collection('userProfiles').doc(userId).set({
+                            email: userEmail,
+                            name: displayName,
+                            photoURL: photoURL,
+                            role: 'user', // Default role
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                            lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        console.log("Created new profile for Google user:", userEmail);
+                    } catch (profileError) {
+                        console.error("Error creating profile:", profileError);
+                    }
+                } else {
+                    // Update last login time
+                    try {
+                        await db.collection('userProfiles').doc(userId).update({
+                            lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    } catch (updateError) {
+                        console.error("Error updating last login:", updateError);
+                    }
+                }
                 
                 // Redirect based on profile status
                 window.location.href = getPath(hasProfile ? 'index.html' : 'profile.html');
@@ -229,8 +263,37 @@
         auth.onAuthStateChanged(async (user) => {
             if (user) {
                 console.log("User is signed in:", user.email);
+                
                 // Check if user has a profile
                 const hasProfile = await checkUserProfile(user.uid);
+                
+                // If no profile and user has email (likely Google sign-in), create profile
+                if (!hasProfile && user.email) {
+                    try {
+                        // Create user profile in Firestore
+                        await db.collection('userProfiles').doc(user.uid).set({
+                            email: user.email,
+                            name: user.displayName || '',
+                            photoURL: user.photoURL || '',
+                            role: 'user', // Default role
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                            lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        console.log("Created new profile for user:", user.email);
+                    } catch (profileError) {
+                        console.error("Error creating profile:", profileError);
+                    }
+                } else if (hasProfile) {
+                    // Update last login time
+                    try {
+                        await db.collection('userProfiles').doc(user.uid).update({
+                            lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    } catch (updateError) {
+                        console.error("Error updating last login:", updateError);
+                    }
+                }
+                
                 window.location.href = getPath(hasProfile ? 'index.html' : 'profile.html');
             } else {
                 console.log("No user signed in");

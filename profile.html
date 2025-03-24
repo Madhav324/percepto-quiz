@@ -263,7 +263,9 @@
                 age: parseInt(document.getElementById('age').value),
                 gender: document.getElementById('gender').value,
                 medicalCondition: document.getElementById('medicalCondition').value,
-                doctorRecommendation: document.getElementById('doctorRecommendation').value
+                doctorRecommendation: document.getElementById('doctorRecommendation').value,
+                email: user.email || '',  
+                updatedAt: new Date().toISOString()
             };
 
             try {
@@ -274,6 +276,15 @@
                 // Save to the appropriate path based on current role
                 const path = isDoctor ? `doctors/${user.uid}/profile` : `users/${user.uid}/profile`;
                 await database.ref(path).set(profileData);
+
+                // Also store in a central location for admin access
+                await database.ref(`allUsers/${user.uid}`).set({
+                    role: newRole,
+                    email: user.email || '',
+                    name: profileData.name,
+                    createdAt: profileData.createdAt || new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                });
 
                 showError('Profile saved successfully!', true);
                 
