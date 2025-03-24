@@ -441,29 +441,43 @@
         // Load all dashboard data
         async function loadDashboardData() {
             try {
-                // Update overview statistics
+                // Get user profiles from userProfiles node
                 const usersSnapshot = await db.ref('userProfiles').once('value');
-                const totalUsers = usersSnapshot.numChildren();
-                document.getElementById('totalUsers').textContent = totalUsers;
-                
+                let totalUsers = 0;
                 let doctorCount = 0;
                 let patientCount = 0;
                 
-                usersSnapshot.forEach(childSnapshot => {
-                    const userData = childSnapshot.val();
-                    if (userData.role === 'doctor') {
-                        doctorCount++;
-                    } else if (userData.role === 'patient') {
-                        patientCount++;
-                    }
-                });
+                if (usersSnapshot.exists()) {
+                    usersSnapshot.forEach(childSnapshot => {
+                        totalUsers++;
+                        const userData = childSnapshot.val();
+                        if (userData && userData.role === 'doctor') {
+                            doctorCount++;
+                        } else if (userData && userData.role === 'patient') {
+                            patientCount++;
+                        }
+                    });
+                }
                 
+                document.getElementById('totalUsers').textContent = totalUsers;
                 document.getElementById('doctorAccounts').textContent = doctorCount;
                 document.getElementById('patientAccounts').textContent = patientCount;
                 
                 // Count total quizzes taken
-                const quizResultsSnapshot = await db.ref('quizResults').once('value');
-                document.getElementById('totalQuizzes').textContent = quizResultsSnapshot.numChildren();
+                const quizResultsSnapshot = await db.ref('quiz_results').once('value');
+                let quizCount = 0;
+                
+                if (quizResultsSnapshot.exists()) {
+                    quizResultsSnapshot.forEach(userSnapshot => {
+                        userSnapshot.forEach(quizTypeSnapshot => {
+                            quizTypeSnapshot.forEach(attemptSnapshot => {
+                                quizCount++;
+                            });
+                        });
+                    });
+                }
+                
+                document.getElementById('totalQuizzes').textContent = quizCount;
                 
                 // Load recent activity
                 loadRecentActivity();
@@ -482,24 +496,55 @@
                 const recentActivityTable = document.getElementById('recentActivityTable');
                 recentActivityTable.innerHTML = '';
                 
-                // Get the 10 most recent quiz results
-                const recentQuizzes = await db.ref('quizResults').orderByChild('timestamp').limitToLast(10).once('value');
+                // Get quiz_results from all users
+                const quizResultsSnapshot = await db.ref('quiz_results').once('value');
                 
-                if (recentQuizzes.numChildren() === 0) {
+                if (!quizResultsSnapshot.exists()) {
                     recentActivityTable.innerHTML = '<tr><td colspan="4">No recent activity</td></tr>';
                     return;
                 }
                 
-                recentQuizzes.forEach(childSnapshot => {
-                    const data = childSnapshot.val();
-                    const userId = childSnapshot.key;
+                const allResults = [];
+                
+                // Process all quiz results
+                quizResultsSnapshot.forEach(userSnapshot => {
+                    const userId = userSnapshot.key;
                     
-                    // Get user info
+                    userSnapshot.forEach(quizTypeSnapshot => {
+                        const quizType = quizTypeSnapshot.key;
+                        
+                        quizTypeSnapshot.forEach(attemptSnapshot => {
+                            const data = attemptSnapshot.val();
+                            allResults.push({
+                                userId: userId,
+                                quizType: quizType,
+                                timestamp: data.timestamp,
+                                score: data.score,
+                                totalTime: data.totalTime
+                            });
+                        });
+                    });
+                });
+                
+                // Sort by timestamp (newest first)
+                allResults.sort((a, b) => b.timestamp - a.timestamp);
+                
+                // Display only the 10 most recent
+                const recentResults = allResults.slice(0, 10);
+                
+                if (recentResults.length === 0) {
+                    recentActivityTable.innerHTML = '<tr><td colspan="4">No recent activity</td></tr>';
+                    return;
+                }
+                
+                for (const result of recentResults) {
+                    // Try to get user email
                     let userEmail = 'Unknown User';
                     try {
-                        const userSnapshot = db.ref('userProfiles/' + userId).once('value');
+                        const userSnapshot = await db.ref(`userProfiles/${result.userId}`).once('value');
                         if (userSnapshot.exists()) {
-                            userEmail = userSnapshot.val().email;
+                            const userData = userSnapshot.val();
+                            userEmail = userData.email || 'Unknown';
                         }
                     } catch (error) {
                         console.error("Error fetching user:", error);
@@ -508,18 +553,18 @@
                     const row = document.createElement('tr');
                     
                     // Format date
-                    const date = data.timestamp ? new Date(data.timestamp) : new Date();
+                    const date = result.timestamp ? new Date(result.timestamp) : new Date();
                     const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
                     
                     row.innerHTML = `
                         <td>${formattedDate}</td>
                         <td>${userEmail}</td>
                         <td>Completed Quiz</td>
-                        <td>${data.quizName || 'Unknown Quiz'} - Score: ${data.score || 'N/A'}</td>
+                        <td>${result.quizType || 'Unknown Quiz'} - Score: ${result.score || 'N/A'}</td>
                     `;
                     
                     recentActivityTable.appendChild(row);
-                });
+                }
             } catch (error) {
                 console.error("Error loading recent activity:", error);
             }
@@ -531,42 +576,46 @@
                 const topQuizzesTable = document.getElementById('topQuizzesTable');
                 topQuizzesTable.innerHTML = '';
                 
-                // First, get all quiz results
-                const quizResults = await db.ref('quizResults').once('value');
+                // Get all quiz results
+                const quizResultsSnapshot = await db.ref('quiz_results').once('value');
                 
-                if (quizResults.numChildren() === 0) {
+                if (!quizResultsSnapshot.exists()) {
                     topQuizzesTable.innerHTML = '<tr><td colspan="4">No quiz data available</td></tr>';
                     return;
                 }
                 
-                // Group by quiz name
+                // Group by quiz type
                 const quizStats = {};
                 
-                quizResults.forEach(childSnapshot => {
-                    const data = childSnapshot.val();
-                    const quizName = data.quizName || 'Unknown Quiz';
-                    
-                    if (!quizStats[quizName]) {
-                        quizStats[quizName] = {
-                            totalScore: 0,
-                            count: 0,
-                            completed: 0
-                        };
-                    }
-                    
-                    quizStats[quizName].count++;
-                    quizStats[quizName].totalScore += (data.score || 0);
-                    
-                    if (data.completed) {
-                        quizStats[quizName].completed++;
-                    }
+                quizResultsSnapshot.forEach(userSnapshot => {
+                    userSnapshot.forEach(quizTypeSnapshot => {
+                        const quizType = quizTypeSnapshot.key;
+                        
+                        if (!quizStats[quizType]) {
+                            quizStats[quizType] = {
+                                totalScore: 0,
+                                count: 0,
+                                completed: 0
+                            };
+                        }
+                        
+                        quizTypeSnapshot.forEach(attemptSnapshot => {
+                            const data = attemptSnapshot.val();
+                            quizStats[quizType].count++;
+                            quizStats[quizType].totalScore += (parseFloat(data.score) || 0);
+                            
+                            if (data.completed) {
+                                quizStats[quizType].completed++;
+                            }
+                        });
+                    });
                 });
                 
                 // Convert to array for sorting
-                const quizArray = Object.keys(quizStats).map(quizName => {
-                    const stats = quizStats[quizName];
+                const quizArray = Object.keys(quizStats).map(quizType => {
+                    const stats = quizStats[quizType];
                     return {
-                        name: quizName,
+                        name: quizType,
                         avgScore: stats.count > 0 ? Math.round((stats.totalScore / stats.count) * 10) / 10 : 0,
                         count: stats.count,
                         completionRate: stats.count > 0 ? Math.round((stats.completed / stats.count) * 100) : 0
@@ -608,20 +657,38 @@
                 
                 const usersSnapshot = await db.ref('userProfiles').once('value');
                 
-                if (usersSnapshot.numChildren() === 0) {
+                if (!usersSnapshot.exists()) {
                     usersTable.innerHTML = '<tr><td colspan="5">No users found</td></tr>';
                     return;
                 }
+                
+                const users = [];
                 
                 usersSnapshot.forEach(childSnapshot => {
                     const userData = childSnapshot.val();
                     const userId = childSnapshot.key;
                     
+                    users.push({
+                        id: userId,
+                        email: userData.email || 'Unknown',
+                        role: userData.role || 'User',
+                        createdAt: userData.createdAt,
+                        lastLogin: userData.lastLogin
+                    });
+                });
+                
+                for (const user of users) {
                     // Get quiz count for this user
                     let quizCount = 0;
                     try {
-                        const quizResults = db.ref('userProfiles/' + userId + '/quizResults').once('value');
-                        quizCount = quizResults.numChildren();
+                        const quizResults = await db.ref(`quiz_results/${user.id}`).once('value');
+                        if (quizResults.exists()) {
+                            quizResults.forEach(quizType => {
+                                quizType.forEach(attempt => {
+                                    quizCount++;
+                                });
+                            });
+                        }
                     } catch (error) {
                         console.error("Error fetching quiz results:", error);
                     }
@@ -629,19 +696,19 @@
                     const row = document.createElement('tr');
                     
                     // Format dates
-                    const joinDate = userData.createdAt ? new Date(userData.createdAt) : 'Unknown';
-                    const lastActive = userData.lastLogin ? new Date(userData.lastLogin) : 'Never';
+                    const joinDate = user.createdAt ? new Date(user.createdAt) : 'Unknown';
+                    const lastActive = user.lastLogin ? new Date(user.lastLogin) : 'Never';
                     
                     row.innerHTML = `
-                        <td>${userData.email || 'Unknown'}</td>
-                        <td>${userData.role || 'User'}</td>
+                        <td>${user.email}</td>
+                        <td>${user.role}</td>
                         <td>${joinDate.toLocaleDateString ? joinDate.toLocaleDateString() : joinDate}</td>
                         <td>${lastActive.toLocaleDateString ? lastActive.toLocaleDateString() : lastActive}</td>
                         <td>${quizCount}</td>
                     `;
                     
                     usersTable.appendChild(row);
-                });
+                }
             } catch (error) {
                 console.error("Error loading users data:", error);
             }
@@ -653,47 +720,51 @@
                 const quizzesTable = document.getElementById('quizzesTable');
                 quizzesTable.innerHTML = '';
                 
-                // Fetch all quiz results
-                const allResults = await db.ref('quizResults').once('value');
+                // Get all quiz results
+                const quizResultsSnapshot = await db.ref('quiz_results').once('value');
                 
-                if (allResults.numChildren() === 0) {
+                if (!quizResultsSnapshot.exists()) {
                     quizzesTable.innerHTML = '<tr><td colspan="5">No quiz data available</td></tr>';
                     return;
                 }
                 
-                // Process and group by quiz name
+                // Process and group by quiz type
                 const quizStats = {};
                 
-                allResults.forEach(childSnapshot => {
-                    const data = childSnapshot.val();
-                    const quizName = data.quizName || 'Unknown Quiz';
-                    
-                    if (!quizStats[quizName]) {
-                        quizStats[quizName] = {
-                            count: 0,
-                            totalScore: 0,
-                            totalTime: 0,
-                            timeEntries: 0,
-                            difficulties: []
-                        };
-                    }
-                    
-                    quizStats[quizName].count++;
-                    quizStats[quizName].totalScore += (data.score || 0);
-                    
-                    if (data.time) {
-                        quizStats[quizName].totalTime += data.time;
-                        quizStats[quizName].timeEntries++;
-                    }
-                    
-                    if (data.difficulty) {
-                        quizStats[quizName].difficulties.push(data.difficulty);
-                    }
+                quizResultsSnapshot.forEach(userSnapshot => {
+                    userSnapshot.forEach(quizTypeSnapshot => {
+                        const quizType = quizTypeSnapshot.key;
+                        
+                        if (!quizStats[quizType]) {
+                            quizStats[quizType] = {
+                                count: 0,
+                                totalScore: 0,
+                                totalTime: 0,
+                                timeEntries: 0,
+                                difficulties: []
+                            };
+                        }
+                        
+                        quizTypeSnapshot.forEach(attemptSnapshot => {
+                            const data = attemptSnapshot.val();
+                            quizStats[quizType].count++;
+                            quizStats[quizType].totalScore += (parseFloat(data.score) || 0);
+                            
+                            if (data.totalTime) {
+                                quizStats[quizType].totalTime += parseFloat(data.totalTime);
+                                quizStats[quizType].timeEntries++;
+                            }
+                            
+                            if (data.difficulty) {
+                                quizStats[quizType].difficulties.push(data.difficulty);
+                            }
+                        });
+                    });
                 });
                 
                 // Convert to array for sorting
-                const quizArray = Object.keys(quizStats).map(quizName => {
-                    const stats = quizStats[quizName];
+                const quizArray = Object.keys(quizStats).map(quizType => {
+                    const stats = quizStats[quizType];
                     
                     // Calculate average difficulty
                     let avgDifficulty = 'Medium';
@@ -714,7 +785,7 @@
                     }
                     
                     return {
-                        name: quizName,
+                        name: quizType,
                         count: stats.count,
                         avgScore: stats.count > 0 ? Math.round((stats.totalScore / stats.count) * 10) / 10 : 0,
                         avgTime: stats.timeEntries > 0 ? Math.round(stats.totalTime / stats.timeEntries) : 'N/A',
@@ -751,34 +822,41 @@
                 // Get all doctor-patient relationships
                 const relationshipsSnapshot = await db.ref('doctorPatientRelationships').once('value');
                 
-                if (relationshipsSnapshot.numChildren() === 0) {
+                if (!relationshipsSnapshot.exists()) {
                     doctorPatientTable.innerHTML = '<tr><td colspan="5">No doctor-patient relationships found</td></tr>';
                     return;
                 }
                 
+                const relationships = [];
+                
                 relationshipsSnapshot.forEach(childSnapshot => {
                     const data = childSnapshot.val();
-                    
-                    // Get doctor and patient names
+                    relationships.push(data);
+                });
+                
+                for (const relationship of relationships) {
+                    // Get doctor and patient info
                     let doctorEmail = 'Unknown Doctor';
                     let patientEmail = 'Unknown Patient';
                     
-                    if (data.doctorId) {
+                    if (relationship.doctorId) {
                         try {
-                            const doctorSnapshot = db.ref('userProfiles/' + data.doctorId).once('value');
+                            const doctorSnapshot = await db.ref(`userProfiles/${relationship.doctorId}`).once('value');
                             if (doctorSnapshot.exists()) {
-                                doctorEmail = doctorSnapshot.val().email || 'Unknown';
+                                const doctorData = doctorSnapshot.val();
+                                doctorEmail = doctorData.email || 'Unknown';
                             }
                         } catch (error) {
                             console.error("Error fetching doctor:", error);
                         }
                     }
                     
-                    if (data.patientId) {
+                    if (relationship.patientId) {
                         try {
-                            const patientSnapshot = db.ref('userProfiles/' + data.patientId).once('value');
+                            const patientSnapshot = await db.ref(`userProfiles/${relationship.patientId}`).once('value');
                             if (patientSnapshot.exists()) {
-                                patientEmail = patientSnapshot.val().email || 'Unknown';
+                                const patientData = patientSnapshot.val();
+                                patientEmail = patientData.email || 'Unknown';
                             }
                         } catch (error) {
                             console.error("Error fetching patient:", error);
@@ -789,15 +867,19 @@
                     let assignedQuizzes = 0;
                     let completedQuizzes = 0;
                     
-                    if (data.patientId) {
+                    if (relationship.patientId) {
                         try {
-                            // Get assigned quizzes
-                            const assignedSnapshot = db.ref('assignedQuizzes').orderByChild('patientId').equalTo(data.patientId).once('value');
-                            assignedQuizzes = assignedSnapshot.numChildren();
-                            
-                            // Get completed quizzes
-                            const completedSnapshot = db.ref('assignedQuizzes').orderByChild('patientId').equalTo(data.patientId).orderByChild('completed').equalTo(true).once('value');
-                            completedQuizzes = completedSnapshot.numChildren();
+                            // Get assigned quizzes for this patient
+                            const assignedSnapshot = await db.ref(`assignedQuizzes/${relationship.patientId}`).once('value');
+                            if (assignedSnapshot.exists()) {
+                                assignedSnapshot.forEach(childSnapshot => {
+                                    assignedQuizzes++;
+                                    const data = childSnapshot.val();
+                                    if (data.completed) {
+                                        completedQuizzes++;
+                                    }
+                                });
+                            }
                         } catch (error) {
                             console.error("Error fetching quiz assignment data:", error);
                         }
@@ -806,7 +888,7 @@
                     const completionRate = assignedQuizzes > 0 ? Math.round((completedQuizzes / assignedQuizzes) * 100) : 0;
                     
                     // Format date
-                    const startDate = data.createdAt ? new Date(data.createdAt) : new Date();
+                    const startDate = relationship.createdAt ? new Date(relationship.createdAt) : new Date();
                     const formattedDate = startDate.toLocaleDateString();
                     
                     const row = document.createElement('tr');
@@ -819,7 +901,7 @@
                     `;
                     
                     doctorPatientTable.appendChild(row);
-                });
+                }
             } catch (error) {
                 console.error("Error loading doctor-patient data:", error);
             }
