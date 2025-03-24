@@ -800,23 +800,47 @@
             if (user) {
                 userId = user.uid;
                 console.log('User authenticated in Morning Quiz:', userId);
-
+                
                 try {
-                    // Check if user is a doctor
+                    // Check if user is a doctor (checking both possible paths for compatibility)
+                    let isUserDoctor = false;
+                    
+                    // First try the roles path (used in VSM.html)
+                    const roleSnapshot = await db.ref(`roles/${user.uid}`).once('value');
+                    const role = roleSnapshot.val();
+                    if (role === 'doctor') {
+                        isUserDoctor = true;
+                    }
+                    
+                    // Also check the users path with role property
                     const userSnapshot = await db.ref(`users/${userId}`).once('value');
                     const userData = userSnapshot.val();
-
                     if (userData && userData.role === 'doctor') {
+                        isUserDoctor = true;
+                    }
+                    
+                    if (isUserDoctor) {
                         isDoctor = true;
                         // Get patient context from session storage
                         patientId = sessionStorage.getItem('currentPatientId');
-
+                        const doctorId = sessionStorage.getItem('doctorId') || userId;
+                        
                         if (patientId) {
                             isDoctorViewingPatient = true;
                             // Update profile to show viewing patient
-                            const patientDataSnapshot = await db.ref(`users/${patientId}`).once('value');
-                            const patientData = patientDataSnapshot.val();
-
+                            // Check both possible paths for patient data
+                            let patientData = null;
+                            
+                            // First try the doctors/patients path (used in some pages)
+                            const doctorPatientSnapshot = await db.ref(`doctors/${doctorId}/patients/${patientId}/profile`).once('value');
+                            patientData = doctorPatientSnapshot.val();
+                            
+                            // If not found, try the users path
+                            if (!patientData) {
+                                const patientDataSnapshot = await db.ref(`users/${patientId}`).once('value');
+                                patientData = patientDataSnapshot.val();
+                            }
+                            
                             if (patientData) {
                                 const patientName = patientData.name || patientData.email || 'Patient';
                                 const patientIndicator = document.getElementById('patient-indicator');
@@ -829,7 +853,7 @@
                             return;
                         }
                     }
-
+                    
                     // Set profile icon initials regardless of navigation source
                     if (userData && userData.name) {
                         const nameParts = userData.name.split(' ');
