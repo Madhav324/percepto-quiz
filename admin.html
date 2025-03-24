@@ -370,7 +370,7 @@
             apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
             authDomain: "projeccvi.firebaseapp.com",
             projectId: "projeccvi",
-            databaseURL: "https://projeccvi-default-rtdb.asia-southeast1.firebasedatabase.app",
+            databaseURL: "https://projeccvi-default-rtdb.firebaseio.com/",
             storageBucket: "projeccvi.appspot.com",
             messagingSenderId: "279067566247",
             appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
@@ -380,6 +380,16 @@
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.database();
+        
+        // Test Firebase connection
+        console.log("Testing Firebase connection...");
+        db.ref(".info/connected").on("value", function(snap) {
+            if (snap.val() === true) {
+                console.log("Connected to Firebase successfully");
+            } else {
+                console.error("Not connected to Firebase");
+            }
+        });
         
         // Admin credentials - in a production environment, these would be stored securely
         const ADMIN_USERNAME = "admin";
@@ -393,12 +403,27 @@
         
         // Admin login function
         function loginAdmin() {
+            console.log("Login attempt...");
             const username = document.getElementById('adminUsername').value;
             const password = document.getElementById('adminPassword').value;
             
             if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+                console.log("Admin login successful");
                 loginPanel.style.display = 'none';
                 adminDashboard.style.display = 'block';
+                
+                // Set admin initials
+                adminInitials.textContent = "AD";
+                
+                // Test direct database access
+                console.log("Testing direct Firebase access...");
+                db.ref('/').once('value')
+                    .then(snapshot => {
+                        console.log("Firebase root data:", snapshot.val());
+                    })
+                    .catch(error => {
+                        console.error("Error accessing Firebase:", error);
+                    });
                 
                 // Load dashboard data
                 loadDashboardData();
@@ -450,6 +475,7 @@
         // Load all dashboard data
         async function loadDashboardData() {
             try {
+                console.log("Loading dashboard data...");
                 // Initialize counters
                 let totalUsers = 0;
                 let doctorCount = 0;
@@ -458,7 +484,10 @@
                 
                 // Get doctor profiles and their patients
                 const doctorsSnapshot = await db.ref('doctors').once('value');
-                if (doctorsSnapshot.exists()) {
+                console.log("Doctors data:", doctorsSnapshot.val());
+                
+                // Check if we have doctors data (don't use exists() which can be unreliable)
+                if (doctorsSnapshot.val()) {
                     doctorsSnapshot.forEach(doctorSnapshot => {
                         doctorCount++;
                         totalUsers++;
@@ -487,7 +516,10 @@
                 
                 // Get regular users and their quiz results
                 const usersSnapshot = await db.ref('users').once('value');
-                if (usersSnapshot.exists()) {
+                console.log("Users data:", usersSnapshot.val());
+                
+                // Check if we have users data
+                if (usersSnapshot.val()) {
                     usersSnapshot.forEach(userSnapshot => {
                         totalUsers++;
                         
@@ -524,6 +556,7 @@
         // Load recent activity
         async function loadRecentActivity() {
             try {
+                console.log("Loading recent activity...");
                 const activityContainer = document.getElementById('recentActivityTable').getElementsByTagName('tbody')[0];
                 activityContainer.innerHTML = ''; // Clear existing content
                 
@@ -531,7 +564,9 @@
                 
                 // Get doctor patient quiz results (most recent first)
                 const doctorsSnapshot = await db.ref('doctors').once('value');
-                if (doctorsSnapshot.exists()) {
+                
+                // Check if we have doctors data
+                if (doctorsSnapshot.val()) {
                     doctorsSnapshot.forEach(doctorSnapshot => {
                         const doctorId = doctorSnapshot.key;
                         const doctorProfile = doctorSnapshot.child('profile').val() || {};
@@ -574,7 +609,9 @@
                 
                 // Get regular user quiz results
                 const usersSnapshot = await db.ref('users').once('value');
-                if (usersSnapshot.exists()) {
+                
+                // Check if we have users data
+                if (usersSnapshot.val()) {
                     usersSnapshot.forEach(userSnapshot => {
                         const userId = userSnapshot.key;
                         const userProfile = userSnapshot.child('profile').val() || {};
@@ -638,6 +675,7 @@
         // Load top quizzes
         async function loadTopQuizzes() {
             try {
+                console.log("Loading top quizzes...");
                 const topQuizzesContainer = document.getElementById('topQuizzesTable').getElementsByTagName('tbody')[0];
                 topQuizzesContainer.innerHTML = ''; // Clear existing content
                 
@@ -647,7 +685,9 @@
                 
                 // Process doctor patient quiz results
                 const doctorsSnapshot = await db.ref('doctors').once('value');
-                if (doctorsSnapshot.exists()) {
+                
+                // Check if we have doctors data
+                if (doctorsSnapshot.val()) {
                     doctorsSnapshot.forEach(doctorSnapshot => {
                         const doctorId = doctorSnapshot.key;
                         const doctorProfile = doctorSnapshot.child('profile').val() || {};
@@ -689,7 +729,9 @@
                 
                 // Process regular user quiz results
                 const usersSnapshot = await db.ref('users').once('value');
-                if (usersSnapshot.exists()) {
+                
+                // Check if we have users data
+                if (usersSnapshot.val()) {
                     usersSnapshot.forEach(userSnapshot => {
                         const userId = userSnapshot.key;
                         const userProfile = userSnapshot.child('profile').val() || {};
@@ -757,6 +799,7 @@
         // Load users data for the Users tab
         async function loadUsersData() {
             try {
+                console.log("Loading users data...");
                 const usersContainer = document.getElementById('usersTable').getElementsByTagName('tbody')[0];
                 usersContainer.innerHTML = ''; // Clear existing content
                 
@@ -764,7 +807,9 @@
                 
                 // Get doctors
                 const doctorsSnapshot = await db.ref('doctors').once('value');
-                if (doctorsSnapshot.exists()) {
+                
+                // Check if we have doctors data
+                if (doctorsSnapshot.val()) {
                     doctorsSnapshot.forEach(doctorSnapshot => {
                         const doctorId = doctorSnapshot.key;
                         const doctorProfile = doctorSnapshot.child('profile').val() || {};
@@ -827,7 +872,9 @@
                 
                 // Get regular users
                 const usersSnapshot = await db.ref('users').once('value');
-                if (usersSnapshot.exists()) {
+                
+                // Check if we have users data
+                if (usersSnapshot.val()) {
                     usersSnapshot.forEach(userSnapshot => {
                         const userId = userSnapshot.key;
                         const userProfile = userSnapshot.child('profile').val() || {};
@@ -884,6 +931,7 @@
         // Load quizzes data for the Quizzes tab
         async function loadQuizzesData() {
             try {
+                console.log("Loading quizzes data...");
                 const quizzesContainer = document.getElementById('quizzesTable').getElementsByTagName('tbody')[0];
                 quizzesContainer.innerHTML = ''; // Clear existing content
                 
@@ -891,7 +939,9 @@
                 
                 // Process doctor patient quiz results
                 const doctorsSnapshot = await db.ref('doctors').once('value');
-                if (doctorsSnapshot.exists()) {
+                
+                // Check if we have doctors data
+                if (doctorsSnapshot.val()) {
                     doctorsSnapshot.forEach(doctorSnapshot => {
                         const patientsObj = doctorSnapshot.child('patients').val();
                         if (patientsObj) {
@@ -938,7 +988,9 @@
                 
                 // Process regular user quiz results
                 const usersSnapshot = await db.ref('users').once('value');
-                if (usersSnapshot.exists()) {
+                
+                // Check if we have users data
+                if (usersSnapshot.val()) {
                     usersSnapshot.forEach(userSnapshot => {
                         const userId = userSnapshot.key;
                         const userQuizzes = userSnapshot.child('quiz').val();
@@ -1020,6 +1072,7 @@
         // Load doctor-patient relationships
         async function loadDoctorPatientData() {
             try {
+                console.log("Loading doctor-patient data...");
                 const relationshipsContainer = document.getElementById('doctorPatientTable').getElementsByTagName('tbody')[0];
                 relationshipsContainer.innerHTML = ''; // Clear existing content
                 
@@ -1027,7 +1080,9 @@
                 
                 // Get doctors and their patients
                 const doctorsSnapshot = await db.ref('doctors').once('value');
-                if (doctorsSnapshot.exists()) {
+                
+                // Check if we have doctors data
+                if (doctorsSnapshot.val()) {
                     doctorsSnapshot.forEach(doctorSnapshot => {
                         const doctorId = doctorSnapshot.key;
                         const doctorProfile = doctorSnapshot.child('profile').val() || {};
