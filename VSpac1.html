@@ -15,6 +15,7 @@
             overflow-y: auto;
             margin: 0;
             flex-direction: column;
+            touch-action: none; /* Prevent browser handling of touch events */
         }
 
         #quiz-container {
@@ -152,6 +153,7 @@
             border-radius: 8px;
             transition: transform 0.2s;
             background-color: white;
+            touch-action: none; /* Ensure touch works properly */
         }
 
         .draggable:hover {
@@ -477,33 +479,30 @@
         // Quiz questions data
         const levels = [
             {
-                instruction: "Drag the items to indicate which are above the line and which are below.",
-                backgroundImage: "images/SR/table.png",
-                objects: [
-                    { id: "obj1", image: "images/SR/gift1.png", correctPosition: "upper" },
-                    { id: "obj2", image: "images/SR/gift2.png", correctPosition: "lower" },
-                    { id: "obj3", image: "images/SR/gift3.png", correctPosition: "upper" },
-                    { id: "obj4", image: "images/SR/gift1.png", correctPosition: "lower" }
-                ]
-            },
-            {
-                instruction: "Place ALL shapes in the TOP HALF of the table.",
+                instruction: "Place these items in the TOP HALF of the table.",
                 backgroundImage: "images/SR/table.png",
                 objects: [
                     { id: "obj1", image: "images/SR/gift1.png", correctPosition: "upper" },
                     { id: "obj2", image: "images/SR/gift2.png", correctPosition: "upper" },
-                    { id: "obj3", image: "images/SR/gift3.png", correctPosition: "upper" },
-                    { id: "obj4", image: "images/SR/gift1.png", correctPosition: "upper" }
+                    { id: "obj3", image: "images/SR/gift3.png", correctPosition: "upper" }
                 ]
             },
             {
-                instruction: "Place ALL shapes in the BOTTOM HALF of the table.",
+                instruction: "Place these items in the BOTTOM HALF of the table.",
                 backgroundImage: "images/SR/table.png",
                 objects: [
                     { id: "obj1", image: "images/SR/gift1.png", correctPosition: "lower" },
                     { id: "obj2", image: "images/SR/gift2.png", correctPosition: "lower" },
-                    { id: "obj3", image: "images/SR/gift3.png", correctPosition: "lower" },
-                    { id: "obj4", image: "images/SR/gift2.png", correctPosition: "lower" }
+                    { id: "obj3", image: "images/SR/gift3.png", correctPosition: "lower" }
+                ]
+            },
+            {
+                instruction: "Place the first gift in the TOP HALF and the others in the BOTTOM HALF of the table.",
+                backgroundImage: "images/SR/table.png",
+                objects: [
+                    { id: "obj1", image: "images/SR/gift1.png", correctPosition: "upper" },
+                    { id: "obj2", image: "images/SR/gift2.png", correctPosition: "lower" },
+                    { id: "obj3", image: "images/SR/gift3.png", correctPosition: "lower" }
                 ]
             }
         ];
@@ -606,8 +605,13 @@
                 draggable.setAttribute('draggable', 'true');
                 optionsContainer.appendChild(draggable);
                 
-                // Add drag events
+                // Add drag events for desktop
                 draggable.addEventListener('dragstart', dragStart);
+                
+                // Add touch events for mobile
+                draggable.addEventListener('touchstart', touchStart, { passive: false });
+                draggable.addEventListener('touchmove', touchMove, { passive: false });
+                draggable.addEventListener('touchend', touchEnd, { passive: false });
             });
             
             // Add drop events to drop areas
@@ -622,16 +626,90 @@
             
             // Add interaction tracking
             document.addEventListener('mousedown', trackInteraction);
-            document.addEventListener('touchstart', trackInteraction);
+            document.addEventListener('touchstart', trackInteraction, { passive: true });
         }
         
-        // Drag and drop functions
+        // Drag and drop functions for desktop
         function dragStart(e) {
             e.dataTransfer.setData('text/plain', e.target.id);
         }
         
         function dragOver(e) {
             e.preventDefault();
+        }
+        
+        // Touch handlers for mobile devices
+        let touchDragging = null;
+        
+        function touchStart(e) {
+            e.preventDefault();
+            touchDragging = e.target;
+            touchDragging.style.opacity = '0.7';
+        }
+        
+        function touchMove(e) {
+            e.preventDefault();
+            if (!touchDragging) return;
+            
+            const touch = e.touches[0];
+            
+            // Move the element visually (create a ghost element if needed)
+            touchDragging.style.position = 'fixed';
+            touchDragging.style.left = touch.clientX - 30 + 'px'; // 30 is half the width
+            touchDragging.style.top = touch.clientY - 30 + 'px';  // 30 is half the height
+            touchDragging.style.zIndex = '1000';
+        }
+        
+        function touchEnd(e) {
+            e.preventDefault();
+            if (!touchDragging) return;
+            
+            const touch = e.changedTouches[0];
+            touchDragging.style.opacity = '1';
+            
+            // Determine which area the touch ended in
+            const upperRect = upperArea.getBoundingClientRect();
+            const lowerRect = lowerArea.getBoundingClientRect();
+            
+            let dropArea = null;
+            
+            if (touch.clientY >= upperRect.top && touch.clientY <= upperRect.bottom && 
+                touch.clientX >= upperRect.left && touch.clientX <= upperRect.right) {
+                dropArea = upperArea;
+            } else if (touch.clientY >= lowerRect.top && touch.clientY <= lowerRect.bottom && 
+                touch.clientX >= lowerRect.left && touch.clientX <= lowerRect.right) {
+                dropArea = lowerArea;
+            }
+            
+            if (dropArea) {
+                // Create a placed version of the image
+                const placedImage = document.createElement('img');
+                placedImage.src = touchDragging.src;
+                placedImage.className = 'placed-image';
+                placedImage.id = `placed-${touchDragging.id}`;
+                placedImage.setAttribute('data-id', touchDragging.id);
+                
+                // Reset the draggable element
+                touchDragging.style.position = '';
+                touchDragging.style.left = '';
+                touchDragging.style.top = '';
+                touchDragging.style.zIndex = '';
+                touchDragging.style.visibility = 'hidden';
+                
+                // Add to the appropriate drop area
+                dropArea.appendChild(placedImage);
+                
+                // Arrange the placed elements
+                rearrangeImages(dropArea);
+            } else {
+                // Reset the draggable element to its original position
+                touchDragging.style.position = '';
+                touchDragging.style.left = '';
+                touchDragging.style.top = '';
+                touchDragging.style.zIndex = '';
+            }
+            
+            touchDragging = null;
         }
         
         function drop(e) {
@@ -648,25 +726,37 @@
             placedImage.id = `placed-${id}`;
             placedImage.setAttribute('data-id', id);
             
-            // Position relative to the drop area
-            const rect = e.target.getBoundingClientRect();
-            const x = e.clientX - rect.left - 30; // Center the image (half of width)
-            const y = e.clientY - rect.top - 30;  // Center the image (half of height)
-            
-            placedImage.style.left = `${x}px`;
-            placedImage.style.top = `${y}px`;
-            
-            // Remove any existing placed image for this object
-            const existingPlaced = document.querySelector(`[data-id="${id}"]`);
-            if (existingPlaced) {
-                existingPlaced.parentNode.removeChild(existingPlaced);
-            }
-            
             // Add to the appropriate drop area
             e.target.appendChild(placedImage);
             
             // Hide the original draggable
             draggable.style.visibility = 'hidden';
+            
+            // Arrange the placed elements
+            rearrangeImages(e.target);
+        }
+        
+        // Function to rearrange images in a drop area
+        function rearrangeImages(dropArea) {
+            const placedImgs = Array.from(dropArea.querySelectorAll('.placed-image'));
+            const imageWidth = 60;
+            const gap = 10;
+            const totalWidth = placedImgs.length * (imageWidth + gap) - gap;
+            const startX = (dropArea.offsetWidth - totalWidth) / 2;
+            
+            // Position Y depending on whether it's upper or lower area
+            let y;
+            if (dropArea.id === 'upper-area') {
+                y = dropArea.offsetHeight * 0.25 - (imageWidth / 2); // 25% from the top
+            } else {
+                y = dropArea.offsetHeight * 0.75 - (imageWidth / 2); // 75% from the top (25% from bottom)
+            }
+            
+            placedImgs.forEach((img, index) => {
+                const x = startX + index * (imageWidth + gap);
+                img.style.left = `${x}px`;
+                img.style.top = `${y}px`;
+            });
         }
         
         // Track interactions (mouse/touch)
@@ -681,13 +771,14 @@
         checkBtn.addEventListener('click', () => {
             const level = levels[currentLevel];
             let allCorrect = true;
+            let allPlaced = true;
             
             level.objects.forEach(obj => {
                 const draggable = document.getElementById(obj.id);
                 const placedImage = document.querySelector(`[data-id="${obj.id}"]`);
                 
                 if (!placedImage) {
-                    allCorrect = false;
+                    allPlaced = false;
                     return;
                 }
                 
@@ -699,6 +790,11 @@
                 }
             });
             
+            if (!allPlaced) {
+                alert('Please place all items before checking!');
+                return;
+            }
+            
             if (allCorrect) {
                 score++;
                 alert('Correct placement! Move to the next level.');
@@ -707,6 +803,15 @@
             } else {
                 incorrectAnswers++;
                 alert('Some items are not in the correct position. Try again.');
+                
+                // Clear placements and reset for retry
+                level.objects.forEach(obj => {
+                    const draggable = document.getElementById(obj.id);
+                    draggable.style.visibility = 'visible';
+                });
+                
+                upperArea.innerHTML = '';
+                lowerArea.innerHTML = '';
             }
         });
         
