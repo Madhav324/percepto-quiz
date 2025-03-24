@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Spatial Awareness Exercise - Level 2</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -31,10 +35,11 @@
 
         .header {
             display: flex;
-            justify-content: space-between;
             align-items: center;
+            justify-content: space-between;
+            gap: 20px;
             padding: 10px 15px;
-            background-color: #3498db;
+            background-color: #2196F3;
             color: white;
             border-radius: 8px 8px 0 0;
             margin: -20px -20px 15px -20px;
@@ -44,13 +49,18 @@
             width: 35px;
             height: 35px;
             border-radius: 50%;
-            background-color: #2980b9;
+            background-color: #1976D2;
+            color: white;
             display: flex;
             justify-content: center;
             align-items: center;
-            color: white;
             font-weight: bold;
             cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .profile-icon:hover {
+            background-color: #1565C0;
         }
 
         .user-name {
@@ -73,6 +83,7 @@
 
         .quiz-area {
             padding: 20px;
+            position: relative;
         }
 
         .instruction-container {
@@ -83,56 +94,113 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            position: relative;
+            height: 400px;
+            width: 400px;
+            margin: 0 auto;
+            max-width: 95vw;
+            max-height: 95vw;
         }
 
         .drop-areas {
             display: flex;
             flex-direction: column;
             align-items: center;
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        .plate-image {
+            width: 60px;
+            height: 45px;
+            position: absolute;
+            z-index: 1;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        #plate-top {
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        #plate-bottom {
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        #plate-left {
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        #plate-right {
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .drop-area {
+            position: absolute;
+            border: 2px dashed #4CAF50;
+            background-color: rgba(76, 175, 80, 0.1);
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 16px;
+            font-weight: bold;
+            color: #4CAF50;
+            z-index: 2;
         }
 
         .top-area {
-            width: 200px;
-            height: 100px;
-            margin-bottom: 20px;
-            border: 2px solid #4CAF50;
-            border-radius: 8px;
-            background-color: #f9f9f9;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 24px;
-            font-weight: bold;
+            width: 100px;
+            height: 70px;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
         }
 
-        .middle-row {
-            display: flex;
-            justify-content: space-around;
-            width: 100%;
+        .bottom-area {
+            width: 100px;
+            height: 70px;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
         }
 
         .left-area {
-            width: 100px;
-            height: 200px;
-            border: 2px solid #4CAF50;
-            border-radius: 8px;
-            background-color: #f9f9f9;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 24px;
-            font-weight: bold;
+            width: 70px;
+            height: 100px;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .right-area {
+            width: 70px;
+            height: 100px;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
         }
 
         .center-area {
-            width: 200px;
-            height: 200px;
-            border: 2px solid #4CAF50;
-            border-radius: 8px;
-            background-color: #f9f9f9;
+            width: 100px;
+            height: 100px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             display: flex;
             justify-content: center;
             align-items: center;
+            z-index: 3;
         }
 
         .center-image {
@@ -140,31 +208,21 @@
             height: 80px;
         }
 
-        .right-area {
-            width: 100px;
-            height: 200px;
+        .drop-area.highlight {
+            background-color: rgba(76, 175, 80, 0.3);
             border: 2px solid #4CAF50;
-            border-radius: 8px;
-            background-color: #f9f9f9;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 24px;
-            font-weight: bold;
         }
 
-        .bottom-area {
-            width: 200px;
-            height: 100px;
-            margin-top: 20px;
-            border: 2px solid #4CAF50;
-            border-radius: 8px;
-            background-color: #f9f9f9;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 24px;
-            font-weight: bold;
+        .placed-image {
+            width: 40px;
+            height: 40px;
+            margin: 5px;
+            transition: transform 0.3s;
+            z-index: 4;
+        }
+
+        .placed-image:hover {
+            transform: scale(1.1);
         }
 
         .options-container {
@@ -174,19 +232,17 @@
             justify-content: center;
             margin-top: 20px;
             padding: 10px;
-            background-color: #f8f8f8;
+            background-color: #f1f8e9;
             border-radius: 8px;
         }
 
         .draggable {
-            width: 60px;
-            height: 60px;
-            cursor: move;
-            border: 2px solid #ccc;
-            border-radius: 8px;
-            transition: transform 0.2s;
-            background-color: white;
-            touch-action: none; /* Ensure touch works properly */
+            width: 50px;
+            height: 50px;
+            cursor: grab;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: transform 0.3s ease;
         }
 
         .draggable:hover {
@@ -199,13 +255,13 @@
 
         button {
             padding: 10px 20px;
-            margin: 10px;
-            border: none;
+            margin: 5px;
             background-color: #4CAF50;
             color: white;
-            font-size: 16px;
-            cursor: pointer;
+            border: none;
             border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
             transition: background-color 0.3s;
         }
 
@@ -213,14 +269,62 @@
             background-color: #45a049;
         }
 
+        .check-btn {
+            background-color: #2196F3;
+        }
+
+        .check-btn:hover {
+            background-color: #1976D2;
+        }
+
+        .next-btn {
+            background-color: #4CAF50;
+        }
+
+        .next-btn:hover {
+            background-color: #388E3C;
+        }
+
+        .retry-btn {
+            background-color: #FF9800;
+        }
+
+        .retry-btn:hover {
+            background-color: #F57C00;
+        }
+
+        .home-btn {
+            background-color: #9C27B0;
+        }
+
+        .home-btn:hover {
+            background-color: #7B1FA2;
+        }
+
+        .view-report-btn, .clear-btn {
+            background-color: #607D8B;
+        }
+
+        .view-report-btn:hover, .clear-btn:hover {
+            background-color: #455A64;
+        }
+
+        .close-btn {
+            background-color: #F44336;
+        }
+
+        .close-btn:hover {
+            background-color: #D32F2F;
+        }
+
         .result-container {
             margin-top: 20px;
             text-align: center;
             padding: 20px;
-            background-color: #f1f8e9;
+            background-color: #e8f5e9;
             border-radius: 8px;
-            border-left: 5px solid #4CAF50;
-            width: 100%;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 90%;
             box-sizing: border-box;
         }
 
@@ -234,12 +338,37 @@
             background-color: #fff;
             border-radius: 8px;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            width: 100%;
+            width: 90%;
             box-sizing: border-box;
+            max-width: 600px;
         }
 
         .report-list {
             text-align: left;
+        }
+
+        .report-item {
+            margin-bottom: 10px;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .report-item:hover {
+            background-color: #e0e0e0;
+        }
+
+        .report-details {
+            display: none;
+            padding: 10px;
+            background-color: #eeeeee;
+            border-radius: 5px;
+            margin-top: 5px;
+        }
+
+        .expanded .report-details {
+            display: block;
         }
 
         .report-buttons {
@@ -254,11 +383,12 @@
 
         .loading-indicator .spinner {
             border: 8px solid rgba(0, 0, 0, 0.1);
-            border-top: 8px solid #3498db;
+            border-top: 8px solid #2196F3;
             border-radius: 50%;
             width: 60px;
             height: 60px;
             animation: spin 2s linear infinite;
+            margin: 0 auto;
         }
 
         @keyframes spin {
@@ -269,6 +399,26 @@
                 transform: rotate(360deg);
             }
         }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .stat-item {
+            background-color: #e3f2fd;
+            padding: 8px;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .quiz-type {
+            color: #1976D2;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
@@ -277,249 +427,364 @@
             <h1>Spatial Awareness Exercise - Level 2</h1>
             <div class="profile-icon" id="profileIcon" title="Back to Home" onclick="window.location.href='index.html'"></div>
         </div>
-        <div id="patient-indicator" class="patient-indicator" style="display: none;">
-            <i class="fas fa-user-md"></i> Doctor View: Patient Quiz
-        </div>
-        <div id="user-name" class="user-name"></div>
 
         <div class="quiz-area">
             <div class="instruction-container">
-                <h3 id="instruction">Drag and drop objects to the specified area.</h3>
-                <p id="quiz-type" class="quiz-type">Question Type: PLACEMENT</p>
+                <p id="question-instruction">Place the fruits on plates as directed by the arrow.</p>
             </div>
             
             <div class="game-board">
                 <div class="drop-areas">
-                    <div id="top-area" class="drop-area top-area">TOP</div>
-                    <div class="middle-row">
-                        <div id="left-area" class="drop-area left-area">LEFT</div>
-                        <div class="center-area">
-                            <img id="center-image" src="" alt="Center Image" class="center-image">
-                        </div>
-                        <div id="right-area" class="drop-area right-area">RIGHT</div>
+                    <img id="plate-top" class="plate-image" src="images/SR/plate.png" alt="Plate">
+                    <img id="plate-bottom" class="plate-image" src="images/SR/plate.png" alt="Plate">
+                    <img id="plate-left" class="plate-image" src="images/SR/plate.png" alt="Plate">
+                    <img id="plate-right" class="plate-image" src="images/SR/plate.png" alt="Plate">
+                    <div id="top-area" class="drop-area top-area" ondrop="drop(event)" ondragover="dragOver(event)"></div>
+                    <div id="left-area" class="drop-area left-area" ondrop="drop(event)" ondragover="dragOver(event)"></div>
+                    <div class="center-area">
+                        <img id="center-image" class="center-image" src="" alt="Direction">
                     </div>
-                    <div id="bottom-area" class="drop-area bottom-area">BOTTOM</div>
+                    <div id="right-area" class="drop-area right-area" ondrop="drop(event)" ondragover="dragOver(event)"></div>
+                    <div id="bottom-area" class="drop-area bottom-area" ondrop="drop(event)" ondragover="dragOver(event)"></div>
                 </div>
-                
-                <div id="options-container" class="options-container"></div>
             </div>
-            
-            <div class="button-container">
-                <button id="check-btn" class="btn check-btn">Check Answer</button>
-                <button id="next-btn" class="btn next-btn" style="display: none;">Next Question</button>
-            </div>
-        </div>
-        
-        <div id="result-container" class="result-container" style="display: none;">
-            <h2>Quiz Results</h2>
-            <p id="score-display">Score: 0/0</p>
-            <p id="time-display">Total Time: 0 seconds</p>
-            <p id="accuracy-display">Accuracy: 0%</p>
-            <p id="interaction-display">Interactions: 0</p>
-            <div class="result-buttons">
-                <button id="retry-btn" class="btn retry-btn">Try Again</button>
-                <button id="home-btn" class="btn home-btn">Home</button>
-                <button id="view-report-btn" class="btn view-report-btn">View Report</button>
-            </div>
-        </div>
-    </div>
-    
-    <div id="report-container" class="report-container" style="display: none;">
-        <div id="report-list" class="report-list">
-            <h3>Previous Attempts</h3>
-        </div>
-        <div class="report-buttons">
-            <button id="clear-report-btn" class="btn clear-btn">Clear Report</button>
-            <button id="close-report-btn" class="btn close-btn">Close</button>
-        </div>
-    </div>
-    
-    <div id="loading-indicator" class="loading-indicator" style="display: none;">
-        <div class="spinner"></div>
-        <p>Loading...</p>
-    </div>
 
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+            <div class="options-container" id="options-container">
+                <!-- Draggable images will be inserted here -->
+            </div>
+
+            <div class="button-container">
+                <button id="check-btn" class="check-btn">Check Answer</button>
+                <button id="next-btn" class="next-btn" style="display: none;">Next Question</button>
+            </div>
+        </div>
+
+        <div class="result-container" id="result-container" style="display: none;">
+            <h2>Quiz Results</h2>
+            <div class="stat-grid">
+                <div class="stat-item">
+                    <div>Score:</div>
+                    <div id="final-score">0/0</div>
+                </div>
+                <div class="stat-item">
+                    <div>Total Time:</div>
+                    <div id="total-time">0s</div>
+                </div>
+                <div class="stat-item">
+                    <div>Accuracy:</div>
+                    <div id="accuracy">0%</div>
+                </div>
+                <div class="stat-item">
+                    <div>Interactions:</div>
+                    <div id="interactions">0</div>
+                </div>
+            </div>
+            <div class="result-buttons">
+                <button id="retry-btn" class="retry-btn">Try Again</button>
+                <button id="home-btn" class="home-btn">Home</button>
+                <button id="report-btn" class="view-report-btn">View Report</button>
+            </div>
+        </div>
+
+        <div class="report-container" id="report-container" style="display: none;">
+            <h2>Previous Attempts</h2>
+            <div class="loading-indicator" id="loading-indicator">
+                <div class="spinner"></div>
+                <p>Loading reports...</p>
+            </div>
+            <div class="report-list" id="report-list"></div>
+            <div class="report-buttons">
+                <button id="close-report-btn" class="close-btn">Close</button>
+                <button id="clear-report-btn" class="clear-btn">Clear All</button>
+            </div>
+        </div>
+    </div>
 
     <script>
         // Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
-            authDomain: "percepto-quiz.firebaseapp.com",
-            projectId: "percepto-quiz",
-            storageBucket: "percepto-quiz.appspot.com",
-            messagingSenderId: "65602240186",
-            appId: "1:65602240186:web:4a3dd5258f6baf61c9d8fb"
+            authDomain: "projeccvi.firebaseapp.com",
+            databaseURL: "https://projeccvi.firebaseio.com",
+            projectId: "projeccvi",
+            storageBucket: "projeccvi.appspot.com",
+            messagingSenderId: "934362985490",
+            appId: "1:934362985490:web:9d4e7a1e1bf59ddab7f9bf"
         };
         
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
-        const database = firebase.database();
-        
-        // DOM Elements
-        const quizContainer = document.getElementById('quiz-container');
-        const quizType = document.getElementById('quiz-type');
+        const db = firebase.database();
+
+        // DOM elements
+        const questionInstruction = document.getElementById('question-instruction');
         const centerImage = document.getElementById('center-image');
-        const instructionText = document.getElementById('instruction');
         const optionsContainer = document.getElementById('options-container');
-        const leftArea = document.getElementById('left-area');
-        const rightArea = document.getElementById('right-area');
-        const topArea = document.getElementById('top-area');
-        const bottomArea = document.getElementById('bottom-area');
+        const resultContainer = document.getElementById('result-container');
         const checkBtn = document.getElementById('check-btn');
         const nextBtn = document.getElementById('next-btn');
-        const resultContainer = document.getElementById('result-container');
-        const scoreDisplay = document.getElementById('score-display');
-        const timeDisplay = document.getElementById('time-display');
-        const accuracyDisplay = document.getElementById('accuracy-display');
-        const interactionDisplay = document.getElementById('interaction-display');
         const retryBtn = document.getElementById('retry-btn');
         const homeBtn = document.getElementById('home-btn');
-        const viewReportBtn = document.getElementById('view-report-btn');
+        const reportBtn = document.getElementById('report-btn');
+        const closeReportBtn = document.getElementById('close-report-btn');
+        const clearReportBtn = document.getElementById('clear-report-btn');
         const reportContainer = document.getElementById('report-container');
         const reportList = document.getElementById('report-list');
         const loadingIndicator = document.getElementById('loading-indicator');
         const profileIcon = document.getElementById('profileIcon');
-        const userName = document.getElementById('user-name');
-        const patientIndicator = document.getElementById('patient-indicator');
-        
-        // Variables to track quiz state
-        let currentQuestionType = null;
+
+        // Quiz state variables
+        let currentQuestion = 0;
         let score = 0;
-        let totalQuestions = 5;
-        let questionsAnswered = 0;
-        let startTime = 0;
-        let totalStartTime = 0;
-        let incorrectAnswers = 0;
+        let startTime = null;
+        let firstInteractionTime = null;
+        let endTime = null;
         let interactionCount = 0;
+        let correctAnswers = 0;
+        let incorrectAnswers = 0;
         let placedObjects = {};
+        let isDoctor = false;
+        let patientId = null;
+        let isDoctorViewingPatient = false;
+        let userId = null;
         
-        // Check if we're in patient mode (coming from doctor's dashboard)
-        const urlParams = new URLSearchParams(window.location.search);
-        const currentPatientId = urlParams.get('patientId');
-        const doctorId = urlParams.get('doctorId');
-        
-        if (currentPatientId && doctorId) {
-            patientIndicator.style.display = 'inline-block';
-        }
-        
-        // Quiz questions data
+        // Question types with fruit images and directional targets
         const questionTypes = {
             left: {
                 type: "LEFT",
                 questionImage: "images/SR/left.png",
-                options: ["images/SR/apple.png", "images/SR/orange.png", "images/SR/straw.png"],
-                instruction: "Place ALL objects to the LEFT of the arrow.",
-                correctArea: "left"
+                instruction: "Place fruits on the plate to the LEFT of the arrow",
+                correctArea: "left",
+                options: [
+                    "images/SR/apple.png",
+                    "images/SR/orange.png",
+                    "images/SR/straw.png",
+                    "images/SR/gift1.png"
+                ]
             },
             right: {
                 type: "RIGHT",
                 questionImage: "images/SR/right.png",
-                options: ["images/SR/apple.png", "images/SR/orange.png", "images/SR/straw.png"],
-                instruction: "Place ALL objects to the RIGHT of the arrow.",
-                correctArea: "right"
+                instruction: "Place fruits on the plate to the RIGHT of the arrow",
+                correctArea: "right",
+                options: [
+                    "images/SR/apple.png",
+                    "images/SR/orange.png",
+                    "images/SR/straw.png",
+                    "images/SR/gift2.png"
+                ]
             },
             top: {
                 type: "TOP",
                 questionImage: "images/SR/up.png",
-                options: ["images/SR/apple.png", "images/SR/orange.png", "images/SR/straw.png"],
-                instruction: "Place ALL objects ABOVE the arrow.",
-                correctArea: "top"
+                instruction: "Place fruits on the plate ABOVE the arrow",
+                correctArea: "top",
+                options: [
+                    "images/SR/apple.png",
+                    "images/SR/orange.png",
+                    "images/SR/straw.png",
+                    "images/SR/gift3.png"
+                ]
             },
             bottom: {
                 type: "BOTTOM",
                 questionImage: "images/SR/down.png",
-                options: ["images/SR/apple.png", "images/SR/orange.png", "images/SR/straw.png"],
-                instruction: "Place ALL objects BELOW the arrow.",
-                correctArea: "bottom"
+                instruction: "Place fruits on the plate BELOW the arrow",
+                correctArea: "bottom",
+                options: [
+                    "images/SR/apple.png",
+                    "images/SR/orange.png",
+                    "images/SR/straw.png",
+                    "images/SR/gift1.png"
+                ]
             }
         };
+        
+        // Generate random question sequence
+        const questionSequence = [];
+        const possibleTypes = Object.keys(questionTypes);
+        for (let i = 0; i < 10; i++) {
+            const randomType = possibleTypes[Math.floor(Math.random() * possibleTypes.length)];
+            questionSequence.push(randomType);
+        }
 
-        // Initialize quiz
+        // Auth state change listener
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                userId = user.uid;
+                console.log('User authenticated in VSpac2:', userId);
+                
+                try {
+                    // Check if user is a doctor
+                    const userSnapshot = await db.ref(`users/${userId}`).once('value');
+                    const userData = userSnapshot.val();
+                    
+                    if (userData && userData.role === 'doctor') {
+                        isDoctor = true;
+                        // Check if there's a patientId in the query parameters
+                        const urlParams = new URLSearchParams(window.location.search);
+                        patientId = urlParams.get('patientId');
+                        
+                        if (patientId) {
+                            isDoctorViewingPatient = true;
+                            // Update profile to show viewing patient
+                            const patientDataSnapshot = await db.ref(`users/${patientId}`).once('value');
+                            const patientData = patientDataSnapshot.val();
+                            
+                            if (patientData) {
+                                const patientName = patientData.name || patientData.email || 'Patient';
+                                const patientIndicator = document.createElement('div');
+                                patientIndicator.className = 'patient-indicator';
+                                patientIndicator.innerText = `Viewing: ${patientName}`;
+                                patientIndicator.style.display = 'inline-block';
+                                profileIcon.parentNode.insertBefore(patientIndicator, profileIcon.nextSibling);
+                            }
+                        } else {
+                            // Redirect to index.html if doctor doesn't have a patientId
+                            window.location.href = 'index.html';
+                            return;
+                        }
+                    }
+                    
+                    // Set profile icon initials
+                    if (userData && userData.name) {
+                        const nameParts = userData.name.split(' ');
+                        let initials = '';
+                        if (nameParts.length >= 2) {
+                            initials = nameParts[0].charAt(0) + nameParts[1].charAt(0);
+                        } else {
+                            initials = userData.name.substring(0, 2);
+                        }
+                        profileIcon.textContent = initials.toUpperCase();
+                    } else if (user.email) {
+                        profileIcon.textContent = user.email.substring(0, 2).toUpperCase();
+                    } else {
+                        profileIcon.textContent = 'U';
+                    }
+                    
+                    // Initialize the quiz after fetching user info
+                    initializeQuiz();
+                    
+                } catch (error) {
+                    console.error('Error fetching user data:', error);
+                    profileIcon.textContent = 'U';
+                    initializeQuiz();
+                }
+            } else {
+                // Redirect to login page if not authenticated
+                window.location.href = 'index.html?redirect=VSpac2.html';
+            }
+        });
+
+        // Quiz initialization
         function initializeQuiz() {
-            // Clear previous placements
+            currentQuestion = 0;
+            score = 0;
+            interactionCount = 0;
+            startTime = new Date();
+            firstInteractionTime = null;
+            correctAnswers = 0;
+            incorrectAnswers = 0;
+            
+            loadQuestion();
+        }
+        
+        // Load current question
+        function loadQuestion() {
             placedObjects = {};
+            const questionType = questionSequence[currentQuestion];
+            const question = questionTypes[questionType];
+            
+            // Set instruction and center image
+            questionInstruction.textContent = question.instruction;
+            centerImage.src = question.questionImage;
             
             // Clear drop areas
-            document.querySelectorAll('.drop-area').forEach(area => {
-                while (area.firstChild) {
-                    if (area.firstChild.classList && area.firstChild.classList.contains('placed-image')) {
-                        area.removeChild(area.firstChild);
-                    } else {
-                        break;
-                    }
-                }
+            clearDropAreas();
+            
+            // Load draggable options
+            loadOptions(question.options);
+            
+            // Update progress
+            const progress = `Question ${currentQuestion + 1}/${questionSequence.length}`;
+            document.querySelector('.instruction-container').innerHTML = 
+                `<p>${progress}</p><p id="question-instruction">${question.instruction}</p>`;
+            
+            // Show check button, hide next button
+            checkBtn.style.display = 'inline-block';
+            nextBtn.style.display = 'none';
+        }
+        
+        // Clear all drop areas
+        function clearDropAreas() {
+            const areas = ['top-area', 'left-area', 'right-area', 'bottom-area'];
+            areas.forEach(area => {
+                const areaElement = document.getElementById(area);
+                areaElement.innerHTML = '';
             });
-            
-            // Select random question type
-            currentQuestionType = Object.keys(questionTypes)[Math.floor(Math.random() * Object.keys(questionTypes).length)];
-            const currentQuestion = questionTypes[currentQuestionType];
-            
-            // Update UI with current question
-            centerImage.src = currentQuestion.questionImage;
-            instructionText.textContent = currentQuestion.instruction;
-            quizType.textContent = `Question Type: ${currentQuestion.type} PLACEMENT`;
-            
-            // Clear and populate options container
+        }
+        
+        // Load draggable options
+        function loadOptions(options) {
             optionsContainer.innerHTML = '';
-            currentQuestion.options.forEach(option => {
+            
+            options.forEach(option => {
                 const img = document.createElement('img');
                 img.src = option;
-                img.alt = 'Draggable Object';
+                img.alt = "Fruit";
                 img.className = 'draggable';
                 img.draggable = true;
+                
                 optionsContainer.appendChild(img);
             });
-            
-            // Reset drag/drop areas
-            setupDropAreas();
         }
 
-        // Setup drop areas
-        function setupDropAreas() {
-            const dropAreas = document.querySelectorAll('.drop-area');
+        // Drag and drop functions
+        function dragOver(e) {
+            e.preventDefault();
+            e.target.classList.add('highlight');
+        }
+
+        function drop(e) {
+            e.preventDefault();
+            e.target.classList.remove('highlight');
             
-            dropAreas.forEach(area => {
-                area.addEventListener('dragover', (e) => {
-                    e.preventDefault();
-                    area.classList.add('highlight');
-                });
-                
-                area.addEventListener('dragleave', () => {
-                    area.classList.remove('highlight');
-                });
-                
-                area.addEventListener('drop', (e) => {
-                    e.preventDefault();
-                    area.classList.remove('highlight');
-                    const imgSrc = e.dataTransfer.getData('text/plain');
+            const imgSrc = e.dataTransfer.getData('text/plain');
+            if (imgSrc) {
+                // Find the drop area
+                const area = e.target.closest('.drop-area');
+                if (area) {
+                    const areaId = area.id;
+                    let areaName = '';
                     
-                    if (imgSrc) {
-                        const newImg = document.createElement('img');
-                        newImg.src = imgSrc;
-                        newImg.className = 'placed-image';
-                        newImg.style.width = '50px';
-                        newImg.style.height = '50px';
-                        area.appendChild(newImg);
-                        
-                        // Store the placement
-                        placedObjects[imgSrc] = area.id.replace('-area', '');
-                        
-                        // Remove the original draggable
-                        document.querySelectorAll('.draggable').forEach(draggable => {
-                            if (draggable.src === imgSrc) {
-                                draggable.remove();
-                            }
-                        });
-                    }
-                });
-            });
+                    if (areaId.includes('top')) areaName = 'top';
+                    else if (areaId.includes('left')) areaName = 'left';
+                    else if (areaId.includes('right')) areaName = 'right';
+                    else if (areaId.includes('bottom')) areaName = 'bottom';
+                    
+                    // Create a new image in the drop area
+                    const newImg = document.createElement('img');
+                    newImg.src = imgSrc;
+                    newImg.className = 'placed-image';
+                    newImg.style.width = '40px';
+                    newImg.style.height = '40px';
+                    area.appendChild(newImg);
+                    
+                    // Store the placement
+                    placedObjects[imgSrc] = areaName;
+                    
+                    // Remove the original draggable
+                    const draggables = document.querySelectorAll('.draggable');
+                    draggables.forEach(draggable => {
+                        if (draggable.src === imgSrc) {
+                            draggable.remove();
+                        }
+                    });
+                }
+            }
         }
-
+        
         // Mobile touch event handling
         function initializeTouchEvents() {
             let touchDragging = null;
@@ -549,6 +814,11 @@
                 touchOffset.x = touch.clientX - rect.left;
                 touchOffset.y = touch.clientY - rect.top;
                 
+                // Track first interaction time
+                if (firstInteractionTime === null) {
+                    firstInteractionTime = new Date();
+                }
+                
                 interactionCount++;
             }
 
@@ -574,9 +844,9 @@
                 
                 // Determine which area the touch ended in
                 const areas = [
-                    { id: 'left-area', name: 'left' },
-                    { id: 'right-area', name: 'right' },
                     { id: 'top-area', name: 'top' },
+                    { id: 'right-area', name: 'right' },
+                    { id: 'left-area', name: 'left' },
                     { id: 'bottom-area', name: 'bottom' }
                 ];
                 
@@ -598,14 +868,14 @@
                     const newImage = document.createElement('img');
                     newImage.src = touchDragging.src;
                     newImage.className = 'placed-image';
-                    newImage.style.width = '50px';
-                    newImage.style.height = '50px';
+                    newImage.style.width = '40px';
+                    newImage.style.height = '40px';
                     dropArea.appendChild(newImage);
                     
                     // Store the placement
                     placedObjects[touchDragging.src] = areaName;
                     
-                    // Remove the original
+                    // Remove the original draggable
                     touchDragging.remove();
                 } else {
                     // Reset the draggable element to its original position
@@ -623,6 +893,12 @@
 
         function dragStart(e) {
             e.dataTransfer.setData('text/plain', e.target.src);
+            
+            // Track first interaction time
+            if (firstInteractionTime === null) {
+                firstInteractionTime = new Date();
+            }
+            
             interactionCount++;
         }
 
@@ -632,56 +908,53 @@
 
         // Check answer
         function checkAnswer() {
-            const currentQuestion = questionTypes[currentQuestionType];
+            const questionType = questionSequence[currentQuestion];
+            const question = questionTypes[questionType];
+            const correctArea = question.correctArea;
+            
             let isCorrect = true;
+            let placedCount = 0;
             
-            // Check if all objects are placed in correct area
-            Object.values(placedObjects).forEach(area => {
-                if (area !== currentQuestion.correctArea) {
+            // Check each placed object
+            for (const [imgSrc, area] of Object.entries(placedObjects)) {
+                placedCount++;
+                if (area !== correctArea) {
                     isCorrect = false;
+                    break;
                 }
-            });
+            }
             
-            // Check if all objects were placed
-            if (Object.keys(placedObjects).length !== currentQuestion.options.length) {
+            // Only correct if there's at least one placement and all are correct
+            if (placedCount === 0) {
                 isCorrect = false;
             }
             
+            // Update score and feedback
             if (isCorrect) {
                 score++;
-                alert('Correct!');
+                correctAnswers++;
+                alert("Correct! All fruits are in the right place.");
             } else {
                 incorrectAnswers++;
-                alert('Incorrect. Try again on the next question.');
+                alert("Not quite right. Try to place all fruits on the plate in the direction indicated by the arrow.");
             }
             
-            // Show next button
-            checkBtn.style.display = 'none';
-            nextBtn.style.display = 'inline-block';
+            // Show next button if there are more questions, otherwise show results
+            if (currentQuestion < questionSequence.length - 1) {
+                checkBtn.style.display = 'none';
+                nextBtn.style.display = 'inline-block';
+            } else {
+                endTime = new Date();
+                showResults();
+            }
         }
         
-        // Close report button
-        document.getElementById('close-report-btn').addEventListener('click', () => {
-            reportContainer.style.display = 'none';
-        });
-        
-        // Clear report button
-        document.getElementById('clear-report-btn').addEventListener('click', clearReport);
-        
-        // Initialize quiz and setup drop areas
-        totalStartTime = Date.now();
-        initializeQuiz();
-        setupDropAreas();
-
-        // Add event listeners
-        checkBtn.addEventListener('click', checkAnswer);
-        nextBtn.addEventListener('click', () => {
-            questionsAnswered++;
-            if (questionsAnswered < totalQuestions) {
-                // Load next question
-                initializeQuiz();
-                nextBtn.style.display = 'none';
-                checkBtn.style.display = 'inline-block';
+        // Move to next question
+        function nextQuestion() {
+            currentQuestion++;
+            
+            if (currentQuestion < questionSequence.length) {
+                loadQuestion();
                 
                 // Reinitialize touch events for new draggable elements
                 const touchEvents = initializeTouchEvents();
@@ -690,15 +963,13 @@
                 // Show results
                 showResults();
             }
-        });
+        }
+        
+        // Event listeners
+        checkBtn.addEventListener('click', checkAnswer);
+        nextBtn.addEventListener('click', nextQuestion);
         
         retryBtn.addEventListener('click', () => {
-            score = 0;
-            questionsAnswered = 0;
-            incorrectAnswers = 0;
-            interactionCount = 0;
-            totalStartTime = Date.now();
-            placedObjects = {};
             resultContainer.style.display = 'none';
             initializeQuiz();
             const touchEvents = initializeTouchEvents();
@@ -709,212 +980,163 @@
             window.location.href = 'index.html';
         });
         
-        viewReportBtn.addEventListener('click', () => {
-            reportContainer.style.display = reportContainer.style.display === 'none' ? 'block' : 'none';
+        reportBtn.addEventListener('click', () => {
+            resultContainer.style.display = 'none';
+            reportContainer.style.display = 'block';
+            loadingIndicator.style.display = 'block';
+            reportList.innerHTML = '';
+            
+            // Fetch previous attempts
+            fetchPreviousAttempts();
         });
         
-        // Auth state observer
-        auth.onAuthStateChanged(async (user) => {
-            if (user) {
-                console.log('User authenticated in VSpac2:', user.uid);
-                
-                try {
-                    // Update profile icon with user initials
-                    let displayName = user.displayName || user.email || "User";
-                    let initials = displayName.split(' ').map(name => name[0]).join('').toUpperCase();
-                    profileIcon.textContent = initials;
-                    userName.textContent = displayName;
-                    
-                    // Check if we're in patient mode
-                    if (currentPatientId && doctorId) {
-                        // Fetch patient info to display
-                        const patientSnapshot = await database.ref(`patients/${currentPatientId}`).once('value');
-                        const patientData = patientSnapshot.val();
-                        if (patientData && patientData.name) {
-                            userName.textContent = patientData.name;
-                            profileIcon.textContent = patientData.name.split(' ').map(name => name[0]).join('').toUpperCase();
-                        }
-                        
-                        // Load previous attempts for this patient
-                        await fetchAttempts(`doctors/${doctorId}/patients/${currentPatientId}/quiz/VSpac2`);
-                    } else {
-                        // Check if user is a doctor
-                        const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
-                        const role = roleSnapshot.val();
-                        
-                        if (role === 'doctor') {
-                            console.log('Doctor detected but no patient context');
-                            // Doctor viewing their own quiz
-                            await fetchAttempts(`doctors/${user.uid}/quiz/VSpac2`);
-                        } else {
-                            // Regular user
-                            await fetchAttempts(`users/${user.uid}/quiz/VSpac2`);
-                        }
-                    }
-                } catch (error) {
-                    console.error('Error in auth state changed:', error);
-                }
-            } else {
-                // Not signed in, redirect to login
-                window.location.href = 'login.html';
+        closeReportBtn.addEventListener('click', () => {
+            reportContainer.style.display = 'none';
+            resultContainer.style.display = 'block';
+        });
+        
+        clearReportBtn.addEventListener('click', () => {
+            if (confirm('Are you sure you want to clear all previous attempts?')) {
+                clearReport();
             }
         });
-
-        // Save quiz attempt
-        async function saveQuizAttempt() {
-            try {
-                const user = auth.currentUser;
-                if (!user) {
-                    console.error('No user signed in');
-                    return;
-                }
-                
-                const totalTime = (Date.now() - totalStartTime) / 1000;
-                const accuracy = (score / totalQuestions) * 100;
-                
-                const attemptData = {
-                    score: score,
-                    totalQuestions: totalQuestions,
-                    incorrectAnswers: incorrectAnswers,
-                    totalTime: totalTime.toFixed(2),
-                    accuracy: accuracy.toFixed(2),
-                    interactionCount: interactionCount,
-                    timestamp: Date.now(),
-                    date: new Date().toISOString()
-                };
-                
-                let path;
-                if (currentPatientId && doctorId) {
-                    // This is a doctor testing a patient
-                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/VSpac2/${Date.now()}`;
-                } else {
-                    // Regular user quiz
-                    // Check if user is a doctor
-                    const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
-                    const role = roleSnapshot.val();
-                    
-                    if (role === 'doctor') {
-                        path = `doctors/${user.uid}/quiz/VSpac2/${Date.now()}`;
-                    } else {
-                        path = `users/${user.uid}/quiz/VSpac2/${Date.now()}`;
-                    }
-                }
-                
-                await database.ref(path).set(attemptData);
-                console.log('Quiz attempt saved successfully');
-                
-            } catch (error) {
-                console.error('Error saving quiz attempt:', error);
-            }
-        }
-
-        // Fetch previous attempts
-        async function fetchAttempts(path) {
-            try {
-                console.log(`Fetching attempts from: ${path}`);
-                const attemptsSnapshot = await database.ref(path).orderByChild('timestamp').limitToLast(10).once('value');
-                const attempts = attemptsSnapshot.val();
-                
-                reportList.innerHTML = '<h3>Previous Attempts</h3>';
-                
-                if (!attempts) {
-                    reportList.innerHTML += '<p>No previous attempts found.</p>';
-                    return;
-                }
-                
-                // Convert to array and sort by timestamp (newest first)
-                const attemptsArray = Object.entries(attempts).map(([id, data]) => ({
-                    id,
-                    ...data
-                })).sort((a, b) => b.timestamp - a.timestamp);
-                
-                attemptsArray.forEach((attempt, index) => {
-                    const date = new Date(attempt.timestamp);
-                    const formattedDate = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
-                    
-                    const attemptItem = document.createElement('div');
-                    attemptItem.className = 'report-item';
-                    attemptItem.innerHTML = `
-                        <strong>Attempt ${index + 1}</strong> - ${formattedDate}
-                        <div class="report-details">
-                            <p>Score: ${attempt.score}/${attempt.totalQuestions} (${attempt.accuracy}%)</p>
-                            <p>Time: ${attempt.totalTime} seconds</p>
-                            <p>Incorrect Answers: ${attempt.incorrectAnswers}</p>
-                            <p>Interactions: ${attempt.interactionCount}</p>
-                        </div>
-                    `;
-                    
-                    // Toggle details on click
-                    attemptItem.addEventListener('click', () => {
-                        attemptItem.classList.toggle('expanded');
-                    });
-                    
-                    reportList.appendChild(attemptItem);
-                });
-                
-            } catch (error) {
-                console.error('Error fetching attempts:', error);
-                reportList.innerHTML = '<h3>Previous Attempts</h3><p>Error loading attempts. Please try again later.</p>';
-            }
-        }
-
-        // Clear report history
-        async function clearReport() {
-            try {
-                loadingIndicator.style.display = 'block';
-                
-                const user = auth.currentUser;
-                if (!user) {
-                    console.error('No user signed in');
-                    loadingIndicator.style.display = 'none';
-                    return;
-                }
-                
-                let path;
-                if (currentPatientId && doctorId) {
-                    // This is a doctor testing a patient
-                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/VSpac2`;
-                } else {
-                    // Regular user quiz
-                    // Check if user is a doctor
-                    const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
-                    const role = roleSnapshot.val();
-                    
-                    if (role === 'doctor') {
-                        path = `doctors/${user.uid}/quiz/VSpac2`;
-                    } else {
-                        path = `users/${user.uid}/quiz/VSpac2`;
-                    }
-                }
-                
-                await database.ref(path).remove();
-                reportList.innerHTML = '<h3>Previous Attempts</h3><p>No previous attempts found.</p>';
-                alert('All quiz reports have been cleared successfully.');
-                
-                loadingIndicator.style.display = 'none';
-            } catch (error) {
-                console.error('Error clearing report:', error);
-                alert('Failed to clear the report: ' + error.message);
-                loadingIndicator.style.display = 'none';
-            }
-        }
-
+        
         // Show results
         function showResults() {
-            const totalTime = (Date.now() - totalStartTime) / 1000;
-            const accuracy = (score / totalQuestions) * 100;
+            endTime = endTime || new Date();
             
-            scoreDisplay.textContent = `Score: ${score} / ${totalQuestions}`;
-            timeDisplay.textContent = `Total Time: ${totalTime.toFixed(2)} seconds`;
-            accuracyDisplay.textContent = `Accuracy: ${accuracy.toFixed(2)}%`;
-            interactionDisplay.textContent = `Interactions: ${interactionCount}`;
+            // Calculate statistics
+            const totalTime = (endTime - startTime) / 1000; // in seconds
+            const reactionTime = firstInteractionTime ? (firstInteractionTime - startTime) / 1000 : 0;
+            const finalScore = score;
+            const accuracy = Math.round((correctAnswers / questionSequence.length) * 100);
+            
+            // Display results
+            document.getElementById('final-score').textContent = `${finalScore}/${questionSequence.length}`;
+            document.getElementById('total-time').textContent = `${totalTime.toFixed(2)}s`;
+            document.getElementById('accuracy').textContent = `${accuracy}%`;
+            document.getElementById('interactions').textContent = interactionCount;
             
             resultContainer.style.display = 'block';
-            checkBtn.style.display = 'none';
-            nextBtn.style.display = 'none';
             
             // Save the quiz attempt to Firebase
-            saveQuizAttempt();
+            saveQuizAttempt(finalScore, totalTime, reactionTime, interactionCount, correctAnswers, incorrectAnswers);
+        }
+        
+        // Save quiz attempt to Firebase
+        function saveQuizAttempt(score, totalTime, reactionTime, interactions, correct, incorrect) {
+            const attempt = {
+                score: score,
+                totalQuestions: questionSequence.length,
+                totalTime: totalTime.toFixed(2),
+                reactionTime: reactionTime.toFixed(2),
+                interactions: interactions,
+                correctAnswers: correct,
+                incorrectAnswers: incorrect,
+                accuracy: Math.round((correct / questionSequence.length) * 100),
+                timestamp: firebase.database.ServerValue.TIMESTAMP,
+                questionTypes: questionSequence
+            };
+            
+            let dbRef;
+            if (isDoctorViewingPatient) {
+                // When doctor administers the test for a patient
+                dbRef = db.ref(`users/${patientId}/quizResults/vspac2`);
+            } else {
+                // Regular user taking the quiz
+                dbRef = db.ref(`users/${userId}/quizResults/vspac2`);
+            }
+            
+            dbRef.push(attempt)
+                .then(() => {
+                    console.log('Quiz results saved successfully');
+                })
+                .catch(error => {
+                    console.error('Error saving quiz results:', error);
+                });
+        }
+        
+        // Fetch previous attempts
+        function fetchPreviousAttempts() {
+            let dbRef;
+            if (isDoctorViewingPatient) {
+                dbRef = db.ref(`users/${patientId}/quizResults/vspac2`);
+            } else {
+                dbRef = db.ref(`users/${userId}/quizResults/vspac2`);
+            }
+            
+            dbRef.orderByChild('timestamp').once('value')
+                .then(snapshot => {
+                    loadingIndicator.style.display = 'none';
+                    
+                    if (!snapshot.exists()) {
+                        reportList.innerHTML = '<p>No previous attempts found.</p>';
+                        return;
+                    }
+                    
+                    const attempts = [];
+                    snapshot.forEach(childSnapshot => {
+                        attempts.push({
+                            id: childSnapshot.key,
+                            ...childSnapshot.val()
+                        });
+                    });
+                    
+                    // Sort attempts by timestamp (most recent first)
+                    attempts.sort((a, b) => b.timestamp - a.timestamp);
+                    
+                    // Display attempts
+                    attempts.forEach((attempt, index) => {
+                        const date = new Date(attempt.timestamp);
+                        const formattedDate = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+                        
+                        const reportItem = document.createElement('div');
+                        reportItem.className = 'report-item';
+                        reportItem.innerHTML = `
+                            <div class="report-header">
+                                <strong>Attempt ${index + 1}</strong> - ${formattedDate}
+                            </div>
+                            <div class="report-details">
+                                <p>Score: ${attempt.score}/${attempt.totalQuestions}</p>
+                                <p>Accuracy: ${attempt.accuracy}%</p>
+                                <p>Total Time: ${attempt.totalTime}s</p>
+                                <p>Reaction Time: ${attempt.reactionTime}s</p>
+                                <p>Interactions: ${attempt.interactions}</p>
+                            </div>
+                        `;
+                        
+                        reportItem.addEventListener('click', () => {
+                            reportItem.classList.toggle('expanded');
+                        });
+                        
+                        reportList.appendChild(reportItem);
+                    });
+                })
+                .catch(error => {
+                    loadingIndicator.style.display = 'none';
+                    reportList.innerHTML = `<p>Error loading reports: ${error.message}</p>`;
+                    console.error('Error fetching previous attempts:', error);
+                });
+        }
+        
+        // Clear all previous reports
+        function clearReport() {
+            let dbRef;
+            if (isDoctorViewingPatient) {
+                dbRef = db.ref(`users/${patientId}/quizResults/vspac2`);
+            } else {
+                dbRef = db.ref(`users/${userId}/quizResults/vspac2`);
+            }
+            
+            dbRef.remove()
+                .then(() => {
+                    reportList.innerHTML = '<p>All reports cleared successfully.</p>';
+                    console.log('Reports cleared successfully');
+                })
+                .catch(error => {
+                    reportList.innerHTML = `<p>Error clearing reports: ${error.message}</p>`;
+                    console.error('Error clearing reports:', error);
+                });
         }
         
         // Initialize touch events for the first time
