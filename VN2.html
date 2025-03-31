@@ -22,9 +22,38 @@
             justify-content: center;
             padding: 20px;
             width: 100%;
-            max-width: 800px;
+            max-width: 650px;
             margin: 0 auto;
             text-align: center;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 20px;
+            width: 100%;
+        }
+
+        .profile-icon {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background-color: #2196F3;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: bold;
+            text-decoration: none;
+            transition: background-color 0.3s;
+            font-size: 16px;
+        }
+        
+        .profile-icon:hover {
+            background-color: #1976D2;
         }
 
         .question-section {
@@ -135,7 +164,7 @@
         }
 
         .stats-grid {
-            max-width: 800px;
+            max-width: 650px;
             margin: 0 auto;
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -150,7 +179,7 @@
         }
 
         .history-container {
-            max-width: 800px;
+            max-width: 650px;
             margin: 20px auto 0;
         }
 
@@ -228,6 +257,9 @@
             width: 80%;
             max-width: 600px;
             display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
         }
 
         #report-container > * {
@@ -282,11 +314,67 @@
             width: 100%;
             margin: 0 auto;
         }
+        
+        .user-info {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            text-align: right;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .patient-indicator {
+            display: inline-block;
+            background-color: #e9f5e9;
+            color: #4CAF50;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+        
+        .attempt-item {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .attempt-item:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .attempt-date {
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 16px;
+        }
+        
+        .attempt-score {
+            color: #4CAF50;
+            margin-bottom: 10px;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        
+        .attempt-details {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
     <div class="game-container">
-        <h1>Remember and Find the Letters!</h1>
+        <div class="header">
+            <h1>Remember and Find the Letters!</h1>
+            <div class="profile-icon" id="profileIcon" title="Back to Home" onclick="window.location.href='index.html'"></div>
+        </div>
         
         <div class="question-section">
             <p>Remember these letters:</p>
@@ -347,7 +435,8 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-        import { getDatabase, ref, set, get, push } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-database.js";
+        import { getDatabase, ref, set, get, push, child } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-database.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
 
         // Firebase configuration
         const firebaseConfig = {
@@ -362,6 +451,7 @@
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
+        const auth = getAuth();
 
         // Game variables
         let currentLetter = '';
@@ -373,14 +463,91 @@
         let incorrectAnswers = 0;
 
         let totalStartTime = Date.now();
+        let currentUser = null;
+        let patientId = null;
+        let isDoctor = false;
 
         // Get DOM elements
         const questionDisplay = document.getElementById('questionDisplay');
         const optionsContainer = document.getElementById('optionsContainer');
         const readyButton = document.getElementById('readyButton');
+        const profileIcon = document.getElementById('profileIcon');
+
+        // Check URL for patient parameter (for doctors viewing patient's quiz)
+        const urlParams = new URLSearchParams(window.location.search);
+        patientId = urlParams.get('patient');
 
         // Array of letters to use
         const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+        // Auth state listener
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                
+                // Check if user is a doctor
+                const userRef = ref(db, 'users/' + user.uid);
+                get(userRef).then((snapshot) => {
+                    if (snapshot.exists()) {
+                        const userData = snapshot.val();
+                        isDoctor = userData.role === 'doctor';
+                        
+                        updateProfileIcon();
+                        
+                        if (isDoctor && !patientId) {
+                            // Redirect to doctor dashboard if no patient selected
+                            window.location.href = 'doctor.html';
+                        }
+                        
+                        // Display patient indicator for doctors
+                        if (isDoctor && patientId) {
+                            displayPatientIndicator();
+                        }
+                        
+                        // Fetch previous attempts
+                        fetchAttempts();
+                    }
+                });
+            } else {
+                // No user is signed in
+                updateProfileIcon();
+            }
+        });
+
+        function updateProfileIcon() {
+            if (currentUser) {
+                // Set profile icon to user's initial
+                const initial = currentUser.email.charAt(0).toUpperCase();
+                profileIcon.textContent = initial;
+                profileIcon.title = "Back to Home";
+            } else {
+                // Default icon for non-logged in users
+                profileIcon.textContent = "G";
+                profileIcon.title = "Guest User";
+            }
+        }
+
+        function displayPatientIndicator() {
+            // Get patient name
+            const patientRef = ref(db, 'users/' + patientId);
+            get(patientRef).then((snapshot) => {
+                if (snapshot.exists()) {
+                    const patientData = snapshot.val();
+                    const patientName = patientData.name || patientData.email;
+                    
+                    // Create patient indicator
+                    const userInfo = document.createElement('div');
+                    userInfo.className = 'user-info';
+                    
+                    const patientIndicator = document.createElement('span');
+                    patientIndicator.className = 'patient-indicator';
+                    patientIndicator.textContent = 'Patient: ' + patientName;
+                    
+                    userInfo.appendChild(patientIndicator);
+                    document.body.appendChild(userInfo);
+                }
+            });
+        }
 
         function shuffleArray(array) {
             for (let i = array.length - 1; i > 0; i--) {
@@ -475,34 +642,76 @@
             document.getElementById('result-container').style.display = 'block';
             document.getElementById('report-container').style.display = 'flex';
             
-            saveAttempt({
+            saveQuizResults(
                 score,
-                totalTime: totalTimeInSeconds,
-                avgTime: averageTimeInSeconds,
-                firstTapTime: firstTapTime ? firstTapTime.toFixed(2) : "N/A",
+                totalTimeInSeconds,
+                averageTimeInSeconds,
+                firstTapTime ? firstTapTime.toFixed(2) : "N/A",
                 totalTaps,
-                totalIncorrectAnswers: incorrectAnswers,
-                timestamp: Date.now()
-            });
+                score,
+                incorrectAnswers
+            );
         }
 
-        async function saveAttempt(data) {
-            const attemptsRef = ref(db, 'quizAttempts19/');
-            const newAttemptRef = ref(db, 'quizAttempts19/' + Date.now());
+        async function saveQuizResults(score, totalTime, averageTime, firstTapTime, totalTaps, correctAnswers, incorrectAnswers) {
+            // Create results object
+            const results = {
+                score: score,
+                totalTime: totalTime,
+                averageTime: averageTime,
+                firstTapTime: firstTapTime,
+                totalTaps: totalTaps,
+                correctAnswers: correctAnswers,
+                incorrectAnswers: incorrectAnswers,
+                timestamp: new Date().toISOString(),
+                date: new Date().toLocaleDateString()
+            };
             
-            set(newAttemptRef, data)
-                .then(() => {
-                    console.log("Attempt saved!");
-                    fetchAttempts();
-                })
-                .catch(error => {
-                    console.error("Error saving attempt: ", error);
-                });
+            // Determine the database path based on user status
+            let dbPath = 'VN2/';
+            
+            if (currentUser) {
+                if (isDoctor && patientId) {
+                    // Doctor taking quiz for a patient
+                    dbPath = `users/${patientId}/quizzes/VN2/`;
+                } else {
+                    // Regular user taking quiz
+                    dbPath = `users/${currentUser.uid}/quizzes/VN2/`;
+                }
+            }
+            
+            try {
+                // Generate a unique key for this attempt
+                const newAttemptKey = Date.now().toString();
+                const attemptRef = ref(db, dbPath + newAttemptKey);
+                
+                // Save the results
+                await set(attemptRef, results);
+                console.log("Results saved successfully!");
+                
+                // Fetch updated attempts
+                fetchAttempts();
+            } catch (error) {
+                console.error("Error saving results:", error);
+            }
         }
 
         async function fetchAttempts() {
             try {
-                const attemptsRef = ref(db, 'quizAttempts19/');
+                // Determine the database path based on user status
+                let dbPath = 'VN2/';
+                
+                if (currentUser) {
+                    if (isDoctor && patientId) {
+                        // Doctor viewing a patient's attempts
+                        dbPath = `users/${patientId}/quizzes/VN2/`;
+                    } else {
+                        // Regular user viewing their own attempts
+                        dbPath = `users/${currentUser.uid}/quizzes/VN2/`;
+                    }
+                }
+                
+                const attemptsRef = ref(db, dbPath);
                 const snapshot = await get(attemptsRef);
                 const reportList = document.getElementById('report-list');
                 reportList.innerHTML = '';
@@ -516,22 +725,40 @@
                         });
                     });
 
-                    attempts.sort((a, b) => b.timestamp - a.timestamp);
+                    // Sort attempts by timestamp (most recent first)
+                    attempts.sort((a, b) => {
+                        return new Date(b.timestamp) - new Date(a.timestamp);
+                    });
+                    
+                    // Display up to 5 most recent attempts
                     const recentAttempts = attempts.slice(0, 5);
 
                     recentAttempts.forEach(attempt => {
                         const li = document.createElement('li');
+                        li.className = 'attempt-item';
+                        
+                        const date = new Date(attempt.timestamp).toLocaleDateString();
+                        const time = new Date(attempt.timestamp).toLocaleTimeString();
+                        
                         li.innerHTML = `
-                            Score: ${attempt.score} | 
-                            Time: ${attempt.totalTime}s | 
-                            Avg Time: ${attempt.avgTime}s | 
-                            First Tap: ${attempt.firstTapTime}s | 
-                            Total Taps: ${attempt.totalTaps} | 
-                            Correct: ${attempt.totalCorrectAnswers} | 
-                            Incorrect: ${attempt.totalIncorrectAnswers}
+                            <div class="attempt-date">${date} at ${time}</div>
+                            <div class="attempt-score">Score: ${attempt.score}</div>
+                            <div class="attempt-details">
+                                <div>Time: ${attempt.totalTime}s</div>
+                                <div>Avg Time: ${attempt.averageTime}s</div>
+                                <div>First Tap: ${attempt.firstTapTime}s</div>
+                                <div>Total Taps: ${attempt.totalTaps}</div>
+                                <div>Correct: ${attempt.correctAnswers}</div>
+                                <div>Incorrect: ${attempt.incorrectAnswers}</div>
+                            </div>
                         `;
                         reportList.appendChild(li);
                     });
+                } else {
+                    // No attempts found
+                    const noAttemptsMsg = document.createElement('li');
+                    noAttemptsMsg.textContent = "No previous attempts found.";
+                    reportList.appendChild(noAttemptsMsg);
                 }
             } catch (error) {
                 console.error("Error fetching attempts:", error);
@@ -539,15 +766,36 @@
         }
 
         function clearReport() {
-            const attemptsRef = ref(db, 'quizAttempts19/');
-            set(attemptsRef, null)
-                .then(() => {
-                    console.log("Report cleared!");
-                    document.getElementById('report-list').innerHTML = '';
-                })
-                .catch(error => {
-                    console.error("Error clearing report: ", error);
-                });
+            // Determine the database path based on user status
+            let dbPath = 'VN2/';
+            
+            if (currentUser) {
+                if (isDoctor && patientId) {
+                    // Doctor clearing a patient's attempts
+                    dbPath = `users/${patientId}/quizzes/VN2/`;
+                } else {
+                    // Regular user clearing their own attempts
+                    dbPath = `users/${currentUser.uid}/quizzes/VN2/`;
+                }
+            }
+            
+            const attemptsRef = ref(db, dbPath);
+            
+            if (confirm("Are you sure you want to clear all reports? This action cannot be undone.")) {
+                set(attemptsRef, null)
+                    .then(() => {
+                        console.log("Report cleared!");
+                        document.getElementById('report-list').innerHTML = '';
+                        
+                        // Add confirmation message
+                        const noAttemptsMsg = document.createElement('li');
+                        noAttemptsMsg.textContent = "All reports have been cleared.";
+                        document.getElementById('report-list').appendChild(noAttemptsMsg);
+                    })
+                    .catch(error => {
+                        console.error("Error clearing report: ", error);
+                    });
+            }
         }
 
         function startNewRound() {
@@ -570,6 +818,7 @@
             // Make functions available globally
             window.showOptions = showOptions;
             window.startNewRound = startNewRound;
+            window.clearReport = clearReport;
         };
     </script>
 </body>
