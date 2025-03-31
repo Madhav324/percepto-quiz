@@ -10,6 +10,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <!-- Firebase Database -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -88,28 +89,62 @@
             text-align: center;
             margin-bottom: 20px;
             color: #4CAF50;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         
         .options-container {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(5, 1fr);
             gap: 10px;
             margin-top: 20px;
         }
         
         .option {
-            padding: 15px;
+            padding: 15px 10px;
             border: 2px solid #ddd;
             border-radius: 5px;
             text-align: center;
             cursor: pointer;
             font-size: 1.6rem;
             transition: all 0.3s;
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
         .option:hover {
             background-color: #f0f0f0;
             border-color: #4CAF50;
+            transform: translateY(-2px);
+        }
+        
+        .option.correct {
+            background-color: #e8f5e9;
+            border-color: #4CAF50;
+            color: #2E7D32;
+            animation: pulse 0.5s;
+        }
+        
+        .option.incorrect {
+            background-color: #ffebee;
+            border-color: #f44336;
+            animation: shake 0.5s;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
         }
         
         button {
@@ -140,6 +175,48 @@
             text-align: center;
             margin-bottom: 15px;
             color: #666;
+            background-color: #f9f9f9;
+            padding: 8px;
+            border-radius: 4px;
+        }
+        
+        .remaining-counter {
+            font-size: 1rem;
+            text-align: center;
+            margin-top: 10px;
+            color: #666;
+        }
+        
+        .feedback {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            border-radius: 5px;
+            color: white;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 100;
+        }
+        
+        .feedback.correct {
+            background-color: #4CAF50;
+            opacity: 1;
+            animation: fadeOut 1.5s forwards;
+        }
+        
+        .feedback.incorrect {
+            background-color: #f44336;
+            opacity: 1;
+            animation: fadeOut 1.5s forwards;
+        }
+        
+        @keyframes fadeOut {
+            0% { opacity: 1; }
+            70% { opacity: 1; }
+            100% { opacity: 0; }
         }
         
         #report-container {
@@ -263,11 +340,11 @@
             }
             
             .options-container {
-                grid-template-columns: repeat(2, 1fr);
+                grid-template-columns: repeat(3, 1fr);
             }
             
             .option {
-                padding: 10px;
+                padding: 8px;
                 font-size: 1.4rem;
             }
             
@@ -277,74 +354,95 @@
             
             .question-display {
                 font-size: 2.5rem;
+                padding: 10px;
             }
             
             .attempt-details {
                 grid-template-columns: 1fr;
             }
         }
+        
+        @media (max-width: 400px) {
+            .options-container {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 8px;
+            }
+            
+            .option {
+                font-size: 1.2rem;
+            }
+            
+            .container {
+                padding: 10px;
+            }
+        }
     </style>
 </head>
 <body>
-    <div class="game-container">
-        <div class="header">
-            <h1>Remember and Find the Letters!</h1>
-            <div class="profile-icon" id="profileIcon" title="Back to Home" onclick="window.location.href='index.html'"></div>
-        </div>
+    <header>
+        <h1>Remember and Find the Letters!</h1>
+        <div class="profile-icon" id="profileIcon" title="Back to Home" onclick="window.location.href='index.html'"></div>
+    </header>
+    
+    <div class="container">
+        <div class="feedback" id="feedback"></div>
         
-        <div class="question-section">
+        <div class="game-area" id="gameArea">
             <p>Remember these letters:</p>
             <div id="questionDisplay" class="question-display"></div>
+            <div id="timer" class="timer">Memorizing: 3...</div>
             <button onclick="showOptions()" id="readyButton" class="ready-button">I'm Ready!</button>
         </div>
         
         <div id="optionsContainer" class="options-container" style="display: none;">
         </div>
-    </div>
-
-    <div class="statistics-container" id="statsContainer" style="display: none;">
-        <h2>Game Statistics</h2>
-        <div class="stats-grid">
-            <div class="stat-item">
-                <h3>Total Time</h3>
-                <p id="totalTime">0s</p>
-            </div>
-            <div class="stat-item">
-                <h3>Total Taps</h3>
-                <p id="totalTaps">0</p>
-            </div>
-            <div class="stat-item">
-                <h3>Incorrect Placements</h3>
-                <p id="incorrectPlacements">0</p>
-            </div>
+        
+        <div id="remainingCounter" class="remaining-counter" style="display: none;">
+            Find <span id="remainingTarget">3</span> more instances
         </div>
         
-        <div class="history-container">
-            <h2>History</h2>
-            <div id="historyList"></div>
-        </div>
-    </div>
-
-    <div class="stats-wrapper">
-        <div id="result-container">
+        <div id="result-container" style="display: none;">
             <h2>Quiz Results</h2>
-            <ul>
-                <li><strong>Score:</strong> <span id="score">0</span></li>
-                <li><strong>Total Time:</strong> <span id="total-time">0</span> seconds</li>
-                <li><strong>Average Time:</strong> <span id="avg-time">0</span> seconds</li>
-                <li><strong>First Tap Time:</strong> <span id="first-tap">0</span> seconds</li>
-                <li><strong>Total Taps:</strong> <span id="total-taps">0</span></li>
-                <li><strong>Total Correct Answers:</strong> <span id="total-correct">0</span></li>
-                <li><strong>Total Incorrect Answers:</strong> <span id="total-incorrect">0</span></li>
-            </ul>
-            <a href="index.html" style="text-decoration: none;">
-                <button class="home-button">Return Home</button>
-            </a>
+            <div class="results">
+                <div class="result-row">
+                    <span class="result-label">Score:</span>
+                    <span id="score" class="result-value">0</span>
+                </div>
+                <div class="result-row">
+                    <span class="result-label">Total Time:</span>
+                    <span id="total-time" class="result-value">0</span> seconds
+                </div>
+                <div class="result-row">
+                    <span class="result-label">Average Time:</span>
+                    <span id="avg-time" class="result-value">0</span> seconds
+                </div>
+                <div class="result-row">
+                    <span class="result-label">First Tap Time:</span>
+                    <span id="first-tap" class="result-value">0</span> seconds
+                </div>
+                <div class="result-row">
+                    <span class="result-label">Total Taps:</span>
+                    <span id="total-taps" class="result-value">0</span>
+                </div>
+                <div class="result-row">
+                    <span class="result-label">Total Correct Answers:</span>
+                    <span id="total-correct" class="result-value">0</span>
+                </div>
+                <div class="result-row">
+                    <span class="result-label">Total Incorrect Answers:</span>
+                    <span id="total-incorrect" class="result-value">0</span>
+                </div>
+            </div>
+            
+            <button onclick="startNewRound()" class="ready-button">Play Again</button>
+            <button onclick="window.location.href='index.html'" class="ready-button">Home</button>
         </div>
-
+        
         <div id="report-container">
-            <h2>All Quiz Attempts</h2>
-            <ul id="report-list"></ul>
+            <div id="report-list">
+                <h3>Previous Attempts</h3>
+                <p>No previous attempts found.</p>
+            </div>
             <button id="clear-report" onclick="clearReport()">Clear Report</button>
         </div>
     </div>
@@ -373,11 +471,23 @@
         let firstTapTime = null;
         let score = 0;
         let incorrectAnswers = 0;
+        let totalStartTime = 0;
+        let memorizingTime = 3; // seconds to memorize the letter
+        let memorizingTimer = null;
+        let targetCount = 3; // How many instances to find (increased from 2 to 3)
 
-        let totalStartTime = Date.now();
         let currentUser = null;
         let patientId = null;
         let isDoctor = false;
+
+        // DOM Elements
+        const profileIcon = document.getElementById('profileIcon');
+        const questionDisplay = document.getElementById('questionDisplay');
+        const optionsContainer = document.getElementById('optionsContainer');
+        const readyButton = document.getElementById('readyButton');
+        const timerDisplay = document.getElementById('timer');
+        const remainingCounter = document.getElementById('remainingCounter');
+        const remainingTarget = document.getElementById('remainingTarget');
 
         // Check URL for patient parameter (for doctors viewing patient's quiz)
         const urlParams = new URLSearchParams(window.location.search);
@@ -456,17 +566,17 @@
                     }
                     
                     // Start the game
-                    startGame();
+                    prepareGame();
                 } catch (error) {
                     console.error('Error loading profile in VN2:', error);
                     profileIcon.textContent = 'U';
-                    startGame();
+                    prepareGame();
                 }
             } else {
                 // Guest user, start game anyway
                 profileIcon.textContent = 'G';
                 profileIcon.title = "Guest User";
-                startGame();
+                prepareGame();
             }
         });
 
@@ -494,7 +604,7 @@
         function displayPatientIndicator() {
             // Get patient name
             console.log(`Displaying patient indicator for patient: ${patientId}`);
-            const patientRef = db.ref('users/' + patientId);
+            const patientRef = db.ref(`doctors/${doctorId}/patients/${patientId}/profile`);
             patientRef.once('value', (snapshot) => {
                 if (snapshot.exists()) {
                     const patientData = snapshot.val();
@@ -542,16 +652,37 @@
 
         function createOptionsArray() {
             let options = new Array(20);
-            // Place the target letter twice
+            // Place the target letter multiple times (increased from 2 to 3)
             options[0] = currentLetter;
             options[1] = currentLetter;
+            options[2] = currentLetter;
             
             // Fill the rest with random different letters
             const otherLetters = letters.filter(l => l !== currentLetter);
-            for (let i = 2; i < 20; i++) {
-                options[i] = otherLetters[i % otherLetters.length];
+            for (let i = 3; i < 20; i++) {
+                options[i] = otherLetters[Math.floor(Math.random() * otherLetters.length)];
             }
             return shuffleArray(options);
+        }
+
+        function startMemorizingTimer() {
+            timerDisplay.style.display = 'block';
+            memorizingTime = 3;
+            updateTimerDisplay();
+            
+            memorizingTimer = setInterval(() => {
+                memorizingTime--;
+                updateTimerDisplay();
+                
+                if (memorizingTime <= 0) {
+                    clearInterval(memorizingTimer);
+                    showOptions();
+                }
+            }, 1000);
+        }
+        
+        function updateTimerDisplay() {
+            timerDisplay.textContent = `Memorizing: ${memorizingTime}...`;
         }
 
         function displayOptions() {
@@ -566,14 +697,21 @@
                 div.onclick = () => handleLetterClick(div, letter);
                 optionsContainer.appendChild(div);
             });
+            
+            // Show the remaining counter
+            remainingCounter.style.display = 'block';
+            updateRemainingCounter();
+        }
+        
+        function updateRemainingCounter() {
+            remainingTarget.textContent = targetCount - foundCount;
         }
 
         function showFeedback(isCorrect) {
-            const div = document.createElement('div');
-            div.className = isCorrect ? 'correct-feedback' : 'incorrect-feedback';
-            div.textContent = isCorrect ? 'Correct!' : 'Try Again!';
-            document.body.appendChild(div);
-            setTimeout(() => div.remove(), 1000);
+            const feedback = document.getElementById('feedback');
+            feedback.className = isCorrect ? 'feedback correct' : 'feedback incorrect';
+            feedback.textContent = isCorrect ? 'Correct!' : 'Try Again!';
+            setTimeout(() => feedback.className = 'feedback', 1500);
         }
 
         document.addEventListener("click", () => {
@@ -588,9 +726,12 @@
                 showFeedback(true);
                 foundCount++;
                 score++;
-                element.style.visibility = 'hidden';
+                element.classList.add('correct');
+                element.onclick = null; // Prevent clicking again
                 
-                if (foundCount === 2) {
+                updateRemainingCounter();
+                
+                if (foundCount === targetCount) {
                     setTimeout(() => {
                         alert('Congratulations! Round Complete!');
                         showResults();
@@ -600,14 +741,14 @@
                 incorrectAnswers++;
                 element.classList.add('incorrect');
                 showFeedback(false);
-                setTimeout(() => element.classList.remove('incorrect'), 300);
+                setTimeout(() => element.classList.remove('incorrect'), 500);
             }
         }
 
         function showResults() {
             const totalEndTime = Date.now();
             const totalTimeInSeconds = ((totalEndTime - totalStartTime) / 1000).toFixed(2);
-            const averageTimeInSeconds = (totalTimeInSeconds / 2).toFixed(2); // 2 letters per round
+            const averageTimeInSeconds = (totalTimeInSeconds / targetCount).toFixed(2);
             
             document.getElementById('score').innerText = score;
             document.getElementById('total-time').innerText = totalTimeInSeconds;
@@ -618,7 +759,10 @@
             document.getElementById('total-incorrect').innerText = incorrectAnswers;
 
             document.getElementById('result-container').style.display = 'block';
-            document.getElementById('report-container').style.display = 'flex';
+            document.getElementById('report-container').style.display = 'block';
+            document.getElementById('gameArea').style.display = 'none';
+            document.getElementById('optionsContainer').style.display = 'none';
+            document.getElementById('remainingCounter').style.display = 'none';
             
             saveQuizResults(
                 score,
@@ -774,6 +918,8 @@
                     const recentResults = results.slice(0, 5);
                     
                     if (recentResults.length > 0) {
+                        reportList.innerHTML = '<h3>Previous Attempts</h3>';
+                        
                         recentResults.forEach(result => {
                             const timestamp = result.timestamp;
                             // Check if timestamp is a number (milliseconds) or a string (ISO format)
@@ -794,45 +940,12 @@
                             `;
                             attemptItem.appendChild(dateScoreDiv);
                             
-                            // Create the details section
-                            const detailsDiv = document.createElement('div');
-                            detailsDiv.className = 'attempt-details';
-                            
-                            // Always show these fields
-                            const detailsHtml = `
-                                <div class="attempt-detail-item">
-                                    <span class="detail-label">Total Time:</span>
-                                    <span>${result.totalTime || 'N/A'}s</span>
-                                </div>
-                                <div class="attempt-detail-item">
-                                    <span class="detail-label">Avg Time:</span>
-                                    <span>${result.averageTime || 'N/A'}s</span>
-                                </div>
-                                <div class="attempt-detail-item">
-                                    <span class="detail-label">First Tap:</span>
-                                    <span>${result.firstTapTime ? result.firstTapTime.toFixed(2) + 's' : 'N/A'}</span>
-                                </div>
-                                <div class="attempt-detail-item">
-                                    <span class="detail-label">Total Taps:</span>
-                                    <span>${result.totalTaps || 'N/A'}</span>
-                                </div>
-                                <div class="attempt-detail-item">
-                                    <span class="detail-label">Correct:</span>
-                                    <span>${result.correctAnswers || result.score || 'N/A'}</span>
-                                </div>
-                                <div class="attempt-detail-item">
-                                    <span class="detail-label">Incorrect:</span>
-                                    <span>${result.incorrectAnswers || 'N/A'}</span>
-                                </div>
-                            `;
-                            detailsDiv.innerHTML = detailsHtml;
-                            attemptItem.appendChild(detailsDiv);
-                            
-                            // Add a button to toggle details
+                            // Create toggle button for details
                             const toggleBtn = document.createElement('button');
                             toggleBtn.className = 'toggle-details-btn';
                             toggleBtn.textContent = 'Show Details';
                             toggleBtn.onclick = function() {
+                                const detailsDiv = this.nextElementSibling;
                                 if (detailsDiv.style.display === 'none' || !detailsDiv.style.display) {
                                     detailsDiv.style.display = 'grid';
                                     this.textContent = 'Hide Details';
@@ -841,22 +954,45 @@
                                     this.textContent = 'Show Details';
                                 }
                             };
-                            dateScoreDiv.appendChild(toggleBtn);
+                            attemptItem.appendChild(toggleBtn);
                             
-                            // Initially hide details
+                            // Create the details section
+                            const detailsDiv = document.createElement('div');
+                            detailsDiv.className = 'attempt-details';
                             detailsDiv.style.display = 'none';
                             
+                            // Add detail items
+                            const detailItems = [
+                                { label: 'Total Time', value: `${result.totalTime}s` },
+                                { label: 'Avg Time', value: `${result.averageTime}s` },
+                                { label: 'First Tap', value: result.firstTapTime },
+                                { label: 'Total Taps', value: result.totalTaps },
+                                { label: 'Correct', value: result.correctAnswers },
+                                { label: 'Incorrect', value: result.incorrectAnswers }
+                            ];
+                            
+                            detailItems.forEach(item => {
+                                const detailItem = document.createElement('div');
+                                detailItem.className = 'attempt-detail-item';
+                                detailItem.innerHTML = `
+                                    <span class="detail-label">${item.label}:</span>
+                                    <span>${item.value}</span>
+                                `;
+                                detailsDiv.appendChild(detailItem);
+                            });
+                            
+                            attemptItem.appendChild(detailsDiv);
                             reportList.appendChild(attemptItem);
                         });
                     } else {
-                        reportList.innerHTML += '<p>No previous attempts found.</p>';
+                        reportList.innerHTML = '<h3>Previous Attempts</h3><p>No previous attempts found.</p>';
                     }
                 } else {
-                    reportList.innerHTML += '<p>No previous attempts found.</p>';
+                    reportList.innerHTML = '<h3>Previous Attempts</h3><p>No previous attempts found.</p>';
                 }
             }).catch(error => {
-                console.error('Error fetching previous attempts:', error);
-                reportList.innerHTML += '<p>Error loading previous attempts: ' + error.message + '</p>';
+                console.error("Error fetching attempts:", error);
+                reportList.innerHTML = '<h3>Previous Attempts</h3><p>Error loading attempts: ' + error.message + '</p>';
             });
         }
 
@@ -924,38 +1060,58 @@
             }
         }
 
-        function startNewRound() {
+        function prepareGame() {
+            // Reset game variables
             foundCount = 0;
+            totalTaps = 0;
+            firstTapTime = null;
+            score = 0;
+            incorrectAnswers = 0;
+            
+            // Select a random letter
             selectRandomLetter();
-            document.getElementById('result-container').style.display = 'none';
-            document.getElementById('report-container').style.display = 'none';
+            
+            // Start memorizing timer automatically
+            startMemorizingTimer();
         }
 
         function showOptions() {
-            questionDisplay.style.display = 'none';
+            // Clear any existing timer
+            if (memorizingTimer) {
+                clearInterval(memorizingTimer);
+            }
+            
+            // Hide timer and ready button
+            timerDisplay.style.display = 'none';
             readyButton.style.display = 'none';
+            
+            // Record the start time for performance tracking
+            totalStartTime = Date.now();
+            
+            // Display options
             optionsContainer.style.display = 'grid';
             displayOptions();
         }
-
-        function startGame() {
-            startNewRound();
-            // Make functions available globally
-            window.showOptions = showOptions;
-            window.startNewRound = startNewRound;
-            window.clearReport = clearReport;
+        
+        function startNewRound() {
+            // Hide results and show game area
+            document.getElementById('result-container').style.display = 'none';
+            document.getElementById('report-container').style.display = 'none';
+            document.getElementById('gameArea').style.display = 'block';
+            readyButton.style.display = 'block';
+            optionsContainer.style.display = 'none';
+            remainingCounter.style.display = 'none';
+            
+            // Reset game state
+            prepareGame();
         }
-
-        // Get DOM elements
-        const questionDisplay = document.getElementById('questionDisplay');
-        const optionsContainer = document.getElementById('optionsContainer');
-        const readyButton = document.getElementById('readyButton');
-        const profileIcon = document.getElementById('profileIcon');
-
-        // Start the game immediately
-        window.onload = () => {
-            startGame();
-        };
+        
+        function goHome() {
+            window.location.href = 'index.html';
+        }
+        
+        // Function to ensure the profileIcon has a value
+        window.addEventListener('load', updateProfileIcon);
     </script>
 </body>
 </html>
