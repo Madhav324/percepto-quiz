@@ -100,9 +100,9 @@
         }
 
         #drop-areas-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
             margin-bottom: 20px;
         }
 
@@ -286,9 +286,20 @@
         </div>
 
         <p class="instruction" id="current-instruction">Drag and drop the morning routine images in the correct order.</p>
-        
-        <div id="drop-areas-container"></div>
-        
+
+        <!-- Drop areas grid for placing images in order -->
+        <div id="drop-areas-container">
+            <div class="drop-area" id="drop-area-1" data-order="1"><p>Drop image 1 here</p></div>
+            <div class="drop-area" id="drop-area-2" data-order="2"><p>Drop image 2 here</p></div>
+            <div class="drop-area" id="drop-area-3" data-order="3"><p>Drop image 3 here</p></div>
+            <div class="drop-area" id="drop-area-4" data-order="4"><p>Drop image 4 here</p></div>
+            <div class="drop-area" id="drop-area-5" data-order="5"><p>Drop image 5 here</p></div>
+            <div class="drop-area" id="drop-area-6" data-order="6"><p>Drop image 6 here</p></div>
+        </div>
+
+        <!-- Current drop area (will be hidden with new design) -->
+        <div id="current-drop-area" style="display: none;"></div>
+
         <div id="options-container"></div>
         
         <div id="result-container">
@@ -377,33 +388,36 @@
                 document.getElementById('user-email').textContent = user.email;
                 
                 try {
-                    // Get user initials for profile icon
-                    const displayName = user.displayName || user.email;
-                    const initial = displayName ? displayName.charAt(0).toUpperCase() : 'U';
-                    
                     // Check if viewing as a doctor for a patient
                     const currentPatientId = sessionStorage.getItem('currentPatientId');
                     const doctorId = sessionStorage.getItem('doctorId');
+                    
+                    let initial = 'U';
                     
                     if (currentPatientId && doctorId) {
                         // Get patient email to display
                         const patientSnapshot = await database.ref(`users/${currentPatientId}`).once('value');
                         const patientData = patientSnapshot.val();
                         const patientEmail = patientData ? patientData.email : 'Patient';
-                        const patientInitial = patientEmail.charAt(0).toUpperCase();
+                        initial = patientEmail.charAt(0).toUpperCase();
                         
                         document.getElementById('user-email').textContent = `Viewing: ${patientEmail}`;
-                        document.getElementById('profileIcon').textContent = patientInitial;
                         
                         // Show patient indicator
                         const patientIndicator = document.getElementById('patient-indicator');
                         patientIndicator.textContent = 'Patient';
                         patientIndicator.style.display = 'inline-block';
                     } else {
+                        // Get user's initial
+                        const displayName = user.displayName || user.email;
+                        initial = displayName ? displayName.charAt(0).toUpperCase() : 'U';
+                        
                         const patientIndicator = document.getElementById('patient-indicator');
                         patientIndicator.style.display = 'none';
-                        document.getElementById('profileIcon').textContent = initial;
                     }
+                    
+                    // Set profile icon to initial
+                    document.getElementById('profileIcon').textContent = initial;
                     
                     initializeQuiz();
                 } catch (error) {
@@ -425,9 +439,6 @@
             shuffledImages = [...images];
             shuffleArray(shuffledImages);
             
-            // Create drop areas (6 in total)
-            createDropAreas();
-            
             // Create option images in a 2x3 grid
             displayOptionImages();
             
@@ -442,21 +453,6 @@
                 [array[i], array[j]] = [array[j], array[i]];
             }
             return array;
-        }
-        
-        // Create drop areas for each image
-        function createDropAreas() {
-            const dropAreasContainer = document.getElementById('drop-areas-container');
-            dropAreasContainer.innerHTML = '';
-            
-            // Create a single drop area that will be used for all images sequentially
-            const dropArea = document.createElement('div');
-            dropArea.className = 'drop-area';
-            dropArea.id = 'current-drop-area';
-            dropArea.dataset.order = currentImageOrder;
-            dropArea.innerHTML = `<p>Drop image ${currentImageOrder} here</p>`;
-            
-            dropAreasContainer.appendChild(dropArea);
         }
         
         // Display option images in a 2x3 grid
@@ -486,29 +482,39 @@
         
         // Set up drag and drop event listeners
         function setupDragAndDrop() {
-            const dropArea = document.getElementById('current-drop-area');
+            const dropAreas = document.querySelectorAll('.drop-area');
             
             // Drag over event
-            dropArea.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                dropArea.classList.add('active');
+            dropAreas.forEach(dropArea => {
+                dropArea.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    dropArea.classList.add('active');
+                });
             });
             
             // Drag leave event
-            dropArea.addEventListener('dragleave', () => {
-                dropArea.classList.remove('active');
+            dropAreas.forEach(dropArea => {
+                dropArea.addEventListener('dragleave', () => {
+                    dropArea.classList.remove('active');
+                });
             });
             
             // Drop event
-            dropArea.addEventListener('drop', handleDrop);
-            
-            // Touch events for drop area
-            dropArea.addEventListener('touchenter', () => {
-                dropArea.classList.add('active');
+            dropAreas.forEach(dropArea => {
+                dropArea.addEventListener('drop', handleDrop);
             });
             
-            dropArea.addEventListener('touchleave', () => {
-                dropArea.classList.remove('active');
+            // Touch events for drop area
+            dropAreas.forEach(dropArea => {
+                dropArea.addEventListener('touchenter', () => {
+                    dropArea.classList.add('active');
+                });
+            });
+            
+            dropAreas.forEach(dropArea => {
+                dropArea.addEventListener('touchleave', () => {
+                    dropArea.classList.remove('active');
+                });
             });
         }
         
@@ -545,19 +551,22 @@
             img.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
             
             // Check if touch is over the drop area
-            const dropArea = document.getElementById('current-drop-area');
-            const dropRect = dropArea.getBoundingClientRect();
+            const dropAreas = document.querySelectorAll('.drop-area');
             
-            if (
-                touch.clientX >= dropRect.left &&
-                touch.clientX <= dropRect.right &&
-                touch.clientY >= dropRect.top &&
-                touch.clientY <= dropRect.bottom
-            ) {
-                dropArea.classList.add('active');
-            } else {
-                dropArea.classList.remove('active');
-            }
+            dropAreas.forEach(dropArea => {
+                const dropRect = dropArea.getBoundingClientRect();
+                
+                if (
+                    touch.clientX >= dropRect.left &&
+                    touch.clientX <= dropRect.right &&
+                    touch.clientY >= dropRect.top &&
+                    touch.clientY <= dropRect.bottom
+                ) {
+                    dropArea.classList.add('active');
+                } else {
+                    dropArea.classList.remove('active');
+                }
+            });
         }
         
         function touchEnd(e) {
@@ -567,42 +576,45 @@
             img.style.transform = 'none';
             
             // Check if touch ended over the drop area
-            const dropArea = document.getElementById('current-drop-area');
-            const dropRect = dropArea.getBoundingClientRect();
+            const dropAreas = document.querySelectorAll('.drop-area');
             
-            if (
-                touch.clientX >= dropRect.left &&
-                touch.clientX <= dropRect.right &&
-                touch.clientY >= dropRect.top &&
-                touch.clientY <= dropRect.bottom
-            ) {
-                handleTouchDrop(img);
-            }
-            
-            dropArea.classList.remove('active');
+            dropAreas.forEach(dropArea => {
+                const dropRect = dropArea.getBoundingClientRect();
+                
+                if (
+                    touch.clientX >= dropRect.left &&
+                    touch.clientX <= dropRect.right &&
+                    touch.clientY >= dropRect.top &&
+                    touch.clientY <= dropRect.bottom
+                ) {
+                    handleTouchDrop(img);
+                }
+                
+                dropArea.classList.remove('active');
+            });
         }
         
         // Handle drop event
         function handleDrop(e) {
             e.preventDefault();
-            const dropArea = document.getElementById('current-drop-area');
+            const dropArea = e.target;
             dropArea.classList.remove('active');
             
             const imageIndex = e.dataTransfer.getData('text/plain');
             const draggedImage = document.querySelector(`.option-image[data-index="${imageIndex}"]`);
             
-            checkImageOrder(draggedImage);
+            checkImageOrder(draggedImage, dropArea);
         }
         
         // Handle touch drop
-        function handleTouchDrop(img) {
-            checkImageOrder(img);
+        function handleTouchDrop(img, dropArea) {
+            checkImageOrder(img, dropArea);
         }
         
         // Check if the image is in the correct order
-        function checkImageOrder(img) {
+        function checkImageOrder(img, dropArea) {
             const imageOrder = parseInt(img.dataset.order);
-            const expectedOrder = currentImageOrder;
+            const expectedOrder = parseInt(dropArea.dataset.order);
             
             // Calculate time taken for this placement
             const endTime = Date.now();
@@ -616,7 +628,6 @@
                 completedImages++;
                 
                 // Move image to drop area and disable it
-                const dropArea = document.getElementById('current-drop-area');
                 const imgClone = img.cloneNode(true);
                 imgClone.draggable = false;
                 imgClone.style.cursor = 'default';
@@ -647,17 +658,9 @@
                     // Update current image order
                     currentImageOrder++;
                     
-                    // Create new drop area for next image
-                    setTimeout(() => {
-                        dropArea.classList.remove('correct');
-                        dropArea.innerHTML = `<p>Drop image ${currentImageOrder} here</p>`;
-                        dropArea.dataset.order = currentImageOrder;
-                        startTime = Date.now(); // Reset timer for next image
-                        
-                        // Update instruction
-                        document.getElementById('current-instruction').textContent = 
-                            `Place image ${currentImageOrder} in the correct position.`;
-                    }, 1000);
+                    // Update instruction
+                    document.getElementById('current-instruction').textContent = 
+                        `Place image ${currentImageOrder} in the correct position.`;
                 } else {
                     // All images placed correctly, show results
                     setTimeout(showResults, 1000);
