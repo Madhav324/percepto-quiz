@@ -815,28 +815,54 @@
                 timestamp: firebase.database.ServerValue.TIMESTAMP
             };
 
-            // Determine the correct path based on user type
-            let dbPath = '';
-            
             try {
-                if (isDoctorViewingPatient) {
-                    // Doctor viewing patient quiz
-                    dbPath = `doctors/${doctorId || userId}/patients/${patientId}/quiz/morning`;
-                } else if (isDoctor) {
-                    // Doctor's own quiz
-                    dbPath = `doctors/${userId}/quiz/morning`;
+                const timestamp = Date.now();
+                let path;
+
+                // Check if this is a patient quiz (doctor viewing patient)
+                const currentPatientId = sessionStorage.getItem('currentPatientId');
+                const doctorId = sessionStorage.getItem('doctorId');
+                
+                if (currentPatientId && doctorId) {
+                    // This is a doctor testing a patient
+                    console.log(`Saving patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/morning/${timestamp}`;
                 } else {
                     // Regular user quiz
-                    dbPath = `users/${userId}/quiz/morning`;
+                    // Check if user is a doctor
+                    const user = firebase.auth().currentUser;
+                    db.ref(`roles/${user.uid}`).once('value')
+                        .then((roleSnapshot) => {
+                            const role = roleSnapshot.val();
+                            
+                            if (role === 'doctor') {
+                                console.log(`Saving doctor's own quiz results: ${user.uid}`);
+                                path = `doctors/${user.uid}/quiz/morning/${timestamp}`;
+                            } else {
+                                console.log(`Saving regular user quiz results: ${user.uid}`);
+                                path = `users/${user.uid}/quiz/morning/${timestamp}`;
+                            }
+                            
+                            console.log(`Saving quiz results to path: ${path}`);
+                            db.ref(path).set(quizData)
+                                .then(() => {
+                                    console.log("Quiz results saved successfully to:", path);
+                                })
+                                .catch((error) => {
+                                    console.error("Error saving quiz results: ", error);
+                                });
+                        })
+                        .catch((error) => {
+                            console.error("Error checking user role: ", error);
+                        });
+                    return; // Return early since we're handling the save in the promise
                 }
-
-                console.log(`Saving quiz results to path: ${dbPath}`);
                 
-                // Add timestamp to create unique entry
-                const timestamp = Date.now();
-                db.ref(`${dbPath}/${timestamp}`).set(quizData)
+                // Only reached for doctor-patient context
+                console.log(`Saving quiz results to path: ${path}`);
+                db.ref(path).set(quizData)
                     .then(() => {
-                        console.log("Quiz results saved successfully to:", dbPath);
+                        console.log("Quiz results saved successfully to:", path);
                     })
                     .catch((error) => {
                         console.error("Error saving quiz results: ", error);
@@ -849,18 +875,31 @@
         // Fetch previous attempts
         async function fetchPreviousAttempts() {
             try {
-                // Determine the path based on user type - matching VDT1.html structure
-                let path = '';
+                let path;
+
+                // Check if this is a patient quiz (doctor viewing patient)
+                const currentPatientId = sessionStorage.getItem('currentPatientId');
+                const doctorId = sessionStorage.getItem('doctorId');
                 
-                if (isDoctorViewingPatient) {
-                    // Doctor viewing patient quiz
-                    path = `doctors/${doctorId || userId}/patients/${patientId}/quiz/morning`;
-                } else if (isDoctor) {
-                    // Doctor's own quiz
-                    path = `doctors/${userId}/quiz/morning`;
+                if (currentPatientId && doctorId) {
+                    // This is a doctor viewing a patient
+                    console.log(`Fetching patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/morning`;
                 } else {
-                    // Regular user quiz
-                    path = `users/${userId}/quiz/morning`;
+                    // Regular user 
+                    const user = firebase.auth().currentUser;
+                    if (!user) return;
+                    
+                    const roleSnapshot = await db.ref(`roles/${user.uid}`).once('value');
+                    const role = roleSnapshot.val();
+                    
+                    if (role === 'doctor') {
+                        console.log(`Fetching doctor's own quiz results: ${user.uid}`);
+                        path = `doctors/${user.uid}/quiz/morning`;
+                    } else {
+                        console.log(`Fetching regular user quiz results: ${user.uid}`);
+                        path = `users/${user.uid}/quiz/morning`;
+                    }
                 }
 
                 console.log(`Fetching previous attempts from path: ${path}`);
@@ -944,29 +983,62 @@
                     return;
                 }
 
-                // Determine the path based on user type - matching VDT1.html structure
-                let path = '';
+                let path;
                 
-                if (isDoctorViewingPatient) {
-                    // Doctor viewing patient quiz
-                    path = `doctors/${doctorId || userId}/patients/${patientId}/quiz/morning`;
-                } else if (isDoctor) {
-                    // Doctor's own quiz
-                    path = `doctors/${userId}/quiz/morning`;
+                // Check if this is a patient quiz (doctor viewing patient)
+                const currentPatientId = sessionStorage.getItem('currentPatientId');
+                const doctorId = sessionStorage.getItem('doctorId');
+                
+                if (currentPatientId && doctorId) {
+                    // This is a doctor viewing a patient
+                    console.log(`Clearing patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/morning`;
                 } else {
-                    // Regular user quiz
-                    path = `users/${userId}/quiz/morning`;
+                    // Regular user
+                    const user = firebase.auth().currentUser;
+                    if (!user) return;
+                    
+                    db.ref(`roles/${user.uid}`).once('value')
+                        .then((roleSnapshot) => {
+                            const role = roleSnapshot.val();
+                            
+                            if (role === 'doctor') {
+                                console.log(`Clearing doctor's own quiz results: ${user.uid}`);
+                                path = `doctors/${user.uid}/quiz/morning`;
+                            } else {
+                                console.log(`Clearing regular user quiz results: ${user.uid}`);
+                                path = `users/${user.uid}/quiz/morning`;
+                            }
+                            
+                            db.ref(path).remove()
+                                .then(() => {
+                                    document.getElementById('report-list').innerHTML = '<p>All attempts cleared.</p>';
+                                    console.log('Attempts cleared successfully');
+                                })
+                                .catch((error) => {
+                                    console.error('Error clearing attempts:', error);
+                                    alert('Error clearing attempts. Please try again.');
+                                });
+                        })
+                        .catch((error) => {
+                            console.error('Error checking user role:', error);
+                            alert('Error clearing attempts. Please try again.');
+                        });
+                    return; // Return early since we're handling the removal in the promise
                 }
-
+                
+                // Only reached for doctor-patient context
                 db.ref(path).remove()
                     .then(() => {
-                        console.log("Attempts cleared successfully");
+                        document.getElementById('report-list').innerHTML = '<p>All attempts cleared.</p>';
+                        console.log('Attempts cleared successfully');
                     })
                     .catch((error) => {
-                        console.error("Error clearing attempts: ", error);
+                        console.error('Error clearing attempts:', error);
+                        alert('Error clearing attempts. Please try again.');
                     });
             } catch (error) {
-                console.error("Error clearing attempts:", error);
+                console.error('Error clearing attempts:', error);
                 alert('Error clearing attempts. Please try again.');
             }
         }
