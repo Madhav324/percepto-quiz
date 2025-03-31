@@ -1337,7 +1337,10 @@
                 try {
                     const profilesSnapshot = await firestore.collection('userProfiles').get();
                     profilesSnapshot.docs.forEach(doc => {
-                        userProfiles.set(doc.id, doc.data());
+                        userProfiles.set(doc.id, {
+                            id: doc.id,
+                            ...doc.data()
+                        });
                     });
                     console.log(`Loaded ${userProfiles.size} user profiles from Firestore`);
                 } catch (error) {
@@ -1488,7 +1491,10 @@
                 try {
                     const profilesSnapshot = await firestore.collection('userProfiles').get();
                     profilesSnapshot.docs.forEach(doc => {
-                        userProfiles.set(doc.id, doc.data());
+                        userProfiles.set(doc.id, {
+                            id: doc.id,
+                            ...doc.data()
+                        });
                     });
                 } catch (error) {
                     console.error("Error accessing userProfiles collection:", error);
@@ -1510,10 +1516,11 @@
                         processQuizData(quizData, doctorQuizzes.val(), 'Doctor');
                     }
                     
-                    // Patients' quizzes
+                    // Get doctor's patients
                     const patientsSnapshot = await db.ref(`doctors/${doctorId}/patients`).once('value');
                     if (patientsSnapshot.exists()) {
-                        Object.entries(patientsSnapshot.val()).forEach(([patientId, patientData]) => {
+                        const patients = patientsSnapshot.val();
+                        Object.entries(patients).forEach(([patientId, patientData]) => {
                             if (patientData && patientData.quiz) {
                                 processQuizData(quizData, patientData.quiz, 'Patient');
                             }
@@ -1902,31 +1909,8 @@
                                 // Doctor's own quizzes
                                 const doctorQuizzes = await db.ref(`doctors/${userId}/quiz`).once('value');
                                 if (doctorQuizzes.exists()) {
-                                    let totalQuizzes = 0;
-                                    let latestTimestamp = 0;
-                                    
-                                    // Store detailed quiz data
                                     user.quizData = doctorQuizzes.val();
-                                    
-                                    Object.keys(doctorQuizzes.val()).forEach(quizType => {
-                                        const attempts = doctorQuizzes.val()[quizType];
-                                        if (attempts) {
-                                            totalQuizzes += Object.keys(attempts).length;
-                                            
-                                            // Find the latest attempt
-                                            Object.keys(attempts).forEach(timestamp => {
-                                                const ts = parseInt(timestamp);
-                                                if (ts > latestTimestamp) {
-                                                    latestTimestamp = ts;
-                                                }
-                                            });
-                                        }
-                                    });
-                                    
-                                    user.quizCount = totalQuizzes;
-                                    if (latestTimestamp > 0) {
-                                        user.lastActive = new Date(latestTimestamp).toLocaleString();
-                                    }
+                                    user.quizCount = countQuizzes(user.quizData);
                                 }
                                 
                                 // Get doctor's patients
@@ -1934,9 +1918,6 @@
                                 if (patientsSnapshot.exists()) {
                                     const patients = patientsSnapshot.val();
                                     user.patientCount = Object.keys(patients).length;
-                                    
-                                    // Create patient map for hierarchical display
-                                    doctorPatientMap.set(userId, []);
                                     
                                     // Process each patient
                                     for (const [patientId, patientData] of Object.entries(patients)) {
@@ -1963,6 +1944,7 @@
                                         };
                                         
                                         // Add to doctor's patients array
+                                        doctorPatientMap.set(userId, doctorPatientMap.get(userId) || []);
                                         doctorPatientMap.get(userId).push(patientId);
                                         
                                         // Add to overall user array
@@ -1974,6 +1956,29 @@
                             } else {
                                 // Regular user quizzes
                                 if (user.role === 'user' || user.role === 'patient') {
+                                    // Try to get additional profile data from users/${userId}/profile
+                                    try {
+                                        const userProfileData = await db.ref(`users/${userId}/profile`).once('value');
+                                        if (userProfileData.exists() && userProfileData.val()) {
+                                            const profileData = userProfileData.val();
+                                            // Update profile fields if they were N/A before
+                                            if (user.age === 'N/A') {
+                                                user.age = profileData.age || 'N/A';
+                                            }
+                                            if (user.gender === 'N/A') {
+                                                user.gender = profileData.gender || 'N/A';
+                                            }
+                                            if (user.medicalCondition === 'N/A') {
+                                                user.medicalCondition = profileData.medicalCondition || 'N/A';
+                                            }
+                                            if (user.doctorRecommendation === 'N/A') {
+                                                user.doctorRecommendation = profileData.doctorRecommendation || 'N/A';
+                                            }
+                                        }
+                                    } catch (profileError) {
+                                        console.warn(`Error fetching profile data for user ${userId}:`, profileError);
+                                    }
+                                    
                                     // Try both paths to ensure we get quiz data
                                     try {
                                         // Path 1: The normal user path
