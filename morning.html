@@ -139,25 +139,22 @@
         .option-image {
             width: 120px;
             height: 120px;
+            margin: 5px;
             cursor: grab;
-            border: 2px solid #ddd;
-            border-radius: 5px;
-            transition: all 0.2s;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            user-select: none;
+            transition: transform 0.2s, box-shadow 0.2s;
         }
 
         .option-image:hover {
             transform: scale(1.05);
-            border-color: #4CAF50;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
         }
 
         .option-image.dragging {
-            opacity: 0.5;
-        }
-
-        .option-image.placed {
-            opacity: 0.5;
-            border: 2px solid #4CAF50;
-            cursor: not-allowed;
+            opacity: 0.8;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
         }
 
         #result-container {
@@ -270,6 +267,37 @@
         
         .toggle-details-btn:hover {
             background-color: #e0e0e0;
+        }
+
+        /* Mobile touch styling adjustments */
+        @media (max-width: 768px) {
+            #drop-areas-container {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 8px;
+            }
+            
+            .drop-area {
+                width: 130px;
+                height: 130px;
+                padding: 10px;
+                font-size: 14px;
+            }
+            
+            #options-container {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 8px;
+            }
+            
+            .option-image {
+                width: 100px;
+                height: 100px;
+                margin: 4px;
+            }
+            
+            #quiz-container {
+                padding: 15px;
+                width: 95%;
+            }
         }
     </style>
 </head>
@@ -398,7 +426,18 @@
                         // Get patient email to display
                         const patientSnapshot = await database.ref(`users/${currentPatientId}`).once('value');
                         const patientData = patientSnapshot.val();
-                        const patientEmail = patientData ? patientData.email : 'Patient';
+                        
+                        // Make sure we get the patient name, not just a default
+                        let patientEmail = 'Unknown';
+                        if (patientData) {
+                            patientEmail = patientData.email || patientData.name || 'Patient';
+                            // If a patient's name is directly stored, try to get it
+                            if (patientData.profile && patientData.profile.name) {
+                                patientEmail = patientData.profile.name;
+                            }
+                        }
+                        
+                        // Get first character of name for profile icon
                         initial = patientEmail.charAt(0).toUpperCase();
                         
                         document.getElementById('user-email').textContent = `Viewing: ${patientEmail}`;
@@ -616,6 +655,12 @@
             const imageOrder = parseInt(img.dataset.order);
             const expectedOrder = parseInt(dropArea.dataset.order);
             
+            // Enforce sequential ordering - only allow placement in the current expected position
+            if (expectedOrder !== currentImageOrder) {
+                alert(`Please place image ${currentImageOrder} first.`);
+                return;
+            }
+            
             // Calculate time taken for this placement
             const endTime = Date.now();
             const timeSpent = (endTime - startTime) / 1000;
@@ -640,18 +685,8 @@
                 dropArea.appendChild(imgClone);
                 dropArea.classList.add('correct');
                 
-                // Mark the original image as placed but keep it visible
-                img.style.opacity = '0.5';
-                img.style.border = '2px solid #4CAF50';
-                img.style.cursor = 'not-allowed';
-                img.draggable = false;
-                img.dataset.placed = 'true';
-                
-                // Remove event listeners
-                img.removeEventListener('dragstart', dragStart);
-                img.removeEventListener('touchstart', touchStart);
-                img.removeEventListener('touchmove', touchMove);
-                img.removeEventListener('touchend', touchEnd);
+                // Remove the original image
+                img.remove();
                 
                 // Move to next image if not completed all
                 if (completedImages < images.length) {
