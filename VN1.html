@@ -280,6 +280,87 @@
             background-color: #c82333;
         }
 
+        .attempt-item {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .attempt-item:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .attempt-date {
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 16px;
+        }
+        
+        .attempt-score {
+            color: #4CAF50;
+            margin-bottom: 10px;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        
+        .attempt-details {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+            background-color: #f0f0f0;
+            padding: 12px;
+            border-radius: 6px;
+            color: #333;
+            font-size: 14px;
+        }
+        
+        .attempt-detail-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .detail-label {
+            font-weight: bold;
+            color: #555;
+        }
+        
+        .toggle-details-btn {
+            margin-top: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        
+        .toggle-details-btn:hover {
+            background-color: #45a049;
+        }
+        
+        .profile-icon:hover::after {
+            content: attr(title);
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: #333;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            margin-top: 5px;
+        }
+
         @media (max-width: 600px) {
             .options-container {
                 grid-template-columns: repeat(5, 40px);
@@ -295,7 +376,13 @@
 </head>
 <body>
     <div class="game-container">
-        <h1>Remember and Find the Object!</h1>
+        <div class="header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+            <h1>Remember and Find the Object!</h1>
+            <div class="profile-icon" id="profileIcon" title="Back to Home" onclick="window.location.href='index.html'" style="width: 35px; height: 35px; border-radius: 50%; background-color: #2196F3; color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; font-weight: bold; text-decoration: none; transition: background-color 0.3s; font-size: 18px;"></div>
+            <div class="user-info">
+                <span id="patient-indicator" class="patient-indicator" style="display: none; background-color: #e9f5e9; color: #4CAF50; padding: 3px 8px; border-radius: 12px; font-size: 12px; margin-left: 8px;"></span>
+            </div>
+        </div>
         
         <div class="question-section">
             <img id="questionImage" class="question-image" src="" alt="Question Image" style="cursor: pointer;">
@@ -307,16 +394,16 @@
 
     <div id="result-container">
         <h2>Quiz Results</h2>
-        <ul>
-            <li><strong>Score:</strong> <span id="score">0</span></li>
-            <li><strong>Total Time:</strong> <span id="total-time">0</span> seconds</li>
-            <li><strong>Average Time:</strong> <span id="avg-time">0</span> seconds</li>
-            <li><strong>First Tap Time:</strong> <span id="first-tap">0</span> seconds</li>
-            <li><strong>Total Taps:</strong> <span id="total-taps">0</span></li>
-            <li><strong>Total Correct Answers:</strong> <span id="total-correct">0</span></li>
-            <li><strong>Total Incorrect Answers:</strong> <span id="total-incorrect">0</span></li>
+        <ul style="list-style: none; padding: 0;">
+            <li><strong>Score:</strong> <span id="score"></span></li>
+            <li><strong>Total Time:</strong> <span id="total-time"></span> seconds</li>
+            <li><strong>Average Time:</strong> <span id="avg-time"></span> seconds</li>
+            <li><strong>First Tap Time:</strong> <span id="first-tap"></span> seconds</li>
+            <li><strong>Total Taps:</strong> <span id="total-taps"></span></li>
+            <li><strong>Total Correct Answers:</strong> <span id="total-correct"></span></li>
+            <li><strong>Total Incorrect Answers:</strong> <span id="total-incorrect"></span></li>
         </ul>
-        <a href="index.html" style="text-decoration: none;"><button class="home-button">Return Home</button></a>
+        <a href="index.html" style="text-decoration: none;"><button>Return Home</button></a>
     </div>
 
     <div id="report-container">
@@ -348,23 +435,107 @@
         </div>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-        import { getDatabase, ref, set, get, push } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-database.js";
+    <!-- Firebase App (the core Firebase SDK) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <!-- Firebase Auth -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <!-- Firebase Database -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
+    <script>
         // Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
             authDomain: "projeccvi.firebaseapp.com",
             projectId: "projeccvi",
-            storageBucket: "projeccvi.firebasestorage.app",
+            storageBucket: "projeccvi.appspot.com",
             messagingSenderId: "279067566247",
             appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
         };
 
         // Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const database = firebase.database();
+        
+        // Get quiz context from session storage
+        const currentPatientId = sessionStorage.getItem('currentPatientId');
+        const doctorId = sessionStorage.getItem('doctorId');
+        const isPatientQuiz = !!currentPatientId;
+        
+        console.log('Quiz context in VN1:', { 
+            isPatientQuiz, 
+            currentPatientId: currentPatientId || 'none',
+            doctorId: doctorId || 'none'
+        });
+
+        // Auth state observer
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                console.log('User authenticated in VN1:', user.uid);
+                
+                try {
+                    // Check if user is a doctor
+                    if (!isPatientQuiz) {
+                        const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                        const role = roleSnapshot.val();
+                        
+                        if (role === 'doctor') {
+                            console.log('Doctor detected without patient context, redirecting');
+                            // Redirect doctors without patient context back to index
+                            alert('Please select a patient first to administer the quiz.');
+                            window.location.href = 'index.html';
+                            return;
+                        }
+                    }
+                    
+                    // Load user profile
+                    let profile;
+                    if (isPatientQuiz) {
+                        // Doctor viewing patient
+                        console.log(`Loading patient profile in VN1: ${currentPatientId}`);
+                        const patientSnapshot = await database.ref(`doctors/${doctorId}/patients/${currentPatientId}/profile`).once('value');
+                        profile = patientSnapshot.val();
+                    } else {
+                        // Regular user
+                        console.log('Loading user profile in VN1');
+                        const userSnapshot = await database.ref(`users/${user.uid}/profile`).once('value');
+                        profile = userSnapshot.val();
+                    }
+                    
+                    // Get first letter of name or email
+                    let initial = 'U';
+                    if (profile && profile.name) {
+                        initial = profile.name.charAt(0).toUpperCase();
+                    } else if (user.email) {
+                        initial = user.email.charAt(0).toUpperCase();
+                    }
+                    
+                    // Display patient indicator
+                    if (isPatientQuiz) {
+                        const patientIndicator = document.getElementById('patient-indicator');
+                        patientIndicator.textContent = 'Patient';
+                        patientIndicator.style.display = 'inline-block';
+                    } else {
+                        const patientIndicator = document.getElementById('patient-indicator');
+                        patientIndicator.style.display = 'none';
+                    }
+                    
+                    document.getElementById('profileIcon').textContent = initial;
+                    // Start the game
+                    startNewRound();
+                    questionImage.onclick = showOptions;
+                } catch (error) {
+                    console.error('Error loading profile in VN1:', error);
+                    document.getElementById('profileIcon').textContent = 'U';
+                    // Start the game anyway
+                    startNewRound();
+                    questionImage.onclick = showOptions;
+                }
+            } else {
+                window.location.href = 'login.html';
+            }
+        });
 
         // Game statistics
         let startTime;
@@ -524,12 +695,57 @@
         }
 
         function saveAttempt(data) {
-            const attemptsRef = ref(db, 'quizAttempts18/');
-            const newAttemptRef = ref(db, 'quizAttempts18/' + Date.now());
-            
-            set(newAttemptRef, data)
+            const user = auth.currentUser;
+            if (!user) return;
+
+            try {
+                const timestamp = Date.now();
+                let path;
+
+                // Check if this is a patient quiz (doctor viewing patient)
+                if (currentPatientId && doctorId) {
+                    // This is a doctor testing a patient
+                    console.log(`Saving patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/VN1/${timestamp}`;
+                } else {
+                    // Regular user quiz
+                    // Check if user is a doctor
+                    database.ref(`roles/${user.uid}`).once('value')
+                        .then(roleSnapshot => {
+                            const role = roleSnapshot.val();
+                            
+                            if (role === 'doctor') {
+                                console.log(`Saving doctor's own quiz results: ${user.uid}`);
+                                path = `doctors/${user.uid}/quiz/VN1/${timestamp}`;
+                            } else {
+                                console.log(`Saving regular user quiz results: ${user.uid}`);
+                                path = `users/${user.uid}/quiz/VN1/${timestamp}`;
+                            }
+                            
+                            // Now save the data
+                            saveData(path, data);
+                        })
+                        .catch(error => {
+                            console.error("Error checking role:", error);
+                            // Default to regular user path if role check fails
+                            path = `users/${user.uid}/quiz/VN1/${timestamp}`;
+                            saveData(path, data);
+                        });
+                    return; // Exit early as we're handling this in the promises
+                }
+
+                // Save data for patient quiz (the non-promise path)
+                saveData(path, data);
+            } catch (error) {
+                console.error('Error saving quiz results:', error);
+            }
+        }
+
+        function saveData(path, data) {
+            console.log(`Saving quiz results to path: ${path}`);
+            database.ref(path).set(data)
                 .then(() => {
-                    console.log("Attempt saved!");
+                    console.log('Quiz results saved successfully');
                     fetchAttempts(); // Refresh the history after saving
                 })
                 .catch(error => {
@@ -537,43 +753,182 @@
                 });
         }
 
-        function fetchAttempts() {
-            const attemptsRef = ref(db, 'quizAttempts18/');
-            get(attemptsRef)
-                .then(snapshot => {
-                    if (snapshot.exists()) {
-                        const attempts = snapshot.val();
-                        const reportList = document.getElementById('report-list');
-                        reportList.innerHTML = ''; // Clear existing list
-
-                        // Convert attempts object to array and sort by timestamp
-                        const sortedAttempts = Object.entries(attempts)
-                            .map(([id, attempt]) => ({...attempt, id}))
-                            .sort((a, b) => b.timestamp - a.timestamp)
-                            .slice(0, 5); // Get only the last 5 attempts
-
-                        sortedAttempts.forEach(attempt => {
-                            const listItem = document.createElement('li');
-                            listItem.innerText = `Score: ${attempt.score}, Time: ${attempt.totalTime}s, Incorrect: ${attempt.totalIncorrectAnswers}, Taps: ${attempt.totalTaps}, First Tap: ${attempt.firstTapTime}s, Avg Time: ${attempt.avgTime}s`;
-                            reportList.appendChild(listItem);
-                        });
+        async function fetchAttempts() {
+            try {
+                const user = auth.currentUser;
+                if (!user) return;
+                
+                let path;
+                const reportList = document.getElementById('report-list');
+                reportList.innerHTML = '<h3>Previous Attempts</h3>';
+                
+                // Check if this is a patient quiz (doctor viewing patient)
+                if (currentPatientId && doctorId) {
+                    // This is a doctor testing a patient
+                    console.log(`Fetching patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/VN1`;
+                } else {
+                    // Regular user quiz
+                    // Check if user is a doctor
+                    const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                    const role = roleSnapshot.val();
+                    
+                    if (role === 'doctor') {
+                        console.log(`Fetching doctor's own quiz results: ${user.uid}`);
+                        path = `doctors/${user.uid}/quiz/VN1`;
+                    } else {
+                        console.log(`Fetching regular user quiz results: ${user.uid}`);
+                        path = `users/${user.uid}/quiz/VN1`;
                     }
-                })
-                .catch(error => {
-                    console.error("Error fetching attempts: ", error);
-                });
+                }
+                
+                console.log(`Fetching previous attempts from path: ${path}`);
+                const resultsSnapshot = await database.ref(path).once('value');
+                
+                if (resultsSnapshot.exists()) {
+                    const results = [];
+                    resultsSnapshot.forEach(childSnapshot => {
+                        results.push({
+                            id: childSnapshot.key,
+                            ...childSnapshot.val()
+                        });
+                    });
+                    
+                    // Sort by timestamp if available (newest first)
+                    results.sort((a, b) => {
+                        return b.timestamp - a.timestamp;
+                    });
+                    
+                    // Take only the most recent 5
+                    const recentResults = results.slice(0, 5);
+                    
+                    if (recentResults.length > 0) {
+                        recentResults.forEach(result => {
+                            const timestamp = result.timestamp;
+                            // Check if timestamp is a number (milliseconds) or a string (ISO format)
+                            const date = typeof timestamp === 'number' 
+                                ? new Date(timestamp) 
+                                : new Date(timestamp);
+                                
+                            const formattedDate = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+                            
+                            const attemptItem = document.createElement('div');
+                            attemptItem.className = 'attempt-item';
+                            
+                            // Create main display with date and score
+                            const dateScoreDiv = document.createElement('div');
+                            dateScoreDiv.innerHTML = `
+                                <div class="attempt-date">${formattedDate}</div>
+                                <div class="attempt-score">Score: ${result.score}</div>
+                            `;
+                            attemptItem.appendChild(dateScoreDiv);
+                            
+                            // Create the details section
+                            const detailsDiv = document.createElement('div');
+                            detailsDiv.className = 'attempt-details';
+                            
+                            // Add details
+                            const detailsHtml = `
+                                <div class="attempt-detail-item">
+                                    <span class="detail-label">Total Time:</span>
+                                    <span>${result.totalTime || 'N/A'}s</span>
+                                </div>
+                                <div class="attempt-detail-item">
+                                    <span class="detail-label">Avg Time:</span>
+                                    <span>${result.avgTime || 'N/A'}s</span>
+                                </div>
+                                <div class="attempt-detail-item">
+                                    <span class="detail-label">First Tap:</span>
+                                    <span>${result.firstTapTime || 'N/A'}</span>
+                                </div>
+                                <div class="attempt-detail-item">
+                                    <span class="detail-label">Total Taps:</span>
+                                    <span>${result.totalTaps || 'N/A'}</span>
+                                </div>
+                                <div class="attempt-detail-item">
+                                    <span class="detail-label">Incorrect:</span>
+                                    <span>${result.totalIncorrectAnswers || 'N/A'}</span>
+                                </div>
+                            `;
+                            detailsDiv.innerHTML = detailsHtml;
+                            attemptItem.appendChild(detailsDiv);
+                            
+                            // Add a button to toggle details
+                            const toggleBtn = document.createElement('button');
+                            toggleBtn.className = 'toggle-details-btn';
+                            toggleBtn.textContent = 'Show Details';
+                            toggleBtn.onclick = function() {
+                                if (detailsDiv.style.display === 'none' || !detailsDiv.style.display) {
+                                    detailsDiv.style.display = 'grid';
+                                    this.textContent = 'Hide Details';
+                                } else {
+                                    detailsDiv.style.display = 'none';
+                                    this.textContent = 'Show Details';
+                                }
+                            };
+                            dateScoreDiv.appendChild(toggleBtn);
+                            
+                            // Initially hide details
+                            detailsDiv.style.display = 'none';
+                            
+                            reportList.appendChild(attemptItem);
+                        });
+                    } else {
+                        reportList.innerHTML += '<p>No previous attempts found.</p>';
+                    }
+                } else {
+                    reportList.innerHTML += '<p>No previous attempts found.</p>';
+                }
+            } catch (error) {
+                console.error('Error fetching previous attempts:', error);
+                document.getElementById('report-list').innerHTML += '<p>Error loading previous attempts: ' + error.message + '</p>';
+            }
         }
 
-        function clearReport() {
-            const attemptsRef = ref(db, 'quizAttempts18/');
-            set(attemptsRef, null)
-                .then(() => {
-                    console.log("Report cleared!");
-                    document.getElementById('report-list').innerHTML = '';
-                })
-                .catch(error => {
-                    console.error("Error clearing report: ", error);
-                });
+        async function clearReport() {
+            const user = auth.currentUser;
+            if (!user) {
+                alert('You need to be logged in to clear the report.');
+                return;
+            }
+
+            try {
+                let path;
+                
+                // Check if this is a patient quiz (doctor viewing patient)
+                if (currentPatientId && doctorId) {
+                    // This is a doctor testing a patient
+                    console.log(`Clearing patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/VN1`;
+                } else {
+                    // Regular user quiz
+                    // Check if user is a doctor
+                    const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                    const role = roleSnapshot.val();
+                    
+                    if (role === 'doctor') {
+                        console.log(`Clearing doctor's own quiz results: ${user.uid}`);
+                        path = `doctors/${user.uid}/quiz/VN1`;
+                    } else {
+                        console.log(`Clearing regular user quiz results: ${user.uid}`);
+                        path = `users/${user.uid}/quiz/VN1`;
+                    }
+                }
+                
+                console.log(`Removing all quiz results from path: ${path}`);
+                
+                // Remove all data at the specified path
+                await database.ref(path).remove();
+                
+                // Reset the results display
+                document.getElementById('report-list').innerHTML = '<h3>Previous Attempts</h3><p>No previous attempts found.</p>';
+                
+                alert('All quiz reports have been cleared successfully.');
+                
+            } catch (error) {
+                console.error('Error clearing report:', error);
+                alert('Failed to clear the report: ' + error.message);
+            }
         }
 
         document.addEventListener("click", () => {
@@ -582,12 +937,6 @@
                 firstTapTime = (Date.now() - totalStartTime) / 1000;
             }
         });
-
-        // Start the game immediately and set up click handler
-        window.onload = () => {
-            startNewRound();
-            questionImage.onclick = showOptions;
-        };
     </script>
 </body>
 </html>
