@@ -499,10 +499,15 @@
                     
                     // Set profile icon initials
                     if (profile && profile.name) {
+                        console.log('Setting initials from profile name:', profile.name);
                         setProfileInitials(profile.name);
+                    } else if (user.email) {
+                        console.log('Setting initials from email:', user.email);
+                        setProfileInitials(user.email);
                     } else {
-                        const email = user.email || 'User';
-                        setProfileInitials(email);
+                        // Fallback to a default initial
+                        document.getElementById('profileIcon').textContent = 'U';
+                        console.log('Using default initials: U');
                     }
                     
                     // Initialize the game
@@ -511,6 +516,7 @@
                     
                 } catch (error) {
                     console.error('Error setting up quiz:', error);
+                    document.getElementById('profileIcon').textContent = 'U'; // Ensure a default is always set
                     alert('Error loading profile. Please try again.');
                 }
             } else {
@@ -795,11 +801,14 @@
             // Determine the correct path based on user type
             let dbPath = '';
             if (isDoctorViewingPatient) {
-                dbPath = `quiz_results/${patientId}/morning`;
+                // Use the same structure as in VDT1.html for doctor-patient context
+                dbPath = `doctors/${doctorId || userId}/patients/${patientId}/quiz/morning`;
             } else {
-                dbPath = `quiz_results/${userId}/morning`;
+                // Use the same structure as in VDT1.html for regular user
+                dbPath = `users/${userId}/quiz/morning`;
             }
 
+            console.log(`Saving quiz results to path: ${dbPath}`);
             db.ref(`${dbPath}/${Date.now()}`).set(quizData)
                 .then(() => {
                     console.log("Quiz results saved successfully");
@@ -812,12 +821,12 @@
         // Fetch previous attempts
         async function fetchPreviousAttempts() {
             try {
-                // Determine the path based on user type
+                // Determine the path based on user type - matching VDT1.html structure
                 let path = '';
                 if (isDoctorViewingPatient) {
-                    path = `quiz_results/${patientId}/morning`;
+                    path = `doctors/${doctorId || userId}/patients/${patientId}/quiz/morning`;
                 } else {
-                    path = `quiz_results/${userId}/morning`;
+                    path = `users/${userId}/quiz/morning`;
                 }
 
                 console.log(`Fetching previous attempts from path: ${path}`);
@@ -911,12 +920,12 @@
                     return;
                 }
 
-                // Determine the path based on user type
+                // Determine the path based on user type - matching VDT1.html structure
                 let path = '';
                 if (isDoctorViewingPatient) {
-                    path = `quiz_results/${patientId}/morning`;
+                    path = `doctors/${doctorId || userId}/patients/${patientId}/quiz/morning`;
                 } else {
-                    path = `quiz_results/${userId}/morning`;
+                    path = `users/${userId}/quiz/morning`;
                 }
 
                 db.ref(path).remove()
@@ -936,14 +945,22 @@
 
         // Set profile initials helper function
         function setProfileInitials(name) {
-            const nameParts = name.split(' ');
-            let initials = nameParts[0].charAt(0).toUpperCase();
-            
-            if (nameParts.length > 1 && nameParts[1].length > 0) {
-                initials += nameParts[1].charAt(0).toUpperCase();
+            try {
+                const nameParts = name.split(' ');
+                let initials = nameParts[0].charAt(0).toUpperCase();
+                
+                if (nameParts.length > 1 && nameParts[1].length > 0) {
+                    initials += nameParts[1].charAt(0).toUpperCase();
+                }
+                
+                console.log('Setting profile initials to:', initials);
+                const profileIcon = document.getElementById('profileIcon');
+                profileIcon.textContent = initials;
+            } catch (error) {
+                console.error('Error setting profile initials:', error);
+                // Set a fallback initial if there's an error
+                document.getElementById('profileIcon').textContent = 'U';
             }
-            
-            document.getElementById('profileIcon').textContent = initials;
         }
 
         // Helper function to shuffle array
