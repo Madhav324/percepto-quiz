@@ -1340,7 +1340,10 @@
                 try {
                     const profilesSnapshot = await firestore.collection('userProfiles').get();
                     profilesSnapshot.docs.forEach(doc => {
-                        userProfiles.set(doc.id, doc.data());
+                        userProfiles.set(doc.id, {
+                            id: doc.id,
+                            ...doc.data()
+                        });
                     });
                     console.log(`Loaded ${userProfiles.size} user profiles from Firestore`);
                 } catch (error) {
@@ -1887,10 +1890,14 @@
                             assignedDoctor: null,
                             initials: getInitials(userData.name || 'Unknown User'),
                             quizData: {}, // Store detailed quiz data for this user
-                            age: userData.age || 'N/A',
-                            gender: userData.gender || 'N/A',
-                            medicalCondition: userData.medicalCondition || 'N/A',
-                            doctorRecommendation: userData.doctorRecommendation || 'N/A'
+                            age: userData.age || userData.profile?.age || 'N/A',
+                            gender: userData.gender || userData.profile?.gender || 'N/A',
+                            medicalCondition: userData.medicalCondition || userData.profile?.medicalCondition || 'N/A',
+                            doctorRecommendation: userData.doctorRecommendation || userData.profile?.doctorRecommendation || 'N/A',
+                            specialization: userData.specialization || userData.profile?.specialization || 'N/A',
+                            experience: userData.experience || userData.profile?.experience || 'N/A',
+                            institution: userData.institution || userData.profile?.institution || 'N/A',
+                            contactNumber: userData.contactNumber || userData.profile?.contactNumber || 'N/A'
                         };
                         
                         // Get user's quiz data based on role
@@ -1988,6 +1995,22 @@
                                         }
                                     } catch (error) {
                                         console.warn(`Error fetching quiz data for user ${userId}:`, error);
+                                    }
+                                    
+                                    // Also try to get additional profile information
+                                    try {
+                                        const userProfileDoc = await firestore.collection('userProfiles').doc(userId).get();
+                                        if (userProfileDoc.exists) {
+                                            const profileData = userProfileDoc.data();
+                                            // Update user data with any additional profile information
+                                            user.age = profileData.age || user.age;
+                                            user.gender = profileData.gender || user.gender;
+                                            user.medicalCondition = profileData.medicalCondition || user.medicalCondition;
+                                            user.doctorRecommendation = profileData.doctorRecommendation || user.doctorRecommendation;
+                                            user.contactNumber = profileData.contactNumber || user.contactNumber;
+                                        }
+                                    } catch (profileError) {
+                                        console.warn(`Could not load profile details for user ${userId}:`, profileError);
                                     }
                                 }
                                 
@@ -2177,8 +2200,10 @@
                         <div class="user-additional-info">
                             <div><strong>Age:</strong> ${doctor.age}</div>
                             <div><strong>Gender:</strong> ${doctor.gender}</div>
-                            <div><strong>Medical:</strong> ${doctor.medicalCondition || 'N/A'}</div>
-                            <div><strong>Recommendation:</strong> ${doctor.doctorRecommendation || 'N/A'}</div>
+                            <div><strong>Specialization:</strong> ${doctor.specialization}</div>
+                            <div><strong>Experience:</strong> ${doctor.experience}</div>
+                            <div><strong>Institution:</strong> ${doctor.institution}</div>
+                            <div><strong>Contact:</strong> ${doctor.contactNumber}</div>
                         </div>
                     </td>
                     <td>${doctor.lastActive}</td>
@@ -2294,6 +2319,7 @@
                             <div><strong>Gender:</strong> ${user.gender}</div>
                             <div><strong>Medical:</strong> ${user.medicalCondition}</div>
                             <div><strong>Recommendation:</strong> ${user.doctorRecommendation}</div>
+                            <div><strong>Contact:</strong> ${user.contactNumber || 'N/A'}</div>
                         </div>
                     </td>
                     <td>${user.lastActive}</td>
