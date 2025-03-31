@@ -986,10 +986,11 @@
                                 <th>Role</th>
                                 <th>Info</th>
                                 <th>Last Active</th>
+                                <th>Age</th>
                             </tr>
                         </thead>
                         <tbody id="usersTable">
-                            <tr><td colspan="4">Loading user data...</td></tr>
+                            <tr><td colspan="5">Loading user data...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -1582,6 +1583,40 @@
             }
         }
         
+        // Process quiz data and update statistics
+        function processQuizData(quizData, quizzes, userType) {
+            Object.entries(quizzes).forEach(([quizType, attempts]) => {
+                if (!attempts) return;
+                
+                // Initialize quiz stats if needed
+                if (!quizData[quizType]) {
+                    quizData[quizType] = {
+                        totalScore: 0,
+                        doctorAttempts: 0,
+                        patientAttempts: 0,
+                        userAttempts: 0
+                    };
+                }
+                
+                // Process all attempts for this quiz type
+                Object.entries(attempts).forEach(([timestamp, result]) => {
+                    // Add to appropriate counter based on user type
+                    if (userType === 'Doctor') {
+                        quizData[quizType].doctorAttempts++;
+                    } else if (userType === 'Patient') {
+                        quizData[quizType].patientAttempts++;
+                    } else {
+                        quizData[quizType].userAttempts++;
+                    }
+                    
+                    // Add to total score if available
+                    if (result.score !== undefined) {
+                        quizData[quizType].totalScore += parseFloat(result.score);
+                    }
+                });
+            });
+        }
+        
         // Load quizzes data for the Quizzes tab
         async function loadQuizzesData() {
             try {
@@ -1820,149 +1855,52 @@
             try {
                 console.log("Loading users data...");
                 const usersContainer = document.getElementById('usersTable');
-                usersContainer.innerHTML = '<tr><td colspan="4">Loading user data...</td></tr>';
+                usersContainer.innerHTML = '<tr><td colspan="5">Loading user data...</td></tr>';
                 
                 // Store all users
                 const userArray = [];
+                const doctorPatientMap = new Map(); // Map of doctorId -> patientIds
                 
-                // Doctor-patient mapping
-                const doctorPatientMap = new Map();
-                
-                // Get doctor profiles 
-                const doctorProfilesRef = firestore.collection('userProfiles').where('role', '==', 'doctor');
+                // Step 1: Get all user profile data from Firestore
                 try {
-                    const doctorProfilesSnapshot = await doctorProfilesRef.get();
-                    console.log(`Found ${doctorProfilesSnapshot.docs.length} doctor profiles`);
+                    const userProfilesSnapshot = await firestore.collection('userProfiles').get();
+                    console.log(`Loading ${userProfilesSnapshot.size} user profiles from Firestore`);
                     
-                    // Extract doctor data and relationships
-                    for (const doctorDoc of doctorProfilesSnapshot.docs) {
-                        const doctorId = doctorDoc.id;
-                        const doctorData = doctorDoc.data();
-                        
-                        // Create doctor object with all profile data
-                        const doctor = {
-                            id: doctorId,
-                            name: doctorData.name || 'Unknown Doctor',
-                            email: doctorData.email || 'No email',
-                            role: 'doctor',
-                            quizCount: 0,
-                            lastActive: doctorData.updatedAt ? new Date(doctorData.updatedAt).toLocaleString() : 'Never',
-                            patientCount: 0,
-                            patients: [],
-                            initials: getInitials(doctorData.name || 'Unknown Doctor'),
-                            quizData: {},
-                            // Include all profile data
-                            ...doctorData
-                        };
-                        
-                        userArray.push(doctor);
-                        
-                        // Get patients for this doctor
-                        try {
-                            const patientsRef = await firestore.collection('userProfiles')
-                                .where('role', '==', 'patient')
-                                .where('doctorId', '==', doctorId)
-                                .get();
-                            
-                            const patientIds = [];
-                            patientsRef.docs.forEach(patientDoc => {
-                                patientIds.push(patientDoc.id);
-                                const patientData = patientDoc.data();
-                                
-                                // Create patient object with all profile data
-                                const patient = {
-                                    id: patientDoc.id,
-                                    name: patientData.name || 'Unknown Patient',
-                                    email: patientData.email || 'No email',
-                                    role: 'patient',
-                                    quizCount: 0,
-                                    lastActive: patientData.updatedAt ? new Date(patientData.updatedAt).toLocaleString() : 'Never',
-                                    assignedDoctor: doctorId,
-                                    initials: getInitials(patientData.name || 'Unknown Patient'),
-                                    quizData: {},
-                                    // Include all profile data
-                                    ...patientData
-                                };
-                                
-                                userArray.push(patient);
-                            });
-                            
-                            if (patientIds.length > 0) {
-                                doctorPatientMap.set(doctorId, patientIds);
-                                doctor.patientCount = patientIds.length;
-                            }
-                        } catch (error) {
-                            console.error(`Error getting patients for doctor ${doctorId}:`, error);
-                        }
-                    }
-                } catch (error) {
-                    console.error("Error fetching doctor profiles:", error);
-                }
-                
-                // Get regular user profiles
-                const regularUsersRef = firestore.collection('userProfiles').where('role', '==', 'user');
-                try {
-                    const regularUsersSnapshot = await regularUsersRef.get();
-                    console.log(`Found ${regularUsersSnapshot.docs.length} regular user profiles`);
-                    
-                    for (const userDoc of regularUsersSnapshot.docs) {
-                        const userData = userDoc.data();
-                        const userId = userDoc.id;
-                        
-                        // Create regular user object with all profile data
-                        userArray.push({
-                            id: userId,
-                            name: userData.name || 'Unknown User',
-                            email: userData.email || 'No email',
-                            role: 'user',
-                            quizCount: 0,
-                            lastActive: userData.updatedAt ? new Date(userData.updatedAt).toLocaleString() : 'Never',
-                            initials: getInitials(userData.name || 'Unknown User'),
-                            quizData: {},
-                            // Include all profile data
-                            ...userData
+                    // Create a map of user profiles for quick lookup
+                    const userProfiles = new Map();
+                    userProfilesSnapshot.docs.forEach(doc => {
+                        const data = doc.data();
+                        console.log(`User profile ${doc.id}:`, data); // Debug profile data
+                        userProfiles.set(doc.id, {
+                            id: doc.id,
+                            ...data
                         });
-                    }
+                    });
                 } catch (error) {
-                    console.error("Error fetching regular user profiles:", error);
+                    console.error("Error accessing userProfiles collection:", error);
+                    throw new Error(`Could not access userProfiles: ${error.message}`);
                 }
                 
-                // Get patient profiles that don't have a doctor assigned
-                const unassignedPatientsRef = firestore.collection('userProfiles')
-                    .where('role', '==', 'patient')
-                    .where('doctorId', '==', null)
-                    .get();
-                
-                try {
-                    const unassignedPatientsSnapshot = await unassignedPatientsRef;
-                    console.log(`Found ${unassignedPatientsSnapshot.docs.length} unassigned patient profiles`);
-                    
-                    for (const patientDoc of unassignedPatientsSnapshot.docs) {
-                        const patientData = patientDoc.data();
-                        const patientId = patientDoc.id;
-                        
-                        // Create unassigned patient object with all profile data
-                        userArray.push({
-                            id: patientId,
-                            name: patientData.name || 'Unknown Patient',
-                            email: patientData.email || 'No email',
-                            role: 'patient',
-                            quizCount: 0,
-                            lastActive: patientData.updatedAt ? new Date(patientData.updatedAt).toLocaleString() : 'Never',
-                            assignedDoctor: null,
-                            initials: getInitials(patientData.name || 'Unknown Patient'),
-                            quizData: {},
-                            // Include all profile data
-                            ...patientData
-                        });
-                    }
-                } catch (error) {
-                    console.error("Error fetching unassigned patient profiles:", error);
-                }
-                
-                // Now fetch quiz data for all users
-                for (const user of userArray) {
-                    const userId = user.id;
+                // Process each user profile
+                for (const [userId, userData] of userProfiles.entries()) {
+                    // Basic user data
+                    const user = {
+                        id: userId,
+                        name: userData.name || 'Unknown',
+                        email: userData.email || 'No email',
+                        role: userData.role || 'user',
+                        quizCount: 0,
+                        lastActive: userData.updatedAt ? new Date(userData.updatedAt).toLocaleString() : 'Never',
+                        patientCount: 0,
+                        patients: [],
+                        assignedDoctor: null,
+                        initials: getInitials(userData.name || 'Unknown User'),
+                        quizData: {}, // Store detailed quiz data for this user
+                        age: userData.age || 'N/A',
+                        gender: userData.gender || 'N/A',
+                        medicalCondition: userData.medicalCondition || 'N/A',
+                        doctorRecommendation: userData.doctorRecommendation || 'N/A'
+                    };
                     
                     // Get user's quiz data based on role
                     try {
@@ -1970,31 +1908,128 @@
                             // Doctor's own quizzes
                             const doctorQuizzes = await db.ref(`doctors/${userId}/quiz`).once('value');
                             if (doctorQuizzes.exists()) {
+                                let totalQuizzes = 0;
+                                let latestTimestamp = 0;
+                                
+                                // Store detailed quiz data
                                 user.quizData = doctorQuizzes.val();
-                                user.quizCount = countQuizzes(user.quizData);
-                            }
-                        } else if (user.role === 'user' || user.role === 'patient') {
-                            // Try both paths to ensure we get quiz data
-                            try {
-                                // Path 1: The normal user path
-                                const userQuizzes = await db.ref(`users/${userId}/quiz`).once('value');
-                                if (userQuizzes.exists() && userQuizzes.val()) {
-                                    user.quizData = userQuizzes.val();
-                                    user.quizCount = countQuizzes(user.quizData);
-                                } else {
-                                    // Path 2: Alternative paths to check
-                                    const alternativeQuizzes = await db.ref(`quiz/${userId}`).once('value');
-                                    if (alternativeQuizzes.exists() && alternativeQuizzes.val()) {
-                                        user.quizData = alternativeQuizzes.val();
-                                        user.quizCount = countQuizzes(user.quizData);
+                                
+                                Object.keys(doctorQuizzes.val()).forEach(quizType => {
+                                    const attempts = doctorQuizzes.val()[quizType];
+                                    if (attempts) {
+                                        totalQuizzes += Object.keys(attempts).length;
+                                        
+                                        // Find the latest attempt
+                                        Object.keys(attempts).forEach(timestamp => {
+                                            const ts = parseInt(timestamp);
+                                            if (ts > latestTimestamp) {
+                                                latestTimestamp = ts;
+                                            }
+                                        });
                                     }
+                                });
+                                
+                                user.quizCount = totalQuizzes;
+                                if (latestTimestamp > 0) {
+                                    user.lastActive = new Date(latestTimestamp).toLocaleString();
                                 }
-                            } catch (error) {
-                                console.warn(`Error fetching quiz data for user ${userId}:`, error);
                             }
+                            
+                            // Get additional profile data from Realtime Database if not in Firestore
+                            const doctorDbProfile = await db.ref(`doctors/${userId}/profile`).once('value');
+                            if (doctorDbProfile.exists() && doctorDbProfile.val()) {
+                                const dbProfile = doctorDbProfile.val();
+                                // Only update fields that weren't already set from Firestore
+                                if (user.age === 'N/A' && dbProfile.age) user.age = dbProfile.age;
+                                if (user.gender === 'N/A' && dbProfile.gender) user.gender = dbProfile.gender;
+                                if (user.medicalCondition === 'N/A' && dbProfile.medicalCondition) user.medicalCondition = dbProfile.medicalCondition;
+                                if (user.doctorRecommendation === 'N/A' && dbProfile.doctorRecommendation) user.doctorRecommendation = dbProfile.doctorRecommendation;
+                            }
+                            
+                            // Get doctor's patients
+                            const patientsSnapshot = await db.ref(`doctors/${userId}/patients`).once('value');
+                            if (patientsSnapshot.exists()) {
+                                const patients = patientsSnapshot.val();
+                                user.patientCount = Object.keys(patients).length;
+                                
+                                // Create patient map for hierarchical display
+                                doctorPatientMap.set(userId, []);
+                                
+                                // Process each patient
+                                for (const [patientId, patientData] of Object.entries(patients)) {
+                                    if (!patientData) continue;
+                                    
+                                    // Get patient profile data, either from Firestore or the patients node
+                                    const patientProfile = patientData.profile || {};
+                                    const quizCount = patientData.quiz ? countQuizzes(patientData.quiz) : 0;
+                                    
+                                    // Create patient object
+                                    const patient = {
+                                        id: patientId,
+                                        name: patientProfile.name || 'Unknown Patient',
+                                        email: patientProfile.email || 'No email',
+                                        role: 'patient',
+                                        quizCount: quizCount,
+                                        lastActive: getLastActiveDate(patientData.quiz) || 'Never',
+                                        medicalCondition: patientProfile.medicalCondition || 'N/A',
+                                        age: patientProfile.age || 'N/A',
+                                        gender: patientProfile.gender || 'N/A',
+                                        assignedDoctor: userId,
+                                        initials: getInitials(patientProfile.name || 'Unknown Patient'),
+                                        quizData: patientData.quiz || {} // Store detailed quiz data for this patient
+                                    };
+                                    
+                                    // Add to doctor's patients array
+                                    doctorPatientMap.get(userId).push(patientId);
+                                    
+                                    // Add to overall user array
+                                    userArray.push(patient);
+                                }
+                            } else {
+                                user.patientCount = 0;
+                            }
+                        } else {
+                            // Regular user quizzes
+                            if (user.role === 'user' || user.role === 'patient') {
+                                // Get additional profile data from Realtime Database if not in Firestore
+                                const userDbProfile = await db.ref(`users/${userId}/profile`).once('value');
+                                if (userDbProfile.exists() && userDbProfile.val()) {
+                                    const dbProfile = userDbProfile.val();
+                                    // Only update fields that weren't already set from Firestore
+                                    if (user.age === 'N/A' && dbProfile.age) user.age = dbProfile.age;
+                                    if (user.gender === 'N/A' && dbProfile.gender) user.gender = dbProfile.gender;
+                                    if (user.medicalCondition === 'N/A' && dbProfile.medicalCondition) user.medicalCondition = dbProfile.medicalCondition;
+                                    if (user.doctorRecommendation === 'N/A' && dbProfile.doctorRecommendation) user.doctorRecommendation = dbProfile.doctorRecommendation;
+                                }
+                                
+                                // Try both paths to ensure we get quiz data
+                                try {
+                                    // Path 1: The normal user path
+                                    const userQuizzes = await db.ref(`users/${userId}/quiz`).once('value');
+                                    if (userQuizzes.exists() && userQuizzes.val()) {
+                                        user.quizData = userQuizzes.val();
+                                        user.quizCount = countQuizzes(user.quizData);
+                                    } else {
+                                        // Path 2: Alternative paths to check
+                                        const alternativeQuizzes = await db.ref(`quiz/${userId}`).once('value');
+                                        if (alternativeQuizzes.exists() && alternativeQuizzes.val()) {
+                                            user.quizData = alternativeQuizzes.val();
+                                            user.quizCount = countQuizzes(user.quizData);
+                                        }
+                                    }
+                                } catch (error) {
+                                    console.warn(`Error fetching quiz data for user ${userId}:`, error);
+                                }
+                            }
+                            
+                            // Check if this user is a patient assigned to a doctor
+                            // This is handled in the doctor loop above
                         }
+                        
+                        // Add user to array if they're not already added as a patient
+                        userArray.push(user);
                     } catch (error) {
-                        console.error(`Error fetching quiz data for user ${userId}:`, error);
+                        console.error(`Error loading user ${userId}:`, error);
                     }
                 }
                 
@@ -2007,7 +2042,7 @@
             } catch (error) {
                 console.error("Error loading users data:", error);
                 document.getElementById('usersTable').innerHTML = 
-                    `<tr><td colspan="4">Error loading data: ${error.message}</td></tr>`;
+                    `<tr><td colspan="5">Error loading data: ${error.message}</td></tr>`;
             }
         }
         
@@ -2029,7 +2064,7 @@
             container.innerHTML = '';
             
             if (users.length === 0) {
-                container.innerHTML = '<tr><td colspan="4">No users found</td></tr>';
+                container.innerHTML = '<tr><td colspan="5">No users found</td></tr>';
                 return;
             }
             
@@ -2065,12 +2100,14 @@
                         ${doctor.patientCount} patients, ${doctor.quizCount} quizzes
                         ${hasQuizzes ? `<button class="view-quizzes-btn" data-user-id="${doctor.id}">Show Quizzes</button>` : ''}
                         <div class="user-additional-info">
+                            <div><strong>Age:</strong> ${doctor.age}</div>
                             <div><strong>Gender:</strong> ${doctor.gender}</div>
                             <div><strong>Medical:</strong> ${doctor.medicalCondition || 'N/A'}</div>
                             <div><strong>Recommendation:</strong> ${doctor.doctorRecommendation || 'N/A'}</div>
                         </div>
                     </td>
                     <td>${doctor.lastActive}</td>
+                    <td>${doctor.age}</td>
                 `;
                 
                 container.appendChild(doctorRow);
@@ -2105,12 +2142,14 @@
                                 ${patient.quizCount} quizzes, ${patient.medicalCondition}
                                 ${hasPatientQuizzes ? `<button class="view-quizzes-btn" data-user-id="${patient.id}">Show Quizzes</button>` : ''}
                                 <div class="user-additional-info">
+                                    <div><strong>Age:</strong> ${patient.age}</div>
                                     <div><strong>Gender:</strong> ${patient.gender}</div>
                                     <div><strong>Medical:</strong> ${patient.medicalCondition}</div>
                                     <div><strong>Recommendation:</strong> ${patient.doctorRecommendation}</div>
                                 </div>
                             </td>
                             <td>${patient.lastActive}</td>
+                            <td>${patient.age}</td>
                         `;
                         
                         container.appendChild(patientRow);
@@ -2176,12 +2215,14 @@
                         ${user.quizCount} quizzes
                         ${hasQuizzes ? `<button class="view-quizzes-btn" data-user-id="${user.id}">Show Quizzes</button>` : ''}
                         <div class="user-additional-info">
+                            <div><strong>Age:</strong> ${user.age}</div>
                             <div><strong>Gender:</strong> ${user.gender}</div>
                             <div><strong>Medical:</strong> ${user.medicalCondition}</div>
                             <div><strong>Recommendation:</strong> ${user.doctorRecommendation}</div>
                         </div>
                     </td>
                     <td>${user.lastActive}</td>
+                    <td>${user.age}</td>
                 `;
                 
                 container.appendChild(userRow);
@@ -2225,12 +2266,14 @@
                             ${patient.quizCount} quizzes, ${patient.medicalCondition}
                             ${hasPatientQuizzes ? `<button class="view-quizzes-btn" data-user-id="${patient.id}">Show Quizzes</button>` : ''}
                             <div class="user-additional-info">
+                                <div><strong>Age:</strong> ${patient.age}</div>
                                 <div><strong>Gender:</strong> ${patient.gender}</div>
                                 <div><strong>Medical:</strong> ${patient.medicalCondition}</div>
                                 <div><strong>Recommendation:</strong> ${patient.doctorRecommendation}</div>
                             </div>
                         </td>
                         <td>${patient.lastActive}</td>
+                        <td>${patient.age}</td>
                     `;
                     
                     container.appendChild(patientRow);
@@ -2309,7 +2352,7 @@
             
             // Create content for the details row
             let content = `
-                <td colspan="4">
+                <td colspan="5">
                     <div class="quiz-stats-container">
                         <h3>Quiz Results</h3>
                         <table class="details-table">
