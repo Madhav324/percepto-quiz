@@ -1871,10 +1871,16 @@
                     
                     // Process each user profile
                     for (const [userId, userData] of userProfiles.entries()) {
+                        // Skip entries with no valid data
+                        if (!userData || !userData.name || userData.name === 'Unknown') {
+                            console.log("Skipping invalid user data:", userId);
+                            continue;
+                        }
+                        
                         // Basic user data
                         const user = {
                             id: userId,
-                            name: userData.name || 'Unknown',
+                            name: userData.name,
                             email: userData.email || 'No email',
                             role: userData.role || 'user',
                             quizCount: 0,
@@ -1882,7 +1888,7 @@
                             patientCount: 0,
                             patients: [],
                             assignedDoctor: null,
-                            initials: getInitials(userData.name || 'Unknown User'),
+                            initials: getInitials(userData.name),
                             quizData: {}, // Store detailed quiz data for this user
                             age: userData.age || 'N/A',
                             gender: userData.gender || 'N/A',
@@ -2120,7 +2126,7 @@
         
         // Get initials from name
         function getInitials(name) {
-            if (!name || name === 'Unknown' || name === 'Unknown User' || name === 'Unknown Patient') {
+            if (!name) {
                 return 'U';
             }
             return name.split(' ')
