@@ -276,6 +276,201 @@
             text-decoration: none;
             cursor: pointer;
         }
+        
+        .filter-controls {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .doctor-summary-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .doctor-card {
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            padding: 15px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            flex: 1;
+            min-width: 180px;
+            max-width: 300px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+            border-left: 4px solid #1a73e8;
+        }
+        
+        .doctor-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .doctor-card h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 16px;
+            color: #333;
+        }
+        
+        .doctor-card p {
+            margin: 5px 0;
+            font-size: 14px;
+            color: #555;
+        }
+        
+        .doctor-card .highlight {
+            color: #1a73e8;
+            font-weight: bold;
+        }
+        
+        .expandable-row {
+            cursor: pointer;
+        }
+        
+        .expandable-row:hover {
+            background-color: #f5f5f5;
+        }
+        
+        .expandable-row td {
+            transition: background-color 0.2s;
+        }
+        
+        .expand-button {
+            background-color: #f0f0f0;
+            border: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .patient-detail-row {
+            display: none;
+            background-color: #f9f9f9;
+        }
+        
+        .patient-detail-row > td {
+            padding: 0 !important;
+        }
+        
+        .patient-detail-container {
+            padding: 15px;
+        }
+        
+        .quiz-results-table {
+            width: 100%;
+            margin-top: 0;
+            font-size: 13px;
+        }
+        
+        .quiz-results-table th, .quiz-results-table td {
+            padding: 6px;
+        }
+        
+        .quiz-type-header {
+            background-color: #eef2f7;
+            font-weight: bold;
+            color: #1a73e8;
+        }
+        
+        .action-button {
+            padding: 5px 10px;
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-right: 5px;
+        }
+        
+        .action-button.secondary {
+            background-color: #5f6368;
+        }
+        
+        .action-button:hover {
+            opacity: 0.9;
+        }
+        
+        .patient-tag {
+            display: inline-block;
+            padding: 2px 6px;
+            font-size: 12px;
+            border-radius: 3px;
+            margin-right: 5px;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 10% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 80%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .close-modal {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .close-modal:hover {
+            color: #333;
+        }
+        
+        .score-badge {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            line-height: 40px;
+            text-align: center;
+            border-radius: 50%;
+            font-weight: bold;
+            background-color: #ebf3fb;
+            color: #1a73e8;
+            margin-right: 10px;
+        }
+        
+        .quiz-metric {
+            display: inline-block;
+            margin-right: 15px;
+            font-size: 13px;
+        }
+        
+        .quiz-metric-label {
+            color: #5f6368;
+            margin-right: 3px;
+        }
+        
+        .quiz-metric-value {
+            font-weight: bold;
+            color: #202124;
+        }
     </style>
 </head>
 <body>
@@ -418,23 +613,53 @@
             
             <div id="doctorPatientTab" class="tab-content">
                 <h2>Doctor-Patient Relationships</h2>
+                
+                <div class="filter-controls">
+                    <div class="form-group">
+                        <input type="text" id="doctorFilter" placeholder="Filter by doctor name">
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="patientFilter" placeholder="Filter by patient name">
+                    </div>
+                    <div class="form-group">
+                        <select id="conditionFilter">
+                            <option value="">All conditions</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="doctor-summary-container" id="doctorSummaryContainer">
+                    <!-- Doctor summary cards will be populated here -->
+                </div>
+                
                 <table>
                     <thead>
                         <tr>
+                            <th></th>
                             <th>Doctor</th>
                             <th>Patient</th>
                             <th>Age</th>
                             <th>Gender</th>
                             <th>Medical Condition</th>
-                            <th>Quizzes Assigned</th>
+                            <th>Quizzes Taken</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody id="doctorPatientTable">
                         <tr>
-                            <td colspan="6">Loading data...</td>
+                            <td colspan="8">Loading data...</td>
                         </tr>
                     </tbody>
                 </table>
+                
+                <!-- Patient quiz details modal -->
+                <div id="patientQuizModal" class="modal">
+                    <div class="modal-content">
+                        <span class="close-modal">&times;</span>
+                        <h3 id="patientQuizModalTitle">Patient Quiz Results</h3>
+                        <div id="patientQuizDetails"></div>
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -1489,9 +1714,15 @@
             try {
                 console.log("Loading doctor-patient data...");
                 const relationshipsContainer = document.getElementById('doctorPatientTable');
-                relationshipsContainer.innerHTML = '<tr><td colspan="7">Loading data...</td></tr>'; // Loading message
+                const doctorSummaryContainer = document.getElementById('doctorSummaryContainer');
+                const conditionFilter = document.getElementById('conditionFilter');
+                
+                relationshipsContainer.innerHTML = '<tr><td colspan="8">Loading data...</td></tr>'; // Loading message
+                doctorSummaryContainer.innerHTML = '<div class="loading-message">Loading doctor summaries...</div>';
                 
                 const relationships = [];
+                const doctors = {};
+                const conditions = new Set();
                 
                 // Get doctor profiles from Firestore
                 const doctorsSnapshot = await firestore.collection('userProfiles')
@@ -1504,62 +1735,451 @@
                 for (const doctorDoc of doctorsSnapshot.docs) {
                     const doctorId = doctorDoc.id;
                     const doctorProfile = doctorDoc.data();
+                    const doctorName = doctorProfile.name || doctorProfile.email || 'Unknown Doctor';
+                    
+                    // Initialize doctor summary data
+                    doctors[doctorId] = {
+                        id: doctorId,
+                        name: doctorName,
+                        patients: 0,
+                        totalQuizzes: 0,
+                        quizzesByType: {},
+                        averageScore: 0,
+                        totalScore: 0,
+                        quizCount: 0
+                    };
                     
                     // Get patients for this doctor from Realtime Database
                     const patientsSnapshot = await db.ref(`doctors/${doctorId}/patients`).once('value');
-                    if (patientsSnapshot.val()) {
-                        Object.entries(patientsSnapshot.val()).forEach(([patientId, patientData]) => {
-                            const patientProfile = patientData.profile || {};
-                            
-                            // Count quizzes for this patient
-                            let quizCount = 0;
-                            if (patientData.quiz) {
-                                Object.keys(patientData.quiz).forEach(quizType => {
-                                    const attempts = patientData.quiz[quizType];
-                                    if (attempts) {
-                                        quizCount += Object.keys(attempts).length;
-                                    }
-                                });
+                    const patientsData = patientsSnapshot.val() || {};
+                    
+                    // Update doctor summary with patient count
+                    doctors[doctorId].patients = Object.keys(patientsData).length;
+                    
+                    for (const [patientId, patientData] of Object.entries(patientsData)) {
+                        const patientProfile = patientData.profile || {};
+                        const patientCondition = patientProfile.medicalCondition || 'N/A';
+                        
+                        // Add condition to filter options
+                        if (patientCondition !== 'N/A') {
+                            conditions.add(patientCondition);
+                        }
+                        
+                        // Process quiz data
+                        const quizzes = {};
+                        let quizCount = 0;
+                        
+                        if (patientData.quiz) {
+                            for (const [quizType, attempts] of Object.entries(patientData.quiz)) {
+                                if (!attempts) continue;
+                                
+                                const attemptKeys = Object.keys(attempts);
+                                quizCount += attemptKeys.length;
+                                
+                                // Track quiz types for doctor summary
+                                if (!doctors[doctorId].quizzesByType[quizType]) {
+                                    doctors[doctorId].quizzesByType[quizType] = 0;
+                                }
+                                doctors[doctorId].quizzesByType[quizType] += attemptKeys.length;
+                                
+                                // Process quiz details for patient
+                                quizzes[quizType] = {
+                                    attemptCount: attemptKeys.length,
+                                    latestScore: 0,
+                                    latestTime: 0,
+                                    attempts: []
+                                };
+                                
+                                // Get latest quiz data
+                                let totalScore = 0;
+                                
+                                for (const attemptKey of attemptKeys) {
+                                    const attempt = attempts[attemptKey];
+                                    const score = attempt.score || 0;
+                                    totalScore += score;
+                                    
+                                    // Track for doctor average
+                                    doctors[doctorId].totalScore += score;
+                                    doctors[doctorId].quizCount++;
+                                    
+                                    // Store detailed attempt data
+                                    quizzes[quizType].attempts.push({
+                                        timestamp: attempt.timestamp || 0,
+                                        score: score,
+                                        time: attempt.time || 0,
+                                        interactions: attempt.interactions || 0,
+                                        date: attempt.timestamp ? new Date(attempt.timestamp).toLocaleString() : 'Unknown'
+                                    });
+                                }
+                                
+                                // Sort attempts by timestamp descending (newest first)
+                                quizzes[quizType].attempts.sort((a, b) => b.timestamp - a.timestamp);
+                                
+                                if (quizzes[quizType].attempts.length > 0) {
+                                    const latest = quizzes[quizType].attempts[0];
+                                    quizzes[quizType].latestScore = latest.score;
+                                    quizzes[quizType].latestTime = latest.time;
+                                }
+                                
+                                quizzes[quizType].averageScore = totalScore / attemptKeys.length;
                             }
-                            
-                            relationships.push({
-                                doctorId: doctorId,
-                                doctorName: doctorProfile.name || doctorProfile.email || 'Unknown Doctor',
-                                patientId: patientId,
-                                patientName: patientProfile.name || 'Unknown Patient',
-                                patientAge: patientProfile.age || 'N/A',
-                                patientGender: patientProfile.gender || 'N/A',
-                                patientCondition: patientProfile.medicalCondition || 'N/A',
-                                quizCount: quizCount
-                            });
+                        }
+                        
+                        // Update doctor's total quiz count
+                        doctors[doctorId].totalQuizzes += quizCount;
+                        
+                        // Push relationship data
+                        relationships.push({
+                            doctorId: doctorId,
+                            doctorName: doctorName,
+                            patientId: patientId,
+                            patientName: patientProfile.name || 'Unknown Patient',
+                            patientAge: patientProfile.age || 'N/A',
+                            patientGender: patientProfile.gender || 'N/A',
+                            patientCondition: patientCondition,
+                            quizCount: quizCount,
+                            quizzes: quizzes
                         });
                     }
+                    
+                    // Calculate average score for doctor
+                    if (doctors[doctorId].quizCount > 0) {
+                        doctors[doctorId].averageScore = (doctors[doctorId].totalScore / doctors[doctorId].quizCount).toFixed(1);
+                    }
                 }
+                
+                // Add condition options to filter
+                conditionFilter.innerHTML = '<option value="">All conditions</option>';
+                for (const condition of conditions) {
+                    conditionFilter.innerHTML += `<option value="${condition}">${condition}</option>`;
+                }
+                
+                // Display doctor summary cards
+                doctorSummaryContainer.innerHTML = '';
+                Object.values(doctors).forEach(doctor => {
+                    const quizTypeText = Object.entries(doctor.quizzesByType)
+                        .map(([type, count]) => `${count} ${type}`)
+                        .join(', ');
+                    
+                    const doctorCard = document.createElement('div');
+                    doctorCard.className = 'doctor-card';
+                    doctorCard.dataset.doctorId = doctor.id;
+                    doctorCard.innerHTML = `
+                        <h3>${doctor.name}</h3>
+                        <p><span class="highlight">${doctor.patients}</span> patients</p>
+                        <p><span class="highlight">${doctor.totalQuizzes}</span> total quizzes</p>
+                        <p>Avg Score: <span class="highlight">${doctor.averageScore}</span></p>
+                        <p class="quiz-types">${quizTypeText || 'No quizzes taken'}</p>
+                    `;
+                    
+                    // Add click event to filter table by this doctor
+                    doctorCard.addEventListener('click', () => {
+                        document.getElementById('doctorFilter').value = doctor.name;
+                        filterDoctorPatientTable();
+                    });
+                    
+                    doctorSummaryContainer.appendChild(doctorCard);
+                });
                 
                 // Display relationships
                 relationshipsContainer.innerHTML = ''; // Clear loading message
                 if (relationships.length > 0) {
                     relationships.forEach(rel => {
+                        // Create the main row
                         const row = document.createElement('tr');
+                        row.className = 'expandable-row';
+                        row.dataset.patientId = rel.patientId;
+                        row.dataset.doctorId = rel.doctorId;
+                        
                         row.innerHTML = `
+                            <td><button class="expand-button">+</button></td>
                             <td>${rel.doctorName}</td>
                             <td>${rel.patientName}</td>
                             <td>${rel.patientAge}</td>
                             <td>${rel.patientGender}</td>
                             <td>${rel.patientCondition}</td>
                             <td>${rel.quizCount}</td>
+                            <td>
+                                <button class="action-button view-results" data-patient-id="${rel.patientId}" data-doctor-id="${rel.doctorId}">
+                                    View Results
+                                </button>
+                            </td>
                         `;
+                        
+                        // Create the expandable detail row
+                        const detailRow = document.createElement('tr');
+                        detailRow.className = 'patient-detail-row';
+                        
+                        // Check if patient has any quizzes
+                        if (rel.quizCount > 0) {
+                            let quizDetailsHtml = `
+                                <div class="patient-detail-container">
+                                    <h4>Quiz Results Summary for ${rel.patientName}</h4>
+                                    <table class="quiz-results-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Quiz Type</th>
+                                                <th>Attempts</th>
+                                                <th>Latest Score</th>
+                                                <th>Avg. Score</th>
+                                                <th>Latest Time</th>
+                                                <th>Latest Date</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                            `;
+                            
+                            // Add rows for each quiz type
+                            Object.entries(rel.quizzes).forEach(([quizType, quizData]) => {
+                                const latestAttempt = quizData.attempts[0] || {};
+                                
+                                quizDetailsHtml += `
+                                    <tr>
+                                        <td class="quiz-type-header">${quizType}</td>
+                                        <td>${quizData.attemptCount}</td>
+                                        <td>${latestAttempt.score || 0}%</td>
+                                        <td>${quizData.averageScore?.toFixed(1) || 0}%</td>
+                                        <td>${latestAttempt.time ? formatTime(latestAttempt.time) : 'N/A'}</td>
+                                        <td>${latestAttempt.date || 'N/A'}</td>
+                                    </tr>
+                                `;
+                            });
+                            
+                            quizDetailsHtml += `
+                                        </tbody>
+                                    </table>
+                                </div>
+                            `;
+                            
+                            detailRow.innerHTML = `<td colspan="8">${quizDetailsHtml}</td>`;
+                        } else {
+                            detailRow.innerHTML = `
+                                <td colspan="8">
+                                    <div class="patient-detail-container">
+                                        <p>No quiz results available for this patient.</p>
+                                    </div>
+                                </td>
+                            `;
+                        }
+                        
+                        // Add the rows to the table
                         relationshipsContainer.appendChild(row);
+                        relationshipsContainer.appendChild(detailRow);
+                        
+                        // Add click handler for expand button
+                        row.querySelector('.expand-button').addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            const button = e.target;
+                            const detailRow = row.nextElementSibling;
+                            
+                            if (detailRow.style.display === 'none' || !detailRow.style.display) {
+                                detailRow.style.display = 'table-row';
+                                button.textContent = '−';
+                            } else {
+                                detailRow.style.display = 'none';
+                                button.textContent = '+';
+                            }
+                        });
+                        
+                        // Add click handler for view results button
+                        row.querySelector('.view-results').addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            const patientId = e.target.dataset.patientId;
+                            const doctorId = e.target.dataset.doctorId;
+                            showPatientQuizDetails(patientId, doctorId, rel);
+                        });
                     });
+                    
+                    // Add filter functionality
+                    setupFilters();
+                    
                 } else {
-                    relationshipsContainer.innerHTML = '<tr><td colspan="6">No doctor-patient relationships found</td></tr>';
+                    relationshipsContainer.innerHTML = '<tr><td colspan="8">No doctor-patient relationships found</td></tr>';
                 }
                 
             } catch (error) {
                 console.error("Error loading doctor-patient data:", error);
                 document.getElementById('doctorPatientTable').innerHTML = 
-                    `<tr><td colspan="6">Error loading data: ${error.message}</td></tr>`;
+                    `<tr><td colspan="8">Error loading data: ${error.message}</td></tr>`;
+                document.getElementById('doctorSummaryContainer').innerHTML = 
+                    `<div class="error-message">Error loading doctor summaries: ${error.message}</div>`;
             }
+        }
+        
+        // Format time in seconds to MM:SS format
+        function formatTime(seconds) {
+            if (!seconds) return 'N/A';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+        
+        // Set up filter functionality for doctor-patient table
+        function setupFilters() {
+            const doctorFilter = document.getElementById('doctorFilter');
+            const patientFilter = document.getElementById('patientFilter');
+            const conditionFilter = document.getElementById('conditionFilter');
+            
+            // Add event listeners to filter inputs
+            doctorFilter.addEventListener('input', filterDoctorPatientTable);
+            patientFilter.addEventListener('input', filterDoctorPatientTable);
+            conditionFilter.addEventListener('change', filterDoctorPatientTable);
+            
+            // Add clear filters button
+            const filterControls = document.querySelector('.filter-controls');
+            const clearButton = document.createElement('button');
+            clearButton.textContent = 'Clear Filters';
+            clearButton.className = 'action-button secondary';
+            clearButton.addEventListener('click', () => {
+                doctorFilter.value = '';
+                patientFilter.value = '';
+                conditionFilter.value = '';
+                filterDoctorPatientTable();
+            });
+            
+            filterControls.appendChild(clearButton);
+        }
+        
+        // Filter the doctor-patient table based on input values
+        function filterDoctorPatientTable() {
+            const doctorFilter = document.getElementById('doctorFilter').value.toLowerCase();
+            const patientFilter = document.getElementById('patientFilter').value.toLowerCase();
+            const conditionFilter = document.getElementById('conditionFilter').value;
+            
+            const rows = document.querySelectorAll('.expandable-row');
+            
+            rows.forEach(row => {
+                const doctorName = row.cells[1].textContent.toLowerCase();
+                const patientName = row.cells[2].textContent.toLowerCase();
+                const condition = row.cells[5].textContent;
+                const detailRow = row.nextElementSibling;
+                
+                const doctorMatch = doctorName.includes(doctorFilter);
+                const patientMatch = patientName.includes(patientFilter);
+                const conditionMatch = conditionFilter === '' || condition === conditionFilter;
+                
+                if (doctorMatch && patientMatch && conditionMatch) {
+                    row.style.display = 'table-row';
+                    // Keep detail row's visibility state as is
+                } else {
+                    row.style.display = 'none';
+                    detailRow.style.display = 'none';
+                }
+            });
+            
+            // Highlight matching doctor cards
+            const doctorCards = document.querySelectorAll('.doctor-card');
+            doctorCards.forEach(card => {
+                const doctorName = card.querySelector('h3').textContent.toLowerCase();
+                if (doctorFilter === '' || doctorName.includes(doctorFilter)) {
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                } else {
+                    card.style.opacity = '0.5';
+                    card.style.transform = 'translateY(0)';
+                }
+            });
+        }
+        
+        // Show patient quiz details in modal
+        function showPatientQuizDetails(patientId, doctorId, relationshipData) {
+            const modal = document.getElementById('patientQuizModal');
+            const modalContent = document.getElementById('patientQuizDetails');
+            const modalTitle = document.getElementById('patientQuizModalTitle');
+            
+            modalTitle.textContent = `Quiz Results: ${relationshipData.patientName}`;
+            
+            // Prepare content based on quiz data
+            let content = '';
+            
+            if (relationshipData.quizCount > 0) {
+                // Add patient information
+                content += `
+                    <div class="patient-info">
+                        <p><strong>Patient:</strong> ${relationshipData.patientName}</p>
+                        <p><strong>Age:</strong> ${relationshipData.patientAge}</p>
+                        <p><strong>Gender:</strong> ${relationshipData.patientGender}</p>
+                        <p><strong>Medical Condition:</strong> ${relationshipData.patientCondition}</p>
+                        <p><strong>Doctor:</strong> ${relationshipData.doctorName}</p>
+                    </div>
+                    <h4>Quiz Performance Summary</h4>
+                `;
+                
+                // Add quiz data
+                Object.entries(relationshipData.quizzes).forEach(([quizType, quizData]) => {
+                    content += `
+                        <div class="quiz-detail-section">
+                            <h4>${quizType} Quiz</h4>
+                            <div class="quiz-summary">
+                                <div class="score-badge">${Math.round(quizData.averageScore || 0)}%</div>
+                                <div class="quiz-metrics">
+                                    <div class="quiz-metric">
+                                        <span class="quiz-metric-label">Attempts:</span>
+                                        <span class="quiz-metric-value">${quizData.attemptCount}</span>
+                                    </div>
+                                    <div class="quiz-metric">
+                                        <span class="quiz-metric-label">Latest Score:</span>
+                                        <span class="quiz-metric-value">${quizData.latestScore || 0}%</span>
+                                    </div>
+                                    <div class="quiz-metric">
+                                        <span class="quiz-metric-label">Latest Time:</span>
+                                        <span class="quiz-metric-value">${formatTime(quizData.latestTime)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <h5>Attempt History</h5>
+                            <table class="quiz-results-table">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Score</th>
+                                        <th>Time</th>
+                                        <th>Interactions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                    `;
+                    
+                    // Add rows for each attempt
+                    quizData.attempts.forEach(attempt => {
+                        content += `
+                            <tr>
+                                <td>${attempt.date}</td>
+                                <td>${attempt.score || 0}%</td>
+                                <td>${formatTime(attempt.time)}</td>
+                                <td>${attempt.interactions || 'N/A'}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    content += `
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                });
+                
+            } else {
+                content = '<p>No quiz results available for this patient.</p>';
+            }
+            
+            modalContent.innerHTML = content;
+            
+            // Show the modal
+            modal.style.display = 'block';
+            
+            // Add close button functionality
+            document.querySelector('.close-modal').onclick = () => {
+                modal.style.display = 'none';
+            };
+            
+            // Close modal when clicking outside
+            window.onclick = (event) => {
+                if (event.target === modal) {
+                    modal.style.display = 'none';
+                }
+            };
         }
     </script>
 </body>
