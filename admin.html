@@ -846,12 +846,13 @@
                             <tr>
                                 <th>User</th>
                                 <th>Role</th>
-                                <th>Activity</th>
+                                <th>Info</th>
                                 <th>Last Active</th>
+                                <th>Age</th>
                             </tr>
                         </thead>
                         <tbody id="usersTable">
-                            <tr><td colspan="4">Loading user data...</td></tr>
+                            <tr><td colspan="5">Loading user data...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -1713,7 +1714,7 @@
             try {
                 console.log("Loading users data...");
                 const usersContainer = document.getElementById('usersTable');
-                usersContainer.innerHTML = '<tr><td colspan="4">Loading user data...</td></tr>';
+                usersContainer.innerHTML = '<tr><td colspan="5">Loading user data...</td></tr>';
                 
                 // Store all users
                 const userArray = [];
@@ -1747,7 +1748,8 @@
                             patients: [],
                             assignedDoctor: null,
                             initials: getInitials(userData.name || 'Unknown User'),
-                            quizData: {} // Store detailed quiz data for this user
+                            quizData: {}, // Store detailed quiz data for this user
+                            age: userData.age || 'N/A'
                         };
                         
                         // Get user's quiz data based on role
@@ -1827,32 +1829,24 @@
                                 }
                             } else {
                                 // Regular user quizzes
-                                const userQuizzes = await db.ref(`users/${userId}/quiz`).once('value');
-                                if (userQuizzes.exists()) {
-                                    let totalQuizzes = 0;
-                                    let latestTimestamp = 0;
-                                    
-                                    // Store detailed quiz data
-                                    user.quizData = userQuizzes.val();
-                                    
-                                    Object.keys(userQuizzes.val()).forEach(quizType => {
-                                        const attempts = userQuizzes.val()[quizType];
-                                        if (attempts) {
-                                            totalQuizzes += Object.keys(attempts).length;
-                                            
-                                            // Find the latest attempt
-                                            Object.keys(attempts).forEach(timestamp => {
-                                                const ts = parseInt(timestamp);
-                                                if (ts > latestTimestamp) {
-                                                    latestTimestamp = ts;
-                                                }
-                                            });
+                                if (user.role === 'user' || user.role === 'patient') {
+                                    // Try both paths to ensure we get quiz data
+                                    try {
+                                        // Path 1: The normal user path
+                                        const userQuizzes = await db.ref(`users/${userId}/quiz`).once('value');
+                                        if (userQuizzes.exists() && userQuizzes.val()) {
+                                            user.quizData = userQuizzes.val();
+                                            user.quizCount = countQuizzes(user.quizData);
+                                        } else {
+                                            // Path 2: Alternative paths to check
+                                            const alternativeQuizzes = await db.ref(`quiz/${userId}`).once('value');
+                                            if (alternativeQuizzes.exists() && alternativeQuizzes.val()) {
+                                                user.quizData = alternativeQuizzes.val();
+                                                user.quizCount = countQuizzes(user.quizData);
+                                            }
                                         }
-                                    });
-                                    
-                                    user.quizCount = totalQuizzes;
-                                    if (latestTimestamp > 0) {
-                                        user.lastActive = new Date(latestTimestamp).toLocaleString();
+                                    } catch (error) {
+                                        console.warn(`Error fetching quiz data for user ${userId}:`, error);
                                     }
                                 }
                                 
@@ -1982,7 +1976,7 @@
             } catch (error) {
                 console.error("Error loading users data:", error);
                 document.getElementById('usersTable').innerHTML = 
-                    `<tr><td colspan="4">Error loading data: ${error.message}</td></tr>`;
+                    `<tr><td colspan="5">Error loading data: ${error.message}</td></tr>`;
             }
         }
         
@@ -2004,7 +1998,7 @@
             container.innerHTML = '';
             
             if (users.length === 0) {
-                container.innerHTML = '<tr><td colspan="4">No users found</td></tr>';
+                container.innerHTML = '<tr><td colspan="5">No users found</td></tr>';
                 return;
             }
             
@@ -2041,6 +2035,7 @@
                         ${hasQuizzes ? `<button class="view-quizzes-btn" data-user-id="${doctor.id}">Show Quizzes</button>` : ''}
                     </td>
                     <td>${doctor.lastActive}</td>
+                    <td>${doctor.age}</td>
                 `;
                 
                 container.appendChild(doctorRow);
@@ -2076,6 +2071,7 @@
                                 ${hasPatientQuizzes ? `<button class="view-quizzes-btn" data-user-id="${patient.id}">Show Quizzes</button>` : ''}
                             </td>
                             <td>${patient.lastActive}</td>
+                            <td>${patient.age}</td>
                         `;
                         
                         container.appendChild(patientRow);
@@ -2142,6 +2138,7 @@
                         ${hasQuizzes ? `<button class="view-quizzes-btn" data-user-id="${user.id}">Show Quizzes</button>` : ''}
                     </td>
                     <td>${user.lastActive}</td>
+                    <td>${user.age}</td>
                 `;
                 
                 container.appendChild(userRow);
@@ -2186,6 +2183,7 @@
                             ${hasPatientQuizzes ? `<button class="view-quizzes-btn" data-user-id="${patient.id}">Show Quizzes</button>` : ''}
                         </td>
                         <td>${patient.lastActive}</td>
+                        <td>${patient.age}</td>
                     `;
                     
                     container.appendChild(patientRow);
@@ -2268,7 +2266,7 @@
             
             // Create content for the details row
             let content = `
-                <td colspan="4">
+                <td colspan="5">
                     <div class="quiz-stats-container">
                         <h3>Quiz Results</h3>
                         <table class="details-table">
