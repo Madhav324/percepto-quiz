@@ -591,6 +591,21 @@
                 optionElement.addEventListener('touchmove', handleTouchMove);
                 optionElement.addEventListener('touchend', handleTouchEnd);
 
+                // Add click event for selecting an image
+                optionElement.addEventListener('click', function() {
+                    if (!gameActive) return;
+
+                    // Track first tap time
+                    if (firstTapTime === null) {
+                        firstTapTime = (Date.now() - totalStartTime) / 1000;
+                    }
+
+                    totalTaps++;
+
+                    const selectedIndex = parseInt(this.dataset.index);
+                    placeImage(this, selectedIndex);
+                });
+
                 optionsContainer.appendChild(optionElement);
             });
 
@@ -608,110 +623,140 @@
             document.querySelector('.container').style.display = 'block';
             resultContainer.style.display = 'none';
             
+            // Set up drag and drop target
+            targetBox.addEventListener('dragover', handleDragOver);
+            targetBox.addEventListener('drop', handleDrop);
+            
             console.log("Game initialized with startTime:", totalStartTime);
         }
 
         // Drag event handlers
+        let draggedItem = null;
+        
         function handleDragStart(e) {
-            if (!gameActive) return;
-            this.classList.add('dragging');
-            e.dataTransfer.setData('text/plain', this.dataset.index);
+            this.style.opacity = '0.4';
+            draggedItem = this;
             e.dataTransfer.effectAllowed = 'move';
         }
-
+        
         function handleDragEnd(e) {
-            this.classList.remove('dragging');
+            this.style.opacity = '1';
+            draggedItem = null;
         }
-
+        
         function handleDragOver(e) {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-        }
-
-        function handleDrop(e) {
-            e.preventDefault();
-            if (!gameActive) return;
-
-            // Track first tap time
-            if (firstTapTime === null) {
-                firstTapTime = (Date.now() - totalStartTime) / 1000;
+            if (e.preventDefault) {
+                e.preventDefault();
             }
-
-            totalTaps++;
-
-            const selectedIndex = parseInt(e.dataTransfer.getData('text/plain'));
-            const optionElement = document.querySelector(`.image-option[data-index="${selectedIndex}"]`);
-
-            placeImage(optionElement, selectedIndex);
+            e.dataTransfer.dropEffect = 'move';
+            return false;
         }
-
-        // Touch event handlers (for mobile)
-        let touchedElement = null;
-        let initialTouchX = 0;
-        let initialTouchY = 0;
-        let clonedElement = null;
-
+        
+        function handleDrop(e) {
+            if (e.stopPropagation) {
+                e.stopPropagation();
+            }
+            
+            if (draggedItem) {
+                const selectedIndex = parseInt(draggedItem.dataset.index);
+                placeImage(draggedItem, selectedIndex);
+            }
+            
+            return false;
+        }
+        
+        // Touch event handlers for mobile
+        let touchedItem = null;
+        let startX, startY;
+        let initialX, initialY;
+        let xOffset = 0;
+        let yOffset = 0;
+        let dragClone = null;
+        
         function handleTouchStart(e) {
             if (!gameActive) return;
-            e.preventDefault();
-
-            touchedElement = this;
-            const touch = e.touches[0];
-            initialTouchX = touch.clientX;
-            initialTouchY = touch.clientY;
-
-            // Create a clone for visual feedback during drag
-            clonedElement = this.cloneNode(true);
-            clonedElement.style.position = 'fixed';
-            clonedElement.style.zIndex = 1000;
-            clonedElement.style.opacity = '0.8';
-            clonedElement.style.pointerEvents = 'none';
-            clonedElement.style.left = (touch.clientX - this.offsetWidth / 2) + 'px';
-            clonedElement.style.top = (touch.clientY - this.offsetHeight / 2) + 'px';
-            document.body.appendChild(clonedElement);
-
-            this.classList.add('dragging');
-        }
-
-        function handleTouchMove(e) {
-            if (!touchedElement || !clonedElement) return;
-            e.preventDefault();
-
-            const touch = e.touches[0];
-            clonedElement.style.left = (touch.clientX - touchedElement.offsetWidth / 2) + 'px';
-            clonedElement.style.top = (touch.clientY - touchedElement.offsetHeight / 2) + 'px';
-        }
-
-        function handleTouchEnd(e) {
-            if (!touchedElement || !clonedElement) return;
-            e.preventDefault();
-
-            touchedElement.classList.remove('dragging');
-
+            
             // Track first tap time
             if (firstTapTime === null) {
                 firstTapTime = (Date.now() - totalStartTime) / 1000;
             }
-
+            
             totalTaps++;
-
-            // Check if touch ended over target box
+            
+            const touch = e.touches[0];
+            touchedItem = this;
+            
+            startX = touch.clientX;
+            startY = touch.clientY;
+            
+            // Get the position of the item
+            const rect = touchedItem.getBoundingClientRect();
+            initialX = rect.left;
+            initialY = rect.top;
+            
+            // Create a clone for dragging
+            dragClone = touchedItem.cloneNode(true);
+            dragClone.style.position = 'fixed';
+            dragClone.style.zIndex = '1000';
+            dragClone.style.opacity = '0.8';
+            dragClone.style.pointerEvents = 'none'; // Prevent touch events on clone
+            dragClone.style.width = rect.width + 'px';
+            dragClone.style.height = rect.height + 'px';
+            dragClone.style.left = initialX + 'px';
+            dragClone.style.top = initialY + 'px';
+            document.body.appendChild(dragClone);
+            
+            // Prevent default to avoid scrolling during drag
+            e.preventDefault();
+        }
+        
+        function handleTouchMove(e) {
+            if (!touchedItem || !dragClone) return;
+            
+            const touch = e.touches[0];
+            
+            // Calculate new position
+            xOffset = touch.clientX - startX;
+            yOffset = touch.clientY - startY;
+            
+            // Update position of drag clone
+            dragClone.style.left = initialX + xOffset + 'px';
+            dragClone.style.top = initialY + yOffset + 'px';
+            
+            // Prevent default to avoid scrolling during drag
+            e.preventDefault();
+        }
+        
+        function handleTouchEnd(e) {
+            if (!touchedItem) return;
+            
+            // Check if target box contains the final position
             const targetRect = targetBox.getBoundingClientRect();
-            const touch = e.changedTouches[0];
-
-            if (touch.clientX >= targetRect.left && touch.clientX <= targetRect.right &&
-                touch.clientY >= targetRect.top && touch.clientY <= targetRect.bottom) {
-                // Touch ended over target, consider it a drop
-                const selectedIndex = parseInt(touchedElement.dataset.index);
-                placeImage(touchedElement, selectedIndex);
+            const dragCloneRect = dragClone ? dragClone.getBoundingClientRect() : {left: 0, top: 0, right: 0, bottom: 0};
+            
+            // Calculate center points
+            const dragCenterX = (dragCloneRect.left + dragCloneRect.right) / 2;
+            const dragCenterY = (dragCloneRect.top + dragCloneRect.bottom) / 2;
+            
+            // Check if the center of the dragged item is over the target box
+            if (dragCenterX >= targetRect.left && dragCenterX <= targetRect.right &&
+                dragCenterY >= targetRect.top && dragCenterY <= targetRect.bottom) {
+                
+                // Place the image
+                const selectedIndex = parseInt(touchedItem.dataset.index);
+                placeImage(touchedItem, selectedIndex);
             }
-
-            // Clean up
-            if (clonedElement && clonedElement.parentNode) {
-                clonedElement.parentNode.removeChild(clonedElement);
+            
+            // Remove the drag clone
+            if (dragClone) {
+                document.body.removeChild(dragClone);
+                dragClone = null;
             }
-            clonedElement = null;
-            touchedElement = null;
+            
+            // Reset variables
+            touchedItem = null;
+            xOffset = 0;
+            yOffset = 0;
         }
 
         // Place an image in the current target position
