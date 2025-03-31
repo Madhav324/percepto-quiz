@@ -27,6 +27,68 @@
             box-sizing: border-box;
         }
 
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 15px;
+            width: 100%;
+        }
+
+        .profile-icon {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background-color: #2196F3;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: bold;
+            text-decoration: none;
+            transition: background-color 0.3s;
+            font-size: 16px;
+        }
+        
+        .profile-icon:hover {
+            background-color: #1976D2;
+        }
+
+        .profile-icon:hover::after {
+            content: attr(title);
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: #333;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            margin-top: 5px;
+        }
+
+        .user-info {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            text-align: right;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .patient-indicator {
+            display: inline-block;
+            background-color: #e9f5e9;
+            color: #4CAF50;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            margin-left: 8px;
+        }
+
         .question {
             text-align: center;
             width: 100%;
@@ -189,13 +251,39 @@
             list-style-type: none;
         }
 
-        #report-list li {
+        .attempt-item {
             background-color: #f9f9f9;
-            padding: 3px;
-            margin-bottom: 2px;
-            border-radius: 2px;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            font-size: 10px;
+        }
+        
+        .attempt-item:hover {
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        .attempt-date {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+            font-size: 11px;
+        }
+        
+        .attempt-score {
+            color: #4CAF50;
+            margin-bottom: 6px;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        
+        .attempt-details {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 5px;
             font-size: 9px;
-            line-height: 1.2;
         }
 
         button {
@@ -269,9 +357,19 @@
             font-weight: bold;
         }
     </style>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 </head>
 <body>
     <div id="quiz-container">
+        <div class="header">
+            <h1>Form Constancy Exercise</h1>
+            <div class="profile-icon" id="profileIcon" title="Back to Home" onclick="window.location.href='index.html'"></div>
+            <div class="user-info">
+                <span id="patient-indicator" class="patient-indicator"></span>
+            </div>
+        </div>
         <div class="question">
             <h1>Place the options in their correct positions</h1>
         </div>
@@ -350,332 +448,557 @@
             </ul>
             <button onclick="window.location.href='index.html'" class="home-button">Return Home</button>
         </div>
-        <div id="history-container">
-            <h3>Previous Attempts</h3>
-            <div id="history-list"></div>
+        <div id="report-container">
+            <h2>All Quiz Attempts</h2>
+            <ul id="report-list"></ul>
+            <button id="clear-report" onclick="clearReport()">Clear Report</button>
         </div>
-    </div>
 
-    <div id="report-container" style="display: none;">
-        <h2>All Quiz Attempts</h2>
-        <ul id="report-list"></ul>
-        <button id="clear-report" onclick="clearReport()">Clear Report</button>
-    </div>
+        <script>
+            // Firebase configuration
+            const firebaseConfig = {
+                apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
+                authDomain: "projeccvi.firebaseapp.com",
+                projectId: "projeccvi",
+                storageBucket: "projeccvi.appspot.com",
+                messagingSenderId: "279067566247",
+                appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
+            };
 
-    <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-database.js";
-
-// Firebase configuration
-const firebaseConfig = {
-    apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
-    authDomain: "projeccvi.firebaseapp.com",
-    projectId: "projeccvi",
-    storageBucket: "projeccvi.firebasestorage.app",
-    messagingSenderId: "279067566247",
-    appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-
-const options = document.querySelectorAll('.option img');
-const gridItems = document.querySelectorAll('.grid-item');
-const feedback = document.getElementById('feedback');
-const submitButton = document.getElementById('submitBtn');
-
-let startTime;
-let totalStartTime = Date.now();
-let firstTapTime = null;
-let totalTaps = 0;
-let totalIncorrectAttempts = 0;
-let filledGrids = 0;
-let firstDragOccurred = false;
-const totalGrids = gridItems.length;
-
-// Track first drag start
-document.addEventListener('dragstart', () => {
-    totalTaps++;
-    if (!firstDragOccurred) {
-        firstDragOccurred = true;
-        firstTapTime = (Date.now() - totalStartTime) / 1000;
-        document.getElementById('first-tap').textContent = firstTapTime.toFixed(2);
-    }
-});
-
-options.forEach(option => {
-    option.addEventListener('dragstart', dragStart);
-    option.addEventListener('dragend', dragEnd);
-});
-
-gridItems.forEach(gridItem => {
-    gridItem.addEventListener('dragover', dragOver);
-    gridItem.addEventListener('drop', drop);
-});
-
-function dragStart(e) {
-    if (!startTime) startTime = Date.now();
-    e.dataTransfer.setData('text', e.target.id);
-    e.target.classList.add('dragging');
-}
-
-function dragEnd(e) {
-    e.target.classList.remove('dragging');
-}
-
-function dragOver(e) {
-    e.preventDefault();
-}
-
-function drop(e) {
-    e.preventDefault();
-    const draggedId = e.dataTransfer.getData('text');
-    const draggedElement = document.getElementById(draggedId);
-    const draggedParent = draggedElement.parentElement;
-    const gridItem = e.target.closest('.grid-item');
-
-    if (gridItem && !gridItem.querySelector('img')) {
-        const correctAnswer = gridItem.getAttribute('data-answer');
-        const draggedAnswer = draggedId.replace('drag', '');
-
-        if (correctAnswer === draggedAnswer) {
-            // Create a new image element for the grid
-            const newImg = document.createElement('img');
-            newImg.src = draggedElement.src;
-            newImg.alt = draggedElement.alt;
+            // Initialize Firebase
+            firebase.initializeApp(firebaseConfig);
+            const auth = firebase.auth();
+            const database = firebase.database();
             
-            // Add the new image to the grid
-            gridItem.appendChild(newImg);
+            // Get quiz context from session storage
+            const currentPatientId = sessionStorage.getItem('currentPatientId');
+            const doctorId = sessionStorage.getItem('doctorId');
+            const isPatientQuiz = !!currentPatientId;
             
-            // Animate the option moving up
-            draggedParent.classList.add('moving-up');
-            
-            setTimeout(() => {
-                // Hide the original option container
-                draggedParent.classList.add('hidden');
-                
-                // Rearrange remaining options with animation
-                rearrangeOptions();
-            }, 300);
-            
-            feedback.textContent = "Correct placement!";
-            feedback.style.color = "green";
-            
-            filledGrids++;
-            
-            // If all grids are filled, automatically finalize results
-            if (filledGrids === totalGrids) {
-                finalizeResults();
+            console.log('Quiz context in VFC13:', { 
+                isPatientQuiz, 
+                currentPatientId: currentPatientId || 'none',
+                doctorId: doctorId || 'none'
+            });
+
+            // Auth state observer
+            auth.onAuthStateChanged(async (user) => {
+                if (user) {
+                    console.log('User authenticated in VFC13:', user.uid);
+                    
+                    try {
+                        // Check if user is a doctor
+                        if (!isPatientQuiz) {
+                            const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                            const role = roleSnapshot.val();
+                            
+                            if (role === 'doctor') {
+                                console.log('Doctor detected without patient context, redirecting');
+                                // Redirect doctors without patient context back to index
+                                alert('Please select a patient first to administer the quiz.');
+                                window.location.href = 'index.html';
+                                return;
+                            }
+                        }
+                        
+                        // Load user profile
+                        let profile;
+                        if (isPatientQuiz) {
+                            // Doctor viewing patient
+                            console.log(`Loading patient profile in VFC13: ${currentPatientId}`);
+                            const patientSnapshot = await database.ref(`doctors/${doctorId}/patients/${currentPatientId}/profile`).once('value');
+                            profile = patientSnapshot.val();
+                        } else {
+                            // Regular user
+                            console.log('Loading user profile in VFC13');
+                            const userSnapshot = await database.ref(`users/${user.uid}/profile`).once('value');
+                            profile = userSnapshot.val();
+                        }
+                        
+                        // Get first letter of name or email
+                        let initial = 'U';
+                        if (profile && profile.name) {
+                            initial = profile.name.charAt(0).toUpperCase();
+                        } else if (user.email) {
+                            initial = user.email.charAt(0).toUpperCase();
+                        }
+                        
+                        // Display patient indicator
+                        if (isPatientQuiz) {
+                            const patientIndicator = document.getElementById('patient-indicator');
+                            patientIndicator.textContent = 'Patient';
+                            patientIndicator.style.display = 'inline-block';
+                        } else {
+                            const patientIndicator = document.getElementById('patient-indicator');
+                            patientIndicator.style.display = 'none';
+                        }
+                        
+                        document.getElementById('profileIcon').textContent = initial;
+                    } catch (error) {
+                        console.error('Error loading profile in VFC13:', error);
+                        document.getElementById('profileIcon').textContent = 'U';
+                    }
+                } else {
+                    window.location.href = 'login.html';
+                }
+            });
+
+            const options = document.querySelectorAll('.option img');
+            const gridItems = document.querySelectorAll('.grid-item');
+            const feedback = document.getElementById('feedback');
+            const submitButton = document.getElementById('submitBtn');
+
+            let startTime;
+            let totalStartTime = Date.now();
+            let firstTapTime = null;
+            let totalTaps = 0;
+            let totalIncorrectAttempts = 0;
+            let filledGrids = 0;
+            let firstDragOccurred = false;
+            const totalGrids = gridItems.length;
+
+            // Track first drag start
+            document.addEventListener('dragstart', () => {
+                totalTaps++;
+                if (!firstDragOccurred) {
+                    firstDragOccurred = true;
+                    firstTapTime = (Date.now() - totalStartTime) / 1000;
+                    document.getElementById('first-tap').textContent = firstTapTime.toFixed(2);
+                }
+            });
+
+            options.forEach(option => {
+                option.addEventListener('dragstart', dragStart);
+                option.addEventListener('dragend', dragEnd);
+            });
+
+            gridItems.forEach(gridItem => {
+                gridItem.addEventListener('dragover', dragOver);
+                gridItem.addEventListener('drop', drop);
+            });
+
+            function dragStart(e) {
+                if (!startTime) startTime = Date.now();
+                e.dataTransfer.setData('text', e.target.id);
+                e.target.classList.add('dragging');
             }
-        } else {
-            totalIncorrectAttempts++;
-            feedback.textContent = "Incorrect placement. Try again!";
-            feedback.style.color = "red";
-        }
-        
-        // Update total taps display
-        document.getElementById('total-taps').textContent = totalTaps;
-    }
-}
 
-// Function to finalize results
-function finalizeResults() {
-    const totalPlacementTime = (Date.now() - startTime) / 1000;
-    
-    // Format results for display
-    const results = {
-        score: filledGrids,
-        totalTime: totalPlacementTime.toFixed(2),
-        avgTime: (totalPlacementTime / totalGrids).toFixed(2),
-        firstTap: firstTapTime ? firstTapTime.toFixed(2) : '0',
-        totalTaps,
-        totalCorrect: filledGrids,
-        totalIncorrect: totalIncorrectAttempts
-    };
+            function dragEnd(e) {
+                e.target.classList.remove('dragging');
+            }
 
-    // Update display
-    document.getElementById('score').textContent = results.score;
-    document.getElementById('total-time').textContent = results.totalTime;
-    document.getElementById('avg-time').textContent = results.avgTime;
-    document.getElementById('first-tap').textContent = results.firstTap;
-    document.getElementById('total-taps').textContent = results.totalTaps;
-    document.getElementById('total-correct').textContent = results.totalCorrect;
-    document.getElementById('total-incorrect').textContent = results.totalIncorrect;
+            function dragOver(e) {
+                e.preventDefault();
+            }
 
-    // Save attempt with consistent format
-    saveAttempt({
-        score: results.score,
-        totalTime: parseFloat(results.totalTime),
-        avgTime: parseFloat(results.avgTime),
-        firstTap: parseFloat(results.firstTap),
-        totalTaps: results.totalTaps,
-        totalCorrect: results.totalCorrect,
-        totalIncorrect: results.totalIncorrect,
-        timestamp: Date.now()
-    });
+            function drop(e) {
+                e.preventDefault();
+                const draggedId = e.dataTransfer.getData('text');
+                const draggedElement = document.getElementById(draggedId);
+                const draggedParent = draggedElement.parentElement;
+                const gridItem = e.target.closest('.grid-item');
 
-    // Show results and disable submit button
-    submitButton.disabled = true;
-    document.getElementById('result-container').style.display = 'block';
-    
-    // Fetch and display history
-    fetchAttempts();
-}
+                if (gridItem && !gridItem.querySelector('img')) {
+                    const correctAnswer = gridItem.getAttribute('data-answer');
+                    const draggedAnswer = draggedId.replace('drag', '');
 
-function fetchAttempts() {
-    const attemptsRef = ref(db, 'quizAttempts11/');
-    
-    get(attemptsRef)
-        .then((snapshot) => {
-            if (snapshot.exists()) {
-                const attempts = [];
-                snapshot.forEach((childSnapshot) => {
-                    attempts.push({
-                        ...childSnapshot.val(),
-                        id: childSnapshot.key
+                    if (correctAnswer === draggedAnswer) {
+                        // Create a new image element for the grid
+                        const newImg = document.createElement('img');
+                        newImg.src = draggedElement.src;
+                        newImg.alt = draggedElement.alt;
+                        
+                        // Add the new image to the grid
+                        gridItem.appendChild(newImg);
+                        
+                        // Animate the option moving up
+                        draggedParent.classList.add('moving-up');
+                        
+                        setTimeout(() => {
+                            // Hide the original option container
+                            draggedParent.classList.add('hidden');
+                            
+                            // Rearrange remaining options with animation
+                            rearrangeOptions();
+                        }, 300);
+                        
+                        feedback.textContent = "Correct placement!";
+                        feedback.style.color = "green";
+                        
+                        filledGrids++;
+                        
+                        // If all grids are filled, automatically finalize results
+                        if (filledGrids === totalGrids) {
+                            finalizeResults();
+                        }
+                    } else {
+                        totalIncorrectAttempts++;
+                        feedback.textContent = "Incorrect placement. Try again!";
+                        feedback.style.color = "red";
+                    }
+                    
+                    // Update total taps display
+                    document.getElementById('total-taps').textContent = totalTaps;
+                }
+            }
+
+            // Function to finalize results
+            function finalizeResults() {
+                const totalPlacementTime = (Date.now() - startTime) / 1000;
+                
+                // Format results for display
+                const results = {
+                    score: filledGrids,
+                    totalTime: totalPlacementTime.toFixed(2),
+                    avgTime: (totalPlacementTime / totalGrids).toFixed(2),
+                    firstTap: firstTapTime ? firstTapTime.toFixed(2) : '0',
+                    totalTaps,
+                    totalCorrect: filledGrids,
+                    totalIncorrect: totalIncorrectAttempts
+                };
+
+                // Update display
+                document.getElementById('score').textContent = results.score;
+                document.getElementById('total-time').textContent = results.totalTime;
+                document.getElementById('avg-time').textContent = results.avgTime;
+                document.getElementById('first-tap').textContent = results.firstTap;
+                document.getElementById('total-taps').textContent = results.totalTaps;
+                document.getElementById('total-correct').textContent = results.totalCorrect;
+                document.getElementById('total-incorrect').textContent = results.totalIncorrect;
+
+                // Save quiz results with proper path
+                saveQuizResults(
+                    results.score, 
+                    parseFloat(results.totalTime), 
+                    parseFloat(results.avgTime), 
+                    parseFloat(results.firstTap), 
+                    results.totalTaps, 
+                    results.totalCorrect, 
+                    results.totalIncorrect
+                );
+
+                // Show results and disable submit button
+                submitButton.disabled = true;
+                document.getElementById('result-container').style.display = 'block';
+                document.getElementById('report-container').style.display = 'flex';
+                
+                // Fetch previous attempts
+                fetchPreviousAttempts();
+            }
+
+            // Fetch previous quiz attempts
+            async function fetchPreviousAttempts() {
+                try {
+                    const user = auth.currentUser;
+                    if (!user) return;
+                    
+                    let path;
+                    const reportList = document.getElementById('report-list');
+                    reportList.innerHTML = '<h3>Previous Attempts</h3>';
+                    
+                    // Check if this is a patient quiz (doctor viewing patient)
+                    const currentPatientId = sessionStorage.getItem('currentPatientId');
+                    const doctorId = sessionStorage.getItem('doctorId');
+                    
+                    if (currentPatientId && doctorId) {
+                        // This is a doctor testing a patient
+                        console.log(`Fetching patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
+                        path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/VFC13`;
+                    } else {
+                        // Regular user quiz
+                        // Check if user is a doctor
+                        const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                        const role = roleSnapshot.val();
+                        
+                        if (role === 'doctor') {
+                            console.log(`Fetching doctor's own quiz results: ${user.uid}`);
+                            path = `doctors/${user.uid}/quiz/VFC13`;
+                        } else {
+                            console.log(`Fetching regular user quiz results: ${user.uid}`);
+                            path = `users/${user.uid}/quiz/VFC13`;
+                        }
+                    }
+                    
+                    console.log(`Fetching previous attempts from path: ${path}`);
+                    const resultsSnapshot = await database.ref(path).once('value');
+                    
+                    if (resultsSnapshot.exists()) {
+                        const results = [];
+                        resultsSnapshot.forEach(childSnapshot => {
+                            results.push({
+                                id: childSnapshot.key,
+                                ...childSnapshot.val()
+                            });
+                        });
+                        
+                        // Sort by timestamp if available (newest first)
+                        results.sort((a, b) => {
+                            return b.timestamp - a.timestamp;
+                        });
+                        
+                        // Take only the most recent 5
+                        const recentResults = results.slice(0, 5);
+                        
+                        if (recentResults.length > 0) {
+                            recentResults.forEach(result => {
+                                const timestamp = result.timestamp;
+                                // Check if timestamp is a number (milliseconds) or a string (ISO format)
+                                const date = typeof timestamp === 'number' 
+                                    ? new Date(timestamp) 
+                                    : new Date(timestamp);
+                                    
+                                const formattedDate = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+                                
+                                const attemptItem = document.createElement('div');
+                                attemptItem.className = 'attempt-item';
+                                
+                                // Create main display with date and score
+                                const dateScoreDiv = document.createElement('div');
+                                dateScoreDiv.innerHTML = `
+                                    <div class="attempt-date">${formattedDate}</div>
+                                    <div class="attempt-score">Score: ${result.score}/${totalGrids}</div>
+                                `;
+                                attemptItem.appendChild(dateScoreDiv);
+                                
+                                // Create the details section
+                                const detailsDiv = document.createElement('div');
+                                detailsDiv.className = 'attempt-details';
+                                
+                                // Always show these fields
+                                const detailsHtml = `
+                                    <div class="attempt-detail-item">
+                                        <span class="detail-label">Total Time:</span>
+                                        <span>${result.totalTime || 'N/A'}s</span>
+                                    </div>
+                                    <div class="attempt-detail-item">
+                                        <span class="detail-label">Avg Time:</span>
+                                        <span>${result.averageTime || 'N/A'}s</span>
+                                    </div>
+                                    <div class="attempt-detail-item">
+                                        <span class="detail-label">First Tap:</span>
+                                        <span>${result.firstTapTime ? result.firstTapTime.toFixed(2) + 's' : 'N/A'}</span>
+                                    </div>
+                                    <div class="attempt-detail-item">
+                                        <span class="detail-label">Total Taps:</span>
+                                        <span>${result.totalTaps || 'N/A'}</span>
+                                    </div>
+                                    <div class="attempt-detail-item">
+                                        <span class="detail-label">Correct:</span>
+                                        <span>${result.correctAnswers || result.score || 'N/A'}</span>
+                                    </div>
+                                    <div class="attempt-detail-item">
+                                        <span class="detail-label">Incorrect:</span>
+                                        <span>${result.incorrectAnswers || 'N/A'}</span>
+                                    </div>
+                                `;
+                                detailsDiv.innerHTML = detailsHtml;
+                                attemptItem.appendChild(detailsDiv);
+                                
+                                // Add a button to toggle details
+                                const toggleBtn = document.createElement('button');
+                                toggleBtn.className = 'toggle-details-btn';
+                                toggleBtn.textContent = 'Show Details';
+                                toggleBtn.onclick = function() {
+                                    if (detailsDiv.style.display === 'none' || !detailsDiv.style.display) {
+                                        detailsDiv.style.display = 'grid';
+                                        this.textContent = 'Hide Details';
+                                    } else {
+                                        detailsDiv.style.display = 'none';
+                                        this.textContent = 'Show Details';
+                                    }
+                                };
+                                dateScoreDiv.appendChild(toggleBtn);
+                                
+                                // Initially hide details
+                                detailsDiv.style.display = 'none';
+                                
+                                reportList.appendChild(attemptItem);
+                            });
+                        } else {
+                            reportList.innerHTML += '<p>No previous attempts found.</p>';
+                        }
+                    } else {
+                        reportList.innerHTML += '<p>No previous attempts found.</p>';
+                    }
+                } catch (error) {
+                    console.error('Error fetching previous attempts:', error);
+                    document.getElementById('report-list').innerHTML += '<p>Error loading previous attempts: ' + error.message + '</p>';
+                }
+            }
+
+            async function saveQuizResults(score, totalTime, averageTime, firstTapTime, totalTaps, correctAnswers, incorrectAnswers) {
+                const user = auth.currentUser;
+                if (!user) return;
+
+                try {
+                    const timestamp = Date.now();
+                    let path;
+
+                    // Check if this is a patient quiz (doctor viewing patient)
+                    const currentPatientId = sessionStorage.getItem('currentPatientId');
+                    const doctorId = sessionStorage.getItem('doctorId');
+                    
+                    if (currentPatientId && doctorId) {
+                        // This is a doctor testing a patient
+                        console.log(`Saving patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
+                        path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/VFC13/${timestamp}`;
+                    } else {
+                        // Regular user quiz
+                        // Check if user is a doctor
+                        const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                        const role = roleSnapshot.val();
+                        
+                        if (role === 'doctor') {
+                            console.log(`Saving doctor's own quiz results: ${user.uid}`);
+                            path = `doctors/${user.uid}/quiz/VFC13/${timestamp}`;
+                        } else {
+                            console.log(`Saving regular user quiz results: ${user.uid}`);
+                            path = `users/${user.uid}/quiz/VFC13/${timestamp}`;
+                        }
+                    }
+
+                    console.log(`Saving quiz results to path: ${path}`);
+                    await database.ref(path).set({
+                        score,
+                        totalTime,
+                        averageTime,
+                        firstTapTime,
+                        totalTaps,
+                        correctAnswers,
+                        incorrectAnswers,
+                        timestamp
                     });
+                    
+                    console.log('Quiz results saved successfully');
+                } catch (error) {
+                    console.error('Error saving quiz results:', error);
+                }
+            }
+
+            async function clearReport() {
+                const user = auth.currentUser;
+                if (!user) {
+                    alert('You need to be logged in to clear the report.');
+                    return;
+                }
+
+                try {
+                    let path;
+                    
+                    // Check if this is a patient quiz (doctor viewing patient)
+                    const currentPatientId = sessionStorage.getItem('currentPatientId');
+                    const doctorId = sessionStorage.getItem('doctorId');
+                    
+                    if (currentPatientId && doctorId) {
+                        // This is a doctor testing a patient
+                        console.log(`Clearing patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
+                        path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/VFC13`;
+                    } else {
+                        // Regular user quiz
+                        // Check if user is a doctor
+                        const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                        const role = roleSnapshot.val();
+                        
+                        if (role === 'doctor') {
+                            console.log(`Clearing doctor's own quiz results: ${user.uid}`);
+                            path = `doctors/${user.uid}/quiz/VFC13`;
+                        } else {
+                            console.log(`Clearing regular user quiz results: ${user.uid}`);
+                            path = `users/${user.uid}/quiz/VFC13`;
+                        }
+                    }
+                    
+                    console.log(`Removing all quiz results from path: ${path}`);
+                    
+                    // Remove all data at the specified path
+                    await database.ref(path).remove();
+                    
+                    // Reset the results display
+                    document.getElementById('report-list').innerHTML = '<h3>Previous Attempts</h3><p>No previous attempts found.</p>';
+                    
+                    alert('All quiz reports have been cleared successfully.');
+                    
+                } catch (error) {
+                    console.error('Error clearing report:', error);
+                    alert('Failed to clear the report: ' + error.message);
+                }
+            }
+
+            // Function to rearrange remaining options
+            function rearrangeOptions() {
+                const optionsContainer = document.querySelector('.options');
+                let visibleOptions = Array.from(document.querySelectorAll('.option')).filter(opt => 
+                    !opt.classList.contains('hidden') && !opt.classList.contains('moving-up')
+                );
+
+                if (visibleOptions.length === 0) return;
+
+                // Remove all options from container
+                visibleOptions.forEach(opt => {
+                    opt.style.transition = 'none';
+                    optionsContainer.removeChild(opt);
                 });
                 
-                // Sort attempts by timestamp in descending order
-                attempts.sort((a, b) => b.timestamp - a.timestamp);
+                // Shuffle visible options
+                shuffleArray(visibleOptions);
                 
-                // Display last 5 attempts
-                displayHistory(attempts.slice(0, 5));
+                // Add them back in shuffled order, starting from the top
+                visibleOptions.forEach((opt, index) => {
+                    // Reset styles
+                    opt.style.opacity = '0';
+                    opt.style.transform = 'translateY(-20px)';
+                    opt.style.gridRow = Math.floor(index / 4) + 1; // Force row position
+                    opt.style.gridColumn = (index % 4) + 1; // Force column position
+                    optionsContainer.appendChild(opt);
+                    
+                    // Force reflow
+                    opt.offsetHeight;
+                    
+                    // Add animation back
+                    opt.style.transition = 'all 0.3s ease-out';
+                    
+                    // Animate in with delay based on position
+                    setTimeout(() => {
+                        opt.style.opacity = '1';
+                        opt.style.transform = 'translateY(0)';
+                    }, index * 50);
+                });
             }
-        })
-        .catch((error) => {
-            console.error("Error fetching attempts: ", error);
-        });
-}
 
-function displayHistory(attempts) {
-    const historyList = document.getElementById('history-list');
-    historyList.innerHTML = '';
-    
-    attempts.forEach(attempt => {
-        const date = new Date(attempt.timestamp);
-        const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
-        
-        const historyItem = document.createElement('div');
-        historyItem.className = 'history-item';
-        historyItem.innerHTML = `
-            <div class="timestamp">${formattedDate}</div>
-            <div class="history-stats">
-                <div><div>Score:</div><span>${attempt.score}</span></div>
-                <div><div>Total Time:</div><span>${attempt.totalTime}s</span></div>
-                <div><div>Avg Time:</div><span>${attempt.avgTime}s</span></div>
-                <div><div>First Tap:</div><span>${attempt.firstTap}s</span></div>
-                <div><div>Total Taps:</div><span>${attempt.totalTaps}</span></div>
-                <div><div>Correct:</div><span>${attempt.totalCorrect}</span></div>
-                <div><div>Incorrect:</div><span>${attempt.totalIncorrect}</span></div>
-            </div>
-        `;
-        historyList.appendChild(historyItem);
-    });
-    
-    // Show history container
-    document.getElementById('history-container').style.display = 'block';
-}
+            // Function to shuffle array
+            function shuffleArray(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+                return array;
+            }
 
-// Submit button event listener
-submitButton.addEventListener('click', () => {
-    finalizeResults();
-});
+            // Initialize statistics display
+            document.addEventListener('DOMContentLoaded', () => {
+                // Reset all statistics
+                document.getElementById('score').textContent = '0';
+                document.getElementById('total-time').textContent = '0';
+                document.getElementById('avg-time').textContent = '0';
+                document.getElementById('first-tap').textContent = '0';
+                document.getElementById('total-taps').textContent = '0';
+                document.getElementById('total-correct').textContent = '0';
+                document.getElementById('total-incorrect').textContent = '0';
+                
+                // Set start time
+                startTime = Date.now();
+                totalStartTime = Date.now();
+                
+                // Initial shuffle of options
+                setTimeout(() => {
+                    rearrangeOptions();
+                }, 100);
+            });
 
-// Function to shuffle array
-function shuffleArray(array) {
-    for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-    }
-    return array;
-}
-
-// Function to rearrange remaining options
-function rearrangeOptions() {
-    const optionsContainer = document.querySelector('.options');
-    let visibleOptions = Array.from(document.querySelectorAll('.option')).filter(opt => 
-        !opt.classList.contains('hidden') && !opt.classList.contains('moving-up')
-    );
-
-    if (visibleOptions.length === 0) return;
-
-    // Remove all options from container
-    visibleOptions.forEach(opt => {
-        opt.style.transition = 'none';
-        optionsContainer.removeChild(opt);
-    });
-    
-    // Shuffle visible options
-    shuffleArray(visibleOptions);
-    
-    // Add them back in shuffled order, starting from the top
-    visibleOptions.forEach((opt, index) => {
-        // Reset styles
-        opt.style.opacity = '0';
-        opt.style.transform = 'translateY(-20px)';
-        opt.style.gridRow = Math.floor(index / 4) + 1; // Force row position
-        opt.style.gridColumn = (index % 4) + 1; // Force column position
-        optionsContainer.appendChild(opt);
-        
-        // Force reflow
-        opt.offsetHeight;
-        
-        // Add animation back
-        opt.style.transition = 'all 0.3s ease-out';
-        
-        // Animate in with delay based on position
-        setTimeout(() => {
-            opt.style.opacity = '1';
-            opt.style.transform = 'translateY(0)';
-        }, index * 50);
-    });
-}
-
-function saveAttempt(data) {
-    const attemptsRef = ref(db, 'quizAttempts11/');
-    const newAttemptRef = ref(db, 'quizAttempts11/' + Date.now());
-    
-    set(newAttemptRef, data)
-        .then(() => {
-            console.log("Attempt saved successfully");
-        })
-        .catch(error => {
-            console.error("Error saving attempt: ", error);
-        });
-}
-
-function clearReport() {
-    const attemptsRef = ref(db, 'quizAttempts11/');
-    set(attemptsRef, null)
-        .then(() => {
-            console.log("Report cleared!");
-            document.getElementById('report-list').innerHTML = '';
-        })
-        .catch(error => console.error("Error clearing report: ", error));
-}
-
-// Initialize statistics display
-document.addEventListener('DOMContentLoaded', () => {
-    // Reset all statistics
-    document.getElementById('score').textContent = '0';
-    document.getElementById('total-time').textContent = '0';
-    document.getElementById('avg-time').textContent = '0';
-    document.getElementById('first-tap').textContent = '0';
-    document.getElementById('total-taps').textContent = '0';
-    document.getElementById('total-correct').textContent = '0';
-    document.getElementById('total-incorrect').textContent = '0';
-    
-    // Set start time
-    startTime = Date.now();
-    totalStartTime = Date.now();
-    
-    // Initial shuffle of options
-    setTimeout(() => {
-        rearrangeOptions();
-    }, 100);
-});
-    </script>
-</body>
+            // Submit button event listener
+            submitButton.addEventListener('click', () => {
+                finalizeResults();
+            });
+        </script>
+    </body>
 </html>
