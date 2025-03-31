@@ -55,6 +55,7 @@
             text-decoration: none;
             transition: background-color 0.3s;
             font-size: 16px;
+            margin-left: 10px;
         }
         
         .profile-icon:hover {
@@ -340,7 +341,7 @@
             <div class="user-info">
                 <span id="patient-indicator" class="patient-indicator"></span>
             </div>
-            <a class="profile-icon" id="profileIcon" title="Back to Home" href="index.html"></a>
+            <div class="profile-icon" id="profileIcon" title="Back to Home" onclick="window.location.href='index.html'"></div>
         </div>
     </div>
 
@@ -360,7 +361,6 @@
         <div class="feedback" id="feedback"></div>
         
         <div class="button-container">
-            <button id="reset-button">New Game</button>
             <a href="index.html" style="text-decoration: none;">
                 <button class="home-button">Home</button>
             </a>
@@ -369,8 +369,8 @@
 
     <div id="result-container">
         <h2>Quiz Results</h2>
-        <div class="user-info" style="justify-content: flex-end; margin-bottom: 15px;">
-            <a class="profile-icon" id="profileIconResults" title="Back to Home" href="index.html"></a>
+        <div class="user-info" style="display: flex; justify-content: flex-end; margin-bottom: 15px;">
+            <div class="profile-icon" id="profileIconResults" title="Back to Home" onclick="window.location.href='index.html'"></div>
         </div>
         <ul>
             <li><strong>Score:</strong> <span id="score">0</span></li>
@@ -382,7 +382,7 @@
             <li><strong>Total Incorrect Answers:</strong> <span id="total-incorrect">0</span></li>
         </ul>
         <div class="button-container">
-            <button id="new-game-button">New Game</button>
+            <button id="new-game-button">Try Again</button>
             <a href="index.html" style="text-decoration: none;">
                 <button class="home-button">Return Home</button>
             </a>
@@ -527,7 +527,7 @@
                         console.log('Using default initials: U');
                     }
                     
-                    // Initialize the game
+                    // Start the game immediately without needing to initialize it separately
                     initializeGame();
                     fetchPreviousAttempts();
                     
@@ -872,17 +872,16 @@
 
                 // Check if this is a patient quiz (doctor viewing patient)
                 const currentPatientId = sessionStorage.getItem('currentPatientId');
-                const doctorId = sessionStorage.getItem('doctorId');
+                const doctorId = sessionStorage.getItem('doctorId') || user.uid;
                 
                 console.log("Context for saving:", { currentPatientId, doctorId, userId: user.uid });
                 
-                if (currentPatientId && doctorId) {
+                if (currentPatientId && (doctorId || isDoctor)) {
                     // This is a doctor testing a patient
                     console.log(`Saving patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
                     path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/morning/${timestamp}`;
                 } else {
-                    // Regular user quiz
-                    // Check if user is a doctor
+                    // Regular user quiz - Check if user is a doctor
                     const roleSnapshot = await db.ref(`roles/${user.uid}`).once('value');
                     const role = roleSnapshot.val();
                     
@@ -910,7 +909,7 @@
                     timestamp: firebase.database.ServerValue.TIMESTAMP
                 };
                 
-                // Save the data
+                // Save the data and wait for the operation to complete
                 await db.ref(path).set(quizData);
                 console.log("Quiz results saved successfully to:", path);
                 
@@ -1070,16 +1069,15 @@
                 });
             }
             
-            // Remove old event listeners that we replaced with inline functions
-            const clearResultsBtn = document.getElementById('clear-results-button');
-            if (clearResultsBtn) {
-                clearResultsBtn.removeEventListener('click', () => {});
+            // Try Again button
+            const newGameBtn = document.getElementById('new-game-button');
+            if (newGameBtn) {
+                newGameBtn.addEventListener('click', resetGame);
             }
         });
         
         // Event listeners
-        resetButton.addEventListener('click', resetGame);
-        document.getElementById('new-game-button').addEventListener('click', resetGame);
+        // Removed reset button event
         
         // Reset the game
         function resetGame() {
@@ -1142,11 +1140,24 @@
                         }
                     }
                 }
-                profileIcon.textContent = initials;
+                
+                // Set initials on both profile icons
+                document.getElementById('profileIcon').textContent = initials;
+                
+                const resultProfileIcon = document.getElementById('profileIconResults');
+                if (resultProfileIcon) {
+                    resultProfileIcon.textContent = initials;
+                }
+                
                 console.log("Profile initials set to:", initials);
             } catch (error) {
                 console.error('Error setting profile initials:', error);
-                profileIcon.textContent = 'U'; // Fallback
+                document.getElementById('profileIcon').textContent = 'U'; // Fallback
+                
+                const resultProfileIcon = document.getElementById('profileIconResults');
+                if (resultProfileIcon) {
+                    resultProfileIcon.textContent = 'U';
+                }
             }
         }
 
