@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visual Sequential Memory</title>
+    <title>Shape Exercise</title>
     <link rel="stylesheet" href="styles.css">
     <style>
         body {
@@ -113,13 +113,13 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>Visual Sequential Memory</h1>
+            <h1>Shape Exercise</h1>
             <div class="profile-icon" id="profileIcon" title="Back to Home" onclick="window.location.href='index.html'"></div>
             <div class="user-info">
                 <span id="patient-indicator" class="patient-indicator"></span>
             </div>
         </div>
-        
+
         <div id="quiz-container" style="display:none;">
             <h2>Select a Quiz Type:</h2>
             <div id="quiz-type">
@@ -148,34 +148,34 @@
                 messagingSenderId: "279067566247",
                 appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
             };
-
+            
             // Initialize Firebase
             firebase.initializeApp(firebaseConfig);
             const auth = firebase.auth();
             const database = firebase.database();
-
+            
             // Get quiz context from session storage
             const currentPatientId = sessionStorage.getItem('currentPatientId');
             const doctorId = sessionStorage.getItem('doctorId');
             const isPatientQuiz = !!currentPatientId;
-
-            console.log('Quiz context:', { 
+            
+            console.log('Quiz context in VDT:', { 
                 isPatientQuiz, 
                 currentPatientId: currentPatientId || 'none',
                 doctorId: doctorId || 'none'
             });
-
+            
             // Auth state observer
             auth.onAuthStateChanged(async (user) => {
                 if (user) {
-                    console.log('User authenticated:', user.uid);
-
+                    console.log('User authenticated in VDT:', user.uid);
+                    
                     try {
                         // Check if user is a doctor
                         if (!isPatientQuiz) {
                             const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
                             const role = roleSnapshot.val();
-
+                            
                             if (role === 'doctor') {
                                 console.log('Doctor detected without patient context, redirecting');
                                 // Redirect doctors without patient context back to index
@@ -184,51 +184,50 @@
                                 return;
                             }
                         }
-
+                        
                         // Load user profile
                         let profile;
                         if (isPatientQuiz) {
                             // Doctor viewing patient
-                            console.log(`Loading patient profile: ${currentPatientId}`);
+                            console.log(`Loading patient profile in VDT: ${currentPatientId}`);
                             const patientSnapshot = await database.ref(`doctors/${doctorId}/patients/${currentPatientId}/profile`).once('value');
                             profile = patientSnapshot.val();
                         } else {
                             // Regular user
-                            const userSnapshot = await database.ref(`users/${user.uid}`).once('value');
+                            console.log('Loading user profile in VDT');
+                            const userSnapshot = await database.ref(`users/${user.uid}/profile`).once('value');
                             profile = userSnapshot.val();
                         }
-
-                        // Set profile icon initials
+                        
+                        // Get first letter of name or email
+                        let initial = 'U';
                         if (profile && profile.name) {
-                            setProfileInitials(profile.name);
-                        } else {
-                            const email = user.email || 'User';
-                            setProfileInitials(email);
+                            initial = profile.name.charAt(0).toUpperCase();
+                        } else if (user.email) {
+                            initial = user.email.charAt(0).toUpperCase();
                         }
-
-                        // Show patient indicator if doctor is viewing a patient's quiz
+                        
+                        // Display patient indicator
                         if (isPatientQuiz) {
-                            const patientName = profile?.name || currentPatientId;
-                            document.getElementById('patient-indicator').innerHTML = `Viewing: ${patientName}`;
-                            document.getElementById('patient-indicator').style.display = 'inline-block';
+                            const patientIndicator = document.getElementById('patient-indicator');
+                            patientIndicator.textContent = 'Patient';
+                            patientIndicator.style.display = 'inline-block';
+                        } else {
+                            const patientIndicator = document.getElementById('patient-indicator');
+                            patientIndicator.style.display = 'none';
                         }
-
-                        // Show the quiz container
-                        document.getElementById('quiz-container').style.display = 'block';
+                        
+                        document.getElementById('profileIcon').textContent = initial;
                     } catch (error) {
-                        console.error('Error setting up quiz:', error);
-                        alert('Error loading profile. Please try again.');
+                        console.error('Error loading profile in VDT:', error);
+                        document.getElementById('profileIcon').textContent = 'U';
                     }
+                    
+                    document.getElementById('quiz-container').style.display = 'block';
                 } else {
-                    // Not logged in, redirect to login page
                     window.location.href = 'login.html';
                 }
             });
-
-            function setProfileInitials(name) {
-                const initial = name.charAt(0).toUpperCase();
-                document.getElementById('profileIcon').textContent = initial;
-            }
         </script>
     </div>
 </body>
