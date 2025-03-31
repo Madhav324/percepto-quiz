@@ -858,6 +858,56 @@
                 font-size: 10px;
             }
         }
+        
+        .search-container {
+            display: flex;
+            margin-bottom: 20px;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        #searchInput {
+            padding: 8px 12px;
+            width: 250px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        #filterType {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: white;
+        }
+        
+        #clearSearch {
+            padding: 8px 12px;
+            background-color: #f0f0f0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        #clearSearch:hover {
+            background-color: #e0e0e0;
+        }
+        
+        @media (max-width: 767px) {
+            .search-container {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            #searchInput {
+                width: 100%;
+            }
+            
+            #filterType,
+            #clearSearch {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 <body>
@@ -881,6 +931,20 @@
         </div>
         
         <div id="adminDashboard" class="dashboard">
+            <div class="dashboard-header">
+                <h1>Percepto Admin Dashboard</h1>
+                <div class="search-container">
+                    <input type="text" id="searchInput" placeholder="Search users by name, email or role">
+                    <select id="filterType">
+                        <option value="all">All</option>
+                        <option value="doctor">Doctors</option>
+                        <option value="patient">Patients</option>
+                        <option value="user">Regular Users</option>
+                    </select>
+                    <button id="clearSearch">Clear</button>
+                </div>
+            </div>
+            
             <div class="profile-header">
                 <h1>Percepto Admin Dashboard</h1>
                 <div class="profile-icon" id="adminInitials" title="Admin" onclick="logoutAdmin()">A</div>
@@ -986,11 +1050,10 @@
                                 <th>Role</th>
                                 <th>Info</th>
                                 <th>Last Active</th>
-                                <th>Age</th>
                             </tr>
                         </thead>
                         <tbody id="usersTable">
-                            <tr><td colspan="5">Loading user data...</td></tr>
+                            <tr><td colspan="4">Loading user data...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -1852,7 +1915,7 @@
             try {
                 console.log("Loading users data...");
                 const usersContainer = document.getElementById('usersTable');
-                usersContainer.innerHTML = '<tr><td colspan="5">Loading user data...</td></tr>';
+                usersContainer.innerHTML = '<tr><td colspan="4">Loading user data...</td></tr>';
                 
                 // Store all users
                 const userArray = [];
@@ -1887,11 +1950,29 @@
                             assignedDoctor: null,
                             initials: getInitials(userData.name || 'Unknown User'),
                             quizData: {}, // Store detailed quiz data for this user
-                            age: userData.age || 'N/A',
-                            gender: userData.gender || 'N/A',
-                            medicalCondition: userData.medicalCondition || 'N/A',
-                            doctorRecommendation: userData.doctorRecommendation || 'N/A'
                         };
+                        
+                        // Extract additional profile fields - proper error handling for all user types
+                        try {
+                            if (userData.profile) {
+                                user.age = userData.profile.age || userData.age || 'N/A';
+                                user.gender = userData.profile.gender || userData.gender || 'N/A';
+                                user.medicalCondition = userData.profile.medicalCondition || userData.medicalCondition || 'N/A';
+                                user.doctorRecommendation = userData.profile.doctorRecommendation || userData.doctorRecommendation || 'N/A';
+                            } else {
+                                // Try direct properties if profile object doesn't exist
+                                user.age = userData.age || 'N/A';
+                                user.gender = userData.gender || 'N/A';
+                                user.medicalCondition = userData.medicalCondition || 'N/A';
+                                user.doctorRecommendation = userData.doctorRecommendation || 'N/A';
+                            }
+                        } catch (err) {
+                            console.warn(`Error extracting profile data for user ${userId}:`, err);
+                            user.age = 'N/A';
+                            user.gender = 'N/A';
+                            user.medicalCondition = 'N/A';
+                            user.doctorRecommendation = 'N/A';
+                        }
                         
                         // Get user's quiz data based on role
                         try {
@@ -2117,7 +2198,7 @@
             } catch (error) {
                 console.error("Error loading users data:", error);
                 document.getElementById('usersTable').innerHTML = 
-                    `<tr><td colspan="5">Error loading data: ${error.message}</td></tr>`;
+                    `<tr><td colspan="4">Error loading data: ${error.message}</td></tr>`;
             }
         }
         
@@ -2139,7 +2220,7 @@
             container.innerHTML = '';
             
             if (users.length === 0) {
-                container.innerHTML = '<tr><td colspan="5">No users found</td></tr>';
+                container.innerHTML = '<tr><td colspan="4">No users found</td></tr>';
                 return;
             }
             
@@ -2182,7 +2263,6 @@
                         </div>
                     </td>
                     <td>${doctor.lastActive}</td>
-                    <td>${doctor.age}</td>
                 `;
                 
                 container.appendChild(doctorRow);
@@ -2224,7 +2304,6 @@
                                 </div>
                             </td>
                             <td>${patient.lastActive}</td>
-                            <td>${patient.age}</td>
                         `;
                         
                         container.appendChild(patientRow);
@@ -2297,7 +2376,6 @@
                         </div>
                     </td>
                     <td>${user.lastActive}</td>
-                    <td>${user.age}</td>
                 `;
                 
                 container.appendChild(userRow);
@@ -2348,7 +2426,6 @@
                             </div>
                         </td>
                         <td>${patient.lastActive}</td>
-                        <td>${patient.age}</td>
                     `;
                     
                     container.appendChild(patientRow);
@@ -2427,7 +2504,7 @@
             
             // Create content for the details row
             let content = `
-                <td colspan="5">
+                <td colspan="4">
                     <div class="quiz-stats-container">
                         <h3>Quiz Results</h3>
                         <table class="details-table">
@@ -2679,6 +2756,86 @@
                 lastActive: latestTimestamp > 0 ? new Date(latestTimestamp).toLocaleString() : 'Never'
             };
         }
+        
+        // Search and filter functionality
+        const searchInput = document.getElementById('searchInput');
+        const filterType = document.getElementById('filterType');
+        const clearSearchBtn = document.getElementById('clearSearch');
+        
+        function applySearchAndFilter() {
+            const searchTerm = searchInput.value.toLowerCase();
+            const filterValue = filterType.value;
+            
+            // Get all user rows
+            const doctorRows = document.querySelectorAll('.doctor-row');
+            const patientRows = document.querySelectorAll('.patient-row');
+            const regularUserRows = document.querySelectorAll('.regular-user-row');
+            
+            // Helper function to check if a row should be visible
+            function shouldShowRow(row, rowType) {
+                if (filterValue !== 'all' && filterValue !== rowType) {
+                    return false;
+                }
+                
+                if (!searchTerm) {
+                    return true;
+                }
+                
+                const name = row.querySelector('.user-name').textContent.toLowerCase();
+                const email = row.querySelector('.user-email').textContent.toLowerCase();
+                const additionalInfo = row.querySelector('.user-additional-info')?.textContent.toLowerCase() || '';
+                
+                return name.includes(searchTerm) || 
+                       email.includes(searchTerm) || 
+                       additionalInfo.includes(searchTerm);
+            }
+            
+            // Apply to doctors
+            doctorRows.forEach(row => {
+                const visible = shouldShowRow(row, 'doctor');
+                row.style.display = visible ? 'table-row' : 'none';
+                
+                // If doctor is hidden, hide their patients too
+                if (!visible) {
+                    const doctorId = row.dataset.userId;
+                    document.querySelectorAll(`.patient-row[data-doctor-id="${doctorId}"]`)
+                        .forEach(patientRow => {
+                            patientRow.style.display = 'none';
+                        });
+                }
+            });
+            
+            // Apply to patients
+            patientRows.forEach(row => {
+                // Only apply search to patients if their doctor is visible
+                const doctorId = row.dataset.doctorId;
+                const doctorRow = document.querySelector(`.doctor-row[data-user-id="${doctorId}"]`);
+                const doctorVisible = doctorRow ? doctorRow.style.display !== 'none' : true;
+                
+                // If filtering by patient type specifically, show patients regardless of doctor visibility
+                row.style.display = (doctorVisible || filterValue === 'patient') && 
+                                    shouldShowRow(row, 'patient') ? 'table-row' : 'none';
+            });
+            
+            // Apply to regular users
+            regularUserRows.forEach(row => {
+                row.style.display = shouldShowRow(row, 'user') ? 'table-row' : 'none';
+            });
+            
+            // Hide any open quiz rows
+            document.querySelectorAll('.user-quiz-details').forEach(row => {
+                row.style.display = 'none';
+            });
+        }
+        
+        // Add event listeners
+        searchInput.addEventListener('input', applySearchAndFilter);
+        filterType.addEventListener('change', applySearchAndFilter);
+        clearSearchBtn.addEventListener('click', () => {
+            searchInput.value = '';
+            filterType.value = 'all';
+            applySearchAndFilter();
+        });
     </script>
 </body>
 </html>
