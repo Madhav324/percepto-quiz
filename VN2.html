@@ -477,6 +477,12 @@
         const urlParams = new URLSearchParams(window.location.search);
         patientId = urlParams.get('patient');
 
+        // Also check sessionStorage (matching VDT1.html implementation)
+        if (!patientId) {
+            patientId = sessionStorage.getItem('currentPatientId');
+            isDoctor = sessionStorage.getItem('doctorId') !== null;
+        }
+
         // Array of letters to use
         const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
@@ -520,6 +526,26 @@
                 const initial = currentUser.email.charAt(0).toUpperCase();
                 profileIcon.textContent = initial;
                 profileIcon.title = "Back to Home";
+            } else if (patientId) {
+                // If we're in patient context but no current user (doctor viewing patient)
+                // Get patient initial from database
+                const patientRef = ref(db, 'users/' + patientId);
+                get(patientRef).then((snapshot) => {
+                    if (snapshot.exists()) {
+                        const patientData = snapshot.val();
+                        const patientEmail = patientData.email || '';
+                        const initial = patientEmail.charAt(0).toUpperCase() || 'P';
+                        profileIcon.textContent = initial;
+                        profileIcon.title = "Patient Quiz";
+                    } else {
+                        profileIcon.textContent = "P";
+                        profileIcon.title = "Patient Quiz";
+                    }
+                }).catch(error => {
+                    console.error("Error fetching patient data:", error);
+                    profileIcon.textContent = "P";
+                    profileIcon.title = "Patient Quiz";
+                });
             } else {
                 // Default icon for non-logged in users
                 profileIcon.textContent = "G";
@@ -533,7 +559,7 @@
             get(patientRef).then((snapshot) => {
                 if (snapshot.exists()) {
                     const patientData = snapshot.val();
-                    const patientName = patientData.name || patientData.email;
+                    const patientName = patientData.name || patientData.email || 'Patient';
                     
                     // Create patient indicator
                     const userInfo = document.createElement('div');
@@ -546,6 +572,18 @@
                     userInfo.appendChild(patientIndicator);
                     document.body.appendChild(userInfo);
                 }
+            }).catch(error => {
+                console.error("Error displaying patient indicator:", error);
+                // Create generic patient indicator in case of error
+                const userInfo = document.createElement('div');
+                userInfo.className = 'user-info';
+                
+                const patientIndicator = document.createElement('span');
+                patientIndicator.className = 'patient-indicator';
+                patientIndicator.textContent = 'Patient';
+                
+                userInfo.appendChild(patientIndicator);
+                document.body.appendChild(userInfo);
             });
         }
 
