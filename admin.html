@@ -761,6 +761,33 @@
         details summary:hover {
             text-decoration: underline;
         }
+        
+        .user-additional-info {
+            margin-top: 5px;
+            padding: 8px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            font-size: 12px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+        }
+        
+        .attempt-data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 5px;
+        }
+        
+        .attempt-data-table td {
+            padding: 3px 5px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .attempt-data-table td:first-child {
+            width: 30%;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -1790,7 +1817,10 @@
                             assignedDoctor: null,
                             initials: getInitials(userData.name || 'Unknown User'),
                             quizData: {}, // Store detailed quiz data for this user
-                            age: userData.age || 'N/A'
+                            age: userData.age || 'N/A',
+                            gender: userData.gender || 'N/A',
+                            medicalCondition: userData.medicalCondition || 'N/A',
+                            doctorRecommendation: userData.doctorRecommendation || 'N/A'
                         };
                         
                         // Get user's quiz data based on role
@@ -2074,6 +2104,10 @@
                     <td>
                         ${doctor.patientCount} patients, ${doctor.quizCount} quizzes
                         ${hasQuizzes ? `<button class="view-quizzes-btn" data-user-id="${doctor.id}">Show Quizzes</button>` : ''}
+                        <div class="user-additional-info">
+                            <div><strong>Age:</strong> ${doctor.age}</div>
+                            <div><strong>Gender:</strong> ${doctor.gender}</div>
+                        </div>
                     </td>
                     <td>${doctor.lastActive}</td>
                     <td>${doctor.age}</td>
@@ -2110,6 +2144,12 @@
                             <td>
                                 ${patient.quizCount} quizzes, ${patient.medicalCondition}
                                 ${hasPatientQuizzes ? `<button class="view-quizzes-btn" data-user-id="${patient.id}">Show Quizzes</button>` : ''}
+                                <div class="user-additional-info">
+                                    <div><strong>Age:</strong> ${patient.age}</div>
+                                    <div><strong>Gender:</strong> ${patient.gender}</div>
+                                    <div><strong>Medical:</strong> ${patient.medicalCondition}</div>
+                                    <div><strong>Recommendation:</strong> ${patient.doctorRecommendation}</div>
+                                </div>
                             </td>
                             <td>${patient.lastActive}</td>
                             <td>${patient.age}</td>
@@ -2177,6 +2217,11 @@
                     <td>
                         ${user.quizCount} quizzes
                         ${hasQuizzes ? `<button class="view-quizzes-btn" data-user-id="${user.id}">Show Quizzes</button>` : ''}
+                        <div class="user-additional-info">
+                            <div><strong>Age:</strong> ${user.age}</div>
+                            <div><strong>Gender:</strong> ${user.gender}</div>
+                            <div><strong>Medical:</strong> ${user.medicalCondition}</div>
+                        </div>
                     </td>
                     <td>${user.lastActive}</td>
                     <td>${user.age}</td>
@@ -2222,6 +2267,12 @@
                         <td>
                             ${patient.quizCount} quizzes, ${patient.medicalCondition}
                             ${hasPatientQuizzes ? `<button class="view-quizzes-btn" data-user-id="${patient.id}">Show Quizzes</button>` : ''}
+                            <div class="user-additional-info">
+                                <div><strong>Age:</strong> ${patient.age}</div>
+                                <div><strong>Gender:</strong> ${patient.gender}</div>
+                                <div><strong>Medical:</strong> ${patient.medicalCondition}</div>
+                                <div><strong>Recommendation:</strong> ${patient.doctorRecommendation}</div>
+                            </div>
                         </td>
                         <td>${patient.lastActive}</td>
                         <td>${patient.age}</td>
@@ -2274,7 +2325,6 @@
                         name: quizType,
                         attempts: 0,
                         totalScore: 0,
-                        avgScore: 0,
                         history: [],
                         rawData: attempts // Store the raw data
                     };
@@ -2294,11 +2344,6 @@
                     }
                 });
                 
-                // Calculate average score
-                if (quizStats[quizType].attempts > 0) {
-                    quizStats[quizType].avgScore = (quizStats[quizType].totalScore / quizStats[quizType].attempts).toFixed(2);
-                }
-                
                 // Sort history by timestamp (most recent first)
                 quizStats[quizType].history.sort((a, b) => b.timestamp - a.timestamp);
             });
@@ -2317,8 +2362,6 @@
                                 <tr>
                                     <th>Quiz Type</th>
                                     <th>Attempts</th>
-                                    <th>Avg. Score</th>
-                                    <th>Recent Scores</th>
                                     <th>Details</th>
                                 </tr>
                             </thead>
@@ -2326,13 +2369,9 @@
             `;
             
             if (quizList.length === 0) {
-                content += '<tr><td colspan="5">No quiz data found</td></tr>';
+                content += '<tr><td colspan="3">No quiz data found</td></tr>';
             } else {
                 quizList.forEach(quiz => {
-                    // Format recent scores (show at most 3)
-                    const recentScores = quiz.history.slice(0, 3).map(h => 
-                        `<span title="${h.date}">${h.score}%</span>`).join(', ');
-                    
                     // Create a details popup for the raw data
                     let detailsContent = '<div class="quiz-details-popup">';
                     
@@ -2340,22 +2379,44 @@
                     quiz.history.forEach((attempt, index) => {
                         detailsContent += `<div class="attempt-details">
                             <h4>Attempt ${index + 1} (${attempt.date})</h4>
-                            <ul>`;
+                            <table class="attempt-data-table">
+                                <tbody>`;
                             
-                        // Display all properties from the raw data
+                        // Display all properties from the raw data in a more organized manner
                         if (attempt.rawData) {
-                            Object.entries(attempt.rawData).forEach(([key, value]) => {
-                                // Format value based on type
-                                let displayValue = value;
-                                if (typeof value === 'object' && value !== null) {
-                                    displayValue = JSON.stringify(value);
+                            // First show the most important fields
+                            const priorityFields = ['score', 'date', 'timestamp', 'totalQuestions', 'correctAnswers'];
+                            
+                            // Show priority fields first
+                            priorityFields.forEach(field => {
+                                if (attempt.rawData[field] !== undefined) {
+                                    detailsContent += `<tr>
+                                        <td><strong>${field}:</strong></td>
+                                        <td>${attempt.rawData[field]}</td>
+                                    </tr>`;
                                 }
-                                
-                                detailsContent += `<li><strong>${key}:</strong> ${displayValue}</li>`;
+                            });
+                            
+                            // Then show all other fields
+                            Object.entries(attempt.rawData).forEach(([key, value]) => {
+                                if (!priorityFields.includes(key)) {
+                                    // Format value based on type
+                                    let displayValue = value;
+                                    if (typeof value === 'object' && value !== null) {
+                                        displayValue = JSON.stringify(value);
+                                    }
+                                    
+                                    detailsContent += `<tr>
+                                        <td><strong>${key}:</strong></td>
+                                        <td>${displayValue}</td>
+                                    </tr>`;
+                                }
                             });
                         }
                         
-                        detailsContent += `</ul></div>`;
+                        detailsContent += `</tbody>
+                            </table>
+                        </div>`;
                     });
                     
                     detailsContent += '</div>';
@@ -2364,11 +2425,9 @@
                         <tr>
                             <td><strong>${quiz.name}</strong></td>
                             <td>${quiz.attempts}</td>
-                            <td>${quiz.avgScore}%</td>
-                            <td>${recentScores}</td>
                             <td>
                                 <details>
-                                    <summary>View All Data</summary>
+                                    <summary>View Data (${quiz.history.length} attempts)</summary>
                                     ${detailsContent}
                                 </details>
                             </td>
