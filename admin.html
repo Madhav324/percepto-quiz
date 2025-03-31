@@ -720,6 +720,47 @@
         .user-quiz-details {
             background-color: #f5f8fd;
         }
+        
+        .quiz-details-popup {
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            padding: 8px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            margin-top: 5px;
+        }
+        
+        .attempt-details {
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .attempt-details h4 {
+            margin: 0 0 5px 0;
+            font-size: 13px;
+            color: #333;
+        }
+        
+        .attempt-details ul {
+            margin: 0;
+            padding-left: 15px;
+        }
+        
+        .attempt-details li {
+            margin-bottom: 3px;
+        }
+        
+        details summary {
+            cursor: pointer;
+            color: #4a90e2;
+            font-size: 12px;
+        }
+        
+        details summary:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -2234,7 +2275,8 @@
                         attempts: 0,
                         totalScore: 0,
                         avgScore: 0,
-                        history: []
+                        history: [],
+                        rawData: attempts // Store the raw data
                     };
                 }
                 
@@ -2246,7 +2288,8 @@
                         quizStats[quizType].history.push({
                             date: new Date(parseInt(timestamp)).toLocaleString(),
                             score: attempt.score,
-                            timestamp: parseInt(timestamp)
+                            timestamp: parseInt(timestamp),
+                            rawData: attempt // Store all attempt data
                         });
                     }
                 });
@@ -2276,18 +2319,46 @@
                                     <th>Attempts</th>
                                     <th>Avg. Score</th>
                                     <th>Recent Scores</th>
+                                    <th>Details</th>
                                 </tr>
                             </thead>
                             <tbody>
             `;
             
             if (quizList.length === 0) {
-                content += '<tr><td colspan="4">No quiz data found</td></tr>';
+                content += '<tr><td colspan="5">No quiz data found</td></tr>';
             } else {
                 quizList.forEach(quiz => {
                     // Format recent scores (show at most 3)
                     const recentScores = quiz.history.slice(0, 3).map(h => 
                         `<span title="${h.date}">${h.score}%</span>`).join(', ');
+                    
+                    // Create a details popup for the raw data
+                    let detailsContent = '<div class="quiz-details-popup">';
+                    
+                    // For each attempt, show all raw data
+                    quiz.history.forEach((attempt, index) => {
+                        detailsContent += `<div class="attempt-details">
+                            <h4>Attempt ${index + 1} (${attempt.date})</h4>
+                            <ul>`;
+                            
+                        // Display all properties from the raw data
+                        if (attempt.rawData) {
+                            Object.entries(attempt.rawData).forEach(([key, value]) => {
+                                // Format value based on type
+                                let displayValue = value;
+                                if (typeof value === 'object' && value !== null) {
+                                    displayValue = JSON.stringify(value);
+                                }
+                                
+                                detailsContent += `<li><strong>${key}:</strong> ${displayValue}</li>`;
+                            });
+                        }
+                        
+                        detailsContent += `</ul></div>`;
+                    });
+                    
+                    detailsContent += '</div>';
                     
                     content += `
                         <tr>
@@ -2295,6 +2366,12 @@
                             <td>${quiz.attempts}</td>
                             <td>${quiz.avgScore}%</td>
                             <td>${recentScores}</td>
+                            <td>
+                                <details>
+                                    <summary>View All Data</summary>
+                                    ${detailsContent}
+                                </details>
+                            </td>
                         </tr>
                     `;
                 });
