@@ -605,6 +605,89 @@
             margin-right: 5px;
             font-weight: bold;
         }
+        
+        /* User filter styles */
+        .filter-controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        /* Hierarchical user list styles */
+        .treeview .expandable {
+            cursor: pointer;
+        }
+        
+        .treeview .child-row {
+            display: none;
+            background-color: #f9f9f9;
+        }
+        
+        .treeview .child-row.visible {
+            display: table-row;
+        }
+        
+        .treeview .toggle-icon {
+            margin-right: 5px;
+            display: inline-block;
+            width: 16px;
+            text-align: center;
+        }
+        
+        /* Quiz statistics styles */
+        .quiz-row {
+            cursor: pointer;
+        }
+        
+        .quiz-details {
+            background-color: #f5f8ff;
+        }
+        
+        .details-table {
+            width: 100%;
+            margin: 10px 0;
+            border-collapse: collapse;
+        }
+        
+        .details-table th, 
+        .details-table td {
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .details-table th {
+            background-color: #e7eef8;
+            color: #333;
+        }
+        
+        .details-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .details-table .total-row {
+            background-color: #e0e8f5;
+        }
+        
+        .view-details-btn {
+            background-color: #4a90e2;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .view-details-btn:hover {
+            background-color: #3a7fcb;
+        }
     </style>
 </head>
 <body>
@@ -722,17 +805,6 @@
                     <div class="form-group">
                         <label for="userSearchFilter">Search by name/email:</label>
                         <input type="text" id="userSearchFilter" placeholder="Search...">
-                    </div>
-                    <div class="form-group">
-                        <label for="ageGroupFilter">Filter by age group:</label>
-                        <select id="ageGroupFilter">
-                            <option value="">All ages</option>
-                            <option value="0-18">0-18</option>
-                            <option value="19-30">19-30</option>
-                            <option value="31-45">31-45</option>
-                            <option value="46-60">46-60</option>
-                            <option value="60+">60+</option>
-                        </select>
                     </div>
                 </div>
                 
@@ -1264,7 +1336,7 @@
                     .map(([id, _]) => id);
                 
                 for (const doctorId of doctorIds) {
-                    // Doctor's own quizzes
+                    // Doctor's own quizzes (if any)
                     const doctorQuizzes = await db.ref(`doctors/${doctorId}/quiz`).once('value');
                     if (doctorQuizzes.val()) {
                         processQuizData(quizData, doctorQuizzes.val(), 'Doctor');
@@ -1371,6 +1443,229 @@
             });
         }
         
+        // Load quizzes data for the Quizzes tab
+        async function loadQuizzesData() {
+            try {
+                console.log("Loading quizzes statistics...");
+                const quizzesTable = document.getElementById('quizzesTable').querySelector('tbody');
+                quizzesTable.innerHTML = '<tr><td colspan="4">Loading quiz statistics...</td></tr>';
+                
+                // Store all quiz statistics
+                const quizStats = {};
+                
+                // Get user profiles from Firestore to identify user roles
+                const userProfiles = new Map();
+                try {
+                    const profilesSnapshot = await firestore.collection('userProfiles').get();
+                    profilesSnapshot.docs.forEach(doc => {
+                        userProfiles.set(doc.id, doc.data());
+                    });
+                    console.log(`Loaded ${userProfiles.size} user profiles from Firestore`);
+                } catch (error) {
+                    console.error("Error accessing userProfiles collection:", error);
+                    quizzesTable.innerHTML = `<tr><td colspan="4">Error loading user profiles: ${error.message}</td></tr>`;
+                    return;
+                }
+                
+                // Initialize our quiz data structure
+                const quizData = {};
+                
+                // 1. Process regular users' quiz data
+                const regularUserIds = Array.from(userProfiles.entries())
+                    .filter(([_, profile]) => !profile.role || profile.role === 'user')
+                    .map(([id, _]) => id);
+                
+                console.log(`Processing ${regularUserIds.length} regular users`);
+                for (const userId of regularUserIds) {
+                    const userQuizSnapshot = await db.ref(`users/${userId}/quiz`).once('value');
+                    const userQuizData = userQuizSnapshot.val();
+                    
+                    if (userQuizData) {
+                        Object.entries(userQuizData).forEach(([quizType, attempts]) => {
+                            if (!quizStats[quizType]) {
+                                quizStats[quizType] = {
+                                    name: quizType,
+                                    regularUsers: { attempts: 0, totalScore: 0 },
+                                    patients: { attempts: 0, totalScore: 0 },
+                                    total: { attempts: 0, totalScore: 0 }
+                                };
+                            }
+                            
+                            Object.values(attempts || {}).forEach(attempt => {
+                                if (attempt.score !== undefined) {
+                                    quizStats[quizType].regularUsers.attempts++;
+                                    quizStats[quizType].regularUsers.totalScore += parseFloat(attempt.score);
+                                    quizStats[quizType].total.attempts++;
+                                    quizStats[quizType].total.totalScore += parseFloat(attempt.score);
+                                }
+                            });
+                        });
+                    }
+                }
+                
+                // 2. Process doctors and their patients
+                const doctorIds = Array.from(userProfiles.entries())
+                    .filter(([_, profile]) => profile.role === 'doctor')
+                    .map(([id, _]) => id);
+                
+                console.log(`Processing ${doctorIds.length} doctors and their patients`);
+                for (const doctorId of doctorIds) {
+                    // Doctor's own quizzes (if any)
+                    const doctorQuizSnapshot = await db.ref(`doctors/${doctorId}/quiz`).once('value');
+                    const doctorQuizData = doctorQuizSnapshot.val();
+                    
+                    if (doctorQuizData) {
+                        Object.entries(doctorQuizData).forEach(([quizType, attempts]) => {
+                            if (!quizStats[quizType]) {
+                                quizStats[quizType] = {
+                                    name: quizType,
+                                    regularUsers: { attempts: 0, totalScore: 0 },
+                                    patients: { attempts: 0, totalScore: 0 },
+                                    total: { attempts: 0, totalScore: 0 }
+                                };
+                            }
+                            
+                            Object.values(attempts || {}).forEach(attempt => {
+                                if (attempt.score !== undefined) {
+                                    // Doctor quizzes count as regular users
+                                    quizStats[quizType].regularUsers.attempts++;
+                                    quizStats[quizType].regularUsers.totalScore += parseFloat(attempt.score);
+                                    quizStats[quizType].total.attempts++;
+                                    quizStats[quizType].total.totalScore += parseFloat(attempt.score);
+                                }
+                            });
+                        });
+                    }
+                    
+                    // Process patients' quizzes
+                    const patientsSnapshot = await db.ref(`doctors/${doctorId}/patients`).once('value');
+                    const patients = patientsSnapshot.val();
+                    
+                    if (patients) {
+                        Object.entries(patients).forEach(([patientId, patientData]) => {
+                            if (patientData.quiz) {
+                                Object.entries(patientData.quiz).forEach(([quizType, attempts]) => {
+                                    if (!quizStats[quizType]) {
+                                        quizStats[quizType] = {
+                                            name: quizType,
+                                            regularUsers: { attempts: 0, totalScore: 0 },
+                                            patients: { attempts: 0, totalScore: 0 },
+                                            total: { attempts: 0, totalScore: 0 }
+                                        };
+                                    }
+                                    
+                                    Object.values(attempts || {}).forEach(attempt => {
+                                        if (attempt.score !== undefined) {
+                                            quizStats[quizType].patients.attempts++;
+                                            quizStats[quizType].patients.totalScore += parseFloat(attempt.score);
+                                            quizStats[quizType].total.attempts++;
+                                            quizStats[quizType].total.totalScore += parseFloat(attempt.score);
+                                        }
+                                    });
+                                });
+                            }
+                        });
+                    }
+                }
+                
+                // Convert to array and update the UI
+                const quizStatsList = Object.values(quizStats);
+                
+                // Sort by total attempts (most popular first)
+                quizStatsList.sort((a, b) => b.total.attempts - a.total.attempts);
+                
+                // Update the quizzes table
+                quizzesTable.innerHTML = '';
+                
+                if (quizStatsList.length > 0) {
+                    quizStatsList.forEach(quiz => {
+                        // Calculate averages
+                        const regularAvg = quiz.regularUsers.attempts > 0 
+                            ? (quiz.regularUsers.totalScore / quiz.regularUsers.attempts).toFixed(2) 
+                            : 'N/A';
+                            
+                        const patientsAvg = quiz.patients.attempts > 0 
+                            ? (quiz.patients.totalScore / quiz.patients.attempts).toFixed(2) 
+                            : 'N/A';
+                            
+                        const totalAvg = quiz.total.attempts > 0 
+                            ? (quiz.total.totalScore / quiz.total.attempts).toFixed(2) 
+                            : 'N/A';
+                        
+                        // Create the main quiz row
+                        const row = document.createElement('tr');
+                        row.className = 'quiz-row';
+                        row.innerHTML = `
+                            <td><strong>${quiz.name}</strong></td>
+                            <td>${quiz.total.attempts}</td>
+                            <td>${totalAvg}%</td>
+                            <td>
+                                <button class="view-details-btn" onclick="toggleQuizDetails(this)">Show Details</button>
+                            </td>
+                        `;
+                        quizzesTable.appendChild(row);
+                        
+                        // Create the details row with statistics breakdown
+                        const detailsRow = document.createElement('tr');
+                        detailsRow.className = 'quiz-details';
+                        detailsRow.style.display = 'none';
+                        
+                        // Create a nested table for the detailed statistics
+                        detailsRow.innerHTML = `
+                            <td colspan="4">
+                                <table class="details-table">
+                                    <thead>
+                                        <tr>
+                                            <th>User Type</th>
+                                            <th>Attempts</th>
+                                            <th>Avg. Score</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>Regular Users</td>
+                                            <td>${quiz.regularUsers.attempts}</td>
+                                            <td>${regularAvg}%</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Patients</td>
+                                            <td>${quiz.patients.attempts}</td>
+                                            <td>${patientsAvg}%</td>
+                                        </tr>
+                                        <tr class="total-row">
+                                            <td><strong>Total</strong></td>
+                                            <td><strong>${quiz.total.attempts}</strong></td>
+                                            <td><strong>${totalAvg}%</strong></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        `;
+                        quizzesTable.appendChild(detailsRow);
+                    });
+                } else {
+                    quizzesTable.innerHTML = '<tr><td colspan="4">No quiz data found</td></tr>';
+                }
+                
+            } catch (error) {
+                console.error("Error loading quizzes data:", error);
+                document.getElementById('quizzesTable').querySelector('tbody').innerHTML = 
+                    `<tr><td colspan="4">Error loading data: ${error.message}</td></tr>`;
+            }
+        }
+        
+        // Toggle quiz details
+        function toggleQuizDetails(button) {
+            const detailsRow = button.closest('tr').nextElementSibling;
+            if (detailsRow.style.display === 'none') {
+                detailsRow.style.display = 'table-row';
+                button.textContent = 'Hide Details';
+            } else {
+                detailsRow.style.display = 'none';
+                button.textContent = 'Show Details';
+            }
+        }
+        
         // Load users data for the Users tab
         async function loadUsersData() {
             try {
@@ -1409,8 +1704,7 @@
                             patientCount: 0,
                             patients: [],
                             assignedDoctor: null,
-                            initials: getInitials(userData.name || 'Unknown User'),
-                            age: userData.age || '' // Add age information
+                            initials: getInitials(userData.name || 'Unknown User')
                         };
                         
                         // Get user's quiz data based on role
@@ -1814,9 +2108,8 @@
         function setupUserFilters() {
             const roleFilter = document.getElementById('userRoleFilter');
             const searchFilter = document.getElementById('userSearchFilter');
-            const ageFilter = document.getElementById('ageGroupFilter');
             
-            if (!roleFilter || !searchFilter || !ageFilter) {
+            if (!roleFilter || !searchFilter) {
                 console.error("Could not find user filter elements");
                 return;
             }
@@ -1824,23 +2117,19 @@
             // Remove existing listeners
             const newRoleFilter = roleFilter.cloneNode(true);
             const newSearchFilter = searchFilter.cloneNode(true);
-            const newAgeFilter = ageFilter.cloneNode(true);
             
             roleFilter.parentNode.replaceChild(newRoleFilter, roleFilter);
             searchFilter.parentNode.replaceChild(newSearchFilter, searchFilter);
-            ageFilter.parentNode.replaceChild(newAgeFilter, ageFilter);
             
             // Add event listeners
             newRoleFilter.addEventListener('change', filterUsers);
             newSearchFilter.addEventListener('input', filterUsers);
-            newAgeFilter.addEventListener('change', filterUsers);
         }
         
         // Filter users based on role and search query
         function filterUsers() {
             const roleFilter = document.getElementById('userRoleFilter').value;
             const searchFilter = document.getElementById('userSearchFilter').value.toLowerCase();
-            const ageFilter = document.getElementById('ageGroupFilter').value;
             
             // Get all user rows
             const userRows = document.querySelectorAll('#usersTable tr[data-role]');
@@ -1851,42 +2140,23 @@
                 const userId = row.dataset.userId;
                 const userName = row.querySelector('.user-name').textContent.toLowerCase();
                 const userEmail = row.querySelector('.user-email').textContent.toLowerCase();
-                const userAge = row.dataset.age || '';  // Get age from data attribute
-                let matchesSearch = false;
                 
                 // Check if row should be visible based on role filter
                 const roleMatch = roleFilter === '' || role === roleFilter;
                 
                 // Check if row should be visible based on search filter
                 const searchMatch = searchFilter === '' || 
-                                  userName.includes(searchFilter) || 
-                                  userEmail.includes(searchFilter);
-                
-                // Check if row matches age filter
-                const ageMatch = ageFilter === '' || matchesAgeGroup(userAge, ageFilter);
-                
-                // Special handling for doctor rows with patients - check if any patients match the search
-                if (role === 'doctor' && searchFilter !== '' && !searchMatch) {
-                    // Find all patient rows for this doctor
-                    const patientRows = document.querySelectorAll(`.patient-row[data-doctor-id="${userId}"]`);
-                    patientRows.forEach(patientRow => {
-                        const patientName = patientRow.querySelector('.user-name').textContent.toLowerCase();
-                        if (patientName.includes(searchFilter)) {
-                            matchesSearch = true;
-                        }
-                    });
-                }
+                                    userName.includes(searchFilter) || 
+                                    userEmail.includes(searchFilter);
                 
                 // Determine visibility
-                if ((roleMatch && (searchMatch || matchesSearch) && ageMatch)) {
-                    // For patient rows, only show if their doctor is expanded or if they match search directly
+                if (roleMatch && searchMatch) {
+                    // For patient rows, only show if their doctor is expanded
                     if (row.classList.contains('patient-row')) {
                         const doctorId = row.dataset.doctorId;
                         if (doctorId) {
                             const doctorRow = document.querySelector(`.doctor-row[data-user-id="${doctorId}"]`);
-                            // Show patient if doctor expanded or patient directly matches search
-                            if ((doctorRow && doctorRow.classList.contains('expanded')) || 
-                                (searchFilter !== '' && searchMatch)) {
+                            if (doctorRow && doctorRow.classList.contains('expanded')) {
                                 row.style.display = 'table-row';
                             } else {
                                 row.style.display = 'none';
@@ -1897,13 +2167,6 @@
                         }
                     } else {
                         row.style.display = 'table-row';
-                        
-                        // If this is a doctor and we found patients matching the search, expand the doctor
-                        if (role === 'doctor' && matchesSearch) {
-                            row.classList.add('expanded');
-                            const expandIcon = row.querySelector('.expand-icon');
-                            if (expandIcon) expandIcon.textContent = '-';
-                        }
                     }
                 } else {
                     row.style.display = 'none';
@@ -1911,323 +2174,65 @@
             });
         }
         
-        // Helper function to check if age falls within selected age group
-        function matchesAgeGroup(age, ageGroup) {
-            if (!age || age === '' || ageGroup === '') return true;
+        // Helper function to count quizzes from quiz data
+        function countQuizzes(quizData) {
+            if (!quizData) return 0;
             
-            age = parseInt(age);
-            if (isNaN(age)) return false;
-            
-            switch(ageGroup) {
-                case '0-18':
-                    return age >= 0 && age <= 18;
-                case '19-30':
-                    return age >= 19 && age <= 30;
-                case '31-45':
-                    return age >= 31 && age <= 45;
-                case '46-60':
-                    return age >= 46 && age <= 60;
-                case '60+':
-                    return age >= 60;
-                default:
-                    return true;
-            }
-        }
-        
-        // Load quizzes data for the Quizzes tab
-        async function loadQuizzesData() {
-            try {
-                console.log("Loading quizzes data...");
-                const quizzesTable = document.getElementById('quizzesTable').querySelector('tbody');
-                quizzesTable.innerHTML = '<tr><td colspan="4">Loading quiz data...</td></tr>'; // Loading message
-                
-                // Get user profiles from Firestore for user type identification
-                const userProfiles = new Map();
-                try {
-                    const profilesSnapshot = await firestore.collection('userProfiles').get();
-                    profilesSnapshot.docs.forEach(doc => {
-                        userProfiles.set(doc.id, doc.data());
-                    });
-                } catch (error) {
-                    console.error("Error accessing userProfiles collection:", error);
-                    throw new Error(`Could not access userProfiles: ${error.message}`);
+            let count = 0;
+            Object.values(quizData).forEach(attempts => {
+                if (attempts) {
+                    count += Object.keys(attempts).length;
                 }
-                
-                // Initialize quiz statistics
-                const quizStats = {};
-                
-                // Process doctor quiz results from Realtime Database
-                const doctorIds = Array.from(userProfiles.entries())
-                    .filter(([_, profile]) => profile.role === 'doctor')
-                    .map(([id, _]) => id);
-                
-                for (const doctorId of doctorIds) {
-                    // Doctor's own quizzes
-                    const doctorQuizzes = await db.ref(`doctors/${doctorId}/quiz`).once('value');
-                    if (doctorQuizzes.val()) {
-                        processQuizStatsData(quizStats, doctorQuizzes.val());
-                    }
-                    
-                    // Patients' quizzes
-                    const patientsSnapshot = await db.ref(`doctors/${doctorId}/patients`).once('value');
-                    if (patientsSnapshot.val()) {
-                        Object.entries(patientsSnapshot.val()).forEach(([patientId, patientData]) => {
-                            if (patientData.quiz) {
-                                processQuizStatsData(quizStats, patientData.quiz);
-                            }
-                        });
-                    }
-                }
-                
-                // Process regular user quiz results from Realtime Database
-                const regularUserIds = Array.from(userProfiles.entries())
-                    .filter(([_, profile]) => profile.role !== 'doctor')
-                    .map(([id, _]) => id);
-                
-                for (const userId of regularUserIds) {
-                    const userQuizzes = await db.ref(`users/${userId}/quiz`).once('value');
-                    if (userQuizzes.val()) {
-                        processQuizStatsData(quizStats, userQuizzes.val());
-                    }
-                }
-                
-                // Convert to array and sort by times taken
-                const quizStatsArray = Object.entries(quizStats).map(([name, stats]) => ({
-                    name,
-                    timesTaken: stats.attempts,
-                    avgScore: stats.totalScore / stats.attempts || 0
-                }));
-                
-                quizStatsArray.sort((a, b) => b.timesTaken - a.timesTaken);
-                
-                // Display quiz statistics
-                quizzesTable.innerHTML = ''; // Clear loading message
-                
-                if (quizStatsArray.length > 0) {
-                    quizStatsArray.forEach(quiz => {
-                        const row = document.createElement('tr');
-                        row.innerHTML = `
-                            <td>${quiz.name}</td>
-                            <td>${quiz.timesTaken}</td>
-                            <td>${quiz.avgScore.toFixed(2)}%</td>
-                            <td><button class="view-details-btn" data-quiz="${quiz.name}">View Details</button></td>
-                        `;
-                        quizzesTable.appendChild(row);
-                    });
-                    
-                    // Add event listeners to view details buttons
-                    document.querySelectorAll('.view-details-btn').forEach(btn => {
-                        btn.addEventListener('click', function() {
-                            const quizName = this.dataset.quiz;
-                            showQuizDetailsModal(quizName);
-                        });
-                    });
-                } else {
-                    quizzesTable.innerHTML = '<tr><td colspan="4">No quiz data found</td></tr>';
-                }
-                
-            } catch (error) {
-                console.error("Error loading quizzes data:", error);
-                document.getElementById('quizzesTable').querySelector('tbody').innerHTML = 
-                    `<tr><td colspan="4">Error loading data: ${error.message}</td></tr>`;
-            }
-        }
-        
-        // Helper function to process quiz data for statistics
-        function processQuizStatsData(stats, quizzes) {
-            Object.entries(quizzes).forEach(([quizType, attempts]) => {
-                if (!attempts) return;
-                
-                // Initialize quiz stats if needed
-                if (!stats[quizType]) {
-                    stats[quizType] = {
-                        attempts: 0,
-                        totalScore: 0
-                    };
-                }
-                
-                // Process all attempts for this quiz type
-                Object.entries(attempts).forEach(([timestamp, result]) => {
-                    stats[quizType].attempts++;
-                    
-                    // Add to total score if available
-                    if (result.score !== undefined) {
-                        stats[quizType].totalScore += parseFloat(result.score);
-                    }
-                });
             });
+            
+            return count;
         }
         
-        // Show quiz details modal
-        function showQuizDetailsModal(quizName) {
-            const modal = document.getElementById('modal');
-            const modalContent = document.getElementById('modalContent');
+        // Helper function to get the last active date from quiz data
+        function getLastActiveDate(quizData) {
+            if (!quizData) return null;
             
-            modalContent.innerHTML = `
-                <div class="modal-header">
-                    <h2>${quizName} Details</h2>
-                    <span class="close-button" onclick="document.getElementById('modal').style.display='none'">&times;</span>
-                </div>
-                <div class="modal-body">
-                    <p>Loading detailed statistics...</p>
-                </div>
-            `;
+            let latestTimestamp = 0;
             
-            modal.style.display = 'block';
-            
-            // Load detailed statistics for this quiz
-            // This would be expanded in a real implementation to show user attempts, scores, etc.
-            loadQuizDetails(quizName, modalContent.querySelector('.modal-body'));
-        }
-        
-        // Load detailed statistics for a specific quiz
-        async function loadQuizDetails(quizName, container) {
-            try {
-                container.innerHTML = '<p>Loading detailed statistics...</p>';
-                
-                // Get user profiles
-                const userProfiles = new Map();
-                const profilesSnapshot = await firestore.collection('userProfiles').get();
-                profilesSnapshot.docs.forEach(doc => {
-                    userProfiles.set(doc.id, doc.data());
-                });
-                
-                // Collect all attempts for this quiz
-                const attempts = [];
-                
-                // Check doctors and their patients
-                const doctorIds = Array.from(userProfiles.entries())
-                    .filter(([_, profile]) => profile.role === 'doctor')
-                    .map(([id, _]) => id);
-                
-                for (const doctorId of doctorIds) {
-                    // Doctor's own attempts
-                    const doctorQuizRef = db.ref(`doctors/${doctorId}/quiz/${quizName}`);
-                    const doctorQuizSnapshot = await doctorQuizRef.once('value');
-                    if (doctorQuizSnapshot.val()) {
-                        Object.entries(doctorQuizSnapshot.val()).forEach(([timestamp, data]) => {
-                            attempts.push({
-                                userId: doctorId,
-                                userType: 'Doctor',
-                                userName: userProfiles.get(doctorId)?.name || 'Unknown Doctor',
-                                timestamp: parseInt(timestamp),
-                                score: data.score,
-                                date: new Date(parseInt(timestamp)).toLocaleString()
-                            });
-                        });
-                    }
-                    
-                    // Patients' attempts
-                    const patientsSnapshot = await db.ref(`doctors/${doctorId}/patients`).once('value');
-                    if (patientsSnapshot.val()) {
-                        Object.entries(patientsSnapshot.val()).forEach(([patientId, patientData]) => {
-                            if (patientData.quiz && patientData.quiz[quizName]) {
-                                Object.entries(patientData.quiz[quizName]).forEach(([timestamp, data]) => {
-                                    attempts.push({
-                                        userId: patientId,
-                                        userType: 'Patient',
-                                        userName: patientData.name || 'Unknown Patient',
-                                        timestamp: parseInt(timestamp),
-                                        score: data.score,
-                                        date: new Date(parseInt(timestamp)).toLocaleString()
-                                    });
-                                });
-                            }
-                        });
-                    }
-                }
-                
-                // Check regular users
-                const regularUserIds = Array.from(userProfiles.entries())
-                    .filter(([_, profile]) => profile.role !== 'doctor')
-                    .map(([id, _]) => id);
-                
-                for (const userId of regularUserIds) {
-                    const userQuizRef = db.ref(`users/${userId}/quiz/${quizName}`);
-                    const userQuizSnapshot = await userQuizRef.once('value');
-                    if (userQuizSnapshot.val()) {
-                        Object.entries(userQuizSnapshot.val()).forEach(([timestamp, data]) => {
-                            attempts.push({
-                                userId: userId,
-                                userType: 'Regular User',
-                                userName: userProfiles.get(userId)?.name || 'Unknown User',
-                                timestamp: parseInt(timestamp),
-                                score: data.score,
-                                date: new Date(parseInt(timestamp)).toLocaleString()
-                            });
-                        });
-                    }
-                }
-                
-                // Sort attempts by date (newest first)
-                attempts.sort((a, b) => b.timestamp - a.timestamp);
-                
-                // Calculate statistics
-                const totalAttempts = attempts.length;
-                const avgScore = attempts.reduce((sum, curr) => sum + parseFloat(curr.score || 0), 0) / totalAttempts || 0;
-                const highestScore = Math.max(...attempts.map(a => parseFloat(a.score || 0)));
-                const lowestScore = Math.min(...attempts.map(a => parseFloat(a.score || 0)));
-                
-                // Display statistics and attempt list
-                let html = `
-                    <div class="quiz-stats-summary">
-                        <div class="stat-card">
-                            <div class="stat-label">Total Attempts</div>
-                            <div class="stat-value">${totalAttempts}</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-label">Avg. Score</div>
-                            <div class="stat-value">${avgScore.toFixed(2)}%</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-label">Highest Score</div>
-                            <div class="stat-value">${highestScore.toFixed(2)}%</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-label">Lowest Score</div>
-                            <div class="stat-value">${lowestScore.toFixed(2)}%</div>
-                        </div>
-                    </div>
-                    
-                    <h3>Recent Attempts</h3>
-                    <table class="attempts-table">
-                        <thead>
-                            <tr>
-                                <th>Date</th>
-                                <th>User</th>
-                                <th>User Type</th>
-                                <th>Score</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                `;
-                
-                if (attempts.length > 0) {
-                    attempts.slice(0, 20).forEach(attempt => {
-                        html += `
-                            <tr>
-                                <td>${attempt.date}</td>
-                                <td>${attempt.userName}</td>
-                                <td>${attempt.userType}</td>
-                                <td>${attempt.score || 'N/A'}%</td>
-                            </tr>
-                        `;
+            Object.values(quizData).forEach(attempts => {
+                if (attempts) {
+                    Object.keys(attempts).forEach(timestamp => {
+                        const ts = parseInt(timestamp);
+                        if (ts > latestTimestamp) {
+                            latestTimestamp = ts;
+                        }
                     });
-                } else {
-                    html += '<tr><td colspan="4">No attempts found</td></tr>';
                 }
-                
-                html += `
-                        </tbody>
-                    </table>
-                `;
-                
-                container.innerHTML = html;
-                
-            } catch (error) {
-                console.error(`Error loading details for ${quizName}:`, error);
-                container.innerHTML = `<p class="error-message">Error loading quiz details: ${error.message}</p>`;
-            }
+            });
+            
+            return latestTimestamp ? new Date(latestTimestamp).toLocaleString() : null;
+        }
+        
+        // Helper function to process quiz data
+        function processQuizData(quizData) {
+            if (!quizData) return { totalQuizzes: 0, lastActive: 'Never' };
+            
+            let totalQuizzes = 0;
+            let latestTimestamp = 0;
+            
+            Object.entries(quizData).forEach(([quizType, attempts]) => {
+                if (attempts) {
+                    totalQuizzes += Object.keys(attempts).length;
+                    
+                    // Find latest timestamp
+                    Object.keys(attempts).forEach(timestamp => {
+                        const ts = parseInt(timestamp);
+                        if (ts > latestTimestamp) {
+                            latestTimestamp = ts;
+                        }
+                    });
+                }
+            });
+            
+            return {
+                totalQuizzes,
+                lastActive: latestTimestamp > 0 ? new Date(latestTimestamp).toLocaleString() : 'Never'
+            };
         }
     </script>
 </body>
