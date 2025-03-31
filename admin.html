@@ -953,10 +953,13 @@
                                 <th>Info</th>
                                 <th>Last Active</th>
                                 <th>Age</th>
+                                <th>Gender</th>
+                                <th>Medical Condition</th>
+                                <th>Doctor Recommendation</th>
                             </tr>
                         </thead>
                         <tbody id="usersTable">
-                            <tr><td colspan="5">Loading user data...</td></tr>
+                            <tr><td colspan="8">Loading user data...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -1824,7 +1827,7 @@
             try {
                 console.log("Loading users data...");
                 const usersContainer = document.getElementById('usersTable');
-                usersContainer.innerHTML = '<tr><td colspan="5">Loading user data...</td></tr>';
+                usersContainer.innerHTML = '<tr><td colspan="8">Loading user data...</td></tr>';
                 
                 // Store all users
                 const userArray = [];
@@ -1859,7 +1862,10 @@
                             assignedDoctor: null,
                             initials: getInitials(userData.name || 'Unknown User'),
                             quizData: {}, // Store detailed quiz data for this user
-                            age: userData.age || (userData.dateOfBirth ? calculateAge(userData.dateOfBirth) : 'N/A')
+                            age: userData.age || (userData.dateOfBirth ? calculateAge(userData.dateOfBirth) : 'N/A'),
+                            gender: userData.gender || 'N/A',
+                            medicalCondition: userData.medicalCondition || 'N/A',
+                            doctorRecommendation: userData.doctorRecommendation || 'N/A'
                         };
                         
                         // Get user's quiz data based on role
@@ -1923,6 +1929,7 @@
                                             medicalCondition: patientProfile.medicalCondition || 'N/A',
                                             age: patientProfile.age || (patientProfile.dateOfBirth ? calculateAge(patientProfile.dateOfBirth) : 'N/A'),
                                             gender: patientProfile.gender || 'N/A',
+                                            doctorRecommendation: patientProfile.doctorRecommendation || 'N/A',
                                             assignedDoctor: userId,
                                             initials: getInitials(patientProfile.name || 'Unknown Patient'),
                                             quizData: patientData.quiz || {} // Store detailed quiz data for this patient
@@ -2048,12 +2055,12 @@
                                                     id: patientId,
                                                     name: patientProfile.name || 'Unknown Patient',
                                                     email: patientProfile.email || 'No email',
-                                                    role: 'patient',
                                                     quizCount: quizCount,
                                                     lastActive: getLastActiveDate(patientData.quiz) || 'Never',
                                                     medicalCondition: patientProfile.medicalCondition || 'N/A',
                                                     age: patientProfile.age || (patientProfile.dateOfBirth ? calculateAge(patientProfile.dateOfBirth) : 'N/A'),
                                                     gender: patientProfile.gender || 'N/A',
+                                                    doctorRecommendation: patientProfile.doctorRecommendation || 'N/A',
                                                     assignedDoctor: userId,
                                                     initials: getInitials(patientProfile.name || 'Unknown Patient'),
                                                     quizData: patientData.quiz || {} // Store detailed quiz data for this patient
@@ -2086,7 +2093,7 @@
             } catch (error) {
                 console.error("Error loading users data:", error);
                 document.getElementById('usersTable').innerHTML = 
-                    `<tr><td colspan="5">Error loading data: ${error.message}</td></tr>`;
+                    `<tr><td colspan="8">Error loading data: ${error.message}</td></tr>`;
             }
         }
         
@@ -2108,7 +2115,7 @@
             container.innerHTML = '';
             
             if (users.length === 0) {
-                container.innerHTML = '<tr><td colspan="5">No users found</td></tr>';
+                container.innerHTML = '<tr><td colspan="8">No users found</td></tr>';
                 return;
             }
             
@@ -2146,6 +2153,9 @@
                     </td>
                     <td>${doctor.lastActive}</td>
                     <td>${doctor.age}</td>
+                    <td>${doctor.gender}</td>
+                    <td>${doctor.medicalCondition}</td>
+                    <td>${doctor.doctorRecommendation}</td>
                 `;
                 
                 container.appendChild(doctorRow);
@@ -2182,6 +2192,9 @@
                             </td>
                             <td>${patient.lastActive}</td>
                             <td>${patient.age}</td>
+                            <td>${patient.gender}</td>
+                            <td>${patient.medicalCondition}</td>
+                            <td>${patient.doctorRecommendation}</td>
                         `;
                         
                         container.appendChild(patientRow);
@@ -2249,6 +2262,9 @@
                     </td>
                     <td>${user.lastActive}</td>
                     <td>${user.age}</td>
+                    <td>${user.gender}</td>
+                    <td>${user.medicalCondition}</td>
+                    <td>${user.doctorRecommendation}</td>
                 `;
                 
                 container.appendChild(userRow);
@@ -2294,6 +2310,9 @@
                         </td>
                         <td>${patient.lastActive}</td>
                         <td>${patient.age}</td>
+                        <td>${patient.gender}</td>
+                        <td>${patient.medicalCondition}</td>
+                        <td>${patient.doctorRecommendation}</td>
                     `;
                     
                     container.appendChild(patientRow);
@@ -2367,7 +2386,7 @@
             
             // Create content for the details row
             let content = `
-                <td colspan="5">
+                <td colspan="8">
                     <div class="quiz-stats-container">
                         <h3>Quiz Results</h3>
                         <table class="details-table">
