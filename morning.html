@@ -556,11 +556,15 @@
             incorrectPlacements = 0;
             gameActive = true;
             
+            console.log("Initializing game with images:", images);
+            
             // Set up the placeholders
             const placeholders = sequenceContainer.querySelectorAll('.box-placeholder');
             placeholders.forEach((placeholder) => {
                 placeholder.style.backgroundImage = '';
+                placeholder.innerHTML = '';
                 placeholder.dataset.filled = 'false';
+                placeholder.classList.remove('correct-placement');
             });
 
             // Set the target box position to the first placeholder
@@ -575,6 +579,8 @@
             optionsContainer.innerHTML = '';
             const shuffledImages = shuffleArray([...images]);
 
+            console.log("Setting up shuffled images:", shuffledImages);
+            
             shuffledImages.forEach((image, index) => {
                 const optionElement = document.createElement('div');
                 optionElement.classList.add('image-option');
@@ -622,6 +628,12 @@
             // Make sure container is visible and result is hidden
             document.querySelector('.container').style.display = 'block';
             resultContainer.style.display = 'none';
+            
+            // Check if report-container exists before trying to hide it
+            const reportContainer = document.getElementById('report-container');
+            if (reportContainer) {
+                reportContainer.style.display = 'none';
+            }
             
             // Set up drag and drop target
             targetBox.addEventListener('dragover', handleDragOver);
@@ -1083,32 +1095,16 @@
         function resetGame() {
             // Hide result container and show game container
             document.getElementById('result-container').style.display = 'none';
-            document.getElementById('report-container').style.display = 'none';
+            
+            // Check if report-container exists before trying to hide it
+            const reportContainer = document.getElementById('report-container');
+            if (reportContainer) {
+                reportContainer.style.display = 'none';
+            }
+            
             document.querySelector('.container').style.display = 'block';
             
-            // Reset all game variables and UI
-            currentIndex = 0;
-            score = 0;
-            totalStartTime = Date.now();
-            firstTapTime = null;
-            totalMoves = 0;
-            incorrectMoves = 0;
-            totalTaps = 0;
-            correctPlacements = 0;
-            incorrectPlacements = 0;
-            gameActive = true;
-            
-            // Reset containers
-            sequenceContainer.querySelectorAll('.box-placeholder').forEach(box => {
-                box.innerHTML = '';
-                box.classList.remove('correct-placement');
-            });
-            
-            targetBox.innerHTML = '';
-            feedbackElement.textContent = '';
-            feedbackElement.className = 'feedback';
-            
-            // Re-initialize the game
+            // Initialize the game again
             initializeGame();
         }
         
