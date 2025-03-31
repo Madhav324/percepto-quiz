@@ -154,6 +154,12 @@
             opacity: 0.5;
         }
 
+        .option-image.placed {
+            opacity: 0.5;
+            border: 2px solid #4CAF50;
+            cursor: not-allowed;
+        }
+
         #result-container {
             display: none;
             margin-top: 20px;
@@ -383,7 +389,11 @@
                         // Get patient email to display
                         const patientSnapshot = await database.ref(`users/${currentPatientId}`).once('value');
                         const patientData = patientSnapshot.val();
-                        document.getElementById('user-email').textContent = `Viewing: ${patientData ? patientData.email : 'Patient'}`;
+                        const patientEmail = patientData ? patientData.email : 'Patient';
+                        const patientInitial = patientEmail.charAt(0).toUpperCase();
+                        
+                        document.getElementById('user-email').textContent = `Viewing: ${patientEmail}`;
+                        document.getElementById('profileIcon').textContent = patientInitial;
                         
                         // Show patient indicator
                         const patientIndicator = document.getElementById('patient-indicator');
@@ -392,9 +402,9 @@
                     } else {
                         const patientIndicator = document.getElementById('patient-indicator');
                         patientIndicator.style.display = 'none';
+                        document.getElementById('profileIcon').textContent = initial;
                     }
                     
-                    document.getElementById('profileIcon').textContent = initial;
                     initializeQuiz();
                 } catch (error) {
                     console.error('Error loading profile in morning exercise:', error);
@@ -619,8 +629,18 @@
                 dropArea.appendChild(imgClone);
                 dropArea.classList.add('correct');
                 
-                // Hide the original image
-                img.style.display = 'none';
+                // Mark the original image as placed but keep it visible
+                img.style.opacity = '0.5';
+                img.style.border = '2px solid #4CAF50';
+                img.style.cursor = 'not-allowed';
+                img.draggable = false;
+                img.dataset.placed = 'true';
+                
+                // Remove event listeners
+                img.removeEventListener('dragstart', dragStart);
+                img.removeEventListener('touchstart', touchStart);
+                img.removeEventListener('touchmove', touchMove);
+                img.removeEventListener('touchend', touchEnd);
                 
                 // Move to next image if not completed all
                 if (completedImages < images.length) {
@@ -646,9 +666,6 @@
                 // Incorrect placement
                 incorrectPlacements++;
                 alert(`This is not image ${expectedOrder}. Please try again.`);
-                
-                // Restore opacity of dragged image
-                img.style.opacity = '1';
             }
         }
         
