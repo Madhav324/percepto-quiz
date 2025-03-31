@@ -2038,7 +2038,7 @@
                     <td><span class="user-indicator">Doctor</span></td>
                     <td>
                         ${doctor.patientCount} patients, ${doctor.quizCount} quizzes
-                        ${hasQuizzes ? `<button class="view-quizzes-btn" onclick="toggleUserQuizzes('${doctor.id}')">Show Quizzes</button>` : ''}
+                        ${hasQuizzes ? `<button class="view-quizzes-btn" data-user-id="${doctor.id}">Show Quizzes</button>` : ''}
                     </td>
                     <td>${doctor.lastActive}</td>
                 `;
@@ -2073,7 +2073,7 @@
                             <td><span class="user-indicator">Patient</span></td>
                             <td>
                                 ${patient.quizCount} quizzes, ${patient.medicalCondition}
-                                ${hasPatientQuizzes ? `<button class="view-quizzes-btn" onclick="toggleUserQuizzes('${patient.id}')">Show Quizzes</button>` : ''}
+                                ${hasPatientQuizzes ? `<button class="view-quizzes-btn" data-user-id="${patient.id}">Show Quizzes</button>` : ''}
                             </td>
                             <td>${patient.lastActive}</td>
                         `;
@@ -2133,7 +2133,7 @@
                     <td><span class="user-indicator">User</span></td>
                     <td>
                         ${user.quizCount} quizzes
-                        ${hasQuizzes ? `<button class="view-quizzes-btn" onclick="toggleUserQuizzes('${user.id}')">Show Quizzes</button>` : ''}
+                        ${hasQuizzes ? `<button class="view-quizzes-btn" data-user-id="${user.id}">Show Quizzes</button>` : ''}
                     </td>
                     <td>${user.lastActive}</td>
                 `;
@@ -2177,7 +2177,7 @@
                         <td><span class="user-indicator">Patient</span></td>
                         <td>
                             ${patient.quizCount} quizzes, ${patient.medicalCondition}
-                            ${hasPatientQuizzes ? `<button class="view-quizzes-btn" onclick="toggleUserQuizzes('${patient.id}')">Show Quizzes</button>` : ''}
+                            ${hasPatientQuizzes ? `<button class="view-quizzes-btn" data-user-id="${patient.id}">Show Quizzes</button>` : ''}
                         </td>
                         <td>${patient.lastActive}</td>
                     `;
@@ -2202,6 +2202,14 @@
             // Hide all quiz data rows initially
             document.querySelectorAll('.user-quiz-details').forEach(row => {
                 row.style.display = 'none';
+            });
+            
+            // Add click event listeners to all quiz buttons
+            document.querySelectorAll('.view-quizzes-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const userId = this.getAttribute('data-user-id');
+                    toggleUserQuizzes(userId);
+                });
             });
         }
         
@@ -2302,7 +2310,12 @@
         // Toggle user quiz details
         function toggleUserQuizzes(userId) {
             const detailsRow = document.querySelector(`.user-quiz-details[data-for-user="${userId}"]`);
-            const button = document.querySelector(`tr[data-user-id="${userId}"] .view-quizzes-btn`);
+            const button = document.querySelector(`button.view-quizzes-btn[data-user-id="${userId}"]`);
+
+            if (!detailsRow || !button) {
+                console.error(`Could not find quiz details or button for user ${userId}`);
+                return;
+            }
             
             if (detailsRow.style.display === 'none') {
                 // Hide any other open quiz details first
