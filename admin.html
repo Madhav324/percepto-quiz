@@ -761,91 +761,6 @@
         details summary:hover {
             text-decoration: underline;
         }
-        
-        .quiz-details-popup {
-            font-size: 12px;
-            max-height: 400px;
-            overflow-y: auto;
-            padding: 8px;
-            background-color: #f8f9fa;
-            border-radius: 4px;
-            margin-top: 5px;
-        }
-        
-        .attempt-details {
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        
-        .attempt-details h4 {
-            margin: 0 0 8px 0;
-            font-size: 13px;
-            color: #333;
-            padding: 4px;
-            background-color: #eef2f7;
-            border-radius: 3px;
-        }
-        
-        .attempt-data {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        
-        .attempt-data th {
-            background-color: #f0f0f0;
-            text-align: left;
-            padding: 4px 8px;
-            font-size: 11px;
-            border: 1px solid #ddd;
-        }
-        
-        .attempt-data td {
-            padding: 4px 8px;
-            border: 1px solid #ddd;
-            font-size: 11px;
-        }
-        
-        .attempt-data pre {
-            margin: 0;
-            white-space: pre-wrap;
-            font-size: 11px;
-        }
-        
-        details summary {
-            cursor: pointer;
-            color: #4a90e2;
-            font-size: 12px;
-            padding: 5px 0;
-        }
-        
-        details summary:hover {
-            text-decoration: underline;
-        }
-        
-        .user-profile-info {
-            margin-bottom: 15px;
-        }
-        
-        .profile-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 10px;
-        }
-        
-        .profile-table th {
-            background-color: #f0f0f0;
-            text-align: left;
-            padding: 6px 8px;
-            font-size: 12px;
-            border: 1px solid #ddd;
-        }
-        
-        .profile-table td {
-            padding: 6px 8px;
-            border: 1px solid #ddd;
-            font-size: 12px;
-        }
     </style>
 </head>
 <body>
@@ -1328,10 +1243,7 @@
                 try {
                     const profilesSnapshot = await firestore.collection('userProfiles').get();
                     profilesSnapshot.docs.forEach(doc => {
-                        userProfiles.set(doc.id, {
-                            id: doc.id,
-                            ...doc.data()
-                        });
+                        userProfiles.set(doc.id, doc.data());
                     });
                     console.log(`Loaded ${userProfiles.size} user profiles from Firestore`);
                 } catch (error) {
@@ -1878,10 +1790,7 @@
                             assignedDoctor: null,
                             initials: getInitials(userData.name || 'Unknown User'),
                             quizData: {}, // Store detailed quiz data for this user
-                            age: userData.age || 'N/A',
-                            gender: userData.gender || 'N/A',
-                            doctorRecommendation: userData.doctorRecommendation || 'None',
-                            medicalCondition: userData.medicalCondition || 'None'
+                            age: userData.age || 'N/A'
                         };
                         
                         // Get user's quiz data based on role
@@ -2364,20 +2273,31 @@
                     quizStats[quizType] = {
                         name: quizType,
                         attempts: 0,
+                        totalScore: 0,
+                        avgScore: 0,
                         history: [],
                         rawData: attempts // Store the raw data
                     };
                 }
                 
                 Object.entries(attempts || {}).forEach(([timestamp, attempt]) => {
-                    quizStats[quizType].attempts++;
-                    
-                    quizStats[quizType].history.push({
-                        date: new Date(parseInt(timestamp)).toLocaleString(),
-                        timestamp: parseInt(timestamp),
-                        rawData: attempt // Store all attempt data
-                    });
+                    if (attempt.score !== undefined) {
+                        quizStats[quizType].attempts++;
+                        quizStats[quizType].totalScore += parseFloat(attempt.score);
+                        
+                        quizStats[quizType].history.push({
+                            date: new Date(parseInt(timestamp)).toLocaleString(),
+                            score: attempt.score,
+                            timestamp: parseInt(timestamp),
+                            rawData: attempt // Store all attempt data
+                        });
+                    }
                 });
+                
+                // Calculate average score
+                if (quizStats[quizType].attempts > 0) {
+                    quizStats[quizType].avgScore = (quizStats[quizType].totalScore / quizStats[quizType].attempts).toFixed(2);
+                }
                 
                 // Sort history by timestamp (most recent first)
                 quizStats[quizType].history.sort((a, b) => b.timestamp - a.timestamp);
@@ -2391,32 +2311,14 @@
             let content = `
                 <td colspan="5">
                     <div class="quiz-stats-container">
-                        <h3>User Profile Information</h3>
-                        <div class="user-profile-info">
-                            <table class="profile-table">
-                                <tr>
-                                    <th>Name</th>
-                                    <th>Age</th>
-                                    <th>Gender</th>
-                                    <th>Medical Condition</th>
-                                    <th>Doctor Recommendation</th>
-                                </tr>
-                                <tr>
-                                    <td>${userProfiles.get(userId)?.name || 'Unknown'}</td>
-                                    <td>${userProfiles.get(userId)?.age || 'N/A'}</td>
-                                    <td>${userProfiles.get(userId)?.gender || 'N/A'}</td>
-                                    <td>${userProfiles.get(userId)?.medicalCondition || 'None'}</td>
-                                    <td>${userProfiles.get(userId)?.doctorRecommendation || 'None'}</td>
-                                </tr>
-                            </table>
-                        </div>
-                        
                         <h3>Quiz Results</h3>
                         <table class="details-table">
                             <thead>
                                 <tr>
                                     <th>Quiz Type</th>
                                     <th>Attempts</th>
+                                    <th>Avg. Score</th>
+                                    <th>Recent Scores</th>
                                     <th>Details</th>
                                 </tr>
                             </thead>
@@ -2424,52 +2326,50 @@
             `;
             
             if (quizList.length === 0) {
-                content += '<tr><td colspan="3">No quiz data found</td></tr>';
+                content += '<tr><td colspan="5">No quiz data found</td></tr>';
             } else {
                 quizList.forEach(quiz => {
+                    // Format recent scores (show at most 3)
+                    const recentScores = quiz.history.slice(0, 3).map(h => 
+                        `<span title="${h.date}">${h.score}%</span>`).join(', ');
+                    
+                    // Create a details popup for the raw data
+                    let detailsContent = '<div class="quiz-details-popup">';
+                    
+                    // For each attempt, show all raw data
+                    quiz.history.forEach((attempt, index) => {
+                        detailsContent += `<div class="attempt-details">
+                            <h4>Attempt ${index + 1} (${attempt.date})</h4>
+                            <ul>`;
+                            
+                        // Display all properties from the raw data
+                        if (attempt.rawData) {
+                            Object.entries(attempt.rawData).forEach(([key, value]) => {
+                                // Format value based on type
+                                let displayValue = value;
+                                if (typeof value === 'object' && value !== null) {
+                                    displayValue = JSON.stringify(value);
+                                }
+                                
+                                detailsContent += `<li><strong>${key}:</strong> ${displayValue}</li>`;
+                            });
+                        }
+                        
+                        detailsContent += `</ul></div>`;
+                    });
+                    
+                    detailsContent += '</div>';
+                    
                     content += `
                         <tr>
                             <td><strong>${quiz.name}</strong></td>
                             <td>${quiz.attempts}</td>
+                            <td>${quiz.avgScore}%</td>
+                            <td>${recentScores}</td>
                             <td>
-                                <details open>
-                                    <summary>Quiz Attempts</summary>
-                                    <div class="quiz-details-popup">
-                    `;
-                    
-                    // For each attempt, show all raw data in chronological order (newest first)
-                    quiz.history.forEach((attempt, index) => {
-                        const attemptDate = new Date(attempt.timestamp);
-                        
-                        content += `<div class="attempt-details">
-                            <h4>Attempt ${index + 1} - ${attemptDate.toLocaleString()}</h4>
-                            <table class="attempt-data">
-                                <tr>
-                                    <th>Property</th>
-                                    <th>Value</th>
-                                </tr>`;
-                        
-                        // Display all properties from the raw data in a clean table format
-                        if (attempt.rawData) {
-                            Object.entries(attempt.rawData).sort().forEach(([key, value]) => {
-                                // Format value based on type
-                                let displayValue = value;
-                                if (typeof value === 'object' && value !== null) {
-                                    displayValue = `<pre>${JSON.stringify(value, null, 2)}</pre>`;
-                                }
-                                
-                                content += `
-                                    <tr>
-                                        <td><strong>${key}</strong></td>
-                                        <td>${displayValue}</td>
-                                    </tr>`;
-                            });
-                        }
-                        
-                        content += `</table></div>`;
-                    });
-                    
-                    content += `</div>
+                                <details>
+                                    <summary>View All Data</summary>
+                                    ${detailsContent}
                                 </details>
                             </td>
                         </tr>
