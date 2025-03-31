@@ -1337,7 +1337,10 @@
                 try {
                     const profilesSnapshot = await firestore.collection('userProfiles').get();
                     profilesSnapshot.docs.forEach(doc => {
-                        userProfiles.set(doc.id, doc.data());
+                        userProfiles.set(doc.id, {
+                            id: doc.id,
+                            ...doc.data()
+                        });
                     });
                     console.log(`Loaded ${userProfiles.size} user profiles from Firestore`);
                 } catch (error) {
@@ -1871,6 +1874,12 @@
                     
                     // Process each user profile
                     for (const [userId, userData] of userProfiles.entries()) {
+                        // Skip incomplete or invalid user profiles
+                        if (!userData.name || userData.name === 'Unknown') {
+                            console.log(`Skipping incomplete user profile: ${userId}`);
+                            continue;
+                        }
+                        
                         // Basic user data
                         const user = {
                             id: userId,
@@ -2172,8 +2181,8 @@
                         ${doctor.patientCount} patients, ${doctor.quizCount} quizzes
                         ${hasQuizzes ? `<button class="view-quizzes-btn" data-user-id="${doctor.id}">Show Quizzes</button>` : ''}
                         <div class="user-additional-info">
-                            <div><strong>Age:</strong> ${doctor.age}</div>
-                            <div><strong>Gender:</strong> ${doctor.gender}</div>
+                            <div><strong>Age:</strong> ${doctor.age || 'N/A'}</div>
+                            <div><strong>Gender:</strong> ${doctor.gender || 'N/A'}</div>
                             <div><strong>Medical:</strong> ${doctor.medicalCondition || 'N/A'}</div>
                             <div><strong>Recommendation:</strong> ${doctor.doctorRecommendation || 'N/A'}</div>
                         </div>
@@ -2213,10 +2222,10 @@
                                 ${patient.quizCount} quizzes, ${patient.medicalCondition}
                                 ${hasPatientQuizzes ? `<button class="view-quizzes-btn" data-user-id="${patient.id}">Show Quizzes</button>` : ''}
                                 <div class="user-additional-info">
-                                    <div><strong>Age:</strong> ${patient.age}</div>
-                                    <div><strong>Gender:</strong> ${patient.gender}</div>
-                                    <div><strong>Medical:</strong> ${patient.medicalCondition}</div>
-                                    <div><strong>Recommendation:</strong> ${patient.doctorRecommendation}</div>
+                                    <div><strong>Age:</strong> ${patient.age || 'N/A'}</div>
+                                    <div><strong>Gender:</strong> ${patient.gender || 'N/A'}</div>
+                                    <div><strong>Medical:</strong> ${patient.medicalCondition || 'N/A'}</div>
+                                    <div><strong>Recommendation:</strong> ${patient.doctorRecommendation || 'N/A'}</div>
                                 </div>
                             </td>
                             <td>${patient.lastActive}</td>
@@ -2285,10 +2294,10 @@
                         ${user.quizCount} quizzes
                         ${hasQuizzes ? `<button class="view-quizzes-btn" data-user-id="${user.id}">Show Quizzes</button>` : ''}
                         <div class="user-additional-info">
-                            <div><strong>Age:</strong> ${user.age}</div>
-                            <div><strong>Gender:</strong> ${user.gender}</div>
-                            <div><strong>Medical:</strong> ${user.medicalCondition}</div>
-                            <div><strong>Recommendation:</strong> ${user.doctorRecommendation}</div>
+                            <div><strong>Age:</strong> ${user.age || 'N/A'}</div>
+                            <div><strong>Gender:</strong> ${user.gender || 'N/A'}</div>
+                            <div><strong>Medical:</strong> ${user.medicalCondition || 'N/A'}</div>
+                            <div><strong>Recommendation:</strong> ${user.doctorRecommendation || 'N/A'}</div>
                         </div>
                     </td>
                     <td>${user.lastActive}</td>
@@ -2335,10 +2344,10 @@
                             ${patient.quizCount} quizzes, ${patient.medicalCondition}
                             ${hasPatientQuizzes ? `<button class="view-quizzes-btn" data-user-id="${patient.id}">Show Quizzes</button>` : ''}
                             <div class="user-additional-info">
-                                <div><strong>Age:</strong> ${patient.age}</div>
-                                <div><strong>Gender:</strong> ${patient.gender}</div>
-                                <div><strong>Medical:</strong> ${patient.medicalCondition}</div>
-                                <div><strong>Recommendation:</strong> ${patient.doctorRecommendation}</div>
+                                <div><strong>Age:</strong> ${patient.age || 'N/A'}</div>
+                                <div><strong>Gender:</strong> ${patient.gender || 'N/A'}</div>
+                                <div><strong>Medical:</strong> ${patient.medicalCondition || 'N/A'}</div>
+                                <div><strong>Recommendation:</strong> ${patient.doctorRecommendation || 'N/A'}</div>
                             </div>
                         </td>
                         <td>${patient.lastActive}</td>
