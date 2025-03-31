@@ -761,6 +761,69 @@
         details summary:hover {
             text-decoration: underline;
         }
+        
+        .quiz-details-popup {
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            padding: 8px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            margin-top: 5px;
+        }
+        
+        .attempt-details {
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .attempt-details h4 {
+            margin: 0 0 8px 0;
+            font-size: 13px;
+            color: #333;
+            background-color: #e9eff7;
+            padding: 5px;
+            border-radius: 3px;
+        }
+        
+        .attempt-data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 5px;
+        }
+        
+        .attempt-data-table td {
+            padding: 3px 5px;
+            border-bottom: 1px solid #eee;
+            vertical-align: top;
+        }
+        
+        .attempt-data-table td:first-child {
+            width: 30%;
+            font-weight: 500;
+        }
+        
+        .attempt-data-table pre {
+            margin: 0;
+            white-space: pre-wrap;
+            font-size: 11px;
+            background-color: #f5f5f5;
+            padding: 4px;
+            border-radius: 3px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        
+        details summary {
+            cursor: pointer;
+            color: #4a90e2;
+            font-size: 12px;
+        }
+        
+        details summary:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -1243,7 +1306,10 @@
                 try {
                     const profilesSnapshot = await firestore.collection('userProfiles').get();
                     profilesSnapshot.docs.forEach(doc => {
-                        userProfiles.set(doc.id, doc.data());
+                        userProfiles.set(doc.id, {
+                            id: doc.id,
+                            ...doc.data()
+                        });
                     });
                     console.log(`Loaded ${userProfiles.size} user profiles from Firestore`);
                 } catch (error) {
@@ -1394,7 +1460,10 @@
                 try {
                     const profilesSnapshot = await firestore.collection('userProfiles').get();
                     profilesSnapshot.docs.forEach(doc => {
-                        userProfiles.set(doc.id, doc.data());
+                        userProfiles.set(doc.id, {
+                            id: doc.id,
+                            ...doc.data()
+                        });
                     });
                 } catch (error) {
                     console.error("Error accessing userProfiles collection:", error);
@@ -1790,7 +1859,7 @@
                             assignedDoctor: null,
                             initials: getInitials(userData.name || 'Unknown User'),
                             quizData: {}, // Store detailed quiz data for this user
-                            age: userData.age || 'N/A'
+                            age: userData.age || (userData.dateOfBirth ? calculateAge(userData.dateOfBirth) : 'N/A')
                         };
                         
                         // Get user's quiz data based on role
@@ -1852,7 +1921,7 @@
                                             quizCount: quizCount,
                                             lastActive: getLastActiveDate(patientData.quiz) || 'Never',
                                             medicalCondition: patientProfile.medicalCondition || 'N/A',
-                                            age: patientProfile.age || 'N/A',
+                                            age: patientProfile.age || (patientProfile.dateOfBirth ? calculateAge(patientProfile.dateOfBirth) : 'N/A'),
                                             gender: patientProfile.gender || 'N/A',
                                             assignedDoctor: userId,
                                             initials: getInitials(patientProfile.name || 'Unknown Patient'),
@@ -1983,7 +2052,7 @@
                                                     quizCount: quizCount,
                                                     lastActive: getLastActiveDate(patientData.quiz) || 'Never',
                                                     medicalCondition: patientProfile.medicalCondition || 'N/A',
-                                                    age: patientProfile.age || 'N/A',
+                                                    age: patientProfile.age || (patientProfile.dateOfBirth ? calculateAge(patientProfile.dateOfBirth) : 'N/A'),
                                                     gender: patientProfile.gender || 'N/A',
                                                     assignedDoctor: userId,
                                                     initials: getInitials(patientProfile.name || 'Unknown Patient'),
@@ -2273,31 +2342,20 @@
                     quizStats[quizType] = {
                         name: quizType,
                         attempts: 0,
-                        totalScore: 0,
-                        avgScore: 0,
                         history: [],
                         rawData: attempts // Store the raw data
                     };
                 }
                 
                 Object.entries(attempts || {}).forEach(([timestamp, attempt]) => {
-                    if (attempt.score !== undefined) {
-                        quizStats[quizType].attempts++;
-                        quizStats[quizType].totalScore += parseFloat(attempt.score);
-                        
-                        quizStats[quizType].history.push({
-                            date: new Date(parseInt(timestamp)).toLocaleString(),
-                            score: attempt.score,
-                            timestamp: parseInt(timestamp),
-                            rawData: attempt // Store all attempt data
-                        });
-                    }
+                    quizStats[quizType].attempts++;
+                    
+                    quizStats[quizType].history.push({
+                        date: new Date(parseInt(timestamp)).toLocaleString(),
+                        timestamp: parseInt(timestamp),
+                        rawData: attempt // Store all attempt data
+                    });
                 });
-                
-                // Calculate average score
-                if (quizStats[quizType].attempts > 0) {
-                    quizStats[quizType].avgScore = (quizStats[quizType].totalScore / quizStats[quizType].attempts).toFixed(2);
-                }
                 
                 // Sort history by timestamp (most recent first)
                 quizStats[quizType].history.sort((a, b) => b.timestamp - a.timestamp);
@@ -2317,8 +2375,6 @@
                                 <tr>
                                     <th>Quiz Type</th>
                                     <th>Attempts</th>
-                                    <th>Avg. Score</th>
-                                    <th>Recent Scores</th>
                                     <th>Details</th>
                                 </tr>
                             </thead>
@@ -2326,36 +2382,50 @@
             `;
             
             if (quizList.length === 0) {
-                content += '<tr><td colspan="5">No quiz data found</td></tr>';
+                content += '<tr><td colspan="3">No quiz data found</td></tr>';
             } else {
                 quizList.forEach(quiz => {
-                    // Format recent scores (show at most 3)
-                    const recentScores = quiz.history.slice(0, 3).map(h => 
-                        `<span title="${h.date}">${h.score}%</span>`).join(', ');
-                    
                     // Create a details popup for the raw data
                     let detailsContent = '<div class="quiz-details-popup">';
                     
                     // For each attempt, show all raw data
                     quiz.history.forEach((attempt, index) => {
+                        const attemptDate = new Date(attempt.timestamp);
+                        
                         detailsContent += `<div class="attempt-details">
-                            <h4>Attempt ${index + 1} (${attempt.date})</h4>
-                            <ul>`;
+                            <h4>Attempt ${index + 1} - ${attemptDate.toLocaleDateString()} ${attemptDate.toLocaleTimeString()}</h4>
+                            <table class="attempt-data-table">
+                                <tbody>`;
                             
-                        // Display all properties from the raw data
+                        // Display all properties from the raw data in a more organized table
                         if (attempt.rawData) {
-                            Object.entries(attempt.rawData).forEach(([key, value]) => {
+                            // Sort the keys alphabetically but put 'score' first if it exists
+                            const keys = Object.keys(attempt.rawData);
+                            keys.sort((a, b) => {
+                                if (a === 'score') return -1;
+                                if (b === 'score') return 1;
+                                return a.localeCompare(b);
+                            });
+                            
+                            keys.forEach(key => {
+                                const value = attempt.rawData[key];
+                                
                                 // Format value based on type
                                 let displayValue = value;
                                 if (typeof value === 'object' && value !== null) {
-                                    displayValue = JSON.stringify(value);
+                                    displayValue = `<pre>${JSON.stringify(value, null, 2)}</pre>`;
                                 }
                                 
-                                detailsContent += `<li><strong>${key}:</strong> ${displayValue}</li>`;
+                                detailsContent += `<tr>
+                                    <td><strong>${key}</strong></td>
+                                    <td>${displayValue}</td>
+                                </tr>`;
                             });
                         }
                         
-                        detailsContent += `</ul></div>`;
+                        detailsContent += `</tbody>
+                            </table>
+                        </div>`;
                     });
                     
                     detailsContent += '</div>';
@@ -2364,8 +2434,6 @@
                         <tr>
                             <td><strong>${quiz.name}</strong></td>
                             <td>${quiz.attempts}</td>
-                            <td>${quiz.avgScore}%</td>
-                            <td>${recentScores}</td>
                             <td>
                                 <details>
                                     <summary>View All Data</summary>
@@ -2546,6 +2614,34 @@
                 totalQuizzes,
                 lastActive: latestTimestamp > 0 ? new Date(latestTimestamp).toLocaleString() : 'Never'
             };
+        }
+        
+        // Calculate age from date of birth
+        function calculateAge(dateOfBirth) {
+            if (!dateOfBirth) return 'N/A';
+            try {
+                // Convert to milliseconds if it's a Firebase timestamp
+                let dob = dateOfBirth;
+                if (typeof dateOfBirth === 'object' && dateOfBirth.seconds) {
+                    dob = new Date(dateOfBirth.seconds * 1000);
+                } else if (typeof dateOfBirth === 'string') {
+                    dob = new Date(dateOfBirth);
+                }
+                
+                const today = new Date();
+                let age = today.getFullYear() - dob.getFullYear();
+                const monthDiff = today.getMonth() - dob.getMonth();
+                
+                // If birthday hasn't occurred yet this year
+                if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+                    age--;
+                }
+                
+                return age;
+            } catch (error) {
+                console.warn("Error calculating age:", error);
+                return 'N/A';
+            }
         }
     </script>
 </body>
