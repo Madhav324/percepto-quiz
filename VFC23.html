@@ -18,12 +18,15 @@
         }
 
         #quiz-container {
-            max-width: 650px;
+            max-width: 400px;
             margin: 0 auto;
             padding: 20px;
             display: flex;
             flex-direction: column;
             align-items: center;
+            background-color: #fff;
+            box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
         }
 
         .header {
@@ -54,6 +57,27 @@
             font-size: 18px;
             cursor: pointer;
             margin-left: 10px;
+            position: relative;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        
+        .profile-icon:hover {
+            background-color: #0056b3;
+        }
+        
+        .profile-icon:hover::after {
+            content: attr(title);
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: #333;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            margin-top: 5px;
         }
 
         .user-info {
@@ -252,36 +276,46 @@
         }
 
         .history-item {
-            border-bottom: 1px solid #eee;
-            padding: 4px 0;
-            font-size: 9px;
-            margin-bottom: 5px;
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
         }
 
-        .history-item:last-child {
-            border-bottom: none;
-            margin-bottom: 0;
-        }
-
-        .history-item .timestamp {
-            color: #666;
-            font-size: 8px;
-            margin-bottom: 2px;
+        .date-score {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-weight: bold;
         }
 
         .history-stats {
-            text-align: left;
-            padding: 0 10px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 10px;
+            font-size: 12px;
         }
 
-        .history-stats div {
+        .history-stats > div {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 1px;
         }
 
-        .history-stats span {
-            font-weight: bold;
+        .toggle-details-btn {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-size: 12px;
+            width: 100%;
+        }
+
+        .toggle-details-btn:hover {
+            background-color: #0056b3;
         }
 
         #report-container {
@@ -680,7 +714,18 @@
         }
 
         function fetchAttempts() {
-            const attemptsRef = database.ref('quizAttempts14/');
+            // Determine the correct path based on user context
+            let attemptsPath;
+            
+            if (isPatientQuiz) {
+                // Doctor viewing patient
+                attemptsPath = `doctors/${doctorId}/patients/${currentPatientId}/quizzes/VFC23`;
+            } else {
+                // Regular user
+                attemptsPath = `users/${auth.currentUser.uid}/quizzes/VFC23`;
+            }
+            
+            const attemptsRef = database.ref(attemptsPath);
             
             attemptsRef.on('value', (snapshot) => {
                 if (snapshot.exists()) {
@@ -711,18 +756,47 @@
                 
                 const historyItem = document.createElement('div');
                 historyItem.className = 'history-item';
-                historyItem.innerHTML = `
+                
+                // Create date and score section
+                const dateScoreDiv = document.createElement('div');
+                dateScoreDiv.className = 'date-score';
+                dateScoreDiv.innerHTML = `
                     <div class="timestamp">${formattedDate}</div>
-                    <div class="history-stats">
-                        <div><div>Score:</div><span>${attempt.score}</span></div>
-                        <div><div>Total Time:</div><span>${attempt.totalTime}s</span></div>
-                        <div><div>Avg Time:</div><span>${attempt.avgTime}s</span></div>
-                        <div><div>First Tap:</div><span>${attempt.firstTap}s</span></div>
-                        <div><div>Total Taps:</div><span>${attempt.totalTaps}</span></div>
-                        <div><div>Correct:</div><span>${attempt.totalCorrect}</span></div>
-                        <div><div>Incorrect:</div><span>${attempt.totalIncorrect}</span></div>
-                    </div>
+                    <div class="score">Score: ${attempt.score}/${totalGrids}</div>
                 `;
+                historyItem.appendChild(dateScoreDiv);
+                
+                // Create details section
+                const detailsDiv = document.createElement('div');
+                detailsDiv.className = 'history-stats';
+                detailsDiv.innerHTML = `
+                    <div><div>Total Time:</div><span>${attempt.totalTime}s</span></div>
+                    <div><div>Avg Time:</div><span>${attempt.avgTime}s</span></div>
+                    <div><div>First Tap:</div><span>${attempt.firstTap}s</span></div>
+                    <div><div>Total Taps:</div><span>${attempt.totalTaps}</span></div>
+                    <div><div>Correct:</div><span>${attempt.totalCorrect}</span></div>
+                    <div><div>Incorrect:</div><span>${attempt.totalIncorrect}</span></div>
+                `;
+                
+                // Initially hide details
+                detailsDiv.style.display = 'none';
+                historyItem.appendChild(detailsDiv);
+                
+                // Add toggle button
+                const toggleBtn = document.createElement('button');
+                toggleBtn.className = 'toggle-details-btn';
+                toggleBtn.textContent = 'Show Details';
+                toggleBtn.onclick = function() {
+                    if (detailsDiv.style.display === 'none') {
+                        detailsDiv.style.display = 'grid';
+                        this.textContent = 'Hide Details';
+                    } else {
+                        detailsDiv.style.display = 'none';
+                        this.textContent = 'Show Details';
+                    }
+                };
+                historyItem.appendChild(toggleBtn);
+                
                 historyList.appendChild(historyItem);
             });
             
@@ -763,10 +837,20 @@
         }
 
         function saveAttempt(data) {
-            const attemptsRef = database.ref('quizAttempts14/');
-            const newAttemptRef = database.ref('quizAttempts14/' + Date.now());
+            // Determine the correct path based on user context
+            let savePath;
             
-            attemptsRef.push(data)
+            if (isPatientQuiz) {
+                // Doctor administering quiz to patient
+                savePath = `doctors/${doctorId}/patients/${currentPatientId}/quizzes/VFC23/${Date.now()}`;
+            } else {
+                // Regular user
+                savePath = `users/${auth.currentUser.uid}/quizzes/VFC23/${Date.now()}`;
+            }
+            
+            const attemptRef = database.ref(savePath);
+            
+            attemptRef.set(data)
                 .then(() => {
                     console.log("Attempt saved successfully");
                 })
@@ -776,7 +860,18 @@
         }
 
         function clearReport() {
-            const attemptsRef = database.ref('quizAttempts14/');
+            // Determine the correct path based on user context
+            let clearPath;
+            
+            if (isPatientQuiz) {
+                // Doctor administering quiz to patient
+                clearPath = `doctors/${doctorId}/patients/${currentPatientId}/quizzes/VFC23`;
+            } else {
+                // Regular user
+                clearPath = `users/${auth.currentUser.uid}/quizzes/VFC23`;
+            }
+            
+            const attemptsRef = database.ref(clearPath);
             attemptsRef.remove()
                 .then(() => {
                     console.log("Report cleared!");
