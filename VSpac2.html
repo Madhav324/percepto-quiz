@@ -16,19 +16,13 @@
             flex-direction: column;
         }
 
-        #quiz-container, #results-page {
+        #quiz-container {
             text-align: center;
             padding: 20px;
             border-radius: 8px;
             background-color: #fff;
             box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.1);
             width: 450px;
-            max-width: 95%;
-        }
-        
-        #results-page {
-            display: none;
-            margin-top: 20px;
         }
 
         .header {
@@ -195,38 +189,19 @@
             border-radius: 8px;
         }
 
-        .button-container {
-            margin-top: 20px;
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-        
         button {
-            padding: 8px 12px;
+            padding: 10px 15px;
+            margin: 10px;
+            border: none;
             background-color: #4CAF50;
             color: white;
-            border: none;
-            border-radius: 4px;
+            font-size: 16px;
             cursor: pointer;
-            font-size: 0.9rem;
+            border-radius: 5px;
         }
-        
-        #retry-button {
-            display: none;
-            margin-top: 10px;
-        }
-        
-        #skip-button, #submit-button {
-            background-color: #ff9800;
-            font-size: 0.9rem;
-            padding: 8px 12px;
-            margin: 0 5px;
-        }
-        
-        #submit-button {
-            background-color: #2196F3;
+
+        button:hover {
+            background-color: #45a049;
         }
 
         #quiz-type {
@@ -272,24 +247,18 @@
             padding: 15px;
             border-radius: 8px;
             border-left: 4px solid #4CAF50;
-            position: relative;
-            z-index: 1000;
-            width: 90%;
-            max-width: 500px;
         }
 
         #report-container {
             display: none;
             flex-direction: column;
             max-width: 600px;
-            width: 90%;
+            width: 100%;
             margin: 20px auto;
             padding: 15px;
             background-color: #fff;
             border-radius: 8px;
             box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.1);
-            position: relative;
-            z-index: 1000;
         }
 
         #retry-button {
@@ -471,45 +440,6 @@
             }
         }
         
-        /* Mobile optimizations */
-        @media (max-width: 600px) {
-            #quiz-container {
-                width: 100%;
-                max-width: 350px;
-                padding: 10px;
-            }
-            
-            .options-container {
-                display: grid;
-                grid-template-columns: repeat(2, 1fr);
-                gap: 5px;
-            }
-            
-            .draggable {
-                width: 45px;
-                height: 45px;
-                margin: 1px;
-            }
-            
-            .button-container {
-                gap: 5px;
-            }
-            
-            button, #skip-button, #submit-button {
-                padding: 6px 10px;
-                font-size: 0.85rem;
-                margin: 0 2px;
-            }
-            
-            #report-container {
-                padding: 10px;
-            }
-            
-            #result-container {
-                padding: 10px;
-            }
-        }
-        
         .notification {
             position: fixed;
             top: 20%;
@@ -558,21 +488,15 @@
 
     <div id="quiz-container">
         <div class="header">
-            <a href="index.html" class="button-link">Home</a>
-            <h1>Directional Position</h1>
-            <a href="#" class="profile-icon" id="profile-icon">?</a>
+            <h1>Directional Position Quiz</h1>
+            <div class="profile-icon" id="profileIcon" title="Back to Home" onclick="window.location.href='index.html'"></div>
         </div>
         
-        <div id="user-info" style="display: none;">
-            <span id="user-name"></span>
-            <button onclick="signOut()">Sign Out</button>
-        </div>
-        
-        <p class="instruction" id="instruction">Place the object on the specified position relative to the arrow.</p>
-        <p id="quiz-type">Directional Position Quiz</p>
+        <div id="quiz-type"></div>
+        <div class="instruction" id="instruction"></div>
         
         <div class="game-area">
-            <img id="center-image" src="images/SR/arrow-left.png" alt="Center Image" class="center-image">
+            <img id="center-image" src="" alt="Center Image">
             <img id="plate-left" class="plate-image" src="images/SR/plate.png" alt="Left Plate">
             <img id="plate-right" class="plate-image" src="images/SR/plate.png" alt="Right Plate">
             <img id="plate-top" class="plate-image" src="images/SR/plate.png" alt="Top Plate">
@@ -586,15 +510,13 @@
         <div class="options-container" id="options-container"></div>
         
         <div class="button-container">
+            <button onclick="window.checkAnswer()">Check Answer</button>
             <button id="retry-button" onclick="reloadRandomQuestion()">Try Another Question</button>
             <button id="skip-button" onclick="skipQuestion()">Skip Question</button>
-            <button id="submit-button" onclick="forceShowResults()">Submit Quiz</button>
         </div>
         
         <div id="notification" class="notification"></div>
-    </div>
-    
-    <div id="results-page" style="display:none;">
+        
         <div id="result-container">
             <h2>Quiz Results</h2>
             <ul style="list-style: none; padding: 0;">
@@ -608,12 +530,12 @@
             </ul>
             <a href="index.html" style="text-decoration: none;"><button>Return Home</button></a>
         </div>
+    </div>
 
-        <div id="report-container">
-            <h2>All Quiz Attempts</h2>
-            <ul id="report-list"></ul>
-            <button id="clear-report" onclick="clearReport()">Clear Report</button>
-        </div>
+    <div id="report-container">
+        <h2>All Quiz Attempts</h2>
+        <ul id="report-list"></ul>
+        <button id="clear-report" onclick="clearReport()">Clear Report</button>
     </div>
 
     <!-- Firebase App (the core Firebase SDK) -->
@@ -861,19 +783,6 @@
             // Change the arrow direction after each placement
             currentOptionIndex++;
             updateArrowDirection();
-            
-            // Check if all options have been placed
-            const remainingOptions = document.getElementsByClassName('draggable').length;
-            if (remainingOptions === 0) {
-                // Show a success notification
-                showNotification("All items placed correctly!", "#4CAF50");
-                
-                // Wait a moment for the user to see the completed placement
-                setTimeout(() => {
-                    // Call checkAnswer to show results
-                    checkAnswer();
-                }, 1000);
-            }
         }
 
         function setupDropAreas() {
@@ -913,71 +822,43 @@
             e.target.classList.remove('dragging');
         }
 
-        function initializeQuiz() {
-            // Reset quiz containers
-            document.getElementById('quiz-container').style.display = 'block';
-            document.getElementById('results-page').style.display = 'none';
+        function initializeQuiz(questionType = null) {
+            currentQuestion = questionType || selectRandomQuestion();
+            currentOptionIndex = 0;
             
-            // Clear previous placements
+            const centerImage = document.getElementById('center-image');
+            const optionsContainer = document.getElementById('options-container');
+            const instruction = document.getElementById('instruction');
+            const quizType = document.getElementById('quiz-type');
+            
+            centerImage.src = currentQuestion.questionImage;
+            instruction.textContent = currentQuestion.instruction;
+            quizType.textContent = `Question Type: ${currentQuestion.type} PLACEMENT`;
+            
+            optionsContainer.innerHTML = '';
+            document.querySelectorAll('.placed-image').forEach(img => img.remove());
             placedImages.clear();
             
-            // Reset game state
-            currentOptionIndex = 0;
-            firstPlacementTime = null;
-            firstUserInteractionTime = null;
-            totalStartTime = Date.now();
+            // Show the skip button
+            document.getElementById('skip-button').style.display = 'inline-block';
             
-            // Load random question
-            const randomQuestion = selectRandomQuestion();
-            currentQuestion = randomQuestion;
-            
-            // Set arrow
-            document.getElementById('center-image').src = currentQuestion.questionImage;
-            
-            // Set instruction text
-            document.getElementById('instruction').textContent = currentQuestion.instruction;
-            
-            // Clear previous options
-            const optionsContainer = document.getElementById('options-container');
-            optionsContainer.innerHTML = '';
-            
-            // Generate draggable options
-            const optionImages = currentQuestion.options;
-            
-            // Add options to the container
-            optionImages.forEach(imgSrc => {
+            currentQuestion.options.forEach(option => {
                 const img = document.createElement('img');
-                img.src = imgSrc;
+                img.src = option;
                 img.className = 'draggable';
                 img.draggable = true;
                 
-                // Set up drag event listeners for desktop
+                // Desktop drag events
                 img.addEventListener('dragstart', dragStart);
+                img.addEventListener('dragend', dragEnd);
                 
-                // Setup touch events for mobile
-                img.addEventListener('touchstart', touchStart, { passive: false });
-                img.addEventListener('touchmove', touchMove, { passive: false });
-                img.addEventListener('touchend', touchEnd, { passive: false });
+                // Mobile touch events
+                img.addEventListener('touchstart', touchStart, {passive: false});
+                img.addEventListener('touchmove', touchMove, {passive: false});
+                img.addEventListener('touchend', touchEnd);
                 
                 optionsContainer.appendChild(img);
             });
-            
-            // Clear drop areas
-            document.querySelectorAll('.drop-area').forEach(area => {
-                area.innerHTML = '';
-            });
-            
-            // Make sure buttons are properly shown
-            document.getElementById('retry-button').style.display = 'none';
-            document.getElementById('skip-button').style.display = 'inline-block';
-            document.getElementById('submit-button').style.display = 'inline-block';
-            
-            // Enable drag and drop areas
-            setupDropAreas();
-            
-            // Reset the result display
-            document.getElementById('result-container').style.display = 'none';
-            document.getElementById('report-container').style.display = 'none';
         }
 
         function updateArrowDirection() {
@@ -1039,51 +920,64 @@
             // Calculate average time per question
             const averageTime = totalTime / 1;
             
-            console.log("Displaying quiz results with new page structure...");
+            // Hide game elements and show results
+            document.querySelector('.game-area').style.display = 'none';
+            document.querySelector('.options-container').style.display = 'none';
+            document.querySelector('.instruction').style.display = 'none';
+            document.querySelector('#quiz-type').style.display = 'none';
+            document.querySelector('.button-container').style.display = 'none';
+            document.getElementById('skip-button').style.display = 'none';
             
-            // CRUCIAL FIX - Show results page with !important to override any other styles
-            document.getElementById('quiz-container').style.cssText = 'display: none !important;';
-            document.getElementById('results-page').style.cssText = 'display: block !important; position: absolute; top: 0; left: 0; right: 0; z-index: 9999;';
+            // Show results and reports
+            const resultContainer = document.getElementById('result-container');
+            resultContainer.style.display = 'block';
+            document.getElementById('report-container').style.display = 'flex';
             
-            document.getElementById('result-container').style.cssText = 'display: block !important;';
-            document.getElementById('report-container').style.cssText = 'display: flex !important;';
+            // Display results
+            document.getElementById('score').textContent = `${score}`;
+            document.getElementById('total-time').textContent = totalTime.toFixed(2);
+            document.getElementById('avg-time').textContent = averageTime.toFixed(2);
+            document.getElementById('first-tap').textContent = firstUserInteractionTime ? firstUserInteractionTime.toFixed(2) : 'N/A';
+            document.getElementById('total-taps').textContent = totalTaps;
+            document.getElementById('total-correct').textContent = correctAnswers;
+            document.getElementById('total-incorrect').textContent = incorrectAnswers;
             
-            // Display results with error handling
-            try {
-                document.getElementById('score').textContent = `${score}`;
-                document.getElementById('total-time').textContent = totalTime.toFixed(2);
-                document.getElementById('avg-time').textContent = averageTime.toFixed(2);
-                document.getElementById('first-tap').textContent = firstUserInteractionTime ? firstUserInteractionTime.toFixed(2) : 'N/A';
-                document.getElementById('total-taps').textContent = totalTaps;
-                document.getElementById('total-correct').textContent = correctAnswers;
-                document.getElementById('total-incorrect').textContent = incorrectAnswers;
-                
-                console.log("Results populated successfully");
-            } catch (error) {
-                console.error("Error updating result values:", error);
-            }
+            // Show retry button
+            document.getElementById('retry-button').style.display = 'inline-block';
             
-            // Save results to Firebase (wrap in try/catch to prevent errors from breaking the function)
-            try {
-                saveQuizResults(
-                    score,
-                    totalTime.toFixed(2),
-                    averageTime.toFixed(2),
-                    firstUserInteractionTime ? firstUserInteractionTime.toFixed(2) : null,
-                    totalTaps,
-                    correctAnswers,
-                    incorrectAnswers
-                );
-            } catch (error) {
-                console.error("Error saving results to Firebase:", error);
-                // Continue even if Firebase fails
-            }
+            // Save results to Firebase
+            saveQuizResults(
+                score,
+                totalTime.toFixed(2),
+                averageTime.toFixed(2),
+                firstUserInteractionTime ? firstUserInteractionTime.toFixed(2) : null,
+                totalTaps,
+                correctAnswers,
+                incorrectAnswers
+            );
             
             // Show completion message
             showNotification("Quiz completed!", "#4CAF50");
             
             // Fetch and display previous attempts
             fetchPreviousAttempts();
+        }
+
+        function reloadRandomQuestion() {
+            initializeQuiz();
+        }
+
+        function skipQuestion() {
+            // Increment incorrect answers when skipping
+            incorrectAnswers += document.getElementsByClassName('draggable').length;
+            
+            // Show a notification
+            showNotification("Question skipped", "#FFA000");
+            
+            // Load a new question
+            setTimeout(() => {
+                reloadRandomQuestion();
+            }, 1000);
         }
 
         // Track user interactions - excluding prompts and check answer button
@@ -1206,54 +1100,14 @@
                 });
                 
                 if (targetArea) {
-                    // Check if this is the correct area
-                    if (targetArea !== currentQuestion.correctArea) {
-                        // Show incorrect placement notification
-                        showNotification("Incorrect placement!", "#f44336");
-                        
-                        // Visual feedback for incorrect drop
-                        const dropArea = document.getElementById(`${targetArea}-area`);
-                        dropArea.classList.add('incorrect');
-                        setTimeout(() => {
-                            dropArea.classList.remove('incorrect');
-                        }, 500);
-                        
-                        incorrectAnswers++;
-                    } else {
-                        // Create a new image in the drop area
-                        const dropArea = document.getElementById(`${targetArea}-area`);
-                        const newImage = document.createElement('img');
-                        newImage.src = draggedItem.src;
-                        newImage.className = 'placed-image';
-                        
-                        dropArea.appendChild(newImage);
-                        draggedItem.remove();
-                        
-                        placedImages.set(draggedItem.src, targetArea);
-                        rearrangeImages(dropArea, targetArea);
-                        
-                        // Track first placement time
-                        if (firstPlacementTime === null) {
-                            firstPlacementTime = (Date.now() - totalStartTime) / 1000;
+                    // Simulate drop event
+                    const dropEvent = {
+                        preventDefault: () => {},
+                        dataTransfer: {
+                            getData: () => draggedItem.src
                         }
-                        
-                        // Change the arrow direction after each placement
-                        currentOptionIndex++;
-                        updateArrowDirection();
-                        
-                        // Check if all options have been placed
-                        const remainingOptions = document.getElementsByClassName('draggable').length;
-                        if (remainingOptions === 0) {
-                            // Show a success notification
-                            showNotification("All items placed correctly!", "#4CAF50");
-                            
-                            // Wait a moment for the user to see the completed placement
-                            setTimeout(() => {
-                                // Call checkAnswer to show results
-                                checkAnswer();
-                            }, 1000);
-                        }
-                    }
+                    };
+                    handleDrop(dropEvent, targetArea);
                 } else {
                     // Reset the dragged item if not dropped in an area
                     draggedItem.style.position = '';
@@ -1511,138 +1365,12 @@
             }
         }
 
-        function forceShowResults() {
-            console.log("Force showing quiz results with new structure...");
-            
-            // Calculate time stats
-            const endTime = Date.now();
-            const totalTime = (endTime - totalStartTime) / 1000;
-            const averageTime = totalTime / 1;
-            
-            // Count correct placements (if any)
-            const correctPlacements = Array.from(placedImages.entries())
-                .filter(([src, area]) => area === currentQuestion.correctArea).length;
-            
-            // Update stats
-            correctAnswers += correctPlacements;
-            
-            // CRUCIAL FIX - Show results page with !important to override any other styles
-            document.getElementById('quiz-container').style.cssText = 'display: none !important;';
-            document.getElementById('results-page').style.cssText = 'display: block !important; position: absolute; top: 0; left: 0; right: 0; z-index: 9999;';
-            
-            document.getElementById('result-container').style.cssText = 'display: block !important;';
-            document.getElementById('report-container').style.cssText = 'display: flex !important;';
-            
-            // Update result values with error checking
-            const resultFields = {
-                'score': correctPlacements,
-                'total-time': totalTime.toFixed(2),
-                'avg-time': averageTime.toFixed(2),
-                'first-tap': firstUserInteractionTime ? firstUserInteractionTime.toFixed(2) : 'N/A',
-                'total-taps': totalTaps,
-                'total-correct': correctAnswers,
-                'total-incorrect': incorrectAnswers
-            };
-            
-            // Update each result field
-            Object.entries(resultFields).forEach(([id, value]) => {
-                const element = document.getElementById(id);
-                if (element) element.textContent = value;
-            });
-            
-            // Save results to Firebase (with error handling)
-            try {
-                saveQuizResults(
-                    correctPlacements,
-                    totalTime.toFixed(2),
-                    averageTime.toFixed(2),
-                    firstUserInteractionTime ? firstUserInteractionTime.toFixed(2) : null,
-                    totalTaps,
-                    correctAnswers,
-                    incorrectAnswers
-                );
-            } catch (error) {
-                console.error("Error saving results to Firebase:", error);
-            }
-            
-            // Show completion message
-            showNotification("Quiz submitted successfully!", "#2196F3");
-            
-            // Fetch and display previous attempts
-            try {
-                fetchPreviousAttempts();
-            } catch (error) {
-                console.error("Error fetching previous attempts:", error);
-            }
-        }
-
-        function reloadRandomQuestion() {
-            initializeQuiz();
-        }
-
-        function skipQuestion() {
-            // Get the next draggable option
-            const draggables = document.getElementsByClassName('draggable');
-            if (draggables.length === 0) {
-                return; // No more options to place
-            }
-            
-            // Get the current option to place
-            const currentOption = draggables[0];
-            
-            // Get the current correct area
-            const correctArea = currentQuestion.correctArea;
-            const dropArea = document.getElementById(`${correctArea}-area`);
-            
-            // Create a new image in the correct area
-            const newImage = document.createElement('img');
-            newImage.src = currentOption.src;
-            newImage.className = 'placed-image';
-            
-            // Add a transition effect for the size change
-            newImage.style.transition = 'width 0.3s, height 0.3s';
-            
-            // Add the image to the correct area
-            dropArea.appendChild(newImage);
-            
-            // Remove the original draggable
-            currentOption.remove();
-            
-            // Update placement tracking
-            placedImages.set(currentOption.src, correctArea);
-            rearrangeImages(dropArea, correctArea);
-            
-            // Track first placement time if not already set
-            if (firstPlacementTime === null) {
-                firstPlacementTime = (Date.now() - totalStartTime) / 1000;
-            }
-            
-            // Show notification
-            showNotification("Option auto-placed", "#FFA000");
-            
-            // Change the arrow direction for the next option
-            currentOptionIndex++;
-            updateArrowDirection();
-            
-            // Check if all options have been placed
-            if (document.getElementsByClassName('draggable').length === 0) {
-                // Show a success notification
-                showNotification("All items placed!", "#4CAF50");
-                
-                // Wait a moment and then show results
-                setTimeout(() => {
-                    checkAnswer();
-                }, 1000);
-            }
-        }
-
         // Make functions accessible globally
         window.checkAnswer = checkAnswer;
         window.reloadRandomQuestion = reloadRandomQuestion;
         window.fetchPreviousAttempts = fetchPreviousAttempts;
         window.clearReport = clearReport;
         window.skipQuestion = skipQuestion;
-        window.forceShowResults = forceShowResults;
     </script>
 </body>
 </html>
