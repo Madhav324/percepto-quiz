@@ -186,6 +186,22 @@
             font-size: 12px;
             font-weight: bold;
             min-height: 16px;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 6px 12px;
+            border-radius: 4px;
+            background-color: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+            pointer-events: none;
+        }
+
+        .feedback.visible {
+            opacity: 1;
         }
 
         #result-container {
@@ -556,6 +572,7 @@
             let totalIncorrectAttempts = 0;
             let filledGrids = 0;
             let firstDragOccurred = false;
+            let firstPlacementOccurred = false;
             const totalGrids = gridItems.length - 4; // Subtract pre-filled grid items
             
             // Touch event variables
@@ -568,11 +585,6 @@
             // Track first drag start
             document.addEventListener('dragstart', () => {
                 totalTaps++;
-                if (!firstDragOccurred) {
-                    firstDragOccurred = true;
-                    firstTapTime = (Date.now() - totalStartTime) / 1000;
-                    document.getElementById('first-tap').textContent = firstTapTime.toFixed(2);
-                }
             });
 
             optionContainers.forEach(option => {
@@ -654,13 +666,8 @@
                 e.preventDefault();
                 if (!startTime) startTime = Date.now();
                 
-                // Record first interaction time
+                // Record interaction
                 totalTaps++;
-                if (!firstDragOccurred) {
-                    firstDragOccurred = true;
-                    firstTapTime = (Date.now() - totalStartTime) / 1000;
-                    document.getElementById('first-tap').textContent = firstTapTime.toFixed(2);
-                }
                 
                 // Get touch coordinates
                 const touch = e.touches[0];
@@ -749,6 +756,13 @@
                 const gridItem = targetElement.closest('.grid-item');
                 if (!gridItem || gridItem.querySelector('img')) return;
                 
+                // Record first placement time (regardless of correct/incorrect)
+                if (!firstPlacementOccurred) {
+                    firstPlacementOccurred = true;
+                    firstTapTime = (Date.now() - totalStartTime) / 1000;
+                    document.getElementById('first-tap').textContent = firstTapTime.toFixed(2);
+                }
+                
                 const correctAnswer = gridItem.getAttribute('data-answer');
                 const dragImgElement = draggedElement.querySelector('img');
                 if (!dragImgElement) return;
@@ -776,8 +790,15 @@
                         rearrangeOptions();
                     }, 300);
                     
-                    feedback.textContent = "Correct placement!";
+                    // Show feedback
+                    feedback.textContent = "Correct!";
                     feedback.style.color = "green";
+                    feedback.classList.add('visible');
+                    
+                    // Hide feedback after a short time
+                    setTimeout(() => {
+                        feedback.classList.remove('visible');
+                    }, 800);
                     
                     filledGrids++;
                     
@@ -790,8 +811,16 @@
                     }
                 } else {
                     totalIncorrectAttempts++;
-                    feedback.textContent = "Incorrect placement. Try again!";
+                    
+                    // Show feedback
+                    feedback.textContent = "Incorrect!";
                     feedback.style.color = "red";
+                    feedback.classList.add('visible');
+                    
+                    // Hide feedback after a short time
+                    setTimeout(() => {
+                        feedback.classList.remove('visible');
+                    }, 800);
                     
                     // Update display for incorrect answers
                     document.getElementById('total-incorrect').textContent = totalIncorrectAttempts;
