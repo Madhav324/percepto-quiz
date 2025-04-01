@@ -443,7 +443,7 @@
         <div id="result-container">
             <h2>Quiz Results</h2>
             <ul style="list-style: none; padding: 0;">
-                <li><strong>Score:</strong> <span id="score"></span></li>
+                <li><strong>Score:</strong> <span id="score"></span>/3</li>
                 <li><strong>Total Time:</strong> <span id="total-time"></span> seconds</li>
                 <li><strong>Average Time:</strong> <span id="avg-time"></span> seconds</li>
                 <li><strong>First Tap Time:</strong> <span id="first-tap"></span> seconds</li>
@@ -669,6 +669,7 @@
             if (area !== correctArea) {
                 // Show error feedback
                 showFeedback("Incorrect placement!", "error");
+                incorrectAnswers++; // Increment incorrect answers counter every time an incorrect placement occurs
                 
                 // If it's a mobile touch action, reset the element
                 if (draggedItem) {
@@ -680,9 +681,6 @@
                     // Let the user try again
                     return;
                 }
-                
-                // For desktop drag, continue with normal flow but count as incorrect
-                incorrectAnswers++;
             } else {
                 // Correct placement
                 correctAnswers++;
@@ -939,7 +937,7 @@
                             const dateScoreDiv = document.createElement('div');
                             dateScoreDiv.innerHTML = `
                                 <div class="attempt-date">${formattedDate}</div>
-                                <div class="attempt-score">Score: ${result.score}/1</div>
+                                <div class="attempt-score">Score: ${result.score}/3</div>
                             `;
                             attemptItem.appendChild(dateScoreDiv);
                             
@@ -1222,6 +1220,10 @@
                     draggedItem.style.left = '';
                     draggedItem.style.top = '';
                     draggedItem.style.zIndex = '';
+                    
+                    // Count as incorrect if dropped outside valid areas
+                    incorrectAnswers++;
+                    showFeedback("Invalid placement!", "error");
                 }
             }
             
