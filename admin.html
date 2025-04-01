@@ -1952,6 +1952,7 @@
                 // Store all users
                 const userArray = [];
                 const doctorPatientMap = new Map(); // Map of doctorId -> patientIds
+                const processedUserRoles = new Map(); // Track users by role to handle multiple roles
                 
                 // Step 1: Get all user profile data from Firestore
                 try {
@@ -2084,6 +2085,14 @@
                             console.warn(`Could not load quiz data for user ${userId}:`, error);
                         }
                         
+                        // Check if we've already processed this user ID with this role
+                        const userRoleKey = `${userId}-${userRole}`;
+                        if (processedUserRoles.has(userRoleKey)) {
+                            console.log(`Already processed user ${userId} with role ${userRole}`);
+                            continue;
+                        }
+                        processedUserRoles.set(userRoleKey, true);
+                        
                         // Add user to array if they're not already added as a patient
                         userArray.push(user);
                     }
@@ -2190,6 +2199,14 @@
                                 } catch (innerError) {
                                     console.warn(`Could not load details for user ${userId}:`, innerError);
                                 }
+                                
+                                // Check if we've already processed this user ID with this role
+                                const userRoleKey = `${userId}-${role}`;
+                                if (processedUserRoles.has(userRoleKey)) {
+                                    console.log(`Already processed user ${userId} with role ${role}`);
+                                    continue;
+                                }
+                                processedUserRoles.set(userRoleKey, true);
                                 
                                 // Add user to array
                                 userArray.push(user);
@@ -2436,37 +2453,10 @@
                 return;
             }
             
-            // Create a map to store user data by ID for efficient lookup
-            const userMap = new Map();
-            users.forEach(user => userMap.set(user.id, user));
-            
-            // Group users by role - allow a user to be in multiple categories if their data suggests so
+            // Group users by role for sorting (doctors first, then regular users, then patients)
             const doctors = users.filter(user => user.role === 'doctor');
             const regularUsers = users.filter(user => user.role === 'user');
-            
-            // For patients, we'll include anyone who is either explicitly a patient role
-            // OR listed as a patient in the doctorPatientMap
-            const explicitePatients = users.filter(user => user.role === 'patient');
-            const patientMap = new Map();
-            
-            // First add explicit patients
-            explicitePatients.forEach(patient => patientMap.set(patient.id, patient));
-            
-            // Then handle the doctorPatientMap data - identifying all possible patients
-            // This might include users who are also regular users or doctors
-            let implicitPatientIds = new Set();
-            doctorPatientMap.forEach((patientIds, doctorId) => {
-                patientIds.forEach(patientId => {
-                    implicitPatientIds.add(patientId);
-                    // If the patient is in our user data, add them to the patientMap
-                    if (userMap.has(patientId)) {
-                        patientMap.set(patientId, userMap.get(patientId));
-                    }
-                });
-            });
-            
-            // Convert to array
-            const allPatients = Array.from(patientMap.values());
+            const patients = users.filter(user => user.role === 'patient');
             
             // Add doctors with their patients
             doctors.forEach(doctor => {
@@ -2510,7 +2500,7 @@
                 const patientIds = doctorPatientMap.get(doctor.id) || [];
                 if (patientIds.length > 0) {
                     patientIds.forEach(patientId => {
-                        const patient = allPatients.find(p => p.id === patientId);
+                        const patient = patients.find(p => p.id === patientId);
                         if (!patient) return;
                         
                         const hasPatientQuizzes = Object.keys(patient.quizData || {}).length > 0;
@@ -2585,65 +2575,53 @@
             
             // Add regular users
             regularUsers.forEach(user => {
-                // Skip this section if this user only appears as a patient under a doctor and doesn't have any quiz data
-                // This prevents empty/duplicate user entries that aren't meaningful
-                const isPatient = implicitPatientIds.has(user.id);
-                const hasQuizData = user.quizData && Object.keys(user.quizData).length > 0;
-                const hasUsefulProfile = user.medicalCondition && user.medicalCondition !== 'N/A';
+                // Explicitly log quiz data to verify it exists
+                console.log(`User ${user.name} (${user.id}) quiz data:`, user.quizData);
                 
-                // Show in the regular users section if:
-                // 1. They're not a patient under any doctor, OR
-                // 2. They have independent quiz data as a regular user, OR
-                // 3. They have a useful profile with medical information
-                if (!isPatient || hasQuizData || hasUsefulProfile) {
-                    // Explicitly log quiz data to verify it exists
-                    console.log(`User ${user.name} (${user.id}) quiz data:`, user.quizData);
-                    
-                    // More robust check for quiz data - consider both undefined and empty objects
-                    const hasQuizzes = user.quizData && 
-                        typeof user.quizData === 'object' && 
-                        Object.keys(user.quizData).length > 0;
-                    
-                    console.log(`User ${user.name} hasQuizzes:`, hasQuizzes);
-                    
-                    const userRow = document.createElement('tr');
-                    userRow.className = 'regular-user-row';
-                    userRow.dataset.userId = user.id;
-                    userRow.dataset.role = 'user';
-                    
-                    userRow.innerHTML = `
-                        <td>
-                            <div class="user-details">
-                                <span class="expand-icon" style="visibility:hidden">+</span>
-                                <div class="profile-icon" title="${user.name}">${user.initials}</div>
-                                <div class="user-info">
-                                    <div class="user-name">${user.name}</div>
-                                    <div class="user-email">${user.email}</div>
-                                </div>
+                // More robust check for quiz data - consider both undefined and empty objects
+                const hasQuizzes = user.quizData && 
+                    typeof user.quizData === 'object' && 
+                    Object.keys(user.quizData).length > 0;
+                
+                console.log(`User ${user.name} hasQuizzes:`, hasQuizzes);
+                
+                const userRow = document.createElement('tr');
+                userRow.className = 'regular-user-row';
+                userRow.dataset.userId = user.id;
+                userRow.dataset.role = 'user';
+                
+                userRow.innerHTML = `
+                    <td>
+                        <div class="user-details">
+                            <span class="expand-icon" style="visibility:hidden">+</span>
+                            <div class="profile-icon" title="${user.name}">${user.initials}</div>
+                            <div class="user-info">
+                                <div class="user-name">${user.name}</div>
+                                <div class="user-email">${user.email}</div>
                             </div>
-                        </td>
-                        <td><span class="user-indicator">User</span></td>
-                        <td>
-                            ${user.quizCount} quizzes
-                            ${hasQuizzes ? `<button class="view-quizzes-btn" data-user-id="${user.id}">Show Quizzes</button>` : ''}
-                            <div class="user-additional-info">
-                                <div><strong>Age:</strong> ${user.age || 'N/A'}</div>
-                                <div><strong>Gender:</strong> ${user.gender || 'N/A'}</div>
-                                <div><strong>Medical:</strong> ${user.medicalCondition || 'N/A'}</div>
-                                <div><strong>Recommendation:</strong> ${user.doctorRecommendation || 'N/A'}</div>
-                            </div>
-                        </td>
-                        <td>${user.lastActive}</td>
-                    `;
-                    
-                    container.appendChild(userRow);
-                    
-                    // Add quiz data row (initially hidden)
-                    if (hasQuizzes) {
-                        console.log(`Creating quiz data row for user ${user.name}`);
-                        const quizDataRow = createUserQuizDataRow(user.id, user.quizData);
-                        container.appendChild(quizDataRow);
-                    }
+                        </div>
+                    </td>
+                    <td><span class="user-indicator">User</span></td>
+                    <td>
+                        ${user.quizCount} quizzes
+                        ${hasQuizzes ? `<button class="view-quizzes-btn" data-user-id="${user.id}">Show Quizzes</button>` : ''}
+                        <div class="user-additional-info">
+                            <div><strong>Age:</strong> ${user.age || 'N/A'}</div>
+                            <div><strong>Gender:</strong> ${user.gender || 'N/A'}</div>
+                            <div><strong>Medical:</strong> ${user.medicalCondition || 'N/A'}</div>
+                            <div><strong>Recommendation:</strong> ${user.doctorRecommendation || 'N/A'}</div>
+                        </div>
+                    </td>
+                    <td>${user.lastActive}</td>
+                `;
+                
+                container.appendChild(userRow);
+                
+                // Add quiz data row (initially hidden)
+                if (hasQuizzes) {
+                    console.log(`Creating quiz data row for user ${user.name}`);
+                    const quizDataRow = createUserQuizDataRow(user.id, user.quizData);
+                    container.appendChild(quizDataRow);
                 }
             });
             
@@ -2653,7 +2631,7 @@
                 patientIds.forEach(id => displayedPatientIds.add(id));
             });
             
-            allPatients.forEach(patient => {
+            patients.forEach(patient => {
                 if (!displayedPatientIds.has(patient.id)) {
                     const hasPatientQuizzes = Object.keys(patient.quizData || {}).length > 0;
                     
@@ -3015,20 +2993,9 @@
                 
                 // Determine visibility
                 if (roleMatch && searchMatch) {
-                    // For patient rows, only show if their doctor is expanded
+                    // For patient rows, always show if searching
                     if (row.classList.contains('patient-row')) {
-                        const doctorId = row.dataset.doctorId;
-                        if (doctorId) {
-                            const doctorRow = document.querySelector(`.doctor-row[data-user-id="${doctorId}"]`);
-                            if (doctorRow && doctorRow.classList.contains('expanded')) {
-                                row.style.display = 'table-row';
-                            } else {
-                                row.style.display = 'none';
-                            }
-                        } else {
-                            // Unassigned patient
-                            row.style.display = 'table-row';
-                        }
+                        row.style.display = 'table-row';
                     } else {
                         row.style.display = 'table-row';
                     }
