@@ -427,9 +427,9 @@
         
         .modal-content {
             background-color: white;
-            margin: 10% auto;
+            margin: auto;
             padding: 20px;
-            border-radius: 8px;
+            border: 1px solid #888;
             width: 80%;
             max-width: 600px;
             max-height: 80vh;
@@ -1319,7 +1319,6 @@
 
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
         const db = firebase.database();
         const firestore = firebase.firestore();
         
@@ -1332,7 +1331,7 @@
                 console.log("Firestore access test:", testDoc.exists ? "Success" : "Document not found but access granted");
                 
                 // Test Realtime Database access
-                console.log("Testing Realtime Database access...");
+                console.log("Testing Realtime DB access...");
                 const testRef = await db.ref('accessTest').once('value');
                 console.log("Realtime DB access test:", testRef.exists() ? "Success" : "Node not found but access granted");
                 
@@ -1446,7 +1445,7 @@
                 
                 // Create maps for easier access
                 const userProfiles = new Map();
-                userProfilesSnapshot.docs.forEach(doc => {
+                userProfilesSnapshot.forEach(doc => {
                     userProfiles.set(doc.id, {
                         id: doc.id,
                         ...doc.data()
@@ -1562,7 +1561,7 @@
                 // Get user profiles from Firestore
                 const userProfiles = new Map();
                 try {
-                    const profilesSnapshot = await getDocs(collection(firestore, 'users'));
+                    const profilesSnapshot = await firestore.collection('users').get();
                     profilesSnapshot.forEach(doc => {
                         const userData = doc.data();
                         userProfiles.set(doc.id, userData);
@@ -1710,7 +1709,7 @@
                 const userProfiles = new Map();
                 
                 try {
-                    const usersSnapshot = await getDocs(collection(firestore, 'users'));
+                    const usersSnapshot = await firestore.collection('users').get();
                     usersSnapshot.forEach(doc => {
                         const userData = doc.data();
                         userProfiles.set(doc.id, userData);
@@ -2602,7 +2601,7 @@
                 const userProfiles = new Map();
                 
                 try {
-                    const usersSnapshot = await getDocs(collection(firestore, 'users'));
+                    const usersSnapshot = await firestore.collection('users').get();
                     usersSnapshot.forEach(doc => {
                         const userData = doc.data();
                         userData.id = doc.id; // Ensure ID is included
@@ -2679,11 +2678,13 @@
                     try {
                         const patientsSnapshot = await db.ref(`doctors/${doctor.id}/patients`).once('value');
                         if (patientsSnapshot.exists()) {
-                            const patientsList = patientsSnapshot.val();
-                            const doctorPatients = [];
+                            const patientsList = [];
+                            doctorPatientMap.set(doctor.id, patientsList);
+                            
+                            const patientsData = patientsSnapshot.val();
                             
                             // Process each patient
-                            for (const [patientId, patientInfo] of Object.entries(patientsList)) {
+                            for (const [patientId, patientInfo] of Object.entries(patientsData)) {
                                 // Find patient in patients array or create a new one if not found
                                 let patient = patients.find(p => p.id === patientId);
                                 
@@ -2708,11 +2709,8 @@
                                     patient.quizCount = countQuizzes(patient.quizData);
                                 }
                                 
-                                doctorPatients.push(patient);
+                                patientsList.push(patient);
                             }
-                            
-                            // Update doctor-patient map
-                            doctorPatientMap.set(doctor.id, doctorPatients);
                         }
                     } catch (error) {
                         console.warn(`Could not access patients for doctor ${doctor.id}:`, error);
