@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Memory Matching Game</title>
     <style>
         body {
@@ -24,6 +24,7 @@
             text-align: center;
             max-width: 1000px;
             width: 95%;
+            margin: 0 auto;
         }
 
         .header {
@@ -97,6 +98,7 @@
             padding: 15px;
             justify-content: center;
             margin: 0 auto 20px auto;
+            max-width: 100%;
         }
 
         .memory-image {
@@ -106,6 +108,7 @@
             border: 3px solid #2196F3;
             border-radius: 8px;
             padding: 5px;
+            max-width: 100%;
         }
 
         .timer {
@@ -122,6 +125,7 @@
             padding: 10px;
             justify-content: center;
             margin: 0 auto;
+            max-width: 100%;
         }
 
         .option-image {
@@ -133,6 +137,7 @@
             cursor: pointer;
             transition: transform 0.2s, border-color 0.2s;
             background: white;
+            max-width: 100%;
         }
 
         .option-image:hover {
@@ -394,40 +399,118 @@
         @media (max-width: 768px) {
             .memory-images {
                 grid-template-columns: repeat(3, 1fr);
+                gap: 8px;
+                padding: 10px;
+            }
+            
+            .options-container {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 8px;
             }
             
             .memory-image {
                 width: 80px;
                 height: 80px;
             }
-
-            .options-container {
-                grid-template-columns: repeat(4, 1fr);
-            }
-
+            
             .option-image {
-                width: 60px;
-                height: 60px;
+                width: 65px;
+                height: 65px;
+            }
+            
+            h1 {
+                font-size: 1.3em;
+            }
+            
+            .instructions {
+                font-size: 0.9em;
+            }
+            
+            .timer {
+                font-size: 1.2em;
+            }
+            
+            button {
+                padding: 8px 15px;
+                font-size: 0.9em;
+            }
+            
+            .results-table {
+                font-size: 0.85em;
             }
         }
-
+        
         @media (max-width: 480px) {
             .memory-images {
-                grid-template-columns: repeat(3, 1fr);
+                grid-template-columns: repeat(2, 1fr);
+                gap: 6px;
+            }
+            
+            .options-container {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 6px;
             }
             
             .memory-image {
+                width: 70px;
+                height: 70px;
+            }
+            
+            .option-image {
                 width: 60px;
                 height: 60px;
             }
-
-            .options-container {
-                grid-template-columns: repeat(3, 1fr);
+            
+            .header {
+                flex-direction: column;
+                gap: 10px;
             }
-
+            
+            .game-container {
+                padding: 10px;
+            }
+            
+            .attempt-details {
+                max-height: 150px;
+            }
+            
+            .toggle-button {
+                padding: 3px 8px;
+                font-size: 0.8em;
+            }
+        }
+        
+        /* Add touch-specific styles to improve mobile experience */
+        @media (hover: none) {
+            .option-image:active {
+                transform: scale(1.05);
+                border-color: #2196F3;
+            }
+        }
+        
+        /* Additional responsive adjustments */
+        @media (max-width: 380px) {
+            .memory-image {
+                width: 60px;
+                height: 60px;
+                padding: 3px;
+            }
+            
             .option-image {
                 width: 50px;
                 height: 50px;
+                padding: 3px;
+            }
+            
+            .button-container button {
+                padding: 6px 12px;
+                font-size: 0.85em;
+                margin: 5px;
+            }
+            
+            .feedback {
+                font-size: 18px;
+                padding: 15px 30px;
             }
         }
     </style>
@@ -727,11 +810,17 @@
                 imgElement.dataset.index = index;
                 imgElement.dataset.src = img;
                 
-                imgElement.addEventListener('click', () => {
+                imgElement.addEventListener('click', function() {
                     toggleImageSelection(imgElement, img);
                     if (!firstTapTime) {
                         firstTapTime = (Date.now() - startTime) / 1000;
                     }
+                });
+                
+                imgElement.addEventListener('touchstart', function(e) {
+                    e.preventDefault(); // Prevent default touch behavior
+                    const imgSrc = this.getAttribute('src');
+                    toggleImageSelection(this, imgSrc);
                 });
                 
                 optionsContainer.appendChild(imgElement);
@@ -1088,10 +1177,70 @@
             setTimeout(() => div.remove(), 2000);
         }
 
-        // Event listeners
-        checkButton.addEventListener('click', checkAnswers);
-        startOverButton.addEventListener('click', startNewGame);
+        // Function to initialize touch events
+        function initializeTouchEvents() {
+            const optionImages = document.querySelectorAll('.option-image');
+            optionImages.forEach(img => {
+                // Remove any existing touch listeners first to prevent duplicates
+                img.removeEventListener('touchstart', handleTouch);
+                // Add touch event listener
+                img.addEventListener('touchstart', handleTouch, { passive: false });
+            });
+        }
 
+        // Touch event handler
+        function handleTouch(e) {
+            e.preventDefault(); // Prevent scrolling and other default behaviors
+            const imgSrc = this.getAttribute('src');
+            toggleImageSelection(this, imgSrc);
+            
+            // Track first interaction for metrics
+            if (!firstTapTime) {
+                firstTapTime = (Date.now() - startTime) / 1000;
+            }
+        }
+
+        // Update createOptions function to properly handle touch events
+        function createOptions() {
+            // Shuffle the answers array for random order
+            const shuffledAnswers = [...answers].sort(() => Math.random() - 0.5);
+            const optionsContainer = document.getElementById('optionsContainer');
+            optionsContainer.innerHTML = '';
+
+            // Create option images
+            shuffledAnswers.forEach((img, index) => {
+                const imgElement = document.createElement('img');
+                imgElement.classList.add('option-image');
+                imgElement.src = img;
+                imgElement.alt = 'Option';
+                imgElement.dataset.index = index;
+                imgElement.dataset.src = img;
+                
+                // Add click event for desktop devices
+                imgElement.addEventListener('click', function() {
+                    toggleImageSelection(this, img);
+                    if (!firstTapTime) {
+                        firstTapTime = (Date.now() - startTime) / 1000;
+                    }
+                });
+                
+                optionsContainer.appendChild(imgElement);
+            });
+            
+            // Initialize touch events for mobile
+            initializeTouchEvents();
+            
+            updateFoundCount();
+        }
+        
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            checkButton.addEventListener('click', checkAnswers);
+            startOverButton.addEventListener('click', startNewGame);
+            // Initialize page
+            firebase.auth().onAuthStateChanged(checkUserAuth);
+        });
+        
         // Start the game when the page loads
         window.onload = startNewGame;
     </script>
