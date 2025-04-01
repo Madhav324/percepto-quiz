@@ -21,7 +21,7 @@
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             width: 100%;
             max-width: 600px;
         }
@@ -83,12 +83,15 @@
             border: 2px solid #333;
             margin: auto;
             cursor: grab;
-            transition: transform 0.2s;
+            transition: transform 0.2s, opacity 0.2s;
+            touch-action: none; /* Prevents scrolling on touch devices when dragging */
         }
 
         .bead.dragging {
             opacity: 0.5;
             cursor: grabbing;
+            transform: scale(1.1);
+            z-index: 100;
         }
 
         .empty-bead {
@@ -98,6 +101,11 @@
             border: 2px dashed #666;
             background-color: white;
             margin: auto;
+        }
+
+        .empty-bead.drag-over {
+            background-color: rgba(200, 200, 200, 0.5);
+            transform: scale(1.1);
         }
 
         .options-container {
@@ -158,15 +166,16 @@
             height: 50px;
         }
         
-        /* New styles for header and profile icon */
+        /* Header and profile icon */
         .header {
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 20px;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             width: 100%;
             max-width: 650px;
+            position: relative;
         }
 
         .profile-icon {
@@ -188,20 +197,6 @@
         .profile-icon:hover {
             background-color: #1976D2;
         }
-
-        .profile-icon:hover::after {
-            content: attr(title);
-            position: absolute;
-            top: 100%;
-            right: 0;
-            background: #333;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 4px;
-            font-size: 12px;
-            white-space: nowrap;
-            margin-top: 5px;
-        }
         
         .user-info {
             position: absolute;
@@ -210,6 +205,7 @@
             text-align: right;
             font-size: 14px;
             color: #666;
+            z-index: 5;
         }
         
         .patient-indicator {
@@ -224,7 +220,7 @@
         
         /* Mobile optimization */
         @media (max-width: 600px) {
-            .pattern-container, .statistics-container, .options-container {
+            .pattern-container, .statistics-container {
                 padding: 15px;
                 max-width: 450px;
             }
@@ -234,22 +230,61 @@
                 height: 40px;
             }
             
+            .bead-container {
+                width: 40px;
+                height: 40px;
+            }
+            
             .options-container {
                 gap: 8px;
+                grid-template-columns: repeat(4, 1fr);
             }
             
             .stats-grid {
-                gap: 8px;
+                gap: 5px;
             }
             
             .stat-item {
-                padding: 8px 5px;
+                padding: 5px;
                 font-size: 0.9rem;
             }
             
             button {
                 padding: 8px 15px;
                 font-size: 14px;
+            }
+            
+            .pattern {
+                gap: 5px;
+            }
+            
+            h1 {
+                font-size: 1.5rem;
+            }
+            
+            h2 {
+                font-size: 1.2rem;
+            }
+            
+            .header {
+                margin-bottom: 15px;
+            }
+        }
+        
+        @media (max-width: 400px) {
+            .history-item {
+                flex-direction: column;
+                font-size: 0.9rem;
+            }
+            
+            .bead, .empty-bead {
+                width: 35px;
+                height: 35px;
+            }
+            
+            .bead-container {
+                width: 35px;
+                height: 35px;
             }
         }
     </style>
@@ -347,10 +382,19 @@
         let isDoctor = false;
         let patientUid = null;
         let firstTapTime = null;
+        let isDragging = false;
+        let currentDragBead = null;
 
-        // Check for doctor viewing patient context
-        const urlParams = new URLSearchParams(window.location.search);
-        const patientParam = urlParams.get('patient');
+        // Get quiz context from session storage (aligning with VDT1.html)
+        const currentPatientId = sessionStorage.getItem('currentPatientId');
+        const doctorId = sessionStorage.getItem('doctorId');
+        const isPatientQuiz = !!currentPatientId;
+        
+        console.log('Quiz context in Beads Activity:', { 
+            isPatientQuiz, 
+            currentPatientId: currentPatientId || 'none',
+            doctorId: doctorId || 'none'
+        });
         
         // Game state variables
         let startTime = null;
@@ -365,38 +409,71 @@
         let availableBeads = {};
 
         // Listen for authentication state changes
-        onAuthStateChanged(auth, (user) => {
+        onAuthStateChanged(auth, async (user) => {
             if (user) {
                 currentUser = user;
                 
-                // Set up the profile icon with user's initials
-                const displayName = user.displayName || user.email.split('@')[0];
-                const initial = displayName.charAt(0).toUpperCase();
-                document.getElementById('profileIcon').textContent = initial;
-                
-                // Check if user is a doctor
-                const userTypeRef = ref(db, `users/${user.uid}/userType`);
-                onValue(userTypeRef, (snapshot) => {
-                    isDoctor = snapshot.val() === 'doctor';
+                try {
+                    // Check if user is a doctor (aligning with VDT1.html)
+                    if (!isPatientQuiz) {
+                        const roleSnapshot = await get(ref(db, `roles/${user.uid}`));
+                        const role = roleSnapshot.val();
+                        
+                        if (role === 'doctor') {
+                            console.log('Doctor detected without patient context');
+                            // Redirect doctors without patient context back to index
+                            alert('Please select a patient first to administer the activity.');
+                            window.location.href = 'index.html';
+                            return;
+                        }
+                    }
                     
-                    if (isDoctor && patientParam) {
-                        patientUid = patientParam;
-                        // Get patient's display name
-                        const patientRef = ref(db, `users/${patientParam}/displayName`);
-                        onValue(patientRef, (snapshot) => {
-                            const patientName = snapshot.val() || 'Patient';
-                            document.getElementById('userInfo').innerHTML = `Viewing: ${patientName} <span class="patient-indicator">Patient</span>`;
-                        });
+                    // Set up the profile icon with user's initials
+                    let displayName = user.displayName || user.email.split('@')[0];
+                    let initial = displayName.charAt(0).toUpperCase();
+                    
+                    // Load appropriate profile info
+                    if (isPatientQuiz) {
+                        // Doctor viewing patient
+                        console.log(`Loading patient profile: ${currentPatientId}`);
+                        const patientSnapshot = await get(ref(db, `doctors/${doctorId}/patients/${currentPatientId}/profile`));
+                        const profile = patientSnapshot.val();
+                        
+                        if (profile && profile.name) {
+                            displayName = profile.name;
+                            initial = profile.name.charAt(0).toUpperCase();
+                        }
+                        
+                        // Set patient indicator
+                        document.getElementById('userInfo').innerHTML = `Viewing: ${displayName} <span class="patient-indicator">Patient</span>`;
+                        
+                        // Use the patient's ID for data paths
+                        patientUid = currentPatientId;
+                        isDoctor = true;
                     } else {
+                        // Regular user
+                        console.log('Loading user profile');
+                        const userSnapshot = await get(ref(db, `users/${user.uid}/profile`));
+                        const profile = userSnapshot.val();
+                        
+                        if (profile && profile.name) {
+                            displayName = profile.name;
+                            initial = profile.name.charAt(0).toUpperCase();
+                        }
+                        
                         document.getElementById('userInfo').textContent = `Welcome, ${displayName}`;
                     }
                     
+                    document.getElementById('profileIcon').textContent = initial;
+                    
+                    // Start the game
+                    initializeGame();
+                    
                     // Load history for the appropriate user
                     loadHistory();
-                });
-                
-                // Start the game
-                initializeGame();
+                } catch (error) {
+                    console.error("Error setting up user:", error);
+                }
             } else {
                 // Redirect to login if not authenticated
                 window.location.href = 'login.html';
@@ -405,7 +482,7 @@
 
         // Track first tap time
         document.addEventListener('click', () => {
-            if (firstTapTime === null) {
+            if (firstTapTime === null && startTime !== null) {
                 firstTapTime = Date.now() - startTime;
             }
             totalTaps++;
@@ -427,13 +504,15 @@
             
             const timestamp = Date.now();
             
-            // Determine the correct path based on user role
+            // Determine the correct path based on user role (aligning with VDT1.html)
             let dbPath = '';
-            if (isDoctor && patientUid) {
-                dbPath = `userActivities/${patientUid}/beadsActivity/${timestamp}`;
+            if (isPatientQuiz) {
+                dbPath = `doctors/${doctorId}/patients/${currentPatientId}/activities/beadsActivity/${timestamp}`;
             } else {
-                dbPath = `userActivities/${currentUser.uid}/beadsActivity/${timestamp}`;
+                dbPath = `users/${currentUser.uid}/activities/beadsActivity/${timestamp}`;
             }
+            
+            console.log(`Saving attempt to: ${dbPath}`);
             
             const attemptRef = ref(db, dbPath);
             const attemptData = {
@@ -460,13 +539,15 @@
         function loadHistory() {
             if (!currentUser) return;
             
-            // Determine the correct path based on user role
+            // Determine the correct path based on user role (aligning with VDT1.html)
             let dbPath = '';
-            if (isDoctor && patientUid) {
-                dbPath = `userActivities/${patientUid}/beadsActivity`;
+            if (isPatientQuiz) {
+                dbPath = `doctors/${doctorId}/patients/${currentPatientId}/activities/beadsActivity`;
             } else {
-                dbPath = `userActivities/${currentUser.uid}/beadsActivity`;
+                dbPath = `users/${currentUser.uid}/activities/beadsActivity`;
             }
+            
+            console.log(`Loading history from: ${dbPath}`);
             
             const attemptsRef = ref(db, dbPath);
             const recentAttemptsQuery = query(attemptsRef, orderByChild('timestamp'), limitToLast(10));
@@ -585,9 +666,10 @@
             document.getElementById('total-taps').textContent = totalTaps;
             document.getElementById('attempts').textContent = attempts;
             document.getElementById('session-total-moves').textContent = totalMoves;
-            document.getElementById('session-incorrect-moves').textContent = totalMoves;
+            document.getElementById('session-incorrect-moves').textContent = incorrectMoves;
             document.getElementById('session-total-taps').textContent = totalTaps;
             document.getElementById('session-attempts').textContent = attempts;
+            document.getElementById('feedback').textContent = '';
             
             // Initialize beads
             initializeAvailableBeads();
@@ -602,8 +684,18 @@
             updateOptions();
             
             // Set up buttons
-            document.getElementById('check-button').addEventListener('click', checkPattern);
-            document.getElementById('reset-button').addEventListener('click', initializeGame);
+            const checkButton = document.getElementById('check-button');
+            const resetButton = document.getElementById('reset-button');
+            
+            // Remove existing event listeners if any
+            const newCheckButton = checkButton.cloneNode(true);
+            const newResetButton = resetButton.cloneNode(true);
+            checkButton.parentNode.replaceChild(newCheckButton, checkButton);
+            resetButton.parentNode.replaceChild(newResetButton, resetButton);
+            
+            // Add new event listeners
+            newCheckButton.addEventListener('click', checkPattern);
+            newResetButton.addEventListener('click', initializeGame);
             
             // Start timer
             startTimer();
@@ -635,11 +727,20 @@
                 emptyBead.className = 'empty-bead';
                 emptyBead.dataset.position = i;
                 
+                // Add drag-and-drop event listeners
+                emptyBead.addEventListener('dragover', handleDragOver);
+                emptyBead.addEventListener('dragenter', handleDragEnter);
+                emptyBead.addEventListener('dragleave', handleDragLeave);
+                emptyBead.addEventListener('drop', handleDrop);
+                
+                // Add touch event listeners for mobile
+                emptyBead.addEventListener('touchstart', handleTouchStart, { passive: false });
+                emptyBead.addEventListener('touchmove', handleTouchMove, { passive: false });
+                emptyBead.addEventListener('touchend', handleTouchEnd, { passive: false });
+                
                 slot.appendChild(emptyBead);
                 patternContainer.appendChild(slot);
             }
-            
-            updateOptions();
         }
 
         function updateOptions() {
@@ -667,83 +768,232 @@
                 bead.style.backgroundColor = color;
                 bead.dataset.color = color;
                 
+                // Make the bead draggable (for desktop)
+                bead.draggable = true;
+                bead.addEventListener('dragstart', handleDragStart);
+                bead.addEventListener('dragend', handleDragEnd);
+                
+                // Touch events for mobile drag
+                bead.addEventListener('touchstart', handleBeadTouchStart, { passive: false });
+                bead.addEventListener('touchmove', handleBeadTouchMove, { passive: false });
+                bead.addEventListener('touchend', handleBeadTouchEnd, { passive: false });
+                
+                // Also allow click placement for mobile and desktop
                 bead.addEventListener('click', function() {
-                    if (nextPosition < 12 && availableBeads[color] > 0) {
-                        currentSequence[nextPosition] = color;
-                        availableBeads[color]--;
-                        
-                        const slots = document.querySelectorAll('.empty-bead');
-                        const slot = slots[nextPosition];
-                        
-                        // Replace empty slot with colored bead
-                        const container = slot.parentElement;
-                        container.removeChild(slot);
-                        
-                        const newBead = document.createElement('div');
-                        newBead.className = 'bead';
-                        newBead.style.backgroundColor = color;
-                        newBead.dataset.position = nextPosition;
-                        
-                        // Add removal functionality
-                        newBead.addEventListener('click', function() {
-                            const position = parseInt(this.dataset.position);
-                            const beadColor = currentSequence[position];
-                            
-                            if (beadColor) {
-                                // Return the bead to available
-                                availableBeads[beadColor]++;
-                                currentSequence[position] = null;
-                                
-                                // Replace with empty slot
-                                const emptyBead = document.createElement('div');
-                                emptyBead.className = 'empty-bead';
-                                emptyBead.dataset.position = position;
-                                
-                                const parent = this.parentElement;
-                                parent.removeChild(this);
-                                parent.appendChild(emptyBead);
-                                
-                                // Recalculate next position
-                                for (let i = 0; i < 12; i++) {
-                                    if (currentSequence[i] === null) {
-                                        nextPosition = i;
-                                        break;
-                                    }
-                                }
-                                
-                                updateOptions();
-                                totalMoves++;
-                                updateOptionsDisplay();
-                            }
-                        });
-                        
-                        container.appendChild(newBead);
-                        
-                        // Update next position
-                        nextPosition++;
-                        while (nextPosition < 12 && currentSequence[nextPosition] !== null) {
-                            nextPosition++;
-                        }
-                        
-                        updateOptions();
-                        totalMoves++;
-                        updateOptionsDisplay();
-                    } else if (availableBeads[color] === 0) {
-                        showFeedback('No more ' + color + ' beads available!', 'red');
-                        incorrectMoves++;
-                        updateOptionsDisplay();
-                    } else {
-                        showFeedback('Pattern is full!', 'red');
-                        incorrectMoves++;
-                        updateOptionsDisplay();
-                    }
+                    handleBeadClick(this);
                 });
                 
                 optionsContainer.appendChild(bead);
             });
         }
+        
+        // Drag and drop handlers (desktop)
+        function handleDragStart(e) {
+            this.classList.add('dragging');
+            e.dataTransfer.setData('text/plain', this.dataset.color);
+            currentDragBead = this;
+        }
+        
+        function handleDragEnd(e) {
+            this.classList.remove('dragging');
+            currentDragBead = null;
+        }
+        
+        function handleDragOver(e) {
+            e.preventDefault(); // Allow drop
+        }
+        
+        function handleDragEnter(e) {
+            e.preventDefault();
+            this.classList.add('drag-over');
+        }
+        
+        function handleDragLeave(e) {
+            this.classList.remove('drag-over');
+        }
+        
+        function handleDrop(e) {
+            e.preventDefault();
+            this.classList.remove('drag-over');
+            
+            const color = e.dataTransfer.getData('text/plain');
+            const position = parseInt(this.dataset.position);
+            
+            placeBead(color, position, this);
+        }
+        
+        // Touch events for beads (mobile)
+        function handleBeadTouchStart(e) {
+            e.preventDefault();
+            isDragging = true;
+            currentDragBead = this;
+            this.classList.add('dragging');
+        }
+        
+        function handleBeadTouchMove(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+            
+            const touch = e.touches[0];
+            // Move the bead visually if needed
+            // For now we'll just rely on the browser's visual feedback
+        }
+        
+        function handleBeadTouchEnd(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+            
+            isDragging = false;
+            this.classList.remove('dragging');
+            
+            const touch = e.changedTouches[0];
+            const dropTarget = document.elementFromPoint(touch.clientX, touch.clientY);
+            
+            if (dropTarget && dropTarget.classList.contains('empty-bead')) {
+                const color = this.dataset.color;
+                const position = parseInt(dropTarget.dataset.position);
+                
+                placeBead(color, position, dropTarget);
+            }
+            
+            currentDragBead = null;
+        }
+        
+        // Touch events for drop targets (mobile)
+        function handleTouchStart(e) {
+            // Just used to track which element is being touched
+        }
+        
+        function handleTouchMove(e) {
+            e.preventDefault(); // Prevent scrolling while dragging
+        }
+        
+        function handleTouchEnd(e) {
+            if (currentDragBead && isDragging) {
+                const color = currentDragBead.dataset.color;
+                const position = parseInt(this.dataset.position);
+                
+                placeBead(color, position, this);
+                
+                isDragging = false;
+                currentDragBead.classList.remove('dragging');
+                currentDragBead = null;
+            }
+        }
+        
+        // Handle click placement (alternative method)
+        function handleBeadClick(bead) {
+            if (nextPosition < 12 && availableBeads[bead.dataset.color] > 0) {
+                const emptyBeads = document.querySelectorAll('.empty-bead');
+                if (emptyBeads.length > 0) {
+                    const targetBead = emptyBeads[0]; // Get the first empty spot
+                    const position = parseInt(targetBead.dataset.position);
+                    placeBead(bead.dataset.color, position, targetBead);
+                }
+            } else if (availableBeads[bead.dataset.color] === 0) {
+                showFeedback('No more ' + bead.dataset.color + ' beads available!', 'red');
+                incorrectMoves++;
+                updateOptionsDisplay();
+            } else {
+                showFeedback('Pattern is full!', 'red');
+                incorrectMoves++;
+                updateOptionsDisplay();
+            }
+        }
+        
+        // Function to place a bead (used by all placement methods)
+        function placeBead(color, position, targetElement) {
+            // Check if we're trying to place at the right position
+            if (position !== nextPosition) {
+                showFeedback('Please fill the pattern in order!', 'red');
+                incorrectMoves++;
+                updateOptionsDisplay();
+                return;
+            }
+            
+            // Check if we have beads of this color available
+            if (availableBeads[color] <= 0) {
+                showFeedback('No more ' + color + ' beads available!', 'red');
+                incorrectMoves++;
+                updateOptionsDisplay();
+                return;
+            }
+            
+            // Update game state
+            currentSequence[position] = color;
+            availableBeads[color]--;
+            
+            // Update UI
+            const container = targetElement.parentElement;
+            container.removeChild(targetElement);
+            
+            // Create the new colored bead
+            const newBead = document.createElement('div');
+            newBead.className = 'bead';
+            newBead.style.backgroundColor = color;
+            newBead.dataset.position = position;
+            
+            // Allow removing the bead
+            newBead.addEventListener('click', function() {
+                // Return the bead to available
+                const beadPosition = parseInt(this.dataset.position);
+                const beadColor = currentSequence[beadPosition];
+                
+                if (beadColor) {
+                    availableBeads[beadColor]++;
+                    currentSequence[beadPosition] = null;
+                    
+                    // Replace with empty bead
+                    const emptyBead = document.createElement('div');
+                    emptyBead.className = 'empty-bead';
+                    emptyBead.dataset.position = beadPosition;
+                    
+                    // Add event listeners to the new empty bead
+                    emptyBead.addEventListener('dragover', handleDragOver);
+                    emptyBead.addEventListener('dragenter', handleDragEnter);
+                    emptyBead.addEventListener('dragleave', handleDragLeave);
+                    emptyBead.addEventListener('drop', handleDrop);
+                    emptyBead.addEventListener('touchstart', handleTouchStart, { passive: false });
+                    emptyBead.addEventListener('touchmove', handleTouchMove, { passive: false });
+                    emptyBead.addEventListener('touchend', handleTouchEnd, { passive: false });
+                    
+                    const parent = this.parentElement;
+                    parent.removeChild(this);
+                    parent.appendChild(emptyBead);
+                    
+                    // Update next position
+                    recalculateNextPosition();
+                    
+                    // Update available options
+                    updateOptions();
+                    totalMoves++;
+                    updateOptionsDisplay();
+                }
+            });
+            
+            container.appendChild(newBead);
+            
+            // Move to the next position
+            nextPosition++;
+            
+            // Update options and stats
+            updateOptions();
+            totalMoves++;
+            updateOptionsDisplay();
+        }
+        
+        // Recalculate which position should be filled next
+        function recalculateNextPosition() {
+            for (let i = 0; i < 12; i++) {
+                if (currentSequence[i] === null) {
+                    nextPosition = i;
+                    return;
+                }
+            }
+            nextPosition = 12; // All positions filled
+        }
 
-        // Initialize the game on load
+        // Initialize the game on load if user is already authenticated
         if (auth.currentUser) {
             initializeGame();
         }
