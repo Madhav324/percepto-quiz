@@ -157,6 +157,7 @@
             transition: all 0.15s ease-out;
             transform-origin: center top;
             margin-bottom: 0;
+            touch-action: none; /* Prevent browser handling of touch events */
         }
 
         .option img {
@@ -557,6 +558,13 @@
             let firstDragOccurred = false;
             const totalGrids = gridItems.length;
 
+            // Touch event variables
+            let touchDragging = false;
+            let touchDragElement = null;
+            let touchDragStartX, touchDragStartY;
+            let touchDragOffsetX, touchDragOffsetY;
+            let ghostElement = null;
+
             // Track first drag start
             document.addEventListener('dragstart', () => {
                 totalTaps++;
@@ -570,6 +578,12 @@
             options.forEach(option => {
                 option.addEventListener('dragstart', dragStart);
                 option.addEventListener('dragend', dragEnd);
+                
+                // Add touch events for mobile
+                option.addEventListener('touchstart', touchStart, { passive: false });
+                option.addEventListener('touchmove', touchMove, { passive: false });
+                option.addEventListener('touchend', touchEnd);
+                option.addEventListener('touchcancel', touchEnd);
             });
 
             gridItems.forEach(gridItem => {
@@ -595,51 +609,140 @@
                 e.preventDefault();
                 const draggedId = e.dataTransfer.getData('text');
                 const draggedElement = document.getElementById(draggedId);
-                const draggedParent = draggedElement.parentElement;
-                const gridItem = e.target.closest('.grid-item');
-
-                if (gridItem && !gridItem.querySelector('img')) {
-                    const correctAnswer = gridItem.getAttribute('data-answer');
-                    const draggedAnswer = draggedId.replace('drag', '');
-
-                    if (correctAnswer === draggedAnswer) {
-                        // Create a new image element for the grid
-                        const newImg = document.createElement('img');
-                        newImg.src = draggedElement.src;
-                        newImg.alt = draggedElement.alt;
-                        
-                        // Add the new image to the grid
-                        gridItem.appendChild(newImg);
-                        
-                        // Animate the option moving up
-                        draggedParent.classList.add('moving-up');
-                        
-                        setTimeout(() => {
-                            // Hide the original option container
-                            draggedParent.classList.add('hidden');
-                            
-                            // Rearrange remaining options with animation
-                            rearrangeOptions();
-                        }, 300);
-                        
-                        feedback.textContent = "Correct placement!";
-                        feedback.style.color = "green";
-                        
-                        filledGrids++;
-                        
-                        // If all grids are filled, automatically finalize results
-                        if (filledGrids === totalGrids) {
-                            finalizeResults();
-                        }
-                    } else {
-                        totalIncorrectAttempts++;
-                        feedback.textContent = "Incorrect placement. Try again!";
-                        feedback.style.color = "red";
-                    }
-                    
-                    // Update total taps display
-                    document.getElementById('total-taps').textContent = totalTaps;
+                handleDrop(draggedElement, e.target);
+            }
+            
+            // Touch event handlers
+            function touchStart(e) {
+                e.preventDefault();
+                if (!startTime) startTime = Date.now();
+                
+                // Record first interaction time
+                totalTaps++;
+                if (!firstDragOccurred) {
+                    firstDragOccurred = true;
+                    firstTapTime = (Date.now() - totalStartTime) / 1000;
+                    document.getElementById('first-tap').textContent = firstTapTime.toFixed(2);
                 }
+                
+                // Get touch coordinates
+                const touch = e.touches[0];
+                const target = e.target.closest('.option');
+                if (!target) return;
+                
+                if (target.classList.contains('hidden') || target.classList.contains('moving-up')) {
+                    return;
+                }
+                
+                touchDragging = true;
+                touchDragElement = target;
+                
+                // Calculate offset from touch point to element's top-left corner
+                const rect = target.getBoundingClientRect();
+                touchDragOffsetX = touch.clientX - rect.left;
+                touchDragOffsetY = touch.clientY - rect.top;
+                touchDragStartX = touch.clientX;
+                touchDragStartY = touch.clientY;
+                
+                // Create ghost element for visual feedback
+                ghostElement = target.cloneNode(true);
+                ghostElement.id = 'ghost-' + target.id;
+                ghostElement.style.position = 'fixed';
+                ghostElement.style.left = rect.left + 'px';
+                ghostElement.style.top = rect.top + 'px';
+                ghostElement.style.width = rect.width + 'px';
+                ghostElement.style.height = rect.height + 'px';
+                ghostElement.style.opacity = '0.8';
+                ghostElement.style.zIndex = '1000';
+                ghostElement.style.pointerEvents = 'none';
+                document.body.appendChild(ghostElement);
+                
+                // Apply subtle highlight to original element
+                target.style.opacity = '0.4';
+            }
+
+            function touchMove(e) {
+                if (!touchDragging || !touchDragElement || !ghostElement) return;
+                e.preventDefault();
+                
+                const touch = e.touches[0];
+                
+                // Move ghost element
+                ghostElement.style.left = (touch.clientX - touchDragOffsetX) + 'px';
+                ghostElement.style.top = (touch.clientY - touchDragOffsetY) + 'px';
+            }
+
+            function touchEnd(e) {
+                if (!touchDragging || !touchDragElement || !ghostElement) return;
+                e.preventDefault();
+                
+                // Remove ghost element
+                document.body.removeChild(ghostElement);
+                ghostElement = null;
+                
+                // Reset original element
+                touchDragElement.style.opacity = '1';
+                
+                // Find the grid item underneath
+                const touch = e.changedTouches ? e.changedTouches[0] : null;
+                if (touch) {
+                    const elementAtPoint = document.elementFromPoint(touch.clientX, touch.clientY);
+                    if (elementAtPoint) {
+                        handleDrop(touchDragElement, elementAtPoint);
+                    }
+                }
+                
+                touchDragging = false;
+                touchDragElement = null;
+            }
+            
+            // Common function to handle both touch and mouse drop
+            function handleDrop(draggedElement, targetElement) {
+                const gridItem = targetElement.closest('.grid-item');
+                if (!gridItem || gridItem.querySelector('img')) return;
+                
+                const correctAnswer = gridItem.getAttribute('data-answer');
+                const draggedId = draggedElement.id;
+                const draggedAnswer = draggedId.replace('drag', '');
+                const draggedParent = draggedElement.parentElement;
+                
+                if (correctAnswer === draggedAnswer) {
+                    // Create a new image element for the grid
+                    const newImg = document.createElement('img');
+                    newImg.src = draggedElement.querySelector('img').src;
+                    newImg.alt = draggedElement.querySelector('img').alt;
+                    
+                    // Add the new image to the grid
+                    gridItem.appendChild(newImg);
+                    
+                    // Animate the option moving up
+                    draggedParent.classList.add('moving-up');
+                    
+                    setTimeout(() => {
+                        // Hide the original option container
+                        draggedParent.classList.add('hidden');
+                        
+                        // Rearrange remaining options with animation
+                        rearrangeOptions();
+                    }, 300);
+                    
+                    feedback.textContent = "Correct placement!";
+                    feedback.style.color = "green";
+                    
+                    filledGrids++;
+                    
+                    // If all grids are filled, automatically finalize results
+                    if (filledGrids === totalGrids) {
+                        finalizeResults();
+                    }
+                } else {
+                    totalIncorrectAttempts++;
+                    feedback.textContent = "Incorrect placement. Try again!";
+                    feedback.style.color = "red";
+                }
+                
+                // Update total taps display
+                document.getElementById('total-taps').textContent = totalTaps;
             }
 
             // Function to finalize results
