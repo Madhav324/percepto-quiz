@@ -406,14 +406,14 @@
             
             .options-container {
                 grid-template-columns: repeat(4, 1fr);
-                gap: 5px;
+                gap: 3px;
                 padding: 5px;
                 margin-top: 10px;
             }
             
             .option-image {
-                width: 45px;
-                height: 45px;
+                width: 50px;
+                height: 50px;
                 padding: 1px;
                 border-width: 1px;
             }
@@ -617,7 +617,8 @@
         let startTime;
         let totalStartTime = Date.now();
         let totalTaps = 0;
-        let firstTapTime;
+        let firstTapTime = null;
+        let firstOptionSelected = false; // Track first option selection
         let score = 0;
         let incorrectAnswers = 0;
         let isPromptsOpen = false; // Track if prompts are open
@@ -707,10 +708,13 @@
             // Count taps when an answer option is selected
             answerTaps++;
             
-            totalTaps++;
-            if (totalTaps === 1) {
+            // Record first tap time on the first option selection
+            if (!firstOptionSelected) {
                 firstTapTime = (Date.now() - totalStartTime) / 1000;
+                firstOptionSelected = true;
             }
+            
+            totalTaps++;
             
             if (selectedImage === currentQuestion) {
                 showFeedback(true);
@@ -743,6 +747,8 @@
             gameStarted = false;
             isPromptsOpen = false;
             answerTaps = 0;
+            firstOptionSelected = false; // Reset first option selected flag
+            firstTapTime = null; // Reset first tap time
             selectRandomQuestion();
             questionImage.style.display = 'block';
             optionsContainer.style.display = 'none';
@@ -754,6 +760,7 @@
             optionsContainer.style.display = 'grid';
             totalStartTime = Date.now(); // Reset start time when options are shown
             gameStarted = true;          // Mark game as started
+            firstOptionSelected = false; // Reset first option selected flag
             displayOptions();
         }
 
@@ -1038,9 +1045,6 @@
             if (!gameStarted) return;
             
             totalTaps++;
-            if (totalTaps === 1) {
-                firstTapTime = (Date.now() - totalStartTime) / 1000;
-            }
         });
     </script>
 </body>
