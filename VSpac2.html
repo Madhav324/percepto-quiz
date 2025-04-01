@@ -70,73 +70,171 @@
 
         .game-area {
             position: relative;
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            grid-template-rows: 1fr 1fr 1fr;
-            grid-template-areas:
-                "top-left top top-right"
-                "left center right"
-                "bottom-left bottom bottom-right";
-            gap: 5px;
-            width: 280px;
-            height: 280px;
-            margin: 0 auto;
-            background-color: #f3f3f3;
-            border-radius: 10px;
-            padding: 10px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+            height: 350px;
+            margin: 10px auto;
+            border: 2px solid #4CAF50;
+            border-radius: 8px;
+            overflow: hidden;
+            background-color: #f9f9f9;
+        }
+
+        #center-image {
+            width: 70px;
+            height: 70px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 2;
+        }
+
+        .plate-image {
+            position: absolute;
+            width: 90px;
+            height: 50px;
+            z-index: 1;
+        }
+
+        #plate-left {
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        #plate-right {
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        #plate-top {
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        #plate-bottom {
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
         }
 
         .drop-area {
+            position: absolute;
+            z-index: 2;
             display: flex;
             justify-content: center;
             align-items: center;
-            flex-wrap: wrap;
-            background-color: rgba(255, 255, 255, 0.7);
-            border-radius: 5px;
-            min-height: 80px;
-            transition: background-color 0.3s;
         }
 
-        /* Ensure images stay within the plate boundaries */
-        .drop-area img {
-            max-width: 90%;
-            max-height: 90%;
-            object-fit: contain;
-            margin: 2px;
+        #left-area {
+            left: 0;
+            top: 100px;
+            width: 100px;
+            height: 200px;
         }
 
-        .drag-over {
-            background-color: rgba(200, 230, 255, 0.9);
+        #right-area {
+            right: 0;
+            top: 100px;
+            width: 100px;
+            height: 200px;
         }
 
-        .top-area { grid-area: top; }
-        .right-area { grid-area: right; }
-        .bottom-area { grid-area: bottom; }
-        .left-area { grid-area: left; }
-        .center-area { grid-area: center; }
-        .top-left-area { grid-area: top-left; }
-        .top-right-area { grid-area: top-right; }
-        .bottom-left-area { grid-area: bottom-left; }
-        .bottom-right-area { grid-area: bottom-right; }
+        #top-area {
+            top: 0;
+            left: 100px;
+            width: 200px;
+            height: 100px;
+        }
 
-        .game-container {
-            position: relative;
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            grid-template-rows: 1fr 1fr 1fr;
-            grid-template-areas:
-                "top-left top top-right"
-                "left center right"
-                "bottom-left bottom bottom-right";
-            gap: 5px;
-            width: 280px;
-            height: 280px;
-            margin: 0 auto;
-            background-color: #f3f3f3;
+        #bottom-area {
+            bottom: 0;
+            left: 100px;
+            width: 200px;
+            height: 100px;
+        }
+
+        .placed-image {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            z-index: 3;
+            transform: translate(-50%, -50%);
+        }
+
+        @media (max-width: 768px) {
+            .placed-image {
+                width: 30px;
+                height: 30px;
+            }
+        }
+
+        #plate-left, #plate-right, #plate-top, #plate-bottom {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            background-color: rgba(200, 200, 200, 0.3);
             border-radius: 10px;
-            padding: 10px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            z-index: 1;
+        }
+
+        @media (max-width: 768px) {
+            #plate-left, #plate-right, #plate-top, #plate-bottom {
+                width: 60px;
+                height: 60px;
+            }
+        }
+
+        #plate-left {
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        #plate-right {
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        #plate-top {
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        #plate-bottom {
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .placement-feedback {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(255, 50, 50, 0.8);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-weight: bold;
+            z-index: 10;
+            display: none;
+            animation: fadeIn 0.3s, fadeOut 0.3s 1s forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
         }
 
         .draggable {
@@ -412,19 +510,12 @@
         <div class="instruction" id="instruction"></div>
         
         <div class="game-area">
-            <div class="game-container">
-                <div class="drop-area top-left-area" data-area="top-left" ondragover="allowDrop(event)" ondrop="drop(event)" ontouchstart="touchAllowDrop(event)"></div>
-                <div class="drop-area top-area" data-area="top" ondragover="allowDrop(event)" ondrop="drop(event)" ontouchstart="touchAllowDrop(event)"></div>
-                <div class="drop-area top-right-area" data-area="top-right" ondragover="allowDrop(event)" ondrop="drop(event)" ontouchstart="touchAllowDrop(event)"></div>
-                <div class="drop-area left-area" data-area="left" ondragover="allowDrop(event)" ondrop="drop(event)" ontouchstart="touchAllowDrop(event)"></div>
-                <div class="drop-area center-area" data-area="center" ondragover="allowDrop(event)" ondrop="drop(event)" ontouchstart="touchAllowDrop(event)">
-                    <img id="center-image" src="" alt="Center Image">
-                </div>
-                <div class="drop-area right-area" data-area="right" ondragover="allowDrop(event)" ondrop="drop(event)" ontouchstart="touchAllowDrop(event)"></div>
-                <div class="drop-area bottom-left-area" data-area="bottom-left" ondragover="allowDrop(event)" ondrop="drop(event)" ontouchstart="touchAllowDrop(event)"></div>
-                <div class="drop-area bottom-area" data-area="bottom" ondragover="allowDrop(event)" ondrop="drop(event)" ontouchstart="touchAllowDrop(event)"></div>
-                <div class="drop-area bottom-right-area" data-area="bottom-right" ondragover="allowDrop(event)" ondrop="drop(event)" ontouchstart="touchAllowDrop(event)"></div>
-            </div>
+            <div id="plate-left" class="drop-area" data-area="left"></div>
+            <div id="plate-right" class="drop-area" data-area="right"></div>
+            <div id="plate-top" class="drop-area" data-area="top"></div>
+            <div id="plate-bottom" class="drop-area" data-area="bottom"></div>
+            <img src="" id="center-image" />
+            <div class="placement-feedback" id="placement-feedback">Incorrect Placement!</div>
         </div>
         
         <div class="options-container" id="options-container"></div>
@@ -440,6 +531,21 @@
         <h2>All Quiz Attempts</h2>
         <ul id="report-list"></ul>
         <button id="clear-report" onclick="clearReport()">Clear Report</button>
+    </div>
+
+    <div id="result-container">
+        <h2>Quiz Results</h2>
+        <ul style="list-style: none; padding: 0;">
+            <li><strong>Score:</strong> <span id="score"></span></li>
+            <li><strong>Total Time:</strong> <span id="total-time"></span> seconds</li>
+            <li><strong>Average Time:</strong> <span id="avg-time"></span> seconds</li>
+            <li><strong>First Tap Time:</strong> <span id="first-tap"></span> seconds</li>
+            <li><strong>Total Taps:</strong> <span id="total-taps"></span></li>
+            <li><strong>Total Correct Answers:</strong> <span id="total-correct"></span></li>
+            <li><strong>Total Incorrect Answers:</strong> <span id="total-incorrect"></span></li>
+        </ul>
+        <button onclick="reloadRandomQuestion()">Try Again</button>
+        <a href="index.html" style="text-decoration: none;"><button>Return Home</button></a>
     </div>
 
     <!-- Firebase App (the core Firebase SDK) -->
@@ -520,73 +626,80 @@
         let currentTouchId = null;
         let touchStartX = 0;
         let touchStartY = 0;
-        let userInteractionStarted = false; // Track if user has started interacting
+        let interactionStarted = false;
 
-        // Initialize quiz on load
-        window.onload = function() {
-            // Set up quiz
-            totalStartTime = Date.now();
-            initializeQuiz();
-            
-            // Hide retry button initially
-            document.getElementById('retry-button').style.display = 'none';
-            
-            // Set up global click listener for tap counting
-            document.addEventListener('click', function(e) {
-                // Don't count taps on report section or during result viewing
-                const reportContainer = document.getElementById('report-container');
-                const resultContainer = document.getElementById('result-container');
+        // Auth state observer
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                console.log('User authenticated in VSpac2:', user.uid);
                 
-                if (!reportContainer.contains(e.target) && !resultContainer.contains(e.target)) {
-                    // Count only interactive elements (draggable items, buttons)
-                    const isInteractiveElement = 
-                        e.target.classList.contains('draggable') || 
-                        e.target.tagName === 'BUTTON' ||
-                        e.target.closest('.drop-area');
-                    
-                    if (isInteractiveElement) {
-                        totalTaps++;
+                try {
+                    // Check if user is a doctor
+                    if (!isPatientQuiz) {
+                        const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                        const role = roleSnapshot.val();
                         
-                        // Track first meaningful interaction time (first tap)
-                        if (!userInteractionStarted) {
-                            userInteractionStarted = true;
-                            const interactionTime = (Date.now() - totalStartTime) / 1000;
-                            if (firstPlacementTime === null) {
-                                firstPlacementTime = interactionTime;
-                            }
+                        if (role === 'doctor') {
+                            console.log('Doctor detected without patient context, redirecting');
+                            // Redirect doctors without patient context back to index
+                            alert('Please select a patient first to administer the quiz.');
+                            window.location.href = 'index.html';
+                            return;
                         }
                     }
-                }
-            });
-            
-            // Set up touch events for tap counting
-            document.addEventListener('touchstart', function(e) {
-                // Don't count taps on report section
-                const reportContainer = document.getElementById('report-container');
-                const resultContainer = document.getElementById('result-container');
-                
-                if (!reportContainer.contains(e.target) && !resultContainer.contains(e.target)) {
-                    // Count only interactive elements (draggable items, buttons)
-                    const isInteractiveElement = 
-                        e.target.classList.contains('draggable') || 
-                        e.target.tagName === 'BUTTON' ||
-                        e.target.closest('.drop-area');
                     
-                    if (isInteractiveElement) {
-                        totalTaps++;
-                        
-                        // Track first meaningful interaction time (first tap)
-                        if (!userInteractionStarted) {
-                            userInteractionStarted = true;
-                            const interactionTime = (Date.now() - totalStartTime) / 1000;
-                            if (firstPlacementTime === null) {
-                                firstPlacementTime = interactionTime;
-                            }
-                        }
+                    // Load user profile
+                    let profile;
+                    if (isPatientQuiz) {
+                        // Doctor viewing patient
+                        console.log(`Loading patient profile in VSpac2: ${currentPatientId}`);
+                        const patientSnapshot = await database.ref(`doctors/${doctorId}/patients/${currentPatientId}/profile`).once('value');
+                        profile = patientSnapshot.val();
+                    } else {
+                        // Regular user
+                        console.log('Loading user profile in VSpac2');
+                        const userSnapshot = await database.ref(`users/${user.uid}/profile`).once('value');
+                        profile = userSnapshot.val();
                     }
+                    
+                    // Get first letter of name or email
+                    let initial = 'U';
+                    if (profile && profile.name) {
+                        initial = profile.name.charAt(0).toUpperCase();
+                    } else if (user.email) {
+                        initial = user.email.charAt(0).toUpperCase();
+                    }
+                    
+                    // Display patient indicator
+                    if (isPatientQuiz) {
+                        const patientIndicator = document.getElementById('patient-indicator');
+                        patientIndicator.textContent = 'Patient';
+                        patientIndicator.style.display = 'inline-block';
+                    } else {
+                        const patientIndicator = document.getElementById('patient-indicator');
+                        patientIndicator.style.display = 'none';
+                    }
+                    
+                    document.getElementById('profileIcon').textContent = initial;
+                    
+                    // Initialize quiz after authentication
+                    initializeQuiz();
+                    setupDropAreas();
+                    totalStartTime = Date.now();
+                    
+                } catch (error) {
+                    console.error('Error loading profile in VSpac2:', error);
+                    document.getElementById('profileIcon').textContent = 'U';
+                    
+                    // Initialize quiz even if there's an error
+                    initializeQuiz();
+                    setupDropAreas();
+                    totalStartTime = Date.now();
                 }
-            }, { passive: true });
-        };
+            } else {
+                window.location.href = 'login.html';
+            }
+        });
 
         function selectRandomQuestion() {
             // Get a question for the current level
@@ -601,6 +714,106 @@
             }
             
             return filteredQuestions[Math.floor(Math.random() * filteredQuestions.length)];
+        }
+
+        function rearrangeImages(dropArea, area) {
+            const placedImgs = Array.from(dropArea.getElementsByClassName('placed-image'));
+            const imageWidth = 25;
+            const gap = 5;
+            const totalWidth = placedImgs.length * (imageWidth + gap) - gap;
+            
+            // Always arrange horizontally
+            placedImgs.forEach((img, index) => {
+                let x, y;
+                
+                switch(area) {
+                    case 'left':
+                        x = 8 + index * (imageWidth + gap);
+                        y = dropArea.offsetHeight / 2 - imageWidth / 2;
+                        break;
+                    case 'right':
+                        x = dropArea.offsetWidth - totalWidth + index * (imageWidth + gap) - 8;
+                        y = dropArea.offsetHeight / 2 - imageWidth / 2;
+                        break;
+                    case 'top':
+                        x = (dropArea.offsetWidth - totalWidth) / 2 + index * (imageWidth + gap);
+                        y = 8;
+                        break;
+                    case 'bottom':
+                        x = (dropArea.offsetWidth - totalWidth) / 2 + index * (imageWidth + gap);
+                        y = dropArea.offsetHeight - imageWidth - 8;
+                        break;
+                }
+                
+                img.style.left = `${x}px`;
+                img.style.top = `${y}px`;
+            });
+        }
+
+        function handleDrop(e, area) {
+            e.preventDefault();
+            const imageSrc = e.dataTransfer.getData('text/plain');
+            const dropArea = document.getElementById(`${area}-area`);
+            
+            const newImage = document.createElement('img');
+            newImage.src = imageSrc;
+            newImage.className = 'placed-image';
+            
+            // Add a transition effect for the size change
+            newImage.style.transition = 'width 0.3s, height 0.3s';
+            
+            dropArea.appendChild(newImage);
+            
+            const originalImage = Array.from(document.getElementsByClassName('draggable'))
+                .find(img => img.src === imageSrc);
+            if (originalImage) {
+                originalImage.remove();
+            }
+            
+            placedImages.set(imageSrc, area);
+            rearrangeImages(dropArea, area);
+            
+            // Track first placement time
+            if (firstPlacementTime === null) {
+                firstPlacementTime = (Date.now() - totalStartTime) / 1000;
+            }
+        }
+
+        function setupDropAreas() {
+            const areas = ['left', 'right', 'top', 'bottom'];
+            
+            areas.forEach(area => {
+                const dropArea = document.getElementById(`${area}-area`);
+                
+                // Desktop drop events
+                dropArea.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                });
+                
+                dropArea.addEventListener('drop', (e) => handleDrop(e, area));
+                
+                // Mobile touch events for drop areas
+                dropArea.addEventListener('touchenter', (e) => {
+                    e.preventDefault();
+                    if (draggedItem) {
+                        dropArea.classList.add('drop-hover');
+                    }
+                });
+                
+                dropArea.addEventListener('touchleave', (e) => {
+                    dropArea.classList.remove('drop-hover');
+                });
+            });
+        }
+
+        function dragStart(e) {
+            e.dataTransfer.setData('text/plain', e.target.src);
+            e.target.classList.add('dragging');
+        }
+
+        function dragEnd(e) {
+            e.target.classList.remove('dragging');
         }
 
         function initializeQuiz(questionType = null) {
@@ -636,131 +849,9 @@
                 
                 optionsContainer.appendChild(img);
             });
-        }
-
-        function dragStart(e) {
-            e.dataTransfer.setData('text/plain', e.target.src);
-            e.target.classList.add('dragging');
-        }
-
-        function dragEnd(e) {
-            e.target.classList.remove('dragging');
-        }
-
-        function drop(event) {
-            event.preventDefault();
-            if (draggedItem) {
-                const targetArea = event.target.closest('.drop-area');
-                if (targetArea) {
-                    const area = targetArea.dataset.area;
-                    
-                    // Create a copy of the dragged image
-                    const newImage = document.createElement('img');
-                    newImage.src = draggedItem.src;
-                    newImage.className = 'placed-image';
-                    newImage.draggable = false; // Make it non-draggable once placed
-                    
-                    // Store the placement
-                    placedImages.set(draggedItem.src, area);
-                    
-                    // Add the image to the target area
-                    targetArea.appendChild(newImage);
-                    
-                    // Remove the original draggable item
-                    draggedItem.remove();
-                    
-                    // Check if the placement is correct
-                    checkPlacement(draggedItem.src, area);
-                    
-                    // Reset draggedItem
-                    draggedItem = null;
-                    
-                    // Reset the drag-over effect
-                    document.querySelectorAll('.drop-area').forEach(area => {
-                        area.classList.remove('drag-over');
-                    });
-                }
-            }
-        }
-
-        function checkPlacement(imageSrc, area) {
-            const correctArea = currentQuestion.correctArea;
-            if (area !== correctArea) {
-                // Show incorrect placement feedback
-                const instruction = document.getElementById('instruction');
-                const originalText = instruction.textContent;
-                instruction.textContent = 'Incorrect placement! Try again.';
-                instruction.style.color = '#ff5252';
-                instruction.style.fontWeight = 'bold';
-                instruction.style.fontSize = '1.2em';
-                
-                // Animated background flash
-                const body = document.body;
-                body.style.backgroundColor = 'rgba(255, 82, 82, 0.1)';
-                
-                // Reset after a short delay
-                setTimeout(() => {
-                    instruction.textContent = originalText;
-                    instruction.style.color = '';
-                    instruction.style.fontWeight = '';
-                    instruction.style.fontSize = '';
-                    body.style.backgroundColor = '';
-                }, 800);
-            }
-        }
-
-        function skipQuestion() {
-            // Move to next level
-            if (currentLevel < 3) {
-                currentLevel++;
-            } else {
-                currentLevel = 1; // Reset to level 1 if we're at the last level
-            }
             
-            // Mark this as an incorrect answer
-            incorrectAnswers++;
-            questionsAnswered++;
-            
-            // Initialize new question
-            initializeQuiz();
-            
-            // Update instruction with skip message
-            const instruction = document.getElementById('instruction');
-            const originalText = instruction.textContent;
-            instruction.textContent = 'Question skipped. Moving to next level.';
-            instruction.style.color = '#ff9800';
-            
-            // Reset after a delay
-            setTimeout(() => {
-                instruction.textContent = originalText;
-                instruction.style.color = '';
-            }, 1500);
-        }
-
-        function reloadRandomQuestion() {
-            // Reset to level 1
-            currentLevel = 1;
-            score = 0;
-            incorrectAnswers = 0;
-            questionsAnswered = 0;
-            totalTaps = 0;
-            totalStartTime = Date.now();
-            firstPlacementTime = null;
-            userInteractionStarted = false;
-            
-            // Hide results elements
-            document.getElementById('result-container').style.display = 'none';
-            document.getElementById('report-container').style.display = 'none';
-            document.getElementById('retry-button').style.display = 'none';
-            
-            // Show quiz elements
-            document.querySelector('.game-area').style.display = 'block';
-            document.getElementById('options-container').style.display = 'flex';
-            document.querySelector('.instruction').style.display = 'block';
-            document.querySelector('.button-container').style.display = 'flex';
-            
-            // Initialize new quiz
-            initializeQuiz();
+            // Reset interaction tracking for each new question
+            interactionStarted = false;
         }
 
         function checkAnswer() {
@@ -824,6 +915,50 @@
             }
         }
 
+        function reloadRandomQuestion() {
+            // Reset to level 1
+            currentLevel = 1;
+            score = 0;
+            incorrectAnswers = 0;
+            questionsAnswered = 0;
+            totalTaps = 0;
+            totalStartTime = Date.now();
+            firstPlacementTime = null;
+            interactionStarted = false;
+            
+            // Hide results elements
+            document.getElementById('result-container').style.display = 'none';
+            document.getElementById('report-container').style.display = 'none';
+            document.getElementById('retry-button').style.display = 'none';
+            
+            // Show quiz elements
+            document.querySelector('.game-area').style.display = 'block';
+            document.getElementById('options-container').style.display = 'flex';
+            document.querySelector('.instruction').style.display = 'block';
+            document.querySelector('.button-container').style.display = 'flex';
+            
+            // Initialize new quiz
+            initializeQuiz();
+        }
+
+        function skipQuestion() {
+            questionsAnswered++;
+            
+            // Move to next level if available
+            if (currentLevel < 3) {
+                currentLevel++;
+                // Show next level after a delay
+                setTimeout(() => {
+                    initializeQuiz();
+                }, 500);
+            } else {
+                // Show results after completing all levels
+                setTimeout(() => {
+                    showResults();
+                }, 500);
+            }
+        }
+
         function showResults() {
             // Hide quiz elements
             document.querySelector('.game-area').style.display = 'none';
@@ -853,6 +988,274 @@
             // Fetch previous attempts
             fetchPreviousAttempts();
         }
+
+        // Track user interactions - excluding prompts and check answer button
+        document.addEventListener("click", (e) => {
+            // Don't count check answer button clicks
+            if (e.target.tagName === 'BUTTON' && (e.target.innerText === 'Check Answer' || 
+                e.target.onclick?.toString().includes('checkAnswer'))) {
+                return;
+            }
+            
+            // Only count meaningful interaction taps (not clicks on report section)
+            if (e.target.closest('#report-container') || e.target.closest('#result-container')) {
+                return;
+            }
+            
+            // Only count meaningful interactions
+            if (e.target.classList.contains('draggable') || 
+                e.target.classList.contains('drop-area') || 
+                e.target.classList.contains('placed-image')) {
+                totalTaps++;
+                
+                // Record time of first interaction if not already set
+                if (!interactionStarted) {
+                    interactionStarted = true;
+                    firstPlacementTime = (Date.now() - totalStartTime) / 1000;
+                }
+            }
+        });
+
+        // Add mobile touch event handlers
+        function touchStart(e) {
+            e.preventDefault();
+            if (currentTouchId === null) {
+                const touch = e.touches[0];
+                currentTouchId = touch.identifier;
+                touchStartX = touch.clientX;
+                touchStartY = touch.clientY;
+                draggedItem = this;
+                
+                // Visual feedback
+                setTimeout(() => {
+                    if (draggedItem === this) {
+                        this.style.opacity = '0.7';
+                        this.style.transform = 'scale(1.1)';
+                    }
+                }, 100);
+            }
+        }
+        
+        function touchMove(e) {
+            e.preventDefault();
+            if (!draggedItem || currentTouchId === null) return;
+            
+            // Find the touch with the same identifier
+            let touch = null;
+            for (let i = 0; i < e.touches.length; i++) {
+                if (e.touches[i].identifier === currentTouchId) {
+                    touch = e.touches[i];
+                    break;
+                }
+            }
+            
+            if (!touch) return;
+            
+            // Move the dragged element to follow the touch
+            const x = touch.clientX - (draggedItem.offsetWidth / 2);
+            const y = touch.clientY - (draggedItem.offsetHeight / 2);
+            
+            // Position the dragged item absolutely to follow the touch
+            draggedItem.style.position = 'fixed';
+            draggedItem.style.left = `${x}px`;
+            draggedItem.style.top = `${y}px`;
+            draggedItem.style.zIndex = '1000';
+            
+            // Check if the touch is over a drop area
+            const areas = ['left', 'right', 'top', 'bottom'];
+            let targetArea = null;
+            
+            areas.forEach(area => {
+                const dropArea = document.getElementById(`${area}-area`);
+                const rect = dropArea.getBoundingClientRect();
+                
+                if (touch.clientX >= rect.left && touch.clientX <= rect.right &&
+                    touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
+                    targetArea = area;
+                    dropArea.classList.add('drop-hover');
+                } else {
+                    dropArea.classList.remove('drop-hover');
+                }
+            });
+        }
+        
+        function touchEnd(e) {
+            if (!draggedItem) return;
+            
+            // Get touch point
+            const touch = e.changedTouches[0];
+            if (touch.identifier !== currentTouchId) return;
+            
+            // Find the drop area under the touch point
+            const dropElements = document.querySelectorAll('.drop-area');
+            let dropTarget = null;
+            
+            dropElements.forEach(area => {
+                const rect = area.getBoundingClientRect();
+                if (touch.clientX >= rect.left && touch.clientX <= rect.right &&
+                    touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
+                    dropTarget = area;
+                }
+            });
+            
+            if (dropTarget) {
+                const area = dropTarget.dataset.area;
+                
+                // Create a new image that will be placed in the drop area
+                const img = document.createElement('img');
+                img.src = draggedItem.src;
+                img.className = 'placed-image';
+                img.dataset.area = area;
+                
+                // Position the image randomly within the drop area
+                const rect = dropTarget.getBoundingClientRect();
+                const maxOffsetX = rect.width / 2 - 20;
+                const maxOffsetY = rect.height / 2 - 20;
+                
+                // Calculate random position within the drop area
+                const randomOffsetX = (Math.random() * maxOffsetX * 2) - maxOffsetX;
+                const randomOffsetY = (Math.random() * maxOffsetY * 2) - maxOffsetY;
+                
+                // Calculate position relative to drop area center
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                const posX = centerX + randomOffsetX;
+                const posY = centerY + randomOffsetY;
+                
+                // Apply position
+                img.style.left = `${posX}px`;
+                img.style.top = `${posY}px`;
+                dropTarget.appendChild(img);
+                
+                // Record the placement in our Map
+                placedImages.set(draggedItem.src, area);
+                
+                // Check if this placement is correct
+                const correctArea = currentQuestion.correctArea;
+                if (area !== correctArea) {
+                    // Show incorrect placement feedback
+                    const feedback = document.getElementById('placement-feedback');
+                    feedback.style.display = 'block';
+                    
+                    // Remove the placed image after feedback
+                    setTimeout(() => {
+                        feedback.style.display = 'none';
+                        img.remove();
+                        placedImages.delete(draggedItem.src);
+                    }, 1500);
+                }
+                
+                // Record time of first placement if not already set
+                if (!interactionStarted) {
+                    interactionStarted = true;
+                    firstPlacementTime = (Date.now() - totalStartTime) / 1000;
+                }
+                
+                // Remove the original draggable item
+                draggedItem.remove();
+            }
+            
+            // Reset element styles if not dropped
+            if (draggedItem) {
+                draggedItem.style.position = 'static';
+                draggedItem.style.top = 'auto';
+                draggedItem.style.left = 'auto';
+                draggedItem.style.zIndex = '1';
+                draggedItem.style.opacity = '1';
+            }
+            
+            // Reset drag state
+            draggedItem = null;
+            currentTouchId = null;
+        }
+
+        // Drop handler
+        function drop(e) {
+            e.preventDefault();
+            const dropArea = e.target.closest('.drop-area');
+            
+            if (!dropArea || !draggedItem) return;
+            
+            const area = dropArea.dataset.area;
+            
+            // Create a new image that will be placed in the drop area
+            const img = document.createElement('img');
+            img.src = draggedItem.src;
+            img.className = 'placed-image';
+            img.dataset.area = area;
+            
+            // Position the image randomly within the drop area
+            const rect = dropArea.getBoundingClientRect();
+            const maxOffsetX = rect.width / 2 - 20; // Half width of drop area minus half width of image
+            const maxOffsetY = rect.height / 2 - 20; // Half height of drop area minus half height of image
+            
+            // Calculate random position within the drop area
+            const randomOffsetX = (Math.random() * maxOffsetX * 2) - maxOffsetX;
+            const randomOffsetY = (Math.random() * maxOffsetY * 2) - maxOffsetY;
+            
+            // Calculate position relative to drop area center
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            const posX = centerX + randomOffsetX;
+            const posY = centerY + randomOffsetY;
+            
+            // Apply position
+            img.style.left = `${posX}px`;
+            img.style.top = `${posY}px`;
+            dropArea.appendChild(img);
+            
+            // Record the placement in our Map
+            placedImages.set(draggedItem.src, area);
+            
+            // Check if this placement is correct
+            const correctArea = currentQuestion.correctArea;
+            if (area !== correctArea) {
+                // Show incorrect placement feedback
+                const feedback = document.getElementById('placement-feedback');
+                feedback.style.display = 'block';
+                
+                // Remove the placed image after feedback
+                setTimeout(() => {
+                    feedback.style.display = 'none';
+                    img.remove();
+                    placedImages.delete(draggedItem.src);
+                }, 1500);
+            }
+            
+            // Record time of first placement if not already set
+            if (!interactionStarted) {
+                interactionStarted = true;
+                firstPlacementTime = (Date.now() - totalStartTime) / 1000;
+            }
+            
+            // Remove the original draggable item
+            draggedItem.remove();
+            draggedItem = null;
+        }
+
+        // Make functions accessible globally
+        window.checkAnswer = checkAnswer;
+        window.reloadRandomQuestion = reloadRandomQuestion;
+        window.skipQuestion = skipQuestion;
+        
+        // Set up difficulty selectors
+        document.addEventListener('DOMContentLoaded', function() {
+            const difficultyButtons = document.querySelectorAll('.difficulty-btn');
+            
+            difficultyButtons.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    // Remove active class from all buttons
+                    difficultyButtons.forEach(b => b.classList.remove('active'));
+                    
+                    // Add active class to clicked button
+                    this.classList.add('active');
+                    
+                    // Set current difficulty and reload question
+                    currentDifficulty = this.dataset.level;
+                    initializeQuiz();
+                });
+            });
+        });
 
         async function saveQuizResults(score, totalTime, averageTime, firstTapTime, totalTaps, correctAnswers, incorrectAnswers) {
             const user = auth.currentUser;
@@ -909,7 +1312,7 @@
                 if (!user) return;
                 
                 let path;
-
+                
                 // Check if this is a patient quiz (doctor viewing patient)
                 const currentPatientId = sessionStorage.getItem('currentPatientId');
                 const doctorId = sessionStorage.getItem('doctorId');
@@ -1088,221 +1491,6 @@
                 alert('Failed to clear the report: ' + error.message);
             }
         }
-
-        // Auth state observer
-        auth.onAuthStateChanged(async (user) => {
-            if (user) {
-                console.log('User authenticated in VSpac2:', user.uid);
-                
-                try {
-                    // Check if user is a doctor
-                    if (!isPatientQuiz) {
-                        const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
-                        const role = roleSnapshot.val();
-                        
-                        if (role === 'doctor') {
-                            console.log('Doctor detected without patient context, redirecting');
-                            // Redirect doctors without patient context back to index
-                            alert('Please select a patient first to administer the quiz.');
-                            window.location.href = 'index.html';
-                            return;
-                        }
-                    }
-                    
-                    // Load user profile
-                    let profile;
-                    if (isPatientQuiz) {
-                        // Doctor viewing patient
-                        console.log(`Loading patient profile in VSpac2: ${currentPatientId}`);
-                        const patientSnapshot = await database.ref(`doctors/${doctorId}/patients/${currentPatientId}/profile`).once('value');
-                        profile = patientSnapshot.val();
-                    } else {
-                        // Regular user
-                        console.log('Loading user profile in VSpac2');
-                        const userSnapshot = await database.ref(`users/${user.uid}/profile`).once('value');
-                        profile = userSnapshot.val();
-                    }
-                    
-                    // Get first letter of name or email
-                    let initial = 'U';
-                    if (profile && profile.name) {
-                        initial = profile.name.charAt(0).toUpperCase();
-                    } else if (user.email) {
-                        initial = user.email.charAt(0).toUpperCase();
-                    }
-                    
-                    // Display patient indicator
-                    if (isPatientQuiz) {
-                        const patientIndicator = document.getElementById('patient-indicator');
-                        patientIndicator.textContent = 'Patient';
-                        patientIndicator.style.display = 'inline-block';
-                    } else {
-                        const patientIndicator = document.getElementById('patient-indicator');
-                        patientIndicator.style.display = 'none';
-                    }
-                    
-                    document.getElementById('profileIcon').textContent = initial;
-                    
-                    // Initialize quiz after authentication
-                    initializeQuiz();
-                    
-                } catch (error) {
-                    console.error('Error loading profile in VSpac2:', error);
-                    document.getElementById('profileIcon').textContent = 'U';
-                    
-                    // Initialize quiz even if there's an error
-                    initializeQuiz();
-                }
-            } else {
-                window.location.href = 'login.html';
-            }
-        });
-
-        function touchStart(e) {
-            e.preventDefault();
-            if (currentTouchId === null) {
-                const touch = e.touches[0];
-                currentTouchId = touch.identifier;
-                touchStartX = touch.clientX;
-                touchStartY = touch.clientY;
-                draggedItem = this;
-                
-                // Visual feedback
-                setTimeout(() => {
-                    if (draggedItem === this) {
-                        this.style.opacity = '0.7';
-                        this.style.transform = 'scale(1.1)';
-                    }
-                }, 100);
-            }
-        }
-        
-        function touchMove(e) {
-            e.preventDefault();
-            if (!draggedItem || currentTouchId === null) return;
-            
-            // Find the touch with the same identifier
-            let touch = null;
-            for (let i = 0; i < e.touches.length; i++) {
-                if (e.touches[i].identifier === currentTouchId) {
-                    touch = e.touches[i];
-                    break;
-                }
-            }
-            
-            if (!touch) return;
-            
-            // Move the dragged element to follow the touch
-            const x = touch.clientX - (draggedItem.offsetWidth / 2);
-            const y = touch.clientY - (draggedItem.offsetHeight / 2);
-            
-            // Position the dragged item absolutely to follow the touch
-            draggedItem.style.position = 'fixed';
-            draggedItem.style.left = `${x}px`;
-            draggedItem.style.top = `${y}px`;
-            draggedItem.style.zIndex = '1000';
-            
-            // Check if the touch is over a drop area
-            const areas = ['left', 'right', 'top', 'bottom'];
-            let targetArea = null;
-            
-            areas.forEach(area => {
-                const dropArea = document.getElementById(`${area}-area`);
-                const rect = dropArea.getBoundingClientRect();
-                
-                if (touch.clientX >= rect.left && touch.clientX <= rect.right &&
-                    touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
-                    targetArea = area;
-                    dropArea.classList.add('drop-hover');
-                } else {
-                    dropArea.classList.remove('drop-hover');
-                }
-            });
-        }
-        
-        function touchEnd(e) {
-            e.preventDefault();
-            if (!draggedItem || currentTouchId === null) return;
-            
-            // Reset visual feedback
-            draggedItem.style.opacity = '';
-            draggedItem.style.transform = '';
-            
-            // Get final touch position
-            const areas = ['left', 'right', 'top', 'bottom'];
-            let targetArea = null;
-            
-            // Create a touch list from either changedTouches or touches
-            const touchList = e.changedTouches || e.touches;
-            
-            // Find our tracked touch
-            let touch = null;
-            for (let i = 0; i < touchList.length; i++) {
-                if (touchList[i].identifier === currentTouchId) {
-                    touch = touchList[i];
-                    break;
-                }
-            }
-            
-            if (touch) {
-                // Check if the final position is over a drop area
-                areas.forEach(area => {
-                    const dropArea = document.getElementById(`${area}-area`);
-                    const rect = dropArea.getBoundingClientRect();
-                    
-                    if (touch.clientX >= rect.left && touch.clientX <= rect.right &&
-                        touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
-                        targetArea = area;
-                    }
-                    dropArea.classList.remove('drop-hover');
-                });
-                
-                if (targetArea) {
-                    // Simulate drop event
-                    const dropEvent = {
-                        preventDefault: () => {},
-                        dataTransfer: {
-                            getData: () => draggedItem.src
-                        }
-                    };
-                    drop(dropEvent);
-                } else {
-                    // Reset the dragged item if not dropped in an area
-                    draggedItem.style.position = '';
-                    draggedItem.style.left = '';
-                    draggedItem.style.top = '';
-                    draggedItem.style.zIndex = '';
-                }
-            }
-            
-            // Reset drag state
-            draggedItem = null;
-            currentTouchId = null;
-        }
-
-        // Make functions accessible globally
-        window.checkAnswer = checkAnswer;
-        window.reloadRandomQuestion = reloadRandomQuestion;
-        window.skipQuestion = skipQuestion;
-        
-        // Set up difficulty selectors
-        document.addEventListener('DOMContentLoaded', function() {
-            const difficultyButtons = document.querySelectorAll('.difficulty-btn');
-            
-            difficultyButtons.forEach(btn => {
-                btn.addEventListener('click', function() {
-                    // Remove active class from all buttons
-                    difficultyButtons.forEach(b => b.classList.remove('active'));
-                    
-                    // Add active class to clicked button
-                    this.classList.add('active');
-                    
-                    // Set current difficulty and reload question
-                    currentDifficulty = this.dataset.level;
-                    initializeQuiz();
-                });
-            });
-        });
     </script>
 </body>
 </html>
