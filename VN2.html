@@ -370,6 +370,12 @@
             
             .option {
                 font-size: 1.2rem;
+                padding: 6px;
+                aspect-ratio: 1;
+                min-height: 36px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
             }
             
             .container {
@@ -481,6 +487,7 @@
         let targetCount = 3; // How many instances to find (increased from 2 to 3)
         let gameStarted = false;
         let isPromptsOpen = false; // Track if prompts are open
+        let firstOptionSelected = false; // Track if the first option has been selected
 
         let currentUser = null;
         let patientId = null;
@@ -734,12 +741,15 @@
             if (!gameStarted) return;
             
             totalTaps++;
-            if (totalTaps === 1) {
-                firstTapTime = (Date.now() - totalStartTime) / 1000;
-            }
         });
 
         function handleLetterClick(element, selectedLetter) {
+            // Record first tap time when first option is selected
+            if (!firstOptionSelected) {
+                firstTapTime = (Date.now() - totalStartTime) / 1000;
+                firstOptionSelected = true;
+            }
+            
             if (selectedLetter === currentLetter) {
                 showFeedback(true);
                 foundCount++;
@@ -1102,10 +1112,12 @@
         function showOptions() {
             readyButton.style.display = 'none';
             optionsContainer.style.display = 'grid';
+            questionDisplay.style.display = 'none'; // Hide the question display
             
             // Set game started to true when options are displayed
             gameStarted = true;
             totalStartTime = Date.now(); // Reset the start time when actually showing options
+            firstOptionSelected = false; // Reset first option selected flag
             
             // Display options
             displayOptions();
@@ -1118,11 +1130,13 @@
         function startNewRound() {
             isPromptsOpen = false; // Reset the prompts flag
             gameStarted = false; // Reset game started flag
+            firstOptionSelected = false; // Reset first option selected flag
             
             // Reset game state
             document.getElementById('result-container').style.display = 'none';
             document.getElementById('report-container').style.display = 'none';
             document.getElementById('gameArea').style.display = 'block';
+            questionDisplay.style.display = 'block'; // Show the question display again
             
             score = 0;
             incorrectAnswers = 0;
