@@ -544,20 +544,20 @@
                 }
             });
 
-            const options = document.querySelectorAll('.option img');
+            const optionContainers = document.querySelectorAll('.option');
             const gridItems = document.querySelectorAll('.grid-item');
             const feedback = document.getElementById('feedback');
             const submitButton = document.getElementById('submitBtn');
 
             let startTime;
-            let totalStartTime = Date.now();
+            let totalStartTime;
             let firstTapTime = null;
             let totalTaps = 0;
             let totalIncorrectAttempts = 0;
             let filledGrids = 0;
             let firstDragOccurred = false;
-            const totalGrids = gridItems.length;
-
+            const totalGrids = gridItems.length - 4; // Subtract pre-filled grid items
+            
             // Touch event variables
             let touchDragging = false;
             let touchDragElement = null;
@@ -575,7 +575,7 @@
                 }
             });
 
-            options.forEach(option => {
+            optionContainers.forEach(option => {
                 option.addEventListener('dragstart', dragStart);
                 option.addEventListener('dragend', dragEnd);
                 
@@ -593,12 +593,33 @@
 
             function dragStart(e) {
                 if (!startTime) startTime = Date.now();
-                e.dataTransfer.setData('text', e.target.id);
-                e.target.classList.add('dragging');
+                let target = e.target;
+                
+                // If target is not option container itself, find it
+                if (!target.classList.contains('option')) {
+                    target = target.closest('.option');
+                }
+                
+                // Find the image inside the option
+                const dragImg = target.querySelector('img');
+                if (dragImg) {
+                    e.dataTransfer.setData('text', dragImg.id);
+                    e.dataTransfer.setData('optionid', target.id);
+                    e.dataTransfer.setData('parent', 'true');
+                    
+                    // Use a timeout to ensure the drag image is set before adding the dragging class
+                    setTimeout(() => {
+                        target.classList.add('dragging');
+                    }, 0);
+                }
             }
 
             function dragEnd(e) {
-                e.target.classList.remove('dragging');
+                let target = e.target;
+                if (!target.classList.contains('option')) {
+                    target = target.closest('.option');
+                }
+                target.classList.remove('dragging');
             }
 
             function dragOver(e) {
@@ -608,8 +629,24 @@
             function drop(e) {
                 e.preventDefault();
                 const draggedId = e.dataTransfer.getData('text');
-                const draggedElement = document.getElementById(draggedId);
-                handleDrop(draggedElement, e.target);
+                const isParent = e.dataTransfer.getData('parent') === 'true';
+                
+                let draggedElement;
+                let optionElement;
+                
+                if (isParent) {
+                    // Get image and option elements
+                    draggedElement = document.getElementById(draggedId);
+                    optionElement = draggedElement ? draggedElement.closest('.option') : null;
+                } else {
+                    // Just get the image element
+                    draggedElement = document.getElementById(draggedId);
+                    optionElement = draggedElement ? draggedElement.parentElement : null;
+                }
+                
+                if (optionElement) {
+                    handleDrop(optionElement, e.target);
+                }
             }
             
             // Touch event handlers
@@ -627,7 +664,13 @@
                 
                 // Get touch coordinates
                 const touch = e.touches[0];
-                const target = e.target.closest('.option');
+                let target = e.target;
+                
+                // If target is not an option container, find the container
+                if (!target.classList.contains('option')) {
+                    target = target.closest('.option');
+                }
+                
                 if (!target) return;
                 
                 if (target.classList.contains('hidden') || target.classList.contains('moving-up')) {
@@ -646,7 +689,12 @@
                 
                 // Create ghost element for visual feedback
                 ghostElement = target.cloneNode(true);
-                ghostElement.id = 'ghost-' + target.id;
+                const img = target.querySelector('img');
+                if (img) {
+                    ghostElement.id = 'ghost-' + img.id;
+                } else {
+                    ghostElement.id = 'ghost-element';
+                }
                 ghostElement.style.position = 'fixed';
                 ghostElement.style.left = rect.left + 'px';
                 ghostElement.style.top = rect.top + 'px';
@@ -702,25 +750,27 @@
                 if (!gridItem || gridItem.querySelector('img')) return;
                 
                 const correctAnswer = gridItem.getAttribute('data-answer');
-                const draggedId = draggedElement.id;
+                const dragImgElement = draggedElement.querySelector('img');
+                if (!dragImgElement) return;
+                
+                const draggedId = dragImgElement.id;
                 const draggedAnswer = draggedId.replace('drag', '');
-                const draggedParent = draggedElement.parentElement;
                 
                 if (correctAnswer === draggedAnswer) {
                     // Create a new image element for the grid
                     const newImg = document.createElement('img');
-                    newImg.src = draggedElement.querySelector('img').src;
-                    newImg.alt = draggedElement.querySelector('img').alt;
+                    newImg.src = dragImgElement.src;
+                    newImg.alt = dragImgElement.alt;
                     
                     // Add the new image to the grid
                     gridItem.appendChild(newImg);
                     
                     // Animate the option moving up
-                    draggedParent.classList.add('moving-up');
+                    draggedElement.classList.add('moving-up');
                     
                     setTimeout(() => {
                         // Hide the original option container
-                        draggedParent.classList.add('hidden');
+                        draggedElement.classList.add('hidden');
                         
                         // Rearrange remaining options with animation
                         rearrangeOptions();
@@ -731,6 +781,9 @@
                     
                     filledGrids++;
                     
+                    // Update display for correct answers
+                    document.getElementById('total-correct').textContent = filledGrids;
+                    
                     // If all grids are filled, automatically finalize results
                     if (filledGrids === totalGrids) {
                         finalizeResults();
@@ -739,6 +792,9 @@
                     totalIncorrectAttempts++;
                     feedback.textContent = "Incorrect placement. Try again!";
                     feedback.style.color = "red";
+                    
+                    // Update display for incorrect answers
+                    document.getElementById('total-incorrect').textContent = totalIncorrectAttempts;
                 }
                 
                 // Update total taps display
@@ -1088,9 +1144,28 @@
                 document.getElementById('total-correct').textContent = '0';
                 document.getElementById('total-incorrect').textContent = '0';
                 
+                // Get patient name if in doctor mode
+                const patientIndicator = document.getElementById('patient-indicator');
+                if (patientName) {
+                    patientIndicator.textContent = `Patient: ${patientName}`;
+                    patientIndicator.style.display = 'inline-block';
+                } else {
+                    patientIndicator.style.display = 'none';
+                }
+                
+                // Initialize profile icon
+                const profileIcon = document.getElementById('profileIcon');
+                if (currentUser) {
+                    const initials = getUserInitials(currentUser.email || 'User');
+                    profileIcon.textContent = initials;
+                }
+                
                 // Set start time
-                startTime = Date.now();
+                startTime = null; // Will be set on first interaction
                 totalStartTime = Date.now();
+                
+                // Fetch previous attempts
+                fetchPreviousAttempts();
                 
                 // Initial shuffle of options
                 setTimeout(() => {
@@ -1098,6 +1173,10 @@
                 }, 100);
             });
 
+            function getUserInitials(email) {
+                return email.substring(0, 2).toUpperCase();
+            }
+            
             // Submit button event listener
             submitButton.addEventListener('click', () => {
                 finalizeResults();
