@@ -280,6 +280,43 @@
             background-color: #e0e0e0;
         }
 
+        /* Custom feedback prompts */
+        .custom-prompt {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s;
+            max-width: 90%;
+        }
+
+        .correct-prompt {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            border: 2px solid #2e7d32;
+        }
+
+        .incorrect-prompt {
+            background: linear-gradient(135deg, #f44336, #d32f2f);
+            border: 2px solid #b71c1c;
+        }
+
+        .sequential-prompt {
+            background: linear-gradient(135deg, #ff9800, #f57c00);
+            border: 2px solid #e65100;
+        }
+
+        .prompt-visible {
+            opacity: 1;
+        }
+
         /* Mobile-friendly adjustments */
         @media (max-width: 768px) {
             #quiz-container {
@@ -727,7 +764,7 @@
             
             // Enforce sequential ordering - only allow placement in the current expected position
             if (expectedOrder !== currentImageOrder) {
-                alert(`Please place image ${currentImageOrder} first.`);
+                showCustomPrompt(`Please place image ${currentImageOrder} first.`, 'sequential');
                 return;
             }
             
@@ -741,6 +778,9 @@
                 correctPlacements++;
                 score++;
                 completedImages++;
+                
+                // Show correct prompt
+                showCustomPrompt('Correct placement! ✓', 'correct');
                 
                 // Move image to drop area and disable it
                 const imgClone = img.cloneNode(true);
@@ -772,7 +812,7 @@
             } else {
                 // Incorrect placement
                 incorrectPlacements++;
-                alert(`This is not image ${expectedOrder}. Please try again.`);
+                showCustomPrompt(`This is not image ${expectedOrder}. Please try again.`, 'incorrect');
             }
         }
         
@@ -1044,6 +1084,45 @@
                 console.error('Error clearing quiz history:', error);
                 alert(`Error clearing quiz history: ${error.message}`);
             }
+        }
+        
+        // Show custom colorful prompt
+        function showCustomPrompt(message, type) {
+            // Remove any existing prompts
+            const existingPrompt = document.querySelector('.custom-prompt');
+            if (existingPrompt) {
+                existingPrompt.remove();
+            }
+            
+            // Create new prompt
+            const prompt = document.createElement('div');
+            prompt.className = 'custom-prompt';
+            prompt.innerText = message;
+            
+            // Add type-specific class
+            if (type === 'correct') {
+                prompt.classList.add('correct-prompt');
+            } else if (type === 'incorrect') {
+                prompt.classList.add('incorrect-prompt');
+            } else if (type === 'sequential') {
+                prompt.classList.add('sequential-prompt');
+            }
+            
+            // Add to body
+            document.body.appendChild(prompt);
+            
+            // Trigger animation
+            setTimeout(() => {
+                prompt.classList.add('prompt-visible');
+            }, 10);
+            
+            // Remove after delay
+            setTimeout(() => {
+                prompt.classList.remove('prompt-visible');
+                setTimeout(() => {
+                    prompt.remove();
+                }, 300);
+            }, 2000);
         }
     </script>
 </body>
