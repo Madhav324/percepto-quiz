@@ -374,6 +374,10 @@
             
             .container {
                 padding: 10px;
+                width: 100%;
+                max-width: none;
+                margin: 10px 0;
+                border-radius: 0;
             }
         }
     </style>
@@ -475,6 +479,8 @@
         let memorizingTime = 3; // seconds to memorize the letter
         let memorizingTimer = null;
         let targetCount = 3; // How many instances to find (increased from 2 to 3)
+        let gameStarted = false;
+        let isPromptsOpen = false; // Track if prompts are open
 
         let currentUser = null;
         let patientId = null;
@@ -666,6 +672,11 @@
         }
 
         function startMemorizingTimer() {
+            gameStarted = false; // Reset game started flag
+            totalStartTime = Date.now();
+            firstTapTime = null;
+            totalTaps = 0;
+            
             timerDisplay.style.display = 'block';
             memorizingTime = 3;
             updateTimerDisplay();
@@ -676,7 +687,8 @@
                 
                 if (memorizingTime <= 0) {
                     clearInterval(memorizingTimer);
-                    showOptions();
+                    timerDisplay.style.display = 'none';
+                    readyButton.style.display = 'inline-block';
                 }
             }, 1000);
         }
@@ -714,7 +726,13 @@
             setTimeout(() => feedback.className = 'feedback', 1500);
         }
 
-        document.addEventListener("click", () => {
+        document.addEventListener("click", (e) => {
+            // Don't count taps when alert/prompt dialogs might be open
+            if (isPromptsOpen) return;
+            
+            // Only count taps after game has started
+            if (!gameStarted) return;
+            
             totalTaps++;
             if (totalTaps === 1) {
                 firstTapTime = (Date.now() - totalStartTime) / 1000;
@@ -732,6 +750,7 @@
                 updateRemainingCounter();
                 
                 if (foundCount === targetCount) {
+                    isPromptsOpen = true; // Mark that alert will be shown
                     setTimeout(() => {
                         alert('Congratulations! Round Complete!');
                         showResults();
@@ -746,6 +765,8 @@
         }
 
         function showResults() {
+            isPromptsOpen = true; // Mark that a dialog will be shown
+            
             const totalEndTime = Date.now();
             const totalTimeInSeconds = ((totalEndTime - totalStartTime) / 1000).toFixed(2);
             const averageTimeInSeconds = (totalTimeInSeconds / targetCount).toFixed(2);
@@ -763,6 +784,11 @@
             document.getElementById('gameArea').style.display = 'none';
             document.getElementById('optionsContainer').style.display = 'none';
             document.getElementById('remainingCounter').style.display = 'none';
+            
+            // Reset the prompts flag after showing results
+            setTimeout(() => {
+                isPromptsOpen = false;
+            }, 100);
             
             saveQuizResults(
                 score,
@@ -858,8 +884,6 @@
                 if (!user) return;
                 
                 let path;
-                const reportList = document.getElementById('report-list');
-                reportList.innerHTML = '<h3>Previous Attempts</h3>';
                 
                 // Check if this is a patient quiz (doctor viewing patient)
                 const currentPatientId = sessionStorage.getItem('currentPatientId');
@@ -1076,33 +1100,37 @@
         }
 
         function showOptions() {
-            // Clear any existing timer
-            if (memorizingTimer) {
-                clearInterval(memorizingTimer);
-            }
-            
-            // Hide timer and ready button
-            timerDisplay.style.display = 'none';
             readyButton.style.display = 'none';
+            optionsContainer.style.display = 'grid';
             
-            // Record the start time for performance tracking
-            totalStartTime = Date.now();
+            // Set game started to true when options are displayed
+            gameStarted = true;
+            totalStartTime = Date.now(); // Reset the start time when actually showing options
             
             // Display options
-            optionsContainer.style.display = 'grid';
             displayOptions();
+            
+            // Show the remaining counter
+            remainingCounter.style.display = 'block';
+            updateRemainingCounter();
         }
         
         function startNewRound() {
-            // Hide results and show game area
+            isPromptsOpen = false; // Reset the prompts flag
+            gameStarted = false; // Reset game started flag
+            
+            // Reset game state
             document.getElementById('result-container').style.display = 'none';
             document.getElementById('report-container').style.display = 'none';
             document.getElementById('gameArea').style.display = 'block';
-            readyButton.style.display = 'block';
-            optionsContainer.style.display = 'none';
-            remainingCounter.style.display = 'none';
             
-            // Reset game state
+            score = 0;
+            incorrectAnswers = 0;
+            foundCount = 0;
+            totalTaps = 0;
+            firstTapTime = null;
+            
+            memorizingTime = 3;
             prepareGame();
         }
         
