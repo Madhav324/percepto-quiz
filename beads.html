@@ -287,6 +287,35 @@
                 height: 35px;
             }
         }
+        
+        /* Added styles for history display */
+        .history-summary {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .history-details {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .toggle-details {
+            margin: 10px;
+            padding: 5px 10px;
+            font-size: 14px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        .toggle-details:hover {
+            background-color: #45a049;
+        }
     </style>
 </head>
 <body>
@@ -518,17 +547,17 @@
             
             const timestamp = Date.now();
             
-            // Determine the correct path based on user role (aligning with VDT1.html)
+            // Determine the correct path based on user role (matching VDT1.html)
             let dbPath = '';
             if (isPatientQuiz) {
-                dbPath = `doctors/${doctorId}/patients/${currentPatientId}/activities/beadsActivity/${timestamp}`;
+                dbPath = `doctors/${doctorId}/patients/${currentPatientId}/quiz/beads`;
             } else {
-                dbPath = `users/${currentUser.uid}/activities/beadsActivity/${timestamp}`;
+                dbPath = `users/${currentUser.uid}/quiz/beads`;
             }
             
             console.log(`Saving attempt to: ${dbPath}`);
             
-            const attemptRef = ref(db, dbPath);
+            const attemptRef = ref(db, `${dbPath}/${timestamp}`);
             const attemptData = {
                 timestamp: timestamp,
                 completionTime: data.completionTime,
@@ -553,14 +582,42 @@
         function loadHistory() {
             if (!currentUser) return;
             
-            // Determine the correct path based on user role (aligning with VDT1.html)
+            // Determine the correct path based on user role (matching VDT1.html)
             let dbPath = '';
             if (isPatientQuiz) {
-                dbPath = `doctors/${doctorId}/patients/${currentPatientId}/activities/beadsActivity`;
+                dbPath = `doctors/${doctorId}/patients/${currentPatientId}/quiz/beads`;
             } else {
-                dbPath = `users/${currentUser.uid}/activities/beadsActivity`;
+                // Check if user is a doctor (for their own attempts)
+                get(ref(db, `roles/${currentUser.uid}`))
+                    .then((snapshot) => {
+                        const role = snapshot.val();
+                        
+                        if (role === 'doctor') {
+                            console.log(`Loading doctor's own quiz results: ${currentUser.uid}`);
+                            dbPath = `doctors/${currentUser.uid}/quiz/beads`;
+                        } else {
+                            console.log(`Loading regular user quiz results: ${currentUser.uid}`);
+                            dbPath = `users/${currentUser.uid}/quiz/beads`;
+                        }
+                        
+                        fetchHistoryData(dbPath);
+                    })
+                    .catch((error) => {
+                        console.error("Error checking user role:", error);
+                        // Default to regular user path
+                        dbPath = `users/${currentUser.uid}/quiz/beads`;
+                        fetchHistoryData(dbPath);
+                    });
+                
+                return; // Early return as we're handling this asynchronously
             }
             
+            // If this is a patient quiz, we already have the path
+            fetchHistoryData(dbPath);
+        }
+        
+        // Helper function to fetch and display history data
+        function fetchHistoryData(dbPath) {
             console.log(`Loading history from: ${dbPath}`);
             
             const attemptsRef = ref(db, dbPath);
@@ -584,14 +641,58 @@
 
                     // Display the attempts
                     attempts.forEach((attempt) => {
+                        const timestamp = attempt.timestamp;
+                        // Check if timestamp is a number (milliseconds) or a string (ISO format)
+                        const date = typeof timestamp === 'number' 
+                            ? new Date(timestamp) 
+                            : new Date(timestamp);
+                                
+                        const formattedDate = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+                        
                         const historyItem = document.createElement('div');
                         historyItem.className = 'history-item';
-                        historyItem.innerHTML = `
+                        
+                        // Create main display with date and completion time
+                        const summaryDiv = document.createElement('div');
+                        summaryDiv.className = 'history-summary';
+                        summaryDiv.innerHTML = `
+                            <span>${formattedDate}</span>
                             <span>Time: ${attempt.completionTime}s</span>
                             <span>Moves: ${attempt.totalMoves}</span>
-                            <span>Incorrect: ${attempt.incorrectMoves}</span>
-                            <span>Taps: ${attempt.totalTaps}</span>
                         `;
+                        
+                        // Create details toggle button
+                        const toggleButton = document.createElement('button');
+                        toggleButton.className = 'toggle-details';
+                        toggleButton.textContent = 'Show Details';
+                        
+                        // Create details section (initially hidden)
+                        const detailsDiv = document.createElement('div');
+                        detailsDiv.className = 'history-details';
+                        detailsDiv.style.display = 'none';
+                        detailsDiv.innerHTML = `
+                            <div><strong>Incorrect Moves:</strong> ${attempt.incorrectMoves}</div>
+                            <div><strong>Total Taps:</strong> ${attempt.totalTaps}</div>
+                            <div><strong>Attempts:</strong> ${attempt.attempts}</div>
+                            <div><strong>First Tap Time:</strong> ${attempt.firstTapTime ? attempt.firstTapTime.toFixed(2) + 's' : 'N/A'}</div>
+                        `;
+                        
+                        // Add toggle functionality
+                        toggleButton.addEventListener('click', () => {
+                            if (detailsDiv.style.display === 'none') {
+                                detailsDiv.style.display = 'block';
+                                toggleButton.textContent = 'Hide Details';
+                            } else {
+                                detailsDiv.style.display = 'none';
+                                toggleButton.textContent = 'Show Details';
+                            }
+                        });
+                        
+                        // Add all elements to the history item
+                        historyItem.appendChild(summaryDiv);
+                        historyItem.appendChild(toggleButton);
+                        historyItem.appendChild(detailsDiv);
+                        
                         historyList.appendChild(historyItem);
                     });
                 }
