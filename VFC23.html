@@ -165,12 +165,30 @@
             display: none;
         }
 
-        .feedback {
+        #feedback {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s;
             text-align: center;
-            margin: 4px 0;
-            font-size: 12px;
-            font-weight: bold;
-            min-height: 16px;
+            min-width: 150px;
+            max-width: 80%;
+            pointer-events: none;
+        }
+
+        .feedback-correct {
+            background-color: rgba(0, 128, 0, 0.8) !important;
+        }
+
+        .feedback-incorrect {
+            background-color: rgba(255, 0, 0, 0.8) !important;
         }
 
         #result-container {
@@ -382,7 +400,7 @@
             <!-- Options will be populated by JavaScript -->
         </div>
 
-        <div class="feedback" id="feedback"></div>
+        <div id="feedback"></div>
 
         <div id="result-container">
             <h2>Your Results</h2>
@@ -578,9 +596,15 @@
             const options = document.querySelectorAll('.option img');
             const gridItems = document.querySelectorAll('.grid-item[data-target]');
 
+            // Standard drag and drop events
             options.forEach(option => {
                 option.addEventListener('dragstart', dragStart);
                 option.addEventListener('dragend', dragEnd);
+                
+                // Touch events for mobile support
+                option.addEventListener('touchstart', touchStart);
+                option.addEventListener('touchend', touchEnd);
+                option.addEventListener('touchmove', touchMove);
             });
 
             gridItems.forEach(item => {
@@ -589,8 +613,131 @@
             });
         }
 
+        // Touch event handlers
+        let touchedElement = null;
+        let initialX, initialY;
+
+        function touchStart(e) {
+            if (!startTime) startTime = Date.now();
+            totalTaps++;
+            
+            // Record the first tap time
+            if (!firstDragOccurred) {
+                firstDragOccurred = true;
+                firstTapTime = (Date.now() - totalStartTime) / 1000;
+                document.getElementById('first-tap').textContent = firstTapTime.toFixed(2);
+            }
+            
+            // Store the touched element
+            touchedElement = e.target;
+            touchedElement.classList.add('dragging');
+            
+            // Get initial touch coordinates
+            const touch = e.touches[0];
+            initialX = touch.clientX;
+            initialY = touch.clientY;
+            
+            // Prevent default to avoid scrolling while dragging
+            e.preventDefault();
+        }
+
+        function touchMove(e) {
+            if (!touchedElement) return;
+            
+            const touch = e.touches[0];
+            const currentX = touch.clientX;
+            const currentY = touch.clientY;
+            
+            // Move the element with the touch
+            touchedElement.style.position = 'fixed';
+            touchedElement.style.left = currentX + 'px';
+            touchedElement.style.top = currentY + 'px';
+            touchedElement.style.zIndex = '1000';
+            
+            e.preventDefault();
+        }
+
+        function touchEnd(e) {
+            if (!touchedElement) return;
+            
+            // Reset the element's style
+            touchedElement.classList.remove('dragging');
+            touchedElement.style.position = '';
+            touchedElement.style.left = '';
+            touchedElement.style.top = '';
+            touchedElement.style.zIndex = '';
+            
+            // Find the grid item under the final touch position
+            const touch = e.changedTouches[0];
+            const dropTarget = document.elementFromPoint(touch.clientX, touch.clientY);
+            const gridItem = dropTarget ? dropTarget.closest('.grid-item[data-target]') : null;
+            
+            if (gridItem && !gridItem.querySelector('img')) {
+                // Process the "drop" into the grid item
+                const targetId = gridItem.getAttribute('data-target');
+                const topImage = document.querySelector(`.grid-item[data-original="${targetId}"]`);
+                
+                if (topImage) {
+                    const topMatchId = topImage.getAttribute('data-match');
+                    const draggedMatchId = touchedElement.getAttribute('data-match');
+                    
+                    if (topMatchId === draggedMatchId) {
+                        // Correct placement
+                        const newImg = touchedElement.cloneNode(true);
+                        gridItem.appendChild(newImg);
+                        touchedElement.parentElement.classList.add('hidden');
+                        
+                        showFeedback("Correct!", "correct");
+                        
+                        filledGrids++;
+                        
+                        if (filledGrids === totalGrids) {
+                            finalizeResults();
+                        }
+                    } else {
+                        // Incorrect placement
+                        totalIncorrectAttempts++;
+                        showFeedback("Incorrect!", "incorrect");
+                    }
+                    
+                    document.getElementById('total-taps').textContent = totalTaps;
+                }
+            }
+            
+            touchedElement = null;
+            e.preventDefault();
+        }
+
+        function showFeedback(message, type) {
+            const feedback = document.getElementById('feedback');
+            feedback.textContent = message;
+            feedback.className = '';
+            
+            if (type === "correct") {
+                feedback.classList.add('feedback-correct');
+            } else if (type === "incorrect") {
+                feedback.classList.add('feedback-incorrect');
+            }
+            
+            // Show the feedback
+            feedback.style.opacity = '1';
+            
+            // Auto-hide after a delay
+            setTimeout(() => {
+                feedback.style.opacity = '0';
+            }, 1000);
+        }
+
         function dragStart(e) {
             if (!startTime) startTime = Date.now();
+            totalTaps++;
+            
+            if (!firstDragOccurred) {
+                firstDragOccurred = true;
+                firstTapTime = (Date.now() - totalStartTime) / 1000;
+                document.getElementById('first-tap').textContent = firstTapTime.toFixed(2);
+            }
+            
             e.dataTransfer.setData('text', e.target.id);
             e.target.classList.add('dragging');
         }
@@ -624,8 +771,7 @@
                 gridItem.appendChild(newImg);
                 draggedElement.parentElement.classList.add('hidden');
                 
-                feedback.textContent = "Correct placement!";
-                feedback.style.color = "green";
+                showFeedback("Correct!", "correct");
                 
                 filledGrids++;
                 
@@ -634,8 +780,7 @@
                 }
             } else {
                 totalIncorrectAttempts++;
-                feedback.textContent = "Incorrect placement. Try again!";
-                feedback.style.color = "red";
+                showFeedback("Incorrect!", "incorrect");
             }
             
             document.getElementById('total-taps').textContent = totalTaps;
@@ -658,16 +803,6 @@
             document.getElementById('total-taps').textContent = '0';
             document.getElementById('total-correct').textContent = '0';
             document.getElementById('total-incorrect').textContent = '0';
-        });
-
-        // Track first drag start
-        document.addEventListener('dragstart', () => {
-            totalTaps++;
-            if (!firstDragOccurred) {
-                firstDragOccurred = true;
-                firstTapTime = (Date.now() - totalStartTime) / 1000;
-                document.getElementById('first-tap').textContent = firstTapTime.toFixed(2);
-            }
         });
 
         // Function to finalize results
