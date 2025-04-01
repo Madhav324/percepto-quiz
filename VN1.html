@@ -372,6 +372,82 @@
                 height: 40px;
             }
         }
+
+        @media (max-width: 768px) {
+            .options-container {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 10px;
+                padding: 5px;
+            }
+            
+            .option-image {
+                width: 60px;
+                height: 60px;
+                padding: 2px;
+            }
+            
+            .question-image {
+                max-width: 100px;
+            }
+            
+            h1 {
+                font-size: 1.3em;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .game-container, .statistics-container {
+                padding: 10px;
+                width: 100%;
+                max-width: none;
+                margin: 10px 0;
+                border-radius: 0;
+            }
+            
+            .options-container {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 5px;
+                padding: 5px;
+                margin-top: 10px;
+            }
+            
+            .option-image {
+                width: 45px;
+                height: 45px;
+                padding: 1px;
+                border-width: 1px;
+            }
+            
+            .question-image {
+                max-width: 80px;
+                border-width: 2px;
+            }
+            
+            h1 {
+                font-size: 1.2em;
+                margin: 5px 0;
+            }
+            
+            button {
+                padding: 6px 12px;
+                font-size: 0.9em;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+            }
+            
+            .stat-item {
+                padding: 8px;
+                font-size: 0.9em;
+            }
+            
+            #result-container {
+                width: 100%;
+                padding: 10px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -544,6 +620,9 @@
         let firstTapTime;
         let score = 0;
         let incorrectAnswers = 0;
+        let isPromptsOpen = false; // Track if prompts are open
+        let gameStarted = false; // Track if game has started
+        let answerTaps = 0; // Count taps only for answer selections
 
         const baseImages = [
             'images/VN/candy.png',
@@ -625,9 +704,14 @@
         }
 
         function checkAnswer(imgElement, selectedImage) {
+            // Count taps when an answer option is selected
+            answerTaps++;
+            
             totalTaps++;
-            document.getElementById('totalTaps').textContent = totalTaps;
-
+            if (totalTaps === 1) {
+                firstTapTime = (Date.now() - totalStartTime) / 1000;
+            }
+            
             if (selectedImage === currentQuestion) {
                 showFeedback(true);
                 foundCount++;
@@ -636,6 +720,7 @@
                 imgElement.style.visibility = 'hidden';
                 
                 if (foundCount >= 2) {
+                    isPromptsOpen = true; // Mark that alert will be shown
                     setTimeout(() => {
                         alert('Congratulations!');
                         // Show the statistics container
@@ -655,6 +740,9 @@
 
         function startNewRound() {
             foundCount = 0;
+            gameStarted = false;
+            isPromptsOpen = false;
+            answerTaps = 0;
             selectRandomQuestion();
             questionImage.style.display = 'block';
             optionsContainer.style.display = 'none';
@@ -664,13 +752,18 @@
         function showOptions() {
             questionImage.style.display = 'none';
             optionsContainer.style.display = 'grid';
+            totalStartTime = Date.now(); // Reset start time when options are shown
+            gameStarted = true;          // Mark game as started
             displayOptions();
         }
 
         function showResults() {
+            isPromptsOpen = true; // Mark that results are shown
+            
             const totalEndTime = Date.now();
             const totalTimeInSeconds = ((totalEndTime - totalStartTime) / 1000).toFixed(2);
-            const averageTimeInSeconds = (totalTimeInSeconds / 12).toFixed(2);
+            // Calculate average time based on answer taps, not fixed value
+            const averageTimeInSeconds = answerTaps > 0 ? (totalTimeInSeconds / answerTaps).toFixed(2) : "0.00";
             
             document.getElementById('score').innerText = score;
             document.getElementById('total-time').innerText = totalTimeInSeconds;
@@ -683,12 +776,18 @@
             document.getElementById('result-container').style.display = 'block';
             document.getElementById('report-container').style.display = 'flex';
             
+            // Reset the prompts flag after showing results
+            setTimeout(() => {
+                isPromptsOpen = false;
+            }, 100);
+            
             saveAttempt({
                 score,
                 totalTime: totalTimeInSeconds,
                 avgTime: averageTimeInSeconds,
                 firstTapTime: firstTapTime ? firstTapTime.toFixed(2) : "N/A",
                 totalTaps,
+                answerTaps,
                 totalIncorrectAnswers: incorrectAnswers,
                 timestamp: Date.now()
             });
@@ -931,7 +1030,13 @@
             }
         }
 
-        document.addEventListener("click", () => {
+        document.addEventListener("click", (e) => {
+            // Don't count taps when alert/prompt dialogs might be open
+            if (isPromptsOpen) return;
+            
+            // Only count taps after game has started
+            if (!gameStarted) return;
+            
             totalTaps++;
             if (totalTaps === 1) {
                 firstTapTime = (Date.now() - totalStartTime) / 1000;
