@@ -1283,17 +1283,43 @@
                 // Process regular users
                 const userPromises = regularUserIds.map(async userId => {
                     try {
-                        // Check user's quizzes
+                        // First check the main users path
                         const userQuizzesSnapshot = await db.ref(`users/${userId}/quiz`).once('value');
-                        const userQuizzes = userQuizzesSnapshot.val() || {};
-                        
-                        Object.entries(userQuizzes).forEach(([quizType, attempts]) => {
-                            uniqueQuizTypes.add(quizType);
+                        if (userQuizzesSnapshot.exists()) {
+                            const userQuizzes = userQuizzesSnapshot.val() || {};
                             
-                            if (attempts) {
-                                totalQuizAttempts += Object.keys(attempts).length;
+                            Object.entries(userQuizzes).forEach(([quizType, attempts]) => {
+                                uniqueQuizTypes.add(quizType);
+                                
+                                if (attempts) {
+                                    totalQuizAttempts += Object.keys(attempts).length;
+                                }
+                            });
+                        } else {
+                            // Try alternative paths if main path doesn't exist
+                            const altPaths = [`quiz/${userId}`, `userQuizzes/${userId}`];
+                            
+                            for (const path of altPaths) {
+                                try {
+                                    const altQuizzesSnapshot = await db.ref(path).once('value');
+                                    if (altQuizzesSnapshot.exists()) {
+                                        const altQuizzes = altQuizzesSnapshot.val() || {};
+                                        
+                                        Object.entries(altQuizzes).forEach(([quizType, attempts]) => {
+                                            uniqueQuizTypes.add(quizType);
+                                            
+                                            if (attempts) {
+                                                totalQuizAttempts += Object.keys(attempts).length;
+                                            }
+                                        });
+                                        // If we found data in this path, no need to check others
+                                        break;
+                                    }
+                                } catch (altError) {
+                                    console.warn(`Error checking alternative path ${path} for user ${userId}:`, altError);
+                                }
                             }
-                        });
+                        }
                     } catch (error) {
                         console.warn(`Error processing user ${userId}:`, error);
                     }
