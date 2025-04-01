@@ -316,6 +316,82 @@
         .toggle-details:hover {
             background-color: #45a049;
         }
+        
+        .count-indicator {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            background-color: #333;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+        
+        /* Mobile optimization for bead options */
+        @media screen and (max-width: 600px) {
+            #options {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 5px;
+                margin: 0;
+                padding: 5px;
+            }
+            
+            #options .bead {
+                min-height: 26px;
+                min-width: 26px;
+                margin: 1px;
+                padding: 1px;
+                font-size: 0.9rem;
+            }
+            
+            .bead-container {
+                margin: 1px;
+            }
+            
+            .empty-bead, .bead {
+                min-height: 26px;
+                min-width: 26px;
+                margin: 1px;
+                border: 1px solid #ccc;
+            }
+            
+            .count-indicator {
+                width: 16px;
+                height: 16px;
+                font-size: 10px;
+                top: -5px;
+                right: -5px;
+            }
+            
+            #pattern-container {
+                padding: 5px;
+            }
+            
+            #user-pattern {
+                gap: 5px;
+            }
+            
+            #target-colors {
+                gap: 5px;
+            }
+            
+            #stats-container, #session-stats-container {
+                font-size: 0.9rem;
+                padding: 5px;
+            }
+            
+            #check-button, #reset-button {
+                padding: 5px;
+                font-size: 0.9rem;
+                margin: 5px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -446,6 +522,7 @@
             }
         });
         
+        let currentLevel = 0; // Track which level we're on (0-based index)
         let nextColorIndex = 0; // Track which color comes next in the placement
         
         // Available beads counter
@@ -774,6 +851,7 @@
             firstTapTime = null;
             nextPosition = 0;
             nextColorIndex = 0;
+            currentLevel = 0;
             currentSequence = Array(12).fill(null);
             
             // Reset displayed values
@@ -813,8 +891,8 @@
             newCheckButton.addEventListener('click', checkPattern);
             newResetButton.addEventListener('click', initializeGame);
             
-            // Highlight the next color to place
-            highlightNextColor();
+            // Highlight the target colors for current level
+            highlightCurrentLevel();
             
             // Start timer
             startTimer();
@@ -829,6 +907,7 @@
                 colorElement.className = 'bead';
                 colorElement.style.backgroundColor = color;
                 colorElement.dataset.colorIndex = index;
+                colorElement.dataset.color = color;
                 targetColorsContainer.appendChild(colorElement);
             });
         }
@@ -868,42 +947,59 @@
             const optionsContainer = document.getElementById('options');
             optionsContainer.innerHTML = '';
             
-            // Get the next color to be placed
-            const nextColor = colorPlacementOrder[nextColorIndex];
+            // Show all color options
+            targetColorOrder.forEach(color => {
+                // Only show colors that are still available
+                if (availableBeads[color] > 0) {
+                    const bead = document.createElement('div');
+                    bead.className = 'bead';
+                    bead.style.backgroundColor = color;
+                    bead.dataset.color = color;
+                    
+                    // Show count indicator
+                    const countIndicator = document.createElement('span');
+                    countIndicator.className = 'count-indicator';
+                    countIndicator.textContent = availableBeads[color];
+                    bead.appendChild(countIndicator);
+                    
+                    // Make the bead draggable (for desktop)
+                    bead.draggable = true;
+                    bead.addEventListener('dragstart', handleDragStart);
+                    bead.addEventListener('dragend', handleDragEnd);
+                    
+                    // Touch events for mobile drag
+                    bead.addEventListener('touchstart', handleBeadTouchStart, { passive: false });
+                    bead.addEventListener('touchmove', handleBeadTouchMove, { passive: false });
+                    bead.addEventListener('touchend', handleBeadTouchEnd);
+                    
+                    // Also allow click placement for mobile and desktop
+                    bead.addEventListener('click', function() {
+                        handleBeadClick(this);
+                    });
+                    
+                    optionsContainer.appendChild(bead);
+                }
+            });
             
-            // Create a bead of the current color if there are still slots available
-            if (nextPosition < 12 && availableBeads[nextColor] > 0) {
-                const bead = document.createElement('div');
-                bead.className = 'bead';
-                bead.style.backgroundColor = nextColor;
-                bead.dataset.color = nextColor;
-                
-                // Make the bead draggable (for desktop)
-                bead.draggable = true;
-                bead.addEventListener('dragstart', handleDragStart);
-                bead.addEventListener('dragend', handleDragEnd);
-                
-                // Touch events for mobile drag
-                bead.addEventListener('touchstart', handleBeadTouchStart, { passive: false });
-                bead.addEventListener('touchmove', handleBeadTouchMove, { passive: false });
-                bead.addEventListener('touchend', handleBeadTouchEnd);
-                
-                // Also allow click placement for mobile and desktop
-                bead.addEventListener('click', function() {
-                    handleBeadClick(this);
-                });
-                
-                optionsContainer.appendChild(bead);
-                
-                // Show feedback about the next color to place
-                showFeedback(`Place the ${nextColor} bead in the pattern`, nextColor);
-            } else if (nextPosition >= 12) {
+            // Show level instruction feedback
+            const currentLevelColors = getLevelColors(currentLevel);
+            if (currentLevelColors.length > 0) {
+                const levelMsg = `Level ${currentLevel + 1}: Place the ${currentLevelColors.map(c => `<span style="color:${c}">${c}</span>`).join(', ')} beads`;
+                showFeedback(levelMsg, '#333');
+            } else {
                 showFeedback('Your pattern is complete! Click "Check Pattern"', 'green');
             }
         }
         
-        // Highlight the target color that needs to be placed next
-        function highlightNextColor() {
+        // Get the colors for the current level
+        function getLevelColors(level) {
+            if (level >= 4) return []; // all levels complete
+            
+            return [targetColorOrder[level]];
+        }
+        
+        // Highlight the target colors for the current level
+        function highlightCurrentLevel() {
             // First, remove any existing highlights
             const allTargetBeads = document.querySelectorAll('#target-colors .bead');
             allTargetBeads.forEach(bead => {
@@ -911,16 +1007,13 @@
                 bead.style.transform = 'scale(1)';
             });
             
-            if (nextColorIndex < colorPlacementOrder.length) {
-                const nextColor = colorPlacementOrder[nextColorIndex];
-                const colorIndex = targetColorOrder.indexOf(nextColor);
-                
-                if (colorIndex !== -1) {
-                    const colorBead = document.querySelector(`#target-colors .bead[data-color-index="${colorIndex}"]`);
-                    if (colorBead) {
-                        colorBead.style.boxShadow = '0 0 10px #fff, 0 0 20px ' + nextColor;
-                        colorBead.style.transform = 'scale(1.1)';
-                    }
+            // Highlight the current level's color
+            if (currentLevel < targetColorOrder.length) {
+                const currentColor = targetColorOrder[currentLevel];
+                const colorBead = document.querySelector(`#target-colors .bead[data-color="${currentColor}"]`);
+                if (colorBead) {
+                    colorBead.style.boxShadow = '0 0 10px #fff, 0 0 20px ' + currentColor;
+                    colorBead.style.transform = 'scale(1.1)';
                 }
             }
         }
@@ -957,11 +1050,12 @@
             const color = e.dataTransfer.getData('text/plain');
             const position = parseInt(this.dataset.position);
             
-            // Only allow dropping if this is the next position
-            if (position === nextPosition) {
+            // Verify the color is allowed for the current level
+            const levelColors = getLevelColors(currentLevel);
+            if (levelColors.includes(color)) {
                 placeBead(color, position, this);
             } else {
-                showFeedback('Please fill the pattern in order!', 'red');
+                showFeedback(`You need to use ${levelColors.join(', ')} beads first!`, 'red');
                 incorrectMoves++;
                 updateOptionsDisplay();
             }
@@ -998,11 +1092,12 @@
                 const color = this.dataset.color;
                 const position = parseInt(dropTarget.dataset.position);
                 
-                // Only allow dropping if this is the next position
-                if (position === nextPosition) {
+                // Verify the color is allowed for the current level
+                const levelColors = getLevelColors(currentLevel);
+                if (levelColors.includes(color)) {
                     placeBead(color, position, dropTarget);
                 } else {
-                    showFeedback('Please fill the pattern in order!', 'red');
+                    showFeedback(`You need to use ${levelColors.join(', ')} beads first!`, 'red');
                     incorrectMoves++;
                     updateOptionsDisplay();
                 }
@@ -1025,11 +1120,12 @@
                 const color = currentDragBead.dataset.color;
                 const position = parseInt(this.dataset.position);
                 
-                // Only allow dropping if this is the next position
-                if (position === nextPosition) {
+                // Verify the color is allowed for the current level
+                const levelColors = getLevelColors(currentLevel);
+                if (levelColors.includes(color)) {
                     placeBead(color, position, this);
                 } else {
-                    showFeedback('Please fill the pattern in order!', 'red');
+                    showFeedback(`You need to use ${levelColors.join(', ')} beads first!`, 'red');
                     incorrectMoves++;
                     updateOptionsDisplay();
                 }
@@ -1043,6 +1139,15 @@
         // Handle click placement (alternative method)
         function handleBeadClick(bead) {
             const color = bead.dataset.color;
+            
+            // Verify the color is allowed for the current level
+            const levelColors = getLevelColors(currentLevel);
+            if (!levelColors.includes(color)) {
+                showFeedback(`You need to use ${levelColors.join(', ')} beads first!`, 'red');
+                incorrectMoves++;
+                updateOptionsDisplay();
+                return;
+            }
             
             // Check if we have beads of this color available
             if (nextPosition < 12 && availableBeads[color] > 0) {
@@ -1064,11 +1169,10 @@
         
         // Function to place a bead (used by all placement methods)
         function placeBead(color, position, targetElement) {
-            // Check if the color matches the next expected color in the sequence
-            const expectedColor = colorPlacementOrder[nextColorIndex];
-            
-            if (color !== expectedColor) {
-                showFeedback(`You need to place a ${expectedColor} bead next!`, 'red');
+            // Check if we're trying to place a color that's not part of the current level
+            const levelColors = getLevelColors(currentLevel);
+            if (!levelColors.includes(color)) {
+                showFeedback(`You must place ${levelColors.join(', ')} beads for this level!`, 'red');
                 incorrectMoves++;
                 updateOptionsDisplay();
                 return;
@@ -1103,13 +1207,25 @@
             nextPosition++;
             nextColorIndex++;
             
+            // Check if we've completed this level
+            const colorsInCurrentLevel = countColorsInSequence(color);
+            if (colorsInCurrentLevel >= 3) { // Each color appears 3 times
+                // Move to the next level
+                currentLevel++;
+                highlightCurrentLevel();
+            }
+            
             // Update options, stats, and highlight
             updateOptions();
-            highlightNextColor();
             totalMoves++;
             updateOptionsDisplay();
         }
-
+        
+        // Count how many of a specific color are in the current sequence
+        function countColorsInSequence(color) {
+            return currentSequence.filter(c => c === color).length;
+        }
+        
         // Initialize the game on load if user is already authenticated
         if (auth.currentUser) {
             initializeGame();
