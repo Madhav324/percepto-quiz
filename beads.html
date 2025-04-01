@@ -1095,9 +1095,19 @@
         
         // Drag and drop handlers (desktop)
         function handleDragStart(e) {
-            this.classList.add('dragging');
             e.dataTransfer.setData('text/plain', this.dataset.color);
+            this.classList.add('dragging');
             currentDragBead = this;
+            
+            // Always record first tap time for any drag attempt
+            if (firstTapTime === null) {
+                firstTapTime = Date.now();
+                console.log('First drag time recorded:', firstTapTime);
+            }
+            
+            totalTaps++;
+            document.getElementById('total-taps').textContent = totalTaps;
+            document.getElementById('session-total-taps').textContent = totalTaps;
         }
         
         function handleDragEnd(e) {
