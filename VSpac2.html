@@ -523,9 +523,9 @@
                 <li><strong>Total Time:</strong> <span id="total-time"></span> seconds</li>
                 <li><strong>Average Time:</strong> <span id="avg-time"></span> seconds</li>
                 <li><strong>First Tap Time:</strong> <span id="first-tap"></span> seconds</li>
-                <li><strong>Total Taps:</strong> <span id="total-taps"></span></li>
-                <li><strong>Total Correct Answers:</strong> <span id="total-correct"></span></li>
-                <li><strong>Total Incorrect Answers:</strong> <span id="total-incorrect"></span></li>
+                <li><strong>First Placement Time:</strong> <span id="first-placement"></span> seconds</li>
+                <li><strong>Incorrect Attempts:</strong> <span id="incorrect-attempts"></span></li>
+                <li><strong>Total Score:</strong> <span id="total-score"></span></li>
             </ul>
             <a href="index.html" style="text-decoration: none;"><button>Return Home</button></a>
         </div>
@@ -624,6 +624,7 @@
         let touchStartX = 0;
         let touchStartY = 0;
         let currentOptionIndex = 0;
+        let resultsPending = false;
 
         // Auth state observer
         auth.onAuthStateChanged(async (user) => {
@@ -783,18 +784,8 @@
             currentOptionIndex++;
             updateArrowDirection();
             
-            // Check if all options have been placed
-            const remainingOptions = document.getElementsByClassName('draggable').length;
-            if (remainingOptions === 0) {
-                // Show a success notification
-                showNotification("All items placed correctly!", "#4CAF50");
-                
-                // Wait a moment for the user to see the completed placement
-                setTimeout(() => {
-                    // Call checkAnswer to show results
-                    checkAnswer();
-                }, 1000);
-            }
+            // Check if all options have been placed - we just let the function handle it if complete
+            checkAllOptionsPlaced();
         }
 
         function setupDropAreas() {
@@ -834,25 +825,52 @@
             e.target.classList.remove('dragging');
         }
 
-        function initializeQuiz(questionType = null) {
-            currentQuestion = questionType || selectRandomQuestion();
+        function initializeQuiz() {
+            // Reset state
+            placedImages.clear();
             currentOptionIndex = 0;
+            incorrectAnswers = 0;
+            correctAnswers = 0;
+            totalStartTime = Date.now();
+            firstUserInteractionTime = null;
+            firstPlacementTime = null;
+            resultsPending = false; // Reset results pending flag
+            
+            // Hide results container
+            document.getElementById('result-container').style.display = 'none';
+            document.getElementById('report-container').style.display = 'none';
+            
+            // Show game elements
+            document.querySelector('.game-area').style.display = 'flex';
+            document.querySelector('.options-container').style.display = 'flex';
+            document.getElementById('instruction').style.display = 'block';
+            document.getElementById('quiz-type').style.display = 'block';
+            
+            // Set up the question
+            setupDropAreas();
+            loadRandomQuestion();
+        }
+
+        function loadRandomQuestion() {
+            // Select a random question
+            currentQuestion = selectRandomQuestion();
             
             const centerImage = document.getElementById('center-image');
             const optionsContainer = document.getElementById('options-container');
             const instruction = document.getElementById('instruction');
-            const quizType = document.getElementById('quiz-type');
             
-            centerImage.src = currentQuestion.questionImage;
-            instruction.textContent = currentQuestion.instruction;
+            // Update center image and instruction
+            centerImage.src = arrowDirections[currentQuestion.correctArea];
+            instruction.textContent = `Place the next object ${directionText[currentQuestion.correctArea]} the arrow.`;
             
+            // Clear previous options
             optionsContainer.innerHTML = '';
             document.querySelectorAll('.placed-image').forEach(img => img.remove());
-            placedImages.clear();
             
             // Show the skip button
             document.getElementById('skip-button').style.display = 'inline-block';
             
+            // Add draggable options
             currentQuestion.options.forEach(option => {
                 const img = document.createElement('img');
                 img.src = option;
@@ -871,7 +889,7 @@
                 optionsContainer.appendChild(img);
             });
         }
-
+        
         function updateArrowDirection() {
             // Only change direction if there are still options to place
             if (document.getElementsByClassName('draggable').length > 0) {
@@ -912,7 +930,30 @@
             }, 2000);
         }
 
+        function checkAllOptionsPlaced() {
+            const remainingOptions = document.getElementsByClassName('draggable').length;
+            console.log(`Checking completion: ${remainingOptions} options remaining`);
+            
+            if (remainingOptions === 0 && !resultsPending) {
+                resultsPending = true; // Set flag to prevent multiple calls
+                console.log("All options placed - preparing to show results");
+                
+                // Show a success notification
+                showNotification("All items placed correctly!", "#4CAF50");
+                
+                // Wait a moment for the user to see the completed placement
+                setTimeout(() => {
+                    // Call checkAnswer to show results
+                    console.log("Timeout complete - showing results now");
+                    checkAnswer();
+                }, 1000);
+                return true;
+            }
+            return false;
+        }
+        
         function checkAnswer() {
+            console.log("checkAnswer function called!");
             const endTime = Date.now();
             const totalTime = (endTime - totalStartTime) / 1000;
             
@@ -934,9 +975,8 @@
             // Hide game elements and show results
             document.querySelector('.game-area').style.display = 'none';
             document.querySelector('.options-container').style.display = 'none';
-            document.querySelector('.instruction').style.display = 'none';
-            document.querySelector('#quiz-type').style.display = 'none';
-            document.querySelector('.button-container').style.display = 'none';
+            document.getElementById('instruction').style.display = 'none';
+            document.getElementById('quiz-type').style.display = 'none';
             document.getElementById('skip-button').style.display = 'none';
             
             // Show results and reports
@@ -949,29 +989,19 @@
             document.getElementById('total-time').textContent = totalTime.toFixed(2);
             document.getElementById('avg-time').textContent = averageTime.toFixed(2);
             document.getElementById('first-tap').textContent = firstUserInteractionTime ? firstUserInteractionTime.toFixed(2) : 'N/A';
-            document.getElementById('total-taps').textContent = totalTaps;
-            document.getElementById('total-correct').textContent = correctAnswers;
-            document.getElementById('total-incorrect').textContent = incorrectAnswers;
+            document.getElementById('first-placement').textContent = firstPlacementTime ? firstPlacementTime.toFixed(2) : 'N/A';
+            document.getElementById('incorrect-attempts').textContent = incorrectAnswers;
+            document.getElementById('total-score').textContent = correctAnswers;
             
-            // Show retry button
-            document.getElementById('retry-button').style.display = 'inline-block';
+            // Save results if user is logged in
+            const user = auth.currentUser;
+            if (user) {
+                saveQuizResults(user.uid, score, totalTime, incorrectAnswers);
+            }
             
-            // Save results to Firebase
-            saveQuizResults(
-                score,
-                totalTime.toFixed(2),
-                averageTime.toFixed(2),
-                firstUserInteractionTime ? firstUserInteractionTime.toFixed(2) : null,
-                totalTaps,
-                correctAnswers,
-                incorrectAnswers
-            );
-            
-            // Show completion message
-            showNotification("Quiz completed!", "#4CAF50");
-            
-            // Fetch and display previous attempts
-            fetchPreviousAttempts();
+            // Ensure we fully display the results
+            window.scrollTo(0, 0);
+            console.log("Quiz results displayed");
         }
 
         function reloadRandomQuestion() {
@@ -1022,16 +1052,8 @@
             currentOptionIndex++;
             updateArrowDirection();
             
-            // Check if all options have been placed
-            if (document.getElementsByClassName('draggable').length === 0) {
-                // Show a success notification
-                showNotification("All items placed!", "#4CAF50");
-                
-                // Wait a moment and then show results
-                setTimeout(() => {
-                    checkAnswer();
-                }, 1000);
-            }
+            // Check if all options have been placed - we just let the function handle it if complete
+            checkAllOptionsPlaced();
         }
 
         // Track user interactions - excluding prompts and check answer button
@@ -1189,18 +1211,8 @@
                         currentOptionIndex++;
                         updateArrowDirection();
                         
-                        // Check if all options have been placed
-                        const remainingOptions = document.getElementsByClassName('draggable').length;
-                        if (remainingOptions === 0) {
-                            // Show a success notification
-                            showNotification("All items placed correctly!", "#4CAF50");
-                            
-                            // Wait a moment for the user to see the completed placement
-                            setTimeout(() => {
-                                // Call checkAnswer to show results
-                                checkAnswer();
-                            }, 1000);
-                        }
+                        // Check if all options have been placed - we just let the function handle it if complete
+                        checkAllOptionsPlaced();
                     }
                 } else {
                     // Reset the dragged item if not dropped in an area
@@ -1361,52 +1373,54 @@
             }
         }
 
-        async function saveQuizResults(score, totalTime, averageTime, firstTapTime, totalTaps, correctAnswers, incorrectAnswers) {
-            const user = auth.currentUser;
-            if (!user) return;
+        async function saveQuizResults(userId, score, totalTime, incorrectAnswers) {
+            if (!userId) return;
 
             try {
-                const timestamp = Date.now();
-                let path;
-
-                // Check if this is a patient quiz (doctor viewing patient)
-                const currentPatientId = sessionStorage.getItem('currentPatientId');
-                const doctorId = sessionStorage.getItem('doctorId');
+                // Create a unique report ID
+                const reportId = Date.now();
+                const timestamp = new Date().toISOString();
                 
-                if (currentPatientId && doctorId) {
-                    // This is a doctor testing a patient
-                    console.log(`Saving patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
-                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/VSpac2/${timestamp}`;
-                } else {
-                    // Regular user quiz
-                    // Check if user is a doctor
-                    const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
-                    const role = roleSnapshot.val();
-                    
-                    if (role === 'doctor') {
-                        console.log(`Saving doctor's own quiz results: ${user.uid}`);
-                        path = `doctors/${user.uid}/quiz/VSpac2/${timestamp}`;
-                    } else {
-                        console.log(`Saving regular user quiz results: ${user.uid}`);
-                        path = `users/${user.uid}/quiz/VSpac2/${timestamp}`;
-                    }
+                // Determine the role and path for database
+                let role = 'users';
+                let doctorId = null;
+                
+                const roleQuery = await database.ref(`users/${userId}/role`).once('value');
+                const userRole = roleQuery.val();
+                
+                if (userRole === 'patient') {
+                    role = 'patients';
+                    const doctorIdQuery = await database.ref(`users/${userId}/doctorId`).once('value');
+                    doctorId = doctorIdQuery.val();
                 }
-
-                console.log(`Saving quiz results to path: ${path}`);
+                
+                // Define the save path based on the user role
+                let path;
+                if (role === 'patients' && doctorId) {
+                    path = `doctors/${doctorId}/patients/${userId}/reports/visual_spatial/${reportId}`;
+                } else {
+                    path = `${role}/${userId}/reports/visual_spatial/${reportId}`;
+                }
+                
+                // Save the results
                 await database.ref(path).set({
                     score,
                     totalTime,
-                    averageTime,
-                    firstTapTime,
-                    totalTaps,
+                    averageTime: totalTime / 1,
+                    firstTapTime: firstUserInteractionTime,
+                    firstPlacementTime: firstPlacementTime,
                     correctAnswers,
                     incorrectAnswers,
                     timestamp
                 });
                 
-                console.log('Quiz results saved successfully');
+                // Fetch previous attempts to display in the report list
+                fetchPreviousAttempts();
+                
+                console.log("Results saved successfully");
             } catch (error) {
-                console.error('Error saving quiz results:', error);
+                console.error("Error saving results:", error);
+                showNotification("Error saving results", "#f44336");
             }
         }
 
