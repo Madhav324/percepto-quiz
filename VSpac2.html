@@ -510,7 +510,6 @@
         <div class="options-container" id="options-container"></div>
         
         <div class="button-container">
-            <button onclick="window.checkAnswer()">Check Answer</button>
             <button id="retry-button" onclick="reloadRandomQuestion()">Try Another Question</button>
             <button id="skip-button" onclick="skipQuestion()">Skip Question</button>
         </div>
@@ -783,6 +782,19 @@
             // Change the arrow direction after each placement
             currentOptionIndex++;
             updateArrowDirection();
+            
+            // Check if all options have been placed
+            const remainingOptions = document.getElementsByClassName('draggable').length;
+            if (remainingOptions === 0) {
+                // Show a success notification
+                showNotification("All items placed correctly!", "#4CAF50");
+                
+                // Wait a moment for the user to see the completed placement
+                setTimeout(() => {
+                    // Call checkAnswer to show results
+                    checkAnswer();
+                }, 1000);
+            }
         }
 
         function setupDropAreas() {
@@ -833,7 +845,6 @@
             
             centerImage.src = currentQuestion.questionImage;
             instruction.textContent = currentQuestion.instruction;
-            quizType.textContent = `Question Type: ${currentQuestion.type} PLACEMENT`;
             
             optionsContainer.innerHTML = '';
             document.querySelectorAll('.placed-image').forEach(img => img.remove());
@@ -1100,14 +1111,54 @@
                 });
                 
                 if (targetArea) {
-                    // Simulate drop event
-                    const dropEvent = {
-                        preventDefault: () => {},
-                        dataTransfer: {
-                            getData: () => draggedItem.src
+                    // Check if this is the correct area
+                    if (targetArea !== currentQuestion.correctArea) {
+                        // Show incorrect placement notification
+                        showNotification("Incorrect placement!", "#f44336");
+                        
+                        // Visual feedback for incorrect drop
+                        const dropArea = document.getElementById(`${targetArea}-area`);
+                        dropArea.classList.add('incorrect');
+                        setTimeout(() => {
+                            dropArea.classList.remove('incorrect');
+                        }, 500);
+                        
+                        incorrectAnswers++;
+                    } else {
+                        // Create a new image in the drop area
+                        const dropArea = document.getElementById(`${targetArea}-area`);
+                        const newImage = document.createElement('img');
+                        newImage.src = draggedItem.src;
+                        newImage.className = 'placed-image';
+                        
+                        dropArea.appendChild(newImage);
+                        draggedItem.remove();
+                        
+                        placedImages.set(draggedItem.src, targetArea);
+                        rearrangeImages(dropArea, targetArea);
+                        
+                        // Track first placement time
+                        if (firstPlacementTime === null) {
+                            firstPlacementTime = (Date.now() - totalStartTime) / 1000;
                         }
-                    };
-                    handleDrop(dropEvent, targetArea);
+                        
+                        // Change the arrow direction after each placement
+                        currentOptionIndex++;
+                        updateArrowDirection();
+                        
+                        // Check if all options have been placed
+                        const remainingOptions = document.getElementsByClassName('draggable').length;
+                        if (remainingOptions === 0) {
+                            // Show a success notification
+                            showNotification("All items placed correctly!", "#4CAF50");
+                            
+                            // Wait a moment for the user to see the completed placement
+                            setTimeout(() => {
+                                // Call checkAnswer to show results
+                                checkAnswer();
+                            }, 1000);
+                        }
+                    }
                 } else {
                     // Reset the dragged item if not dropped in an area
                     draggedItem.style.position = '';
