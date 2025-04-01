@@ -392,6 +392,36 @@
                 margin: 5px;
             }
         }
+        
+        /* Feedback popup styles */
+        .feedback-popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 15px 30px;
+            border-radius: 5px;
+            font-size: 18px;
+            font-weight: bold;
+            color: white;
+            text-align: center;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+            pointer-events: none;
+        }
+        
+        .feedback-popup.show {
+            opacity: 1;
+        }
+        
+        .feedback-popup.correct {
+            background-color: rgba(0, 128, 0, 0.8);
+        }
+        
+        .feedback-popup.incorrect {
+            background-color: rgba(255, 0, 0, 0.8);
+        }
     </style>
 </head>
 <body>
@@ -511,23 +541,45 @@
         let nextPosition = 0;
         let currentSequence = Array(12).fill(null);
         
-        // Define fixed order of colors to place - this will be shown in the "Colors to Use" section
+        // Define fixed order of colors as shown in the "Colors to Use" section
         const targetColorOrder = ['red', 'blue', 'green', 'yellow'];
         
-        // Each color appears 3 times in the pattern (12 total spots - 3 of each color)
-        let colorPlacementOrder = [];
-        targetColorOrder.forEach(color => {
-            for (let i = 0; i < 3; i++) {
-                colorPlacementOrder.push(color);
-            }
-        });
+        // Define the pattern by rows (horizontal levels)
+        // Each row has 4 beads, and we have 3 rows (12 beads total)
+        const rowPattern = [
+            ['red', 'blue', 'green', 'yellow'],    // Row 1
+            ['red', 'blue', 'green', 'yellow'],    // Row 2
+            ['red', 'blue', 'green', 'yellow']     // Row 3
+        ];
         
-        let currentLevel = 0; // Track which level we're on (0-based index)
-        let nextColorIndex = 0; // Track which color comes next in the placement
+        // Define the pattern array (flattened from rowPattern)
+        const colorPlacementOrder = rowPattern.flat();
+        
+        // Track the current row level (0-based index)
+        let currentRow = 0;
         
         // Available beads counter
         let availableBeads = {};
 
+        // Create feedback popup element
+        const feedbackPopup = document.createElement('div');
+        feedbackPopup.className = 'feedback-popup';
+        document.body.appendChild(feedbackPopup);
+        
+        // Function to show and hide feedback popup
+        function showFeedbackPopup(message, isCorrect) {
+            feedbackPopup.textContent = message;
+            feedbackPopup.className = 'feedback-popup ' + (isCorrect ? 'correct' : 'incorrect');
+            
+            // Show popup
+            feedbackPopup.classList.add('show');
+            
+            // Hide after 1.5 seconds
+            setTimeout(() => {
+                feedbackPopup.classList.remove('show');
+            }, 1500);
+        }
+        
         // Listen for authentication state changes
         onAuthStateChanged(auth, async (user) => {
             if (user) {
@@ -784,27 +836,30 @@
             
             if (currentSequence.includes(null)) {
                 showFeedback('Please complete the pattern first!', 'red');
+                showFeedbackPopup('Incomplete Pattern!', false);
                 return;
             }
 
-            const colorCounts = {};
-            targetColorOrder.forEach(color => colorCounts[color] = 0);
-            currentSequence.forEach(color => colorCounts[color]++);
-            const isCorrect = targetColorOrder.every(color => colorCounts[color] === 3);
+            // Check if the pattern matches colorPlacementOrder exactly
+            const isCorrect = currentSequence.every((color, index) => color === colorPlacementOrder[index]);
             
             if (isCorrect) {
                 const endTime = Date.now();
                 const completionTime = ((endTime - startTime) / 1000).toFixed(2);
+                
+                // Show success feedback
+                showFeedback('Correct! Well done!', 'green');
+                showFeedbackPopup('CORRECT! 🎉', true);
                 
                 // Save attempt to Firebase
                 saveAttempt({
                     completionTime: parseFloat(completionTime)
                 });
 
-                showFeedback('Correct! Well done!', 'green');
                 clearInterval(timerInterval);
             } else {
                 showFeedback('Try again!', 'red');
+                showFeedbackPopup('INCORRECT! ❌', false);
                 setTimeout(() => {
                     createUserPattern();
                 }, 1500);
@@ -850,8 +905,7 @@
             attempts = 0;
             firstTapTime = null;
             nextPosition = 0;
-            nextColorIndex = 0;
-            currentLevel = 0;
+            currentRow = 0;
             currentSequence = Array(12).fill(null);
             
             // Reset displayed values
@@ -891,8 +945,8 @@
             newCheckButton.addEventListener('click', checkPattern);
             newResetButton.addEventListener('click', initializeGame);
             
-            // Highlight the target colors for current level
-            highlightCurrentLevel();
+            // Highlight the current row
+            highlightCurrentRow();
             
             // Start timer
             startTimer();
@@ -917,7 +971,7 @@
             patternContainer.innerHTML = '';
             currentSequence = Array(12).fill(null);
             nextPosition = 0;
-            nextColorIndex = 0;
+            currentRow = 0;
             
             for (let i = 0; i < 12; i++) {
                 const slot = document.createElement('div');
@@ -981,39 +1035,63 @@
                 }
             });
             
-            // Show level instruction feedback
-            const currentLevelColors = getLevelColors(currentLevel);
-            if (currentLevelColors.length > 0) {
-                const levelMsg = `Level ${currentLevel + 1}: Place the ${currentLevelColors.map(c => `<span style="color:${c}">${c}</span>`).join(', ')} beads`;
-                showFeedback(levelMsg, '#333');
+            // Show row level instruction feedback
+            if (nextPosition < 12) {
+                const rowMsg = `Fill Row ${currentRow + 1} with colors matching the pattern`;
+                showFeedback(rowMsg, '#333');
             } else {
                 showFeedback('Your pattern is complete! Click "Check Pattern"', 'green');
             }
         }
         
-        // Get the colors for the current level
-        function getLevelColors(level) {
-            if (level >= 4) return []; // all levels complete
+        // Get the valid positions for the current row
+        function getCurrentRowPositions() {
+            const rowStart = currentRow * 4;
+            const rowEnd = rowStart + 3;
+            const positions = [];
             
-            return [targetColorOrder[level]];
+            for (let i = rowStart; i <= rowEnd; i++) {
+                if (currentSequence[i] === null) {
+                    positions.push(i);
+                }
+            }
+            
+            return positions;
         }
         
-        // Highlight the target colors for the current level
-        function highlightCurrentLevel() {
+        // Check if the position is in the current row
+        function isPositionInCurrentRow(position) {
+            const rowStart = currentRow * 4;
+            const rowEnd = rowStart + 3;
+            return position >= rowStart && position <= rowEnd;
+        }
+        
+        // Highlight the current row in the user pattern
+        function highlightCurrentRow() {
             // First, remove any existing highlights
-            const allTargetBeads = document.querySelectorAll('#target-colors .bead');
-            allTargetBeads.forEach(bead => {
-                bead.style.boxShadow = 'none';
-                bead.style.transform = 'scale(1)';
+            const allUserPatternSlots = document.querySelectorAll('#user-pattern .empty-bead, #user-pattern .bead');
+            allUserPatternSlots.forEach(slot => {
+                slot.style.boxShadow = 'none';
+                
+                if (slot.parentElement) {
+                    slot.parentElement.style.backgroundColor = '';
+                }
             });
             
-            // Highlight the current level's color
-            if (currentLevel < targetColorOrder.length) {
-                const currentColor = targetColorOrder[currentLevel];
-                const colorBead = document.querySelector(`#target-colors .bead[data-color="${currentColor}"]`);
-                if (colorBead) {
-                    colorBead.style.boxShadow = '0 0 10px #fff, 0 0 20px ' + currentColor;
-                    colorBead.style.transform = 'scale(1.1)';
+            // Highlight empty slots in the current row
+            const rowStart = currentRow * 4;
+            const rowEnd = rowStart + 3;
+            
+            for (let i = rowStart; i <= rowEnd; i++) {
+                const slot = document.querySelector(`#user-pattern [data-position="${i}"]`);
+                if (slot) {
+                    if (slot.classList.contains('empty-bead')) {
+                        slot.style.boxShadow = '0 0 5px 2px rgba(255, 255, 0, 0.7)';
+                    }
+                    
+                    if (slot.parentElement) {
+                        slot.parentElement.style.backgroundColor = 'rgba(255, 255, 0, 0.1)';
+                    }
                 }
             }
         }
@@ -1050,14 +1128,14 @@
             const color = e.dataTransfer.getData('text/plain');
             const position = parseInt(this.dataset.position);
             
-            // Verify the color is allowed for the current level
-            const levelColors = getLevelColors(currentLevel);
-            if (levelColors.includes(color)) {
+            // Only allow dropping if this position is in the current row
+            if (isPositionInCurrentRow(position)) {
                 placeBead(color, position, this);
             } else {
-                showFeedback(`You need to use ${levelColors.join(', ')} beads first!`, 'red');
                 incorrectMoves++;
                 updateOptionsDisplay();
+                showFeedback(`Please fill Row ${currentRow + 1} first!`, 'red');
+                showFeedbackPopup('WRONG ROW!', false);
             }
         }
         
@@ -1092,14 +1170,14 @@
                 const color = this.dataset.color;
                 const position = parseInt(dropTarget.dataset.position);
                 
-                // Verify the color is allowed for the current level
-                const levelColors = getLevelColors(currentLevel);
-                if (levelColors.includes(color)) {
+                // Only allow dropping if this position is in the current row
+                if (isPositionInCurrentRow(position)) {
                     placeBead(color, position, dropTarget);
                 } else {
-                    showFeedback(`You need to use ${levelColors.join(', ')} beads first!`, 'red');
                     incorrectMoves++;
                     updateOptionsDisplay();
+                    showFeedback(`Please fill Row ${currentRow + 1} first!`, 'red');
+                    showFeedbackPopup('WRONG ROW!', false);
                 }
             }
             
@@ -1120,14 +1198,14 @@
                 const color = currentDragBead.dataset.color;
                 const position = parseInt(this.dataset.position);
                 
-                // Verify the color is allowed for the current level
-                const levelColors = getLevelColors(currentLevel);
-                if (levelColors.includes(color)) {
+                // Only allow dropping if this position is in the current row
+                if (isPositionInCurrentRow(position)) {
                     placeBead(color, position, this);
                 } else {
-                    showFeedback(`You need to use ${levelColors.join(', ')} beads first!`, 'red');
                     incorrectMoves++;
                     updateOptionsDisplay();
+                    showFeedback(`Please fill Row ${currentRow + 1} first!`, 'red');
+                    showFeedbackPopup('WRONG ROW!', false);
                 }
                 
                 isDragging = false;
@@ -1140,28 +1218,27 @@
         function handleBeadClick(bead) {
             const color = bead.dataset.color;
             
-            // Verify the color is allowed for the current level
-            const levelColors = getLevelColors(currentLevel);
-            if (!levelColors.includes(color)) {
-                showFeedback(`You need to use ${levelColors.join(', ')} beads first!`, 'red');
-                incorrectMoves++;
-                updateOptionsDisplay();
-                return;
-            }
-            
             // Check if we have beads of this color available
-            if (nextPosition < 12 && availableBeads[color] > 0) {
-                const emptyBeads = document.querySelectorAll('.empty-bead');
-                if (emptyBeads.length > 0) {
-                    const targetBead = emptyBeads[0]; // Get the first empty spot
-                    placeBead(color, nextPosition, targetBead);
+            if (availableBeads[color] > 0) {
+                // Get valid positions in the current row
+                const validPositions = getCurrentRowPositions();
+                
+                if (validPositions.length > 0) {
+                    // Get the first valid position
+                    const position = validPositions[0];
+                    const targetBead = document.querySelector(`.empty-bead[data-position="${position}"]`);
+                    
+                    if (targetBead) {
+                        placeBead(color, position, targetBead);
+                    }
+                } else if (nextPosition < 12) {
+                    // No valid positions in current row but game not complete
+                    showFeedback(`Row ${currentRow + 1} is complete. Please check your pattern.`, 'green');
+                    showFeedbackPopup('ROW COMPLETE!', true);
                 }
             } else if (availableBeads[color] === 0) {
                 showFeedback('No more ' + color + ' beads available!', 'red');
-                incorrectMoves++;
-                updateOptionsDisplay();
-            } else {
-                showFeedback('Pattern is full!', 'red');
+                showFeedbackPopup('OUT OF BEADS!', false);
                 incorrectMoves++;
                 updateOptionsDisplay();
             }
@@ -1169,10 +1246,10 @@
         
         // Function to place a bead (used by all placement methods)
         function placeBead(color, position, targetElement) {
-            // Check if we're trying to place a color that's not part of the current level
-            const levelColors = getLevelColors(currentLevel);
-            if (!levelColors.includes(color)) {
-                showFeedback(`You must place ${levelColors.join(', ')} beads for this level!`, 'red');
+            // Check if the position is in the current row
+            if (!isPositionInCurrentRow(position)) {
+                showFeedback(`Please fill Row ${currentRow + 1} first!`, 'red');
+                showFeedbackPopup('WRONG ROW!', false);
                 incorrectMoves++;
                 updateOptionsDisplay();
                 return;
@@ -1181,10 +1258,15 @@
             // Check if we have beads of this color available
             if (availableBeads[color] <= 0) {
                 showFeedback('No more ' + color + ' beads available!', 'red');
+                showFeedbackPopup('OUT OF BEADS!', false);
                 incorrectMoves++;
                 updateOptionsDisplay();
                 return;
             }
+            
+            // Check if the color is correct for this position according to the pattern
+            const correctColor = colorPlacementOrder[position];
+            const isCorrectColor = (color === correctColor);
             
             // Update game state
             currentSequence[position] = color;
@@ -1194,36 +1276,61 @@
             const container = targetElement.parentElement;
             container.removeChild(targetElement);
             
-            // Create the new colored bead
+            // Create the new colored bead with visual indicator of correctness
             const newBead = document.createElement('div');
             newBead.className = 'bead';
             newBead.style.backgroundColor = color;
+            
+            // Add a visual indicator if the color is incorrect
+            if (!isCorrectColor) {
+                newBead.style.border = '2px solid red';
+                newBead.style.boxShadow = '0 0 5px red';
+                incorrectMoves++;
+                showFeedbackPopup('WRONG COLOR!', false);
+            } else {
+                // Show quick correct feedback
+                showFeedbackPopup('CORRECT!', true);
+            }
+            
             newBead.dataset.position = position;
             newBead.dataset.color = color;
             
             container.appendChild(newBead);
             
-            // Move to the next position and color
+            // Move to the next position
             nextPosition++;
-            nextColorIndex++;
             
-            // Check if we've completed this level
-            const colorsInCurrentLevel = countColorsInSequence(color);
-            if (colorsInCurrentLevel >= 3) { // Each color appears 3 times
-                // Move to the next level
-                currentLevel++;
-                highlightCurrentLevel();
+            // Check if this row is complete
+            const rowStart = currentRow * 4;
+            const rowEnd = rowStart + 3;
+            let rowComplete = true;
+            
+            for (let i = rowStart; i <= rowEnd; i++) {
+                if (currentSequence[i] === null) {
+                    rowComplete = false;
+                    break;
+                }
             }
             
-            // Update options, stats, and highlight
+            // If row is complete, move to the next row
+            if (rowComplete) {
+                currentRow++;
+                
+                // Show row complete message
+                if (currentRow < 3) {
+                    showFeedback(`Row ${currentRow} complete! Now fill Row ${currentRow + 1}`, 'green');
+                    showFeedbackPopup('ROW COMPLETE!', true);
+                    highlightCurrentRow();
+                } else {
+                    showFeedback('Pattern complete! Click "Check Pattern"', 'green');
+                    showFeedbackPopup('PATTERN COMPLETE!', true);
+                }
+            }
+            
+            // Update options and stats
             updateOptions();
             totalMoves++;
             updateOptionsDisplay();
-        }
-        
-        // Count how many of a specific color are in the current sequence
-        function countColorsInSequence(color) {
-            return currentSequence.filter(c => c === color).length;
         }
         
         // Initialize the game on load if user is already authenticated
