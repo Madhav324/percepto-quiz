@@ -334,6 +334,101 @@
             font-size: 12px;
             margin-left: 8px;
         }
+
+        @media (max-width: 768px) {
+            #quiz-container {
+                width: 95%;
+                padding: 10px;
+                margin: 5px;
+            }
+            
+            .game-area {
+                width: 290px;
+                height: 290px;
+                margin: 10px auto;
+            }
+            
+            #center-image {
+                width: 60px;
+                height: 60px;
+            }
+            
+            .plate-image {
+                width: 75px;
+                height: 45px;
+            }
+            
+            .draggable {
+                width: 40px;
+                height: 40px;
+                min-height: 26px;
+                font-size: 0.9rem;
+                padding: 1px;
+                margin: 2px;
+            }
+            
+            .options-container {
+                gap: 5px;
+                padding: 5px;
+                margin-top: 10px;
+            }
+            
+            button {
+                padding: 8px 12px;
+                margin: 5px;
+                font-size: 14px;
+            }
+            
+            .instruction {
+                padding: 5px;
+                font-size: 14px;
+            }
+            
+            #quiz-type {
+                font-size: 16px;
+                margin-bottom: 5px;
+            }
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 5px;
+            z-index: 1000;
+            display: none;
+            animation: fadeInOut 2s ease-in-out;
+            text-align: center;
+            font-weight: bold;
+        }
+        
+        @keyframes fadeInOut {
+            0% { opacity: 0; }
+            15% { opacity: 1; }
+            85% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+        
+        .drop-hover {
+            background-color: rgba(76, 175, 80, 0.2);
+            box-shadow: inset 0 0 5px #4CAF50;
+        }
+        
+        .drop-area.incorrect {
+            background-color: rgba(244, 67, 54, 0.3);
+            box-shadow: inset 0 0 5px #f44336;
+            animation: shake 0.5s;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
     </style>
 </head>
 <body>
@@ -364,8 +459,13 @@
         
         <div class="options-container" id="options-container"></div>
         
-        <button onclick="window.checkAnswer()">Check Answer</button>
-        <button id="retry-button" onclick="reloadRandomQuestion()">Try Another Question</button>
+        <div class="button-container">
+            <button onclick="window.checkAnswer()">Check Answer</button>
+            <button id="retry-button" onclick="reloadRandomQuestion()">Try Another Question</button>
+            <button id="skip-button" onclick="skipQuestion()">Skip Question</button>
+        </div>
+        
+        <div id="notification" class="notification"></div>
         
         <div id="result-container">
             <h2>Quiz Results</h2>
@@ -454,17 +554,27 @@
             }
         };
 
+        // Arrow directions for each area
+        const arrowDirections = {
+            left: "images/SR/left.png",
+            right: "images/SR/right.png", 
+            top: "images/SR/up.png",
+            bottom: "images/SR/down.png"
+        };
+
         let currentQuestion;
         let placedImages = new Map();
-        let totalStartTime;
+        let totalStartTime = null;
         let totalTaps = 0;
         let firstPlacementTime = null;
+        let firstUserInteractionTime = null;
         let score = 0;
         let incorrectAnswers = 0;
         let draggedItem = null;
         let currentTouchId = null;
         let touchStartX = 0;
         let touchStartY = 0;
+        let currentOptionIndex = 0;
 
         // Auth state observer
         auth.onAuthStateChanged(async (user) => {
@@ -583,6 +693,22 @@
             const imageSrc = e.dataTransfer.getData('text/plain');
             const dropArea = document.getElementById(`${area}-area`);
             
+            // Check if this is the correct area
+            if (area !== currentQuestion.correctArea) {
+                // Show incorrect placement notification
+                showNotification("Incorrect placement!", "#f44336");
+                
+                // Visual feedback for incorrect drop
+                dropArea.classList.add('incorrect');
+                setTimeout(() => {
+                    dropArea.classList.remove('incorrect');
+                }, 500);
+                
+                // Don't place the image
+                incorrectAnswers++;
+                return;
+            }
+            
             const newImage = document.createElement('img');
             newImage.src = imageSrc;
             newImage.className = 'placed-image';
@@ -605,6 +731,10 @@
             if (firstPlacementTime === null) {
                 firstPlacementTime = (Date.now() - totalStartTime) / 1000;
             }
+            
+            // Change the arrow direction after each placement
+            currentOptionIndex++;
+            updateArrowDirection();
         }
 
         function setupDropAreas() {
@@ -646,6 +776,7 @@
 
         function initializeQuiz(questionType = null) {
             currentQuestion = questionType || selectRandomQuestion();
+            currentOptionIndex = 0;
             
             const centerImage = document.getElementById('center-image');
             const optionsContainer = document.getElementById('options-container');
@@ -659,6 +790,9 @@
             optionsContainer.innerHTML = '';
             document.querySelectorAll('.placed-image').forEach(img => img.remove());
             placedImages.clear();
+            
+            // Show the skip button
+            document.getElementById('skip-button').style.display = 'inline-block';
             
             currentQuestion.options.forEach(option => {
                 const img = document.createElement('img');
@@ -677,6 +811,46 @@
                 
                 optionsContainer.appendChild(img);
             });
+        }
+
+        function updateArrowDirection() {
+            // Only change direction if there are still options to place
+            if (document.getElementsByClassName('draggable').length > 0) {
+                // Cycle through the available directions
+                const directions = Object.keys(arrowDirections);
+                const nextDirectionIndex = currentOptionIndex % directions.length;
+                const nextDirection = directions[nextDirectionIndex];
+                
+                // Update the center image
+                document.getElementById('center-image').src = arrowDirections[nextDirection];
+                
+                // Update the instruction text
+                const directionText = {
+                    'left': 'to the LEFT of',
+                    'right': 'to the RIGHT of',
+                    'top': 'ABOVE',
+                    'bottom': 'BELOW'
+                };
+                
+                // Update current question correct area
+                currentQuestion.correctArea = nextDirection;
+                
+                // Update instruction
+                document.getElementById('instruction').textContent = 
+                    `Place the next object ${directionText[nextDirection]} the arrow.`;
+            }
+        }
+        
+        function showNotification(message, color) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.style.backgroundColor = color || "rgba(0, 0, 0, 0.8)";
+            notification.style.display = "block";
+            
+            // Hide after animation completes
+            setTimeout(() => {
+                notification.style.display = "none";
+            }, 2000);
         }
 
         function checkAnswer() {
@@ -727,13 +901,25 @@
             initializeQuiz();
         }
 
+        function skipQuestion() {
+            // Increment incorrect answers when skipping
+            incorrectAnswers += document.getElementsByClassName('draggable').length;
+            
+            // Show a notification
+            showNotification("Question skipped", "#FFA000");
+            
+            // Load a new question
+            setTimeout(() => {
+                reloadRandomQuestion();
+            }, 1000);
+        }
+
         function showResults() {
             // Hide quiz elements
             document.querySelector('.game-area').style.display = 'none';
             document.getElementById('options-container').style.display = 'none';
             document.querySelector('.instruction').style.display = 'none';
-            document.querySelector('button[onclick="window.checkAnswer()"]').style.display = 'none';
-            document.getElementById('retry-button').style.display = 'none';
+            document.querySelector('.button-container').style.display = 'none';
             
             // Show results
             document.getElementById('result-container').style.display = 'block';
@@ -746,26 +932,172 @@
             document.getElementById('score').innerText = score;
             document.getElementById('total-time').innerText = totalTimeInSeconds;
             document.getElementById('avg-time').innerText = averageTimeInSeconds;
-            document.getElementById('first-tap').innerText = firstPlacementTime ? firstPlacementTime.toFixed(2) : "N/A";
+            document.getElementById('first-tap').innerText = firstUserInteractionTime ? firstUserInteractionTime.toFixed(2) : "N/A";
             document.getElementById('total-taps').innerText = totalTaps;
             document.getElementById('total-correct').innerText = score;
             document.getElementById('total-incorrect').innerText = incorrectAnswers;
-
-            saveQuizResults(score, totalTimeInSeconds, averageTimeInSeconds, firstPlacementTime, totalTaps, score, incorrectAnswers);
             
-            // Fetch previous attempts
+            // Save results to database
+            saveQuizResults(
+                score, 
+                totalTimeInSeconds, 
+                averageTimeInSeconds, 
+                firstUserInteractionTime ? firstUserInteractionTime.toFixed(2) : 0, 
+                totalTaps,
+                score,
+                incorrectAnswers
+            );
+            
+            // Fetch and display previous attempts
             fetchPreviousAttempts();
         }
 
         // Track user interactions - excluding prompts and check answer button
         document.addEventListener("click", (e) => {
-            // Don't count check answer button clicks
-            if (e.target.tagName === 'BUTTON' && (e.target.innerText === 'Check Answer' || 
-                e.target.onclick?.toString().includes('checkAnswer'))) {
+            // Record first meaningful interaction time
+            if (totalStartTime && firstUserInteractionTime === null) {
+                firstUserInteractionTime = (Date.now() - totalStartTime) / 1000;
+            }
+            
+            // Don't count check answer button, skip button or internal UI button clicks
+            if (e.target.tagName === 'BUTTON' && (
+                e.target.innerText === 'Check Answer' || 
+                e.target.innerText === 'Skip Question' ||
+                e.target.onclick?.toString().includes('checkAnswer') ||
+                e.target.onclick?.toString().includes('skipQuestion')
+            )) {
                 return;
             }
             totalTaps++;
         });
+
+        // Add mobile touch event handlers
+        function touchStart(e) {
+            e.preventDefault();
+            if (currentTouchId === null) {
+                const touch = e.touches[0];
+                currentTouchId = touch.identifier;
+                touchStartX = touch.clientX;
+                touchStartY = touch.clientY;
+                draggedItem = this;
+                
+                // Visual feedback
+                setTimeout(() => {
+                    if (draggedItem === this) {
+                        this.style.opacity = '0.7';
+                        this.style.transform = 'scale(1.1)';
+                    }
+                }, 100);
+            }
+        }
+        
+        function touchMove(e) {
+            e.preventDefault();
+            if (!draggedItem || currentTouchId === null) return;
+            
+            // Find the touch with the same identifier
+            let touch = null;
+            for (let i = 0; i < e.touches.length; i++) {
+                if (e.touches[i].identifier === currentTouchId) {
+                    touch = e.touches[i];
+                    break;
+                }
+            }
+            
+            if (!touch) return;
+            
+            // Move the dragged element to follow the touch
+            const x = touch.clientX - (draggedItem.offsetWidth / 2);
+            const y = touch.clientY - (draggedItem.offsetHeight / 2);
+            
+            // Position the dragged item absolutely to follow the touch
+            draggedItem.style.position = 'fixed';
+            draggedItem.style.left = `${x}px`;
+            draggedItem.style.top = `${y}px`;
+            draggedItem.style.zIndex = '1000';
+            
+            // Check if the touch is over a drop area
+            const areas = ['left', 'right', 'top', 'bottom'];
+            let targetArea = null;
+            
+            areas.forEach(area => {
+                const dropArea = document.getElementById(`${area}-area`);
+                const rect = dropArea.getBoundingClientRect();
+                
+                if (touch.clientX >= rect.left && touch.clientX <= rect.right &&
+                    touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
+                    targetArea = area;
+                    dropArea.classList.add('drop-hover');
+                } else {
+                    dropArea.classList.remove('drop-hover');
+                }
+            });
+        }
+        
+        function touchEnd(e) {
+            e.preventDefault();
+            if (!draggedItem || currentTouchId === null) return;
+            
+            // Reset visual feedback
+            draggedItem.style.opacity = '';
+            draggedItem.style.transform = '';
+            
+            // Get final touch position
+            const areas = ['left', 'right', 'top', 'bottom'];
+            let targetArea = null;
+            
+            // Create a touch list from either changedTouches or touches
+            const touchList = e.changedTouches || e.touches;
+            
+            // Find our tracked touch
+            let touch = null;
+            for (let i = 0; i < touchList.length; i++) {
+                if (touchList[i].identifier === currentTouchId) {
+                    touch = touchList[i];
+                    break;
+                }
+            }
+            
+            if (touch) {
+                // Check if the final position is over a drop area
+                areas.forEach(area => {
+                    const dropArea = document.getElementById(`${area}-area`);
+                    const rect = dropArea.getBoundingClientRect();
+                    
+                    if (touch.clientX >= rect.left && touch.clientX <= rect.right &&
+                        touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
+                        targetArea = area;
+                    }
+                    dropArea.classList.remove('drop-hover');
+                });
+                
+                if (targetArea) {
+                    // Simulate drop event
+                    const dropEvent = {
+                        preventDefault: () => {},
+                        dataTransfer: {
+                            getData: () => draggedItem.src
+                        }
+                    };
+                    handleDrop(dropEvent, targetArea);
+                } else {
+                    // Reset the dragged item if not dropped in an area
+                    draggedItem.style.position = '';
+                    draggedItem.style.left = '';
+                    draggedItem.style.top = '';
+                    draggedItem.style.zIndex = '';
+                }
+            }
+            
+            // Record first interaction time if not already set
+            if (firstUserInteractionTime === null) {
+                firstUserInteractionTime = (Date.now() - totalStartTime) / 1000;
+            }
+            
+            // Reset drag state
+            draggedItem = null;
+            currentTouchId = null;
+        }
 
         // Fetch previous quiz attempts
         async function fetchPreviousAttempts() {
@@ -1005,133 +1337,12 @@
             }
         }
 
-        // Add mobile touch event handlers
-        function touchStart(e) {
-            e.preventDefault();
-            if (currentTouchId === null) {
-                const touch = e.touches[0];
-                currentTouchId = touch.identifier;
-                touchStartX = touch.clientX;
-                touchStartY = touch.clientY;
-                draggedItem = this;
-                
-                // Visual feedback
-                setTimeout(() => {
-                    if (draggedItem === this) {
-                        this.style.opacity = '0.7';
-                        this.style.transform = 'scale(1.1)';
-                    }
-                }, 100);
-            }
-        }
-        
-        function touchMove(e) {
-            e.preventDefault();
-            if (!draggedItem || currentTouchId === null) return;
-            
-            // Find the touch with the same identifier
-            let touch = null;
-            for (let i = 0; i < e.touches.length; i++) {
-                if (e.touches[i].identifier === currentTouchId) {
-                    touch = e.touches[i];
-                    break;
-                }
-            }
-            
-            if (!touch) return;
-            
-            // Move the dragged element to follow the touch
-            const x = touch.clientX - (draggedItem.offsetWidth / 2);
-            const y = touch.clientY - (draggedItem.offsetHeight / 2);
-            
-            // Position the dragged item absolutely to follow the touch
-            draggedItem.style.position = 'fixed';
-            draggedItem.style.left = `${x}px`;
-            draggedItem.style.top = `${y}px`;
-            draggedItem.style.zIndex = '1000';
-            
-            // Check if the touch is over a drop area
-            const areas = ['left', 'right', 'top', 'bottom'];
-            let targetArea = null;
-            
-            areas.forEach(area => {
-                const dropArea = document.getElementById(`${area}-area`);
-                const rect = dropArea.getBoundingClientRect();
-                
-                if (touch.clientX >= rect.left && touch.clientX <= rect.right &&
-                    touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
-                    targetArea = area;
-                    dropArea.classList.add('drop-hover');
-                } else {
-                    dropArea.classList.remove('drop-hover');
-                }
-            });
-        }
-        
-        function touchEnd(e) {
-            e.preventDefault();
-            if (!draggedItem || currentTouchId === null) return;
-            
-            // Reset visual feedback
-            draggedItem.style.opacity = '';
-            draggedItem.style.transform = '';
-            
-            // Get final touch position
-            const areas = ['left', 'right', 'top', 'bottom'];
-            let targetArea = null;
-            
-            // Create a touch list from either changedTouches or touches
-            const touchList = e.changedTouches || e.touches;
-            
-            // Find our tracked touch
-            let touch = null;
-            for (let i = 0; i < touchList.length; i++) {
-                if (touchList[i].identifier === currentTouchId) {
-                    touch = touchList[i];
-                    break;
-                }
-            }
-            
-            if (touch) {
-                // Check if the final position is over a drop area
-                areas.forEach(area => {
-                    const dropArea = document.getElementById(`${area}-area`);
-                    const rect = dropArea.getBoundingClientRect();
-                    
-                    if (touch.clientX >= rect.left && touch.clientX <= rect.right &&
-                        touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
-                        targetArea = area;
-                    }
-                    dropArea.classList.remove('drop-hover');
-                });
-                
-                if (targetArea) {
-                    // Simulate drop event
-                    const dropEvent = {
-                        preventDefault: () => {},
-                        dataTransfer: {
-                            getData: () => draggedItem.src
-                        }
-                    };
-                    handleDrop(dropEvent, targetArea);
-                } else {
-                    // Reset the dragged item if not dropped in an area
-                    draggedItem.style.position = '';
-                    draggedItem.style.left = '';
-                    draggedItem.style.top = '';
-                    draggedItem.style.zIndex = '';
-                }
-            }
-            
-            // Reset drag state
-            draggedItem = null;
-            currentTouchId = null;
-        }
-
         // Make functions accessible globally
         window.checkAnswer = checkAnswer;
         window.reloadRandomQuestion = reloadRandomQuestion;
+        window.fetchPreviousAttempts = fetchPreviousAttempts;
         window.clearReport = clearReport;
+        window.skipQuestion = skipQuestion;
     </script>
 </body>
 </html>
