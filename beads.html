@@ -694,8 +694,7 @@
                 incorrectMoves: incorrectMoves,
                 totalTaps: totalTaps,
                 attempts: attempts,
-                firstTapTime: firstTapTime ? ((firstTapTime - startTime) / 1000).toFixed(2) : null,
-                correctPattern: data.isCorrect ? true : false
+                firstTapTime: firstTapTime || 0
             };
             
             set(attemptRef, attemptData)
@@ -717,9 +716,37 @@
             if (isPatientQuiz) {
                 dbPath = `doctors/${doctorId}/patients/${currentPatientId}/quiz/beads`;
             } else {
-                dbPath = `users/${currentUser.uid}/quiz/beads`;
+                // Check if user is a doctor (for their own attempts)
+                get(ref(db, `roles/${currentUser.uid}`))
+                    .then((snapshot) => {
+                        const role = snapshot.val();
+                        
+                        if (role === 'doctor') {
+                            console.log(`Loading doctor's own quiz results: ${currentUser.uid}`);
+                            dbPath = `doctors/${currentUser.uid}/quiz/beads`;
+                        } else {
+                            console.log(`Loading regular user quiz results: ${currentUser.uid}`);
+                            dbPath = `users/${currentUser.uid}/quiz/beads`;
+                        }
+                        
+                        fetchHistoryData(dbPath);
+                    })
+                    .catch((error) => {
+                        console.error("Error checking user role:", error);
+                        // Default to regular user path
+                        dbPath = `users/${currentUser.uid}/quiz/beads`;
+                        fetchHistoryData(dbPath);
+                    });
+                
+                return; // Early return as we're handling this asynchronously
             }
             
+            // If this is a patient quiz, we already have the path
+            fetchHistoryData(dbPath);
+        }
+        
+        // Helper function to fetch and display history data
+        function fetchHistoryData(dbPath) {
             console.log(`Loading history from: ${dbPath}`);
             
             const attemptsRef = ref(db, dbPath);
@@ -777,7 +804,6 @@
                             <div><strong>Total Taps:</strong> ${attempt.totalTaps}</div>
                             <div><strong>Attempts:</strong> ${attempt.attempts}</div>
                             <div><strong>First Tap Time:</strong> ${attempt.firstTapTime ? attempt.firstTapTime.toFixed(2) + 's' : 'N/A'}</div>
-                            <div><strong>Correct Pattern:</strong> ${attempt.correctPattern ? 'Yes' : 'No'}</div>
                         `;
                         
                         // Add toggle functionality
@@ -817,25 +843,24 @@
             // Check if the pattern matches colorPlacementOrder exactly
             const isCorrect = currentSequence.every((color, index) => color === colorPlacementOrder[index]);
             
-            // Calculate completion time regardless of correctness
-            const endTime = Date.now();
-            const completionTime = ((endTime - startTime) / 1000).toFixed(2);
-            
             if (isCorrect) {
+                const endTime = Date.now();
+                const completionTime = ((endTime - startTime) / 1000).toFixed(2);
+                
                 // Show success feedback
                 showFeedback('Correct! Well done!', 'green');
                 showFeedbackPopup('CORRECT! 🎉', true);
+                
+                // Save attempt to Firebase
+                saveAttempt({
+                    completionTime: parseFloat(completionTime)
+                });
+
                 clearInterval(timerInterval);
             } else {
                 showFeedback('Try again!', 'red');
                 showFeedbackPopup('INCORRECT! ❌', false);
             }
-            
-            // Save attempt to Firebase regardless of correctness
-            saveAttempt({
-                completionTime: parseFloat(completionTime),
-                isCorrect: isCorrect
-            });
         }
 
         function showFeedback(message, color) {
