@@ -376,6 +376,57 @@
         #clear-report:hover {
             background-color: #c82333;
         }
+
+        #feedback-message {
+            background-color: #f8f8f8;
+            color: #333;
+            border-left: 4px solid #4CAF50;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+            text-align: center;
+            display: none;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        #drag-ghost {
+            pointer-events: none;
+            position: fixed;
+            z-index: 1000;
+            width: 60px;
+            height: 60px;
+            border-radius: 8px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+        }
+
+        @media (max-width: 600px) {
+            #quiz-container {
+                width: 95%;
+                max-width: 450px;
+                padding: 15px;
+            }
+            
+            .game-area {
+                width: 100%;
+                max-width: 300px;
+            }
+            
+            .draggable {
+                width: 50px;
+                height: 50px;
+            }
+            
+            .placed-image {
+                width: 50px;
+                height: 50px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -400,6 +451,7 @@
         <button id="check-btn">Check Answer</button>
         <button id="next-btn" style="display: none;">Next Level</button>
         <button id="skip-btn">Skip Question</button>
+        <div id="feedback-message" style="display: none;"></div>
     </div>
     
     <div id="result-container">
@@ -640,29 +692,59 @@
         
         // Touch handlers for mobile devices
         let touchDragging = null;
+        let touchStartX = 0;
+        let touchStartY = 0;
         
         function touchStart(e) {
+            if (!e.target.classList.contains('draggable')) return;
+            
             e.preventDefault();
             touchDragging = e.target;
             touchDragging.style.opacity = '0.7';
+            
+            // Store initial touch position
+            const touch = e.touches[0];
+            touchStartX = touch.clientX;
+            touchStartY = touch.clientY;
+            
+            // Track the interaction
+            trackInteraction();
         }
         
         function touchMove(e) {
-            e.preventDefault();
             if (!touchDragging) return;
+            
+            e.preventDefault();
             
             const touch = e.touches[0];
             
-            // Move the element visually (create a ghost element if needed)
-            touchDragging.style.position = 'fixed';
-            touchDragging.style.left = touch.clientX - 30 + 'px'; // 30 is half the width
-            touchDragging.style.top = touch.clientY - 30 + 'px';  // 30 is half the height
-            touchDragging.style.zIndex = '1000';
+            // Create a clone for visual dragging if it doesn't exist
+            if (!document.getElementById('drag-ghost')) {
+                const ghost = touchDragging.cloneNode(true);
+                ghost.id = 'drag-ghost';
+                ghost.style.position = 'fixed';
+                ghost.style.pointerEvents = 'none';
+                ghost.style.opacity = '0.7';
+                ghost.style.zIndex = '1000';
+                document.body.appendChild(ghost);
+            }
+            
+            // Move the ghost element
+            const ghost = document.getElementById('drag-ghost');
+            ghost.style.left = (touch.clientX - 30) + 'px';
+            ghost.style.top = (touch.clientY - 30) + 'px';
         }
         
         function touchEnd(e) {
-            e.preventDefault();
             if (!touchDragging) return;
+            
+            e.preventDefault();
+            
+            // Remove ghost element if it exists
+            const ghost = document.getElementById('drag-ghost');
+            if (ghost) {
+                ghost.remove();
+            }
             
             const touch = e.changedTouches[0];
             touchDragging.style.opacity = '1';
@@ -689,11 +771,7 @@
                 placedImage.id = `placed-${touchDragging.id}`;
                 placedImage.setAttribute('data-id', touchDragging.id);
                 
-                // Reset the draggable element
-                touchDragging.style.position = '';
-                touchDragging.style.left = '';
-                touchDragging.style.top = '';
-                touchDragging.style.zIndex = '';
+                // Hide the original draggable
                 touchDragging.style.visibility = 'hidden';
                 
                 // Add to the appropriate drop area
@@ -701,12 +779,6 @@
                 
                 // Arrange the placed elements
                 rearrangeImages(dropArea);
-            } else {
-                // Reset the draggable element to its original position
-                touchDragging.style.position = '';
-                touchDragging.style.left = '';
-                touchDragging.style.top = '';
-                touchDragging.style.zIndex = '';
             }
             
             touchDragging = null;
@@ -761,6 +833,19 @@
         
         // Track interactions (mouse/touch)
         function trackInteraction() {
+            // Don't count interactions if an alert or prompt is active
+            if (document.activeElement && document.activeElement.tagName === 'DIALOG') {
+                return;
+            }
+            
+            // Don't update if interaction originated from alert/prompt buttons
+            if (window.event && window.event.target && 
+                (window.event.target.className === 'alert-button' || 
+                 window.event.target.parentElement && 
+                 window.event.target.parentElement.className === 'alert-dialog')) {
+                return;
+            }
+            
             totalInteractions++;
             if (totalInteractions === 1) {
                 firstInteractionTime = (Date.now() - totalStartTime) / 1000;
@@ -791,18 +876,30 @@
             });
             
             if (!allPlaced) {
-                alert('Please place all items before checking!');
+                document.getElementById('feedback-message').textContent = 'Please place all items before checking!';
+                document.getElementById('feedback-message').style.display = 'block';
+                setTimeout(() => {
+                    document.getElementById('feedback-message').style.display = 'none';
+                }, 3000);
                 return;
             }
             
             if (allCorrect) {
                 score++;
-                alert('Correct placement! Move to the next level.');
+                document.getElementById('feedback-message').textContent = 'Correct placement! Move to the next level.';
+                document.getElementById('feedback-message').style.display = 'block';
+                setTimeout(() => {
+                    document.getElementById('feedback-message').style.display = 'none';
+                }, 3000);
                 nextBtn.style.display = 'inline-block';
                 checkBtn.style.display = 'none';
             } else {
                 incorrectAnswers++;
-                alert('Some items are not in the correct position. Try again.');
+                document.getElementById('feedback-message').textContent = 'Some items are not in the correct position. Try again.';
+                document.getElementById('feedback-message').style.display = 'block';
+                setTimeout(() => {
+                    document.getElementById('feedback-message').style.display = 'none';
+                }, 3000);
                 
                 // Clear placements and reset for retry
                 level.objects.forEach(obj => {
