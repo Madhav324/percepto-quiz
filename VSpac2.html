@@ -979,16 +979,59 @@
         }
 
         function skipQuestion() {
-            // Increment incorrect answers when skipping
-            incorrectAnswers += document.getElementsByClassName('draggable').length;
+            // Get the next draggable option
+            const draggables = document.getElementsByClassName('draggable');
+            if (draggables.length === 0) {
+                return; // No more options to place
+            }
             
-            // Show a notification
-            showNotification("Question skipped", "#FFA000");
+            // Get the current option to place
+            const currentOption = draggables[0];
             
-            // Load a new question
-            setTimeout(() => {
-                reloadRandomQuestion();
-            }, 1000);
+            // Get the current correct area
+            const correctArea = currentQuestion.correctArea;
+            const dropArea = document.getElementById(`${correctArea}-area`);
+            
+            // Create a new image in the correct area
+            const newImage = document.createElement('img');
+            newImage.src = currentOption.src;
+            newImage.className = 'placed-image';
+            
+            // Add a transition effect for the size change
+            newImage.style.transition = 'width 0.3s, height 0.3s';
+            
+            // Add the image to the correct area
+            dropArea.appendChild(newImage);
+            
+            // Remove the original draggable
+            currentOption.remove();
+            
+            // Update placement tracking
+            placedImages.set(currentOption.src, correctArea);
+            rearrangeImages(dropArea, correctArea);
+            
+            // Track first placement time if not already set
+            if (firstPlacementTime === null) {
+                firstPlacementTime = (Date.now() - totalStartTime) / 1000;
+            }
+            
+            // Show notification
+            showNotification("Option auto-placed", "#FFA000");
+            
+            // Change the arrow direction for the next option
+            currentOptionIndex++;
+            updateArrowDirection();
+            
+            // Check if all options have been placed
+            if (document.getElementsByClassName('draggable').length === 0) {
+                // Show a success notification
+                showNotification("All items placed!", "#4CAF50");
+                
+                // Wait a moment and then show results
+                setTimeout(() => {
+                    checkAnswer();
+                }, 1000);
+            }
         }
 
         // Track user interactions - excluding prompts and check answer button
