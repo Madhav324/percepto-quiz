@@ -269,34 +269,59 @@
             background-color: #e0e0e0;
         }
 
-        /* Mobile touch styling adjustments */
+        /* Mobile-friendly adjustments */
         @media (max-width: 768px) {
-            #drop-areas-container {
-                grid-template-columns: repeat(2, 1fr);
-                gap: 8px;
+            #quiz-container {
+                padding: 10px;
+                width: 95%;
+            }
+            
+            #drop-areas-container, #options-container {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 5px;
             }
             
             .drop-area {
-                width: 130px;
-                height: 130px;
-                padding: 10px;
-                font-size: 14px;
-            }
-            
-            #options-container {
-                grid-template-columns: repeat(2, 1fr);
-                gap: 8px;
+                height: 90px;
+                margin-bottom: 10px;
             }
             
             .option-image {
-                width: 100px;
-                height: 100px;
-                margin: 4px;
+                width: 90px;
+                height: 90px;
+                margin: 2px;
             }
             
-            #quiz-container {
-                padding: 15px;
-                width: 95%;
+            button {
+                padding: 6px 10px;
+                margin: 6px;
+                font-size: 14px;
+            }
+            
+            h1 {
+                font-size: 1.5rem;
+            }
+            
+            h2 {
+                font-size: 1.2rem;
+            }
+            
+            .instruction {
+                font-size: 14px;
+                margin: 10px 0;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .drop-area {
+                height: 70px;
+                margin-bottom: 5px;
+            }
+            
+            .option-image {
+                width: 70px;
+                height: 70px;
+                margin: 1px;
             }
         }
     </style>
@@ -499,20 +524,51 @@
             const optionsContainer = document.getElementById('options-container');
             optionsContainer.innerHTML = '';
             
-            shuffledImages.forEach((image, index) => {
+            // Create a shuffled array of image indices
+            const indices = Array.from({length: images.length}, (_, i) => i);
+            shuffleArray(indices);
+            
+            let firstDragStart = true;
+            let firstTouchStart = true;
+            
+            // Create image elements with shuffled order
+            indices.forEach((originalIndex, i) => {
                 const img = document.createElement('img');
-                img.src = image.src;
-                img.className = 'option-image';
+                img.src = images[originalIndex].src;
+                img.alt = images[originalIndex].alt;
+                img.classList.add('option-image');
                 img.draggable = true;
-                img.dataset.order = image.order;
-                img.dataset.index = index;
+                img.dataset.index = i;
+                img.dataset.order = originalIndex + 1;
                 
-                // Set up drag events
-                img.addEventListener('dragstart', dragStart);
+                // Add drag events
+                img.addEventListener('dragstart', (e) => {
+                    if (firstDragStart) {
+                        firstDragStart = false;
+                        if (!firstTapTime) {
+                            firstTapTime = (Date.now() - totalStartTime) / 1000;
+                        }
+                        totalTaps++;
+                    } else {
+                        totalTaps++;
+                    }
+                    dragStart(e);
+                });
                 
-                // Set up touch events for mobile
-                img.addEventListener('touchstart', touchStart, { passive: false });
-                img.addEventListener('touchmove', touchMove, { passive: false });
+                // Add touch events for mobile
+                img.addEventListener('touchstart', (e) => {
+                    if (firstTouchStart) {
+                        firstTouchStart = false;
+                        if (!firstTapTime) {
+                            firstTapTime = (Date.now() - totalStartTime) / 1000;
+                        }
+                        totalTaps++;
+                    } else {
+                        totalTaps++;
+                    }
+                    touchStart(e);
+                });
+                img.addEventListener('touchmove', touchMove);
                 img.addEventListener('touchend', touchEnd);
                 
                 optionsContainer.appendChild(img);
@@ -616,6 +672,7 @@
             
             // Check if touch ended over the drop area
             const dropAreas = document.querySelectorAll('.drop-area');
+            let foundDropArea = null;
             
             dropAreas.forEach(dropArea => {
                 const dropRect = dropArea.getBoundingClientRect();
@@ -626,11 +683,15 @@
                     touch.clientY >= dropRect.top &&
                     touch.clientY <= dropRect.bottom
                 ) {
-                    handleTouchDrop(img);
+                    foundDropArea = dropArea;
                 }
                 
                 dropArea.classList.remove('active');
             });
+            
+            if (foundDropArea) {
+                handleTouchDrop(img, foundDropArea);
+            }
         }
         
         // Handle drop event
@@ -647,11 +708,14 @@
         
         // Handle touch drop
         function handleTouchDrop(img, dropArea) {
+            if (!img || !dropArea) return;
             checkImageOrder(img, dropArea);
         }
         
         // Check if the image is in the correct order
         function checkImageOrder(img, dropArea) {
+            if (!img || !dropArea) return;
+            
             const imageOrder = parseInt(img.dataset.order);
             const expectedOrder = parseInt(dropArea.dataset.order);
             
