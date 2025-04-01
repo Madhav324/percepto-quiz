@@ -189,19 +189,38 @@
             border-radius: 8px;
         }
 
+        .button-container {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
         button {
-            padding: 10px 15px;
-            margin: 10px;
-            border: none;
+            padding: 8px 12px;
             background-color: #4CAF50;
             color: white;
-            font-size: 16px;
+            border: none;
+            border-radius: 4px;
             cursor: pointer;
-            border-radius: 5px;
+            font-size: 0.9rem;
         }
-
-        button:hover {
-            background-color: #45a049;
+        
+        #retry-button {
+            display: none;
+            margin-top: 10px;
+        }
+        
+        #skip-button, #submit-button {
+            background-color: #ff9800;
+            font-size: 0.9rem;
+            padding: 8px 12px;
+            margin: 0 5px;
+        }
+        
+        #submit-button {
+            background-color: #2196F3;
         }
 
         #quiz-type {
@@ -440,6 +459,45 @@
             }
         }
         
+        /* Mobile optimizations */
+        @media (max-width: 600px) {
+            #quiz-container {
+                width: 100%;
+                max-width: 350px;
+                padding: 10px;
+            }
+            
+            .options-container {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 5px;
+            }
+            
+            .draggable {
+                width: 45px;
+                height: 45px;
+                margin: 1px;
+            }
+            
+            .button-container {
+                gap: 5px;
+            }
+            
+            button, #skip-button, #submit-button {
+                padding: 6px 10px;
+                font-size: 0.85rem;
+                margin: 0 2px;
+            }
+            
+            #report-container {
+                padding: 10px;
+            }
+            
+            #result-container {
+                padding: 10px;
+            }
+        }
+        
         .notification {
             position: fixed;
             top: 20%;
@@ -512,6 +570,7 @@
         <div class="button-container">
             <button id="retry-button" onclick="reloadRandomQuestion()">Try Another Question</button>
             <button id="skip-button" onclick="skipQuestion()">Skip Question</button>
+            <button id="submit-button" onclick="forceShowResults()">Submit Quiz</button>
         </div>
         
         <div id="notification" class="notification"></div>
@@ -1494,12 +1553,96 @@
             }
         }
 
+        function forceShowResults() {
+            console.log("Force showing quiz results...");
+            
+            // Calculate time stats
+            const endTime = Date.now();
+            const totalTime = (endTime - totalStartTime) / 1000;
+            const averageTime = totalTime / 1;
+            
+            // Count correct placements (if any)
+            const correctPlacements = Array.from(placedImages.entries())
+                .filter(([src, area]) => area === currentQuestion.correctArea).length;
+            
+            // Update stats
+            correctAnswers += correctPlacements;
+            
+            // Immediately make results visible
+            document.getElementById('result-container').style.cssText = 'display: block !important; z-index: 100;';
+            document.getElementById('report-container').style.cssText = 'display: flex !important; z-index: 100;';
+            
+            // Hide all game elements
+            const elementsToHide = [
+                '.game-area', 
+                '.options-container', 
+                '.instruction', 
+                '#quiz-type', 
+                '.button-container', 
+                '#skip-button',
+                '#submit-button'
+            ];
+            
+            elementsToHide.forEach(selector => {
+                const elements = document.querySelectorAll(selector);
+                elements.forEach(el => {
+                    if (el) el.style.display = 'none';
+                });
+            });
+            
+            // Show retry button
+            const retryButton = document.getElementById('retry-button');
+            if (retryButton) retryButton.style.display = 'inline-block';
+            
+            // Update result values with error checking
+            const resultFields = {
+                'score': correctPlacements,
+                'total-time': totalTime.toFixed(2),
+                'avg-time': averageTime.toFixed(2),
+                'first-tap': firstUserInteractionTime ? firstUserInteractionTime.toFixed(2) : 'N/A',
+                'total-taps': totalTaps,
+                'total-correct': correctAnswers,
+                'total-incorrect': incorrectAnswers
+            };
+            
+            // Update each result field
+            Object.entries(resultFields).forEach(([id, value]) => {
+                const element = document.getElementById(id);
+                if (element) element.textContent = value;
+            });
+            
+            // Save results to Firebase (with error handling)
+            try {
+                saveQuizResults(
+                    correctPlacements,
+                    totalTime.toFixed(2),
+                    averageTime.toFixed(2),
+                    firstUserInteractionTime ? firstUserInteractionTime.toFixed(2) : null,
+                    totalTaps,
+                    correctAnswers,
+                    incorrectAnswers
+                );
+            } catch (error) {
+                console.error("Error saving results to Firebase:", error);
+            }
+            
+            // Fetch previous attempts
+            try {
+                fetchPreviousAttempts();
+            } catch (error) {
+                console.error("Error fetching previous attempts:", error);
+            }
+            
+            showNotification("Quiz submitted successfully!", "#2196F3");
+        }
+
         // Make functions accessible globally
         window.checkAnswer = checkAnswer;
         window.reloadRandomQuestion = reloadRandomQuestion;
         window.fetchPreviousAttempts = fetchPreviousAttempts;
         window.clearReport = clearReport;
         window.skipQuestion = skipQuestion;
+        window.forceShowResults = forceShowResults;
     </script>
 </body>
 </html>
