@@ -405,7 +405,21 @@
         let attempts = 0;
         let nextPosition = 0;
         let currentSequence = Array(12).fill(null);
-        const colors = ['red', 'blue', 'green', 'yellow'];
+        
+        // Define fixed order of colors to place - this will be shown in the "Colors to Use" section
+        const targetColorOrder = ['red', 'blue', 'green', 'yellow'];
+        
+        // Each color appears 3 times in the pattern (12 total spots - 3 of each color)
+        let colorPlacementOrder = [];
+        targetColorOrder.forEach(color => {
+            for (let i = 0; i < 3; i++) {
+                colorPlacementOrder.push(color);
+            }
+        });
+        
+        let nextColorIndex = 0; // Track which color comes next in the placement
+        
+        // Available beads counter
         let availableBeads = {};
 
         // Listen for authentication state changes
@@ -493,7 +507,7 @@
         // Initialize available beads
         function initializeAvailableBeads() {
             availableBeads = {};
-            colors.forEach(color => {
+            targetColorOrder.forEach(color => {
                 availableBeads[color] = 3;
             });
         }
@@ -596,9 +610,9 @@
             }
 
             const colorCounts = {};
-            colors.forEach(color => colorCounts[color] = 0);
+            targetColorOrder.forEach(color => colorCounts[color] = 0);
             currentSequence.forEach(color => colorCounts[color]++);
-            const isCorrect = colors.every(color => colorCounts[color] === 3);
+            const isCorrect = targetColorOrder.every(color => colorCounts[color] === 3);
             
             if (isCorrect) {
                 const endTime = Date.now();
@@ -658,6 +672,7 @@
             attempts = 0;
             firstTapTime = null;
             nextPosition = 0;
+            nextColorIndex = 0;
             currentSequence = Array(12).fill(null);
             
             // Reset displayed values
@@ -697,6 +712,9 @@
             newCheckButton.addEventListener('click', checkPattern);
             newResetButton.addEventListener('click', initializeGame);
             
+            // Highlight the next color to place
+            highlightNextColor();
+            
             // Start timer
             startTimer();
         }
@@ -705,10 +723,11 @@
             const targetColorsContainer = document.getElementById('target-colors');
             targetColorsContainer.innerHTML = '';
             
-            colors.forEach(color => {
+            targetColorOrder.forEach((color, index) => {
                 const colorElement = document.createElement('div');
                 colorElement.className = 'bead';
                 colorElement.style.backgroundColor = color;
+                colorElement.dataset.colorIndex = index;
                 targetColorsContainer.appendChild(colorElement);
             });
         }
@@ -718,6 +737,7 @@
             patternContainer.innerHTML = '';
             currentSequence = Array(12).fill(null);
             nextPosition = 0;
+            nextColorIndex = 0;
             
             for (let i = 0; i < 12; i++) {
                 const slot = document.createElement('div');
@@ -736,7 +756,7 @@
                 // Add touch event listeners for mobile
                 emptyBead.addEventListener('touchstart', handleTouchStart, { passive: false });
                 emptyBead.addEventListener('touchmove', handleTouchMove, { passive: false });
-                emptyBead.addEventListener('touchend', handleTouchEnd, { passive: false });
+                emptyBead.addEventListener('touchend', handleTouchEnd);
                 
                 slot.appendChild(emptyBead);
                 patternContainer.appendChild(slot);
@@ -747,26 +767,15 @@
             const optionsContainer = document.getElementById('options');
             optionsContainer.innerHTML = '';
             
-            // Create array of remaining beads
-            const remainingBeads = [];
-            Object.keys(availableBeads).forEach(color => {
-                for (let i = 0; i < availableBeads[color]; i++) {
-                    remainingBeads.push(color);
-                }
-            });
+            // Get the next color to be placed
+            const nextColor = colorPlacementOrder[nextColorIndex];
             
-            // Shuffle the array
-            for (let i = remainingBeads.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [remainingBeads[i], remainingBeads[j]] = [remainingBeads[j], remainingBeads[i]];
-            }
-            
-            // Create option elements
-            remainingBeads.forEach(color => {
+            // Create a bead of the current color if there are still slots available
+            if (nextPosition < 12 && availableBeads[nextColor] > 0) {
                 const bead = document.createElement('div');
                 bead.className = 'bead';
-                bead.style.backgroundColor = color;
-                bead.dataset.color = color;
+                bead.style.backgroundColor = nextColor;
+                bead.dataset.color = nextColor;
                 
                 // Make the bead draggable (for desktop)
                 bead.draggable = true;
@@ -776,7 +785,7 @@
                 // Touch events for mobile drag
                 bead.addEventListener('touchstart', handleBeadTouchStart, { passive: false });
                 bead.addEventListener('touchmove', handleBeadTouchMove, { passive: false });
-                bead.addEventListener('touchend', handleBeadTouchEnd, { passive: false });
+                bead.addEventListener('touchend', handleBeadTouchEnd);
                 
                 // Also allow click placement for mobile and desktop
                 bead.addEventListener('click', function() {
@@ -784,7 +793,35 @@
                 });
                 
                 optionsContainer.appendChild(bead);
+                
+                // Show feedback about the next color to place
+                showFeedback(`Place the ${nextColor} bead in the pattern`, nextColor);
+            } else if (nextPosition >= 12) {
+                showFeedback('Your pattern is complete! Click "Check Pattern"', 'green');
+            }
+        }
+        
+        // Highlight the target color that needs to be placed next
+        function highlightNextColor() {
+            // First, remove any existing highlights
+            const allTargetBeads = document.querySelectorAll('#target-colors .bead');
+            allTargetBeads.forEach(bead => {
+                bead.style.boxShadow = 'none';
+                bead.style.transform = 'scale(1)';
             });
+            
+            if (nextColorIndex < colorPlacementOrder.length) {
+                const nextColor = colorPlacementOrder[nextColorIndex];
+                const colorIndex = targetColorOrder.indexOf(nextColor);
+                
+                if (colorIndex !== -1) {
+                    const colorBead = document.querySelector(`#target-colors .bead[data-color-index="${colorIndex}"]`);
+                    if (colorBead) {
+                        colorBead.style.boxShadow = '0 0 10px #fff, 0 0 20px ' + nextColor;
+                        colorBead.style.transform = 'scale(1.1)';
+                    }
+                }
+            }
         }
         
         // Drag and drop handlers (desktop)
@@ -819,7 +856,14 @@
             const color = e.dataTransfer.getData('text/plain');
             const position = parseInt(this.dataset.position);
             
-            placeBead(color, position, this);
+            // Only allow dropping if this is the next position
+            if (position === nextPosition) {
+                placeBead(color, position, this);
+            } else {
+                showFeedback('Please fill the pattern in order!', 'red');
+                incorrectMoves++;
+                updateOptionsDisplay();
+            }
         }
         
         // Touch events for beads (mobile)
@@ -853,7 +897,14 @@
                 const color = this.dataset.color;
                 const position = parseInt(dropTarget.dataset.position);
                 
-                placeBead(color, position, dropTarget);
+                // Only allow dropping if this is the next position
+                if (position === nextPosition) {
+                    placeBead(color, position, dropTarget);
+                } else {
+                    showFeedback('Please fill the pattern in order!', 'red');
+                    incorrectMoves++;
+                    updateOptionsDisplay();
+                }
             }
             
             currentDragBead = null;
@@ -873,7 +924,14 @@
                 const color = currentDragBead.dataset.color;
                 const position = parseInt(this.dataset.position);
                 
-                placeBead(color, position, this);
+                // Only allow dropping if this is the next position
+                if (position === nextPosition) {
+                    placeBead(color, position, this);
+                } else {
+                    showFeedback('Please fill the pattern in order!', 'red');
+                    incorrectMoves++;
+                    updateOptionsDisplay();
+                }
                 
                 isDragging = false;
                 currentDragBead.classList.remove('dragging');
@@ -883,15 +941,17 @@
         
         // Handle click placement (alternative method)
         function handleBeadClick(bead) {
-            if (nextPosition < 12 && availableBeads[bead.dataset.color] > 0) {
+            const color = bead.dataset.color;
+            
+            // Check if we have beads of this color available
+            if (nextPosition < 12 && availableBeads[color] > 0) {
                 const emptyBeads = document.querySelectorAll('.empty-bead');
                 if (emptyBeads.length > 0) {
                     const targetBead = emptyBeads[0]; // Get the first empty spot
-                    const position = parseInt(targetBead.dataset.position);
-                    placeBead(bead.dataset.color, position, targetBead);
+                    placeBead(color, nextPosition, targetBead);
                 }
-            } else if (availableBeads[bead.dataset.color] === 0) {
-                showFeedback('No more ' + bead.dataset.color + ' beads available!', 'red');
+            } else if (availableBeads[color] === 0) {
+                showFeedback('No more ' + color + ' beads available!', 'red');
                 incorrectMoves++;
                 updateOptionsDisplay();
             } else {
@@ -903,9 +963,11 @@
         
         // Function to place a bead (used by all placement methods)
         function placeBead(color, position, targetElement) {
-            // Check if we're trying to place at the right position
-            if (position !== nextPosition) {
-                showFeedback('Please fill the pattern in order!', 'red');
+            // Check if the color matches the next expected color in the sequence
+            const expectedColor = colorPlacementOrder[nextColorIndex];
+            
+            if (color !== expectedColor) {
+                showFeedback(`You need to place a ${expectedColor} bead next!`, 'red');
                 incorrectMoves++;
                 updateOptionsDisplay();
                 return;
@@ -932,65 +994,19 @@
             newBead.className = 'bead';
             newBead.style.backgroundColor = color;
             newBead.dataset.position = position;
-            
-            // Allow removing the bead
-            newBead.addEventListener('click', function() {
-                // Return the bead to available
-                const beadPosition = parseInt(this.dataset.position);
-                const beadColor = currentSequence[beadPosition];
-                
-                if (beadColor) {
-                    availableBeads[beadColor]++;
-                    currentSequence[beadPosition] = null;
-                    
-                    // Replace with empty bead
-                    const emptyBead = document.createElement('div');
-                    emptyBead.className = 'empty-bead';
-                    emptyBead.dataset.position = beadPosition;
-                    
-                    // Add event listeners to the new empty bead
-                    emptyBead.addEventListener('dragover', handleDragOver);
-                    emptyBead.addEventListener('dragenter', handleDragEnter);
-                    emptyBead.addEventListener('dragleave', handleDragLeave);
-                    emptyBead.addEventListener('drop', handleDrop);
-                    emptyBead.addEventListener('touchstart', handleTouchStart, { passive: false });
-                    emptyBead.addEventListener('touchmove', handleTouchMove, { passive: false });
-                    emptyBead.addEventListener('touchend', handleTouchEnd, { passive: false });
-                    
-                    const parent = this.parentElement;
-                    parent.removeChild(this);
-                    parent.appendChild(emptyBead);
-                    
-                    // Update next position
-                    recalculateNextPosition();
-                    
-                    // Update available options
-                    updateOptions();
-                    totalMoves++;
-                    updateOptionsDisplay();
-                }
-            });
+            newBead.dataset.color = color;
             
             container.appendChild(newBead);
             
-            // Move to the next position
+            // Move to the next position and color
             nextPosition++;
+            nextColorIndex++;
             
-            // Update options and stats
+            // Update options, stats, and highlight
             updateOptions();
+            highlightNextColor();
             totalMoves++;
             updateOptionsDisplay();
-        }
-        
-        // Recalculate which position should be filled next
-        function recalculateNextPosition() {
-            for (let i = 0; i < 12; i++) {
-                if (currentSequence[i] === null) {
-                    nextPosition = i;
-                    return;
-                }
-            }
-            nextPosition = 12; // All positions filled
         }
 
         // Initialize the game on load if user is already authenticated
