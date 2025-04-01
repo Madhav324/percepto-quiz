@@ -461,7 +461,7 @@
     <button id="check-button">Check Pattern</button>
     <button id="reset-button">New Pattern</button>
 
-    <div class="statistics-container" id="stats-container" style="display: none;">
+    <div class="statistics-container">
         <h2>Current Session Statistics</h2>
         <div class="stats-grid">
             <div class="stat-item">
@@ -830,9 +830,6 @@
 
         // Function to check pattern
         function checkPattern() {
-            // Stop the timer
-            clearInterval(timerInterval);
-            
             attempts++;
             document.getElementById('attempts').textContent = attempts;
             document.getElementById('session-attempts').textContent = attempts;
@@ -840,8 +837,6 @@
             if (currentSequence.includes(null)) {
                 showFeedback('Please complete the pattern first!', 'red');
                 showFeedbackPopup('Incomplete Pattern!', false);
-                // Restart timer since pattern check failed
-                startTimer();
                 return;
             }
 
@@ -852,10 +847,6 @@
                 const endTime = Date.now();
                 const completionTime = ((endTime - startTime) / 1000).toFixed(2);
                 
-                // Update the display
-                document.getElementById('time').textContent = completionTime;
-                document.getElementById('session-time').textContent = completionTime;
-                
                 // Show success feedback
                 showFeedback('Correct! Well done!', 'green');
                 showFeedbackPopup('CORRECT! 🎉', true);
@@ -864,17 +855,11 @@
                 saveAttempt({
                     completionTime: parseFloat(completionTime)
                 });
-                
-                // Display results only after correct pattern
-                document.getElementById('stats-container').style.display = 'block';
-                document.getElementById('session-stats-container').style.display = 'block';
+
+                clearInterval(timerInterval);
             } else {
                 showFeedback('Try again!', 'red');
                 showFeedbackPopup('INCORRECT! ❌', false);
-                
-                // Don't reset pattern - let user continue after prompt
-                // Restart timer since pattern check failed
-                startTimer();
             }
         }
 
@@ -892,25 +877,20 @@
         }
 
         function startTimer() {
-            // If timer is already running, clear it first
-            if (timerInterval) {
-                clearInterval(timerInterval);
-            }
-            
-            // Only initialize startTime if it's not already set
-            if (!startTime) {
+            if (startTime === null) {
                 startTime = Date.now();
             }
-            
-            document.getElementById('time').textContent = '0.00';
-            document.getElementById('session-time').textContent = '0.00';
-            
+
+            clearInterval(timerInterval);
             timerInterval = setInterval(() => {
                 const currentTime = Date.now();
-                const elapsedTime = ((currentTime - startTime) / 1000).toFixed(2);
-                document.getElementById('time').textContent = elapsedTime;
-                document.getElementById('session-time').textContent = elapsedTime;
-            }, 100);
+                const elapsedTime = Math.floor((currentTime - startTime) / 1000);
+                const minutes = Math.floor(elapsedTime / 60);
+                const seconds = elapsedTime % 60;
+                const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                document.getElementById('time').textContent = formattedTime;
+                document.getElementById('session-time').textContent = formattedTime;
+            }, 1000);
         }
 
         function initializeGame() {
@@ -935,10 +915,6 @@
             document.getElementById('session-total-taps').textContent = totalTaps;
             document.getElementById('session-attempts').textContent = attempts;
             document.getElementById('feedback').textContent = '';
-            
-            // Initially hide the results until pattern is checked
-            document.getElementById('stats-container').style.display = 'none';
-            document.getElementById('session-stats-container').style.display = 'none';
             
             // Initialize beads
             initializeAvailableBeads();
@@ -1166,6 +1142,16 @@
             isDragging = true;
             currentDragBead = this;
             this.classList.add('dragging');
+            
+            // Always record first tap time for any placement attempt
+            if (firstTapTime === null) {
+                firstTapTime = Date.now();
+                console.log('First tap time recorded:', firstTapTime);
+            }
+            
+            totalTaps++;
+            document.getElementById('total-taps').textContent = totalTaps;
+            document.getElementById('session-total-taps').textContent = totalTaps;
         }
         
         function handleBeadTouchMove(e) {
@@ -1239,6 +1225,16 @@
         function handleBeadClick(bead) {
             const color = bead.dataset.color;
             
+            // Always record first tap time for any placement attempt
+            if (firstTapTime === null) {
+                firstTapTime = Date.now();
+                console.log('First tap time recorded:', firstTapTime);
+            }
+            
+            totalTaps++;
+            document.getElementById('total-taps').textContent = totalTaps;
+            document.getElementById('session-total-taps').textContent = totalTaps;
+            
             // Check if we have beads of this color available
             if (availableBeads[color] > 0) {
                 // Get valid positions in the current row
@@ -1267,9 +1263,6 @@
         
         // Function to place a bead (used by all placement methods)
         function placeBead(color, position, targetElement) {
-            // Track tap time for any placement attempt (right or wrong)
-            trackFirstTap();
-            
             // Check if the position is in the current row
             if (!isPositionInCurrentRow(position)) {
                 showFeedback(`Please fill Row ${currentRow + 1} first!`, 'red');
@@ -1355,24 +1348,6 @@
             updateOptions();
             totalMoves++;
             updateOptionsDisplay();
-        }
-        
-        // Function for tracking first tap time
-        function trackFirstTap() {
-            // Only track the first tap in the session
-            if (firstTapTime === null) {
-                firstTapTime = Date.now();
-                const tapTime = (firstTapTime - startTime) / 1000;
-                document.getElementById('first-tap-time').textContent = tapTime.toFixed(2);
-                document.getElementById('session-first-tap-time').textContent = tapTime.toFixed(2);
-                totalTaps++;
-                document.getElementById('total-taps').textContent = totalTaps;
-                document.getElementById('session-total-taps').textContent = totalTaps;
-            } else {
-                totalTaps++;
-                document.getElementById('total-taps').textContent = totalTaps;
-                document.getElementById('session-total-taps').textContent = totalTaps;
-            }
         }
         
         // Initialize the game on load if user is already authenticated
