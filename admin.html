@@ -941,101 +941,6 @@
             overflow-y: auto;
             padding: 5px 0;
         }
-        
-        /* Tabs */
-        .tab-btn {
-            background-color: #fff;
-            border: none;
-            padding: 10px 20px;
-            cursor: pointer;
-            border-bottom: 3px solid transparent;
-            transition: border-color 0.3s;
-        }
-        
-        .tab-btn.active {
-            border-bottom: 3px solid #007bff;
-            font-weight: bold;
-        }
-        
-        /* Role badges for dual-role users */
-        .badge {
-            display: inline-block;
-            padding: 0.25em 0.6em;
-            font-size: 75%;
-            font-weight: 700;
-            line-height: 1;
-            text-align: center;
-            white-space: nowrap;
-            vertical-align: baseline;
-            border-radius: 0.25rem;
-            margin-left: 0.5rem;
-        }
-        
-        .badge-primary {
-            color: #fff;
-            background-color: #007bff;
-        }
-        
-        .badge-secondary {
-            color: #fff;
-            background-color: #6c757d;
-        }
-        
-        .badge-success {
-            color: #fff;
-            background-color: #28a745;
-        }
-        
-        .badge-danger {
-            color: #fff;
-            background-color: #dc3545;
-        }
-        
-        .badge-info {
-            color: #fff;
-            background-color: #17a2b8;
-        }
-        
-        /* User avatar styling */
-        .user-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background-color: #e0e0e0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            margin-right: 12px;
-            font-weight: bold;
-        }
-        
-        .user-avatar.has-indicator::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            right: 0;
-            width: 12px;
-            height: 12px;
-            background-color: #28a745;
-            border-radius: 50%;
-            border: 2px solid white;
-        }
-        
-        .user-avatar.is-patient {
-            background-color: #d1e7dd;
-            color: #0f5132;
-        }
-        
-        .user-details {
-            display: flex;
-            align-items: center;
-        }
-        
-        .user-info {
-            display: flex;
-            flex-direction: column;
-        }
     </style>
 </head>
 <body>
@@ -1493,10 +1398,7 @@
             } catch (error) {
                 console.error("Error loading dashboard data:", error);
                 document.getElementById('dashboardContent').innerHTML = `
-                    <div class="error-message">
-                        <h3>Error loading dashboard data</h3>
-                        <p>${error.message}</p>
-                    </div>
+                    <div class="error-message">Error loading dashboard data: ${error.message}</div>
                 `;
             }
         }
@@ -1693,13 +1595,11 @@
                     const patientsSnapshot = await db.ref(`doctors/${doctorId}/patients`).once('value');
                     if (patientsSnapshot.exists()) {
                         const patients = patientsSnapshot.val();
-                        
-                        // Process each patient
-                        for (const [patientId, patientData] of Object.entries(patients)) {
+                        Object.entries(patients).forEach(([patientId, patientData]) => {
                             if (patientData && patientData.quiz) {
                                 processQuizData(quizData, patientData.quiz, 'Patient');
                             }
-                        }
+                        });
                     }
                 }
                 
@@ -2369,8 +2269,6 @@
                     const doctorsRef = await db.ref('doctors').once('value');
                     if (doctorsRef.exists()) {
                         const doctors = doctorsRef.val();
-                        
-                        // Process each doctor
                         for (const [docId, doctorData] of Object.entries(doctors)) {
                             if (doctorData.patients && doctorData.patients[patientId] && doctorData.patients[patientId].quiz) {
                                 console.log(`Found quiz data for patient ${patientId} under doctor ${docId}`);
@@ -2509,8 +2407,6 @@
                     const doctorsRef = await db.ref('doctors').once('value');
                     if (doctorsRef.exists()) {
                         const doctors = doctorsRef.val();
-                        
-                        // Process each doctor
                         for (const [docId, doctorData] of Object.entries(doctors)) {
                             if (doctorData.patients && doctorData.patients[userId] && doctorData.patients[userId].profile) {
                                 const patientProfile = doctorData.patients[userId].profile;
@@ -2559,35 +2455,8 @@
             
             // Group users by role for sorting (doctors first, then regular users, then patients)
             const doctors = users.filter(user => user.role === 'doctor');
-            const regularUsers = users.filter(user => user.role === 'user' || user.role === 'admin');
+            const regularUsers = users.filter(user => user.role === 'user');
             const patients = users.filter(user => user.role === 'patient');
-            
-            // Helper function to create badge for dual-role users
-            function createRoleBadge(role) {
-                let badgeClass = '';
-                switch(role) {
-                    case 'doctor': badgeClass = 'badge-primary'; break;
-                    case 'user': badgeClass = 'badge-secondary'; break;
-                    case 'admin': badgeClass = 'badge-danger'; break;
-                    case 'patient': badgeClass = 'badge-success'; break;
-                    default: badgeClass = 'badge-info';
-                }
-                return `<span class="badge ${badgeClass} ml-2">${role}</span>`;
-            }
-            
-            // Track emails to identify dual-role users
-            const emailMap = new Map();
-            
-            // First pass - identify emails used in multiple roles
-            users.forEach(user => {
-                if (!user.email || user.email === 'No email') return;
-                
-                const email = user.email.toLowerCase();
-                if (!emailMap.has(email)) {
-                    emailMap.set(email, []);
-                }
-                emailMap.get(email).push(user);
-            });
             
             // Add doctors with their patients
             doctors.forEach(doctor => {
@@ -2600,21 +2469,14 @@
                 const hasPatients = doctor.patientCount > 0;
                 const hasQuizzes = Object.keys(doctor.quizData || {}).length > 0;
                 
-                // Check if this email has multiple roles
-                const email = doctor.email ? doctor.email.toLowerCase() : '';
-                const hasMultipleRoles = email && emailMap.has(email) && emailMap.get(email).length > 1;
-                const roleBadge = hasMultipleRoles ? createRoleBadge('doctor') : '';
-                
                 doctorRow.innerHTML = `
                     <td>
                         <div class="user-details">
-                            <div class="user-avatar ${hasPatients ? 'has-indicator' : ''}">
-                                <span>${doctor.initials || 'U'}</span>
-                                ${hasPatients ? '<div class="patient-indicator" title="Has patients"></div>' : ''}
-                            </div>
+                            ${hasPatients ? `<span class="expand-icon">+</span>` : `<span class="expand-icon" style="visibility:hidden">+</span>`}
+                            <div class="profile-icon" title="${doctor.name}">${doctor.initials}</div>
                             <div class="user-info">
-                                <div class="user-name">${doctor.name || 'Unknown Doctor'} ${roleBadge}</div>
-                                <div class="user-email">${doctor.email || 'No email'}</div>
+                                <div class="user-name">${doctor.name}</div>
+                                <div class="user-email">${doctor.email}</div>
                             </div>
                         </div>
                     </td>
@@ -2652,12 +2514,10 @@
                         patientRow.innerHTML = `
                             <td>
                                 <div class="user-details">
-                                    <div class="user-avatar ${patient.assignedDoctor ? 'is-patient' : ''}">
-                                        <span>${patient.initials || 'U'}</span>
-                                    </div>
+                                    <div class="profile-icon" title="${patient.name}">${patient.initials}</div>
                                     <div class="user-info">
-                                        <div class="user-name">${patient.name || 'Unknown Patient'} ${hasMultipleRoles ? createRoleBadge('patient') : ''}</div>
-                                        <div class="user-email">${patient.email || 'No email'}</div>
+                                        <div class="user-name">${patient.name}</div>
+                                        <div class="user-email">${patient.email}</div>
                                     </div>
                                 </div>
                             </td>
@@ -2713,30 +2573,31 @@
                 }
             });
             
-            // Add regular users next
+            // Add regular users
             regularUsers.forEach(user => {
-                // Create user row
+                // Explicitly log quiz data to verify it exists
+                console.log(`User ${user.name} (${user.id}) quiz data:`, user.quizData);
+                
+                // More robust check for quiz data - consider both undefined and empty objects
+                const hasQuizzes = user.quizData && 
+                    typeof user.quizData === 'object' && 
+                    Object.keys(user.quizData).length > 0;
+                
+                console.log(`User ${user.name} hasQuizzes:`, hasQuizzes);
+                
                 const userRow = document.createElement('tr');
-                userRow.className = 'user-row';
+                userRow.className = 'regular-user-row';
                 userRow.dataset.userId = user.id;
-                userRow.dataset.role = user.role;
-                
-                const hasQuizzes = Object.keys(user.quizData || {}).length > 0;
-                
-                // Check if this email has multiple roles
-                const email = user.email ? user.email.toLowerCase() : '';
-                const hasMultipleRoles = email && emailMap.has(email) && emailMap.get(email).length > 1;
-                const roleBadge = hasMultipleRoles ? createRoleBadge(user.role) : '';
+                userRow.dataset.role = 'user';
                 
                 userRow.innerHTML = `
                     <td>
                         <div class="user-details">
-                            <div class="user-avatar ${user.assignedDoctor ? 'is-patient' : ''}">
-                                <span>${user.initials || 'U'}</span>
-                            </div>
+                            <span class="expand-icon" style="visibility:hidden">+</span>
+                            <div class="profile-icon" title="${user.name}">${user.initials}</div>
                             <div class="user-info">
-                                <div class="user-name">${user.name || 'Unknown User'} ${roleBadge}</div>
-                                <div class="user-email">${user.email || 'No email'}</div>
+                                <div class="user-name">${user.name}</div>
+                                <div class="user-email">${user.email}</div>
                             </div>
                         </div>
                     </td>
@@ -2783,12 +2644,11 @@
                     patientRow.innerHTML = `
                         <td>
                             <div class="user-details">
-                                <div class="user-avatar ${patient.assignedDoctor ? 'is-patient' : ''}">
-                                    <span>${patient.initials || 'U'}</span>
-                                </div>
+                                <span class="expand-icon" style="visibility:hidden">+</span>
+                                <div class="profile-icon" title="${patient.name}">${patient.initials}</div>
                                 <div class="user-info">
-                                    <div class="user-name">${patient.name || 'Unknown Patient'} ${hasMultipleRoles ? createRoleBadge('patient') : ''}</div>
-                                    <div class="user-email">${patient.email || 'No email'}</div>
+                                    <div class="user-name">${patient.name}</div>
+                                    <div class="user-email">${patient.email}</div>
                                 </div>
                             </div>
                         </td>
