@@ -1036,9 +1036,9 @@
                         <tbody id="topQuizzesTable">
                             <tr>
                                 <td colspan="6">Loading data...</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                        </tr>
+                    </tbody>
+                </table>
                 </div>
             </div>
             
@@ -1975,23 +1975,29 @@
                             continue;
                         }
                         
+                        // Determine user role
+                        const userRole = userData.role || 'user';
+                        
+                        // Use our comprehensive profile data loading
+                        const { profileData, found: foundProfileData } = await loadUserProfileData(userId, userRole);
+                        
                         // Basic user data
                         const user = {
                             id: userId,
-                            name: userData.name,
-                            email: userData.email || 'No email',
-                            role: userData.role || 'user',
+                            name: profileData.name,
+                            email: profileData.email,
+                            role: profileData.role,
                             quizCount: 0,
-                            lastActive: userData.updatedAt ? new Date(userData.updatedAt).toLocaleString() : 'Never',
+                            lastActive: profileData.updatedAt ? new Date(profileData.updatedAt).toLocaleString() : 'Never',
                             patientCount: 0,
                             patients: [],
                             assignedDoctor: null,
-                            initials: getInitials(userData.name),
+                            initials: getInitials(profileData.name),
                             quizData: {}, // Store detailed quiz data for this user
-                            age: userData.age || 'N/A',
-                            gender: userData.gender || 'N/A',
-                            medicalCondition: userData.medicalCondition || 'N/A',
-                            doctorRecommendation: userData.doctorRecommendation || 'N/A'
+                            age: profileData.age,
+                            gender: profileData.gender,
+                            medicalCondition: profileData.medicalCondition,
+                            doctorRecommendation: profileData.doctorRecommendation || 'N/A'
                         };
                         
                         // Get user's quiz data based on role
@@ -2095,19 +2101,26 @@
                                 // Skip users we've already processed
                                 if (userArray.some(u => u.id === userId)) continue;
                                 
+                                // Use comprehensive profile data loading
+                                const { profileData, found: foundProfileData } = await loadUserProfileData(userId, role);
+                                
                                 // Create a basic user object
                                 const user = {
                                     id: userId,
-                                    name: 'Unknown',
-                                    email: 'No email',
-                                    role: role,
+                                    name: profileData.name,
+                                    email: profileData.email,
+                                    role: profileData.role,
                                     quizCount: 0,
-                                    lastActive: 'Never',
+                                    lastActive: profileData.updatedAt ? new Date(profileData.updatedAt).toLocaleString() : 'Never',
                                     patientCount: 0,
                                     patients: [],
                                     assignedDoctor: null,
-                                    initials: 'U',
-                                    quizData: {} // Store detailed quiz data for this user
+                                    initials: getInitials(profileData.name),
+                                    quizData: {}, // Store detailed quiz data for this user
+                                    age: profileData.age,
+                                    gender: profileData.gender,
+                                    medicalCondition: profileData.medicalCondition,
+                                    doctorRecommendation: profileData.doctorRecommendation || 'N/A'
                                 };
                                 
                                 // Try to get more user info from Realtime Database
@@ -2118,13 +2131,6 @@
                                     if (userSnapshot.exists()) {
                                         // Extract user data
                                         const userData = userSnapshot.val();
-                                        
-                                        // Get profile data
-                                        if (userData.profile) {
-                                            user.name = userData.profile.name || 'Unknown';
-                                            user.email = userData.profile.email || 'No email';
-                                            user.initials = getInitials(user.name);
-                                        }
                                         
                                         // Use our comprehensive function for quiz data
                                         const { quizData: userQuizData, found: foundUserQuizData } = await loadPatientQuizData(userId);
@@ -2324,6 +2330,102 @@
             };
         }
         
+        // Function to load user profile data from all possible sources
+        async function loadUserProfileData(userId, userRole = null) {
+            console.log(`Loading profile data for user ${userId} with role ${userRole || 'unknown'}`);
+            
+            let profileData = {
+                name: 'Unknown User',
+                email: 'No email',
+                role: userRole || 'user',
+                medicalCondition: 'N/A',
+                age: 'N/A',
+                gender: 'N/A',
+                updatedAt: null
+            };
+            let found = false;
+            
+            // Try Firestore first (userProfiles collection)
+            try {
+                const userProfileDoc = await firestore.collection('userProfiles').doc(userId).get();
+                if (userProfileDoc.exists) {
+                    const fsData = userProfileDoc.data();
+                    console.log(`Found profile in Firestore for ${userId}`, fsData);
+                    
+                    // Merge data
+                    Object.entries(fsData).forEach(([key, value]) => {
+                        if (value !== null && value !== undefined) {
+                            profileData[key] = value;
+                        }
+                    });
+                    found = true;
+                }
+            } catch (error) {
+                console.warn(`Could not access Firestore profile for ${userId}:`, error);
+            }
+            
+            // Try Realtime Database user path
+            const dbPath = userRole === 'doctor' ? 'doctors' : 'users';
+            try {
+                const userRef = await db.ref(`${dbPath}/${userId}/profile`).once('value');
+                if (userRef.exists() && userRef.val()) {
+                    const rtdbData = userRef.val();
+                    console.log(`Found profile in RTDB at ${dbPath}/${userId}/profile`, rtdbData);
+                    
+                    // Merge data
+                    Object.entries(rtdbData).forEach(([key, value]) => {
+                        if (value !== null && value !== undefined) {
+                            profileData[key] = value;
+                        }
+                    });
+                    found = true;
+                }
+            } catch (error) {
+                console.warn(`Could not access RTDB profile at ${dbPath}/${userId}:`, error);
+            }
+            
+            // If this is a patient, check all doctors
+            if (userRole !== 'doctor') {
+                try {
+                    const doctorsRef = await db.ref('doctors').once('value');
+                    if (doctorsRef.exists()) {
+                        const doctors = doctorsRef.val();
+                        for (const [docId, doctorData] of Object.entries(doctors)) {
+                            if (doctorData.patients && doctorData.patients[userId] && doctorData.patients[userId].profile) {
+                                const patientProfile = doctorData.patients[userId].profile;
+                                console.log(`Found patient profile under doctor ${docId}`, patientProfile);
+                                
+                                // For patient profiles, prioritize medical information
+                                if (patientProfile.medicalCondition) {
+                                    profileData.medicalCondition = patientProfile.medicalCondition;
+                                }
+                                if (patientProfile.age) {
+                                    profileData.age = patientProfile.age;
+                                }
+                                if (patientProfile.gender) {
+                                    profileData.gender = patientProfile.gender;
+                                }
+                                
+                                // Only update name/email if missing
+                                if (profileData.name === 'Unknown User' && patientProfile.name) {
+                                    profileData.name = patientProfile.name;
+                                }
+                                if (profileData.email === 'No email' && patientProfile.email) {
+                                    profileData.email = patientProfile.email;
+                                }
+                                
+                                found = true;
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.warn(`Error searching doctors for patient ${userId}:`, error);
+                }
+            }
+            
+            return { profileData, found };
+        }
+
         // Display users in hierarchical format
         function displayHierarchicalUsersList(users, doctorPatientMap, container) {
             // Clear container
@@ -2612,7 +2714,7 @@
                                 quizStats[quizType].attempts++;
                                 
                                 if (attempt.score !== undefined) {
-                                    quizStats[quizType].totalScore += parseFloat(attempt.score) || 0;
+                                    quizStats[quizType].totalScore += parseFloat(attempt.score);
                                 }
                                 
                                 // Use timestamp from either the key or the attempt data
