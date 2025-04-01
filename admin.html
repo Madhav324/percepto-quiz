@@ -2458,6 +2458,9 @@
             const regularUsers = users.filter(user => user.role === 'user');
             const patients = users.filter(user => user.role === 'patient');
             
+            // Create a set to track which users have been rendered as patients
+            const renderedPatients = new Set();
+            
             // Add doctors with their patients
             doctors.forEach(doctor => {
                 // Add doctor row
@@ -2480,115 +2483,78 @@
                             </div>
                         </div>
                     </td>
-                    <td><span class="user-indicator">Doctor</span></td>
+                    <td>Doctor</td>
+                    <td>${doctor.patientCount} patients</td>
                     <td>
-                        ${doctor.patientCount} patients, ${doctor.quizCount} quizzes
-                        ${hasQuizzes ? `<button class="view-quizzes-btn" data-user-id="${doctor.id}">Show Quizzes</button>` : ''}
-                        <div class="user-additional-info">
-                            <div><strong>Age:</strong> ${doctor.age}</div>
-                            <div><strong>Gender:</strong> ${doctor.gender}</div>
-                            <div><strong>Medical:</strong> ${doctor.medicalCondition || 'N/A'}</div>
-                            <div><strong>Recommendation:</strong> ${doctor.doctorRecommendation || 'N/A'}</div>
-                        </div>
+                        <button class="btn btn-sm btn-outline-secondary view-quizzes-btn" data-user-id="${doctor.id}" data-user-name="${doctor.name}">
+                            Quizzes (${doctor.quizCount})
+                        </button>
                     </td>
-                    <td>${doctor.lastActive}</td>
                 `;
                 
                 container.appendChild(doctorRow);
                 
-                // If doctor has patients, add them as child rows
-                const patientIds = doctorPatientMap.get(doctor.id) || [];
-                if (patientIds.length > 0) {
+                // Add patients for this doctor
+                if (doctorPatientMap.has(doctor.id)) {
+                    const patientIds = doctorPatientMap.get(doctor.id);
                     patientIds.forEach(patientId => {
-                        const patient = patients.find(p => p.id === patientId);
-                        if (!patient) return;
-                        
-                        const hasPatientQuizzes = Object.keys(patient.quizData || {}).length > 0;
-                        
-                        const patientRow = document.createElement('tr');
-                        patientRow.className = 'patient-row';
-                        patientRow.dataset.doctorId = doctor.id;
-                        patientRow.dataset.userId = patient.id;
-                        patientRow.dataset.role = 'patient';
-                        
-                        patientRow.innerHTML = `
-                            <td>
-                                <div class="user-details">
-                                    <div class="profile-icon" title="${patient.name}">${patient.initials}</div>
-                                    <div class="user-info">
-                                        <div class="user-name">${patient.name}</div>
-                                        <div class="user-email">${patient.email}</div>
+                        // Find patient in users array
+                        const patient = users.find(u => u.id === patientId && u.role === 'patient');
+                        if (patient) {
+                            // Mark this patient as rendered
+                            renderedPatients.add(patientId);
+                            
+                            // Add patient row
+                            const patientRow = document.createElement('tr');
+                            patientRow.className = 'patient-row';
+                            patientRow.dataset.userId = patient.id;
+                            patientRow.dataset.doctorId = doctor.id; 
+                            patientRow.dataset.role = 'patient';
+                            patientRow.style.display = 'none'; // Initially hidden, will be shown when doctor is expanded
+                            
+                            const patientHasQuizzes = Object.keys(patient.quizData || {}).length > 0;
+                            
+                            patientRow.innerHTML = `
+                                <td>
+                                    <div class="user-details patient-details">
+                                        <span class="indent-spacer"></span>
+                                        <div class="profile-icon" title="${patient.name}">${patient.initials}</div>
+                                        <div class="user-info">
+                                            <div class="user-name">${patient.name}</div>
+                                            <div class="user-email">${patient.email}</div>
+                                        </div>
                                     </div>
-                                </div>
-                            </td>
-                            <td><span class="user-indicator">Patient</span></td>
-                            <td>
-                                ${patient.quizCount} quizzes, ${patient.medicalCondition}
-                                ${hasPatientQuizzes ? `<button class="view-quizzes-btn" data-user-id="${patient.id}">Show Quizzes</button>` : ''}
-                                <div class="user-additional-info">
-                                    <div><strong>Age:</strong> ${patient.age}</div>
-                                    <div><strong>Gender:</strong> ${patient.gender}</div>
-                                    <div><strong>Medical:</strong> ${patient.medicalCondition}</div>
-                                    <div><strong>Recommendation:</strong> ${patient.doctorRecommendation}</div>
-                                </div>
-                            </td>
-                            <td>${patient.lastActive}</td>
-                        `;
-                        
-                        container.appendChild(patientRow);
-                        
-                        // Add quiz data row (initially hidden)
-                        if (hasPatientQuizzes) {
-                            const quizDataRow = createUserQuizDataRow(patient.id, patient.quizData);
-                            container.appendChild(quizDataRow);
+                                </td>
+                                <td>Patient</td>
+                                <td>
+                                    <div class="patient-info">
+                                        <div>Age: ${patient.age}</div>
+                                        <div>Gender: ${patient.gender}</div>
+                                        <div>Condition: ${patient.medicalCondition}</div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-secondary view-quizzes-btn" data-user-id="${patient.id}" data-user-name="${patient.name}">
+                                        Quizzes (${patient.quizCount})
+                                    </button>
+                                </td>
+                            `;
+                            
+                            container.appendChild(patientRow);
                         }
                     });
-                    
-                    // Add expand/collapse functionality
-                    doctorRow.querySelector('.expand-icon').addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        const doctorId = doctorRow.dataset.userId;
-                        const patientRows = document.querySelectorAll(`.patient-row[data-doctor-id="${doctorId}"]`);
-                        
-                        const isExpanded = doctorRow.classList.contains('expanded');
-                        
-                        if (isExpanded) {
-                            // Collapse
-                            patientRows.forEach(row => row.style.display = 'none');
-                            doctorRow.classList.remove('expanded');
-                            doctorRow.querySelector('.expand-icon').textContent = '+';
-                        } else {
-                            // Expand
-                            patientRows.forEach(row => row.style.display = 'table-row');
-                            doctorRow.classList.add('expanded');
-                            doctorRow.querySelector('.expand-icon').textContent = '−';
-                        }
-                    });
-                }
-                
-                // Add quiz data row (initially hidden)
-                if (hasQuizzes) {
-                    const quizDataRow = createUserQuizDataRow(doctor.id, doctor.quizData);
-                    container.appendChild(quizDataRow);
                 }
             });
             
-            // Add regular users
+            // Add regular users (to ensure users with both doctor and user roles appear in both sections)
             regularUsers.forEach(user => {
-                // Explicitly log quiz data to verify it exists
-                console.log(`User ${user.name} (${user.id}) quiz data:`, user.quizData);
-                
-                // More robust check for quiz data - consider both undefined and empty objects
-                const hasQuizzes = user.quizData && 
-                    typeof user.quizData === 'object' && 
-                    Object.keys(user.quizData).length > 0;
-                
-                console.log(`User ${user.name} hasQuizzes:`, hasQuizzes);
-                
+                // Add user row
                 const userRow = document.createElement('tr');
-                userRow.className = 'regular-user-row';
+                userRow.className = 'user-row';
                 userRow.dataset.userId = user.id;
                 userRow.dataset.role = 'user';
+                
+                const hasQuizzes = Object.keys(user.quizData || {}).length > 0;
                 
                 userRow.innerHTML = `
                     <td>
@@ -2601,45 +2567,28 @@
                             </div>
                         </div>
                     </td>
-                    <td><span class="user-indicator">User</span></td>
+                    <td>User</td>
+                    <td>${user.doctorRecommendation ? `Recommendation: ${user.doctorRecommendation}` : 'No recommendation'}</td>
                     <td>
-                        ${user.quizCount} quizzes
-                        ${hasQuizzes ? `<button class="view-quizzes-btn" data-user-id="${user.id}">Show Quizzes</button>` : ''}
-                        <div class="user-additional-info">
-                            <div><strong>Age:</strong> ${user.age || 'N/A'}</div>
-                            <div><strong>Gender:</strong> ${user.gender || 'N/A'}</div>
-                            <div><strong>Medical:</strong> ${user.medicalCondition || 'N/A'}</div>
-                            <div><strong>Recommendation:</strong> ${user.doctorRecommendation || 'N/A'}</div>
-                        </div>
+                        <button class="btn btn-sm btn-outline-secondary view-quizzes-btn" data-user-id="${user.id}" data-user-name="${user.name}">
+                            Quizzes (${user.quizCount})
+                        </button>
                     </td>
-                    <td>${user.lastActive}</td>
                 `;
                 
                 container.appendChild(userRow);
-                
-                // Add quiz data row (initially hidden)
-                if (hasQuizzes) {
-                    console.log(`Creating quiz data row for user ${user.name}`);
-                    const quizDataRow = createUserQuizDataRow(user.id, user.quizData);
-                    container.appendChild(quizDataRow);
-                }
             });
             
-            // Add patients that aren't already displayed under a doctor (should be rare)
-            const displayedPatientIds = new Set();
-            doctorPatientMap.forEach((patientIds) => {
-                patientIds.forEach(id => displayedPatientIds.add(id));
-            });
-            
+            // Add patients that aren't associated with doctors (they won't be in renderedPatients)
             patients.forEach(patient => {
-                if (!displayedPatientIds.has(patient.id)) {
-                    const hasPatientQuizzes = Object.keys(patient.quizData || {}).length > 0;
-                    
+                if (!renderedPatients.has(patient.id)) {
+                    // Add patient row
                     const patientRow = document.createElement('tr');
-                    patientRow.className = 'patient-row';
+                    patientRow.className = 'patient-row unassigned-patient-row';
                     patientRow.dataset.userId = patient.id;
                     patientRow.dataset.role = 'patient';
-                    patientRow.style.display = 'table-row'; // Show by default since not under a doctor
+                    
+                    const patientHasQuizzes = Object.keys(patient.quizData || {}).length > 0;
                     
                     patientRow.innerHTML = `
                         <td>
@@ -2652,50 +2601,71 @@
                                 </div>
                             </div>
                         </td>
-                        <td><span class="user-indicator">Patient</span></td>
+                        <td>Patient (unassigned)</td>
                         <td>
-                            ${patient.quizCount} quizzes, ${patient.medicalCondition}
-                            ${hasPatientQuizzes ? `<button class="view-quizzes-btn" data-user-id="${patient.id}">Show Quizzes</button>` : ''}
-                            <div class="user-additional-info">
-                                <div><strong>Age:</strong> ${patient.age}</div>
-                                <div><strong>Gender:</strong> ${patient.gender}</div>
-                                <div><strong>Medical:</strong> ${patient.medicalCondition}</div>
-                                <div><strong>Recommendation:</strong> ${patient.doctorRecommendation}</div>
+                            <div class="patient-info">
+                                <div>Age: ${patient.age}</div>
+                                <div>Gender: ${patient.gender}</div>
+                                <div>Condition: ${patient.medicalCondition}</div>
                             </div>
                         </td>
-                        <td>${patient.lastActive}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-secondary view-quizzes-btn" data-user-id="${patient.id}" data-user-name="${patient.name}">
+                                Quizzes (${patient.quizCount})
+                            </button>
+                        </td>
                     `;
                     
                     container.appendChild(patientRow);
+                }
+            });
+            
+            // Add click handlers for expandable rows
+            document.querySelectorAll('.expandable').forEach(row => {
+                row.addEventListener('click', function(e) {
+                    // Don't handle clicks on buttons inside the row
+                    if (e.target.closest('button')) return;
                     
-                    // Add quiz data row (initially hidden)
-                    if (hasPatientQuizzes) {
-                        const quizDataRow = createUserQuizDataRow(patient.id, patient.quizData);
-                        container.appendChild(quizDataRow);
+                    // Toggle expanded class
+                    this.classList.toggle('expanded');
+                    
+                    // Toggle + to - icon
+                    const expandIcon = this.querySelector('.expand-icon');
+                    if (expandIcon) {
+                        expandIcon.textContent = this.classList.contains('expanded') ? '-' : '+';
                     }
-                }
+                    
+                    // Toggle visibility of patient rows
+                    const userId = this.dataset.userId;
+                    const patientRows = document.querySelectorAll(`.patient-row[data-doctor-id="${userId}"]`);
+                    patientRows.forEach(patientRow => {
+                        patientRow.style.display = this.classList.contains('expanded') ? 'table-row' : 'none';
+                    });
+                });
             });
             
-            // Hide all patient rows initially
-            document.querySelectorAll('.patient-row').forEach(row => {
-                if (row.dataset.doctorId) {
-                    row.style.display = 'none';
-                }
-            });
-            
-            // Hide all quiz data rows initially
-            document.querySelectorAll('.user-quiz-details').forEach(row => {
-                row.style.display = 'none';
-            });
-            
-            // Explicitly attach event listeners after DOM has been updated
-            console.log("Attaching event listeners to quiz buttons...");
+            // Add click handlers for quiz buttons
             document.querySelectorAll('.view-quizzes-btn').forEach(button => {
-                console.log(`Attaching listener to button for user ${button.dataset.userId}`);
                 button.addEventListener('click', function() {
                     const userId = this.getAttribute('data-user-id');
-                    console.log(`Quiz button clicked for user ${userId}`);
-                    toggleUserQuizzes(userId);
+                    const userName = this.getAttribute('data-user-name');
+                    
+                    // Show quiz modal for this user
+                    document.getElementById('quizModalTitle').textContent = `Quizzes for ${userName}`;
+                    document.getElementById('quizModalBody').innerHTML = '<div class="text-center"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+                    
+                    // Find the user
+                    const user = users.find(u => u.id === userId);
+                    if (user && user.quizData) {
+                        // Render quiz data
+                        displayUserQuizzes(user.quizData, userName);
+                    } else {
+                        document.getElementById('quizModalBody').innerHTML = '<div class="alert alert-info">No quiz data found for this user.</div>';
+                    }
+                    
+                    // Show the modal
+                    const quizModal = new bootstrap.Modal(document.getElementById('quizModal'));
+                    quizModal.show();
                 });
             });
         }
