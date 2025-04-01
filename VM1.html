@@ -22,7 +22,7 @@
             padding: 15px;
             box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
             text-align: center;
-            max-width: 650px;
+            max-width: 1000px;
             width: 95%;
         }
 
@@ -92,8 +92,7 @@
 
         .memory-images {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            grid-template-rows: repeat(2, 1fr);
+            grid-template-columns: repeat(5, 1fr);
             gap: 10px;
             padding: 15px;
             justify-content: center;
@@ -101,8 +100,8 @@
         }
 
         .memory-image {
-            width: 90px;
-            height: 90px;
+            width: 100px;
+            height: 100px;
             object-fit: contain;
             border: 3px solid #2196F3;
             border-radius: 8px;
@@ -110,7 +109,7 @@
         }
 
         .timer {
-            font-size: 1.3em;
+            font-size: 1.5em;
             font-weight: bold;
             color: #2196F3;
             margin: 15px 0;
@@ -118,24 +117,22 @@
 
         .options-container {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+            grid-template-columns: repeat(6, 1fr);
             gap: 10px;
             padding: 10px;
             justify-content: center;
             margin: 0 auto;
-            max-width: 600px;
         }
 
         .option-image {
-            width: 70px;
-            height: 70px;
+            width: 80px;
+            height: 80px;
             object-fit: contain;
             border: 1px solid #e0e0e0;
             padding: 4px;
             cursor: pointer;
             transition: transform 0.2s, border-color 0.2s;
             background: white;
-            -webkit-tap-highlight-color: transparent; /* Remove tap highlight on mobile */
         }
 
         .option-image:hover {
@@ -395,16 +392,8 @@
         }
 
         @media (max-width: 768px) {
-            .game-container {
-                padding: 12px;
-                width: 98%;
-            }
-            
             .memory-images {
                 grid-template-columns: repeat(3, 1fr);
-                grid-template-rows: repeat(2, 1fr);
-                gap: 8px;
-                padding: 10px;
             }
             
             .memory-image {
@@ -413,118 +402,32 @@
             }
 
             .options-container {
-                grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
-                gap: 8px;
+                grid-template-columns: repeat(4, 1fr);
             }
 
             .option-image {
                 width: 60px;
                 height: 60px;
             }
-            
-            h1 {
-                font-size: 1.4em;
-            }
-            
-            .instructions {
-                font-size: 1em;
-            }
-            
-            button {
-                font-size: 0.9em;
-                padding: 10px 20px;
-            }
-            
-            .statistics-container {
-                max-width: 90%;
-            }
         }
 
         @media (max-width: 480px) {
-            .game-container {
-                padding: 10px;
-            }
-            
             .memory-images {
                 grid-template-columns: repeat(3, 1fr);
-                grid-template-rows: repeat(2, 1fr);
-                gap: 6px;
             }
             
             .memory-image {
-                width: 65px;
-                height: 65px;
-                border-width: 2px;
+                width: 60px;
+                height: 60px;
             }
 
             .options-container {
-                grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
-                gap: 6px;
+                grid-template-columns: repeat(3, 1fr);
             }
 
             .option-image {
                 width: 50px;
                 height: 50px;
-            }
-            
-            h1 {
-                font-size: 1.3em;
-                margin: 8px 0;
-            }
-            
-            .instructions {
-                font-size: 0.9em;
-                margin-bottom: 15px;
-            }
-            
-            button {
-                font-size: 0.85em;
-                padding: 8px 16px;
-                margin-top: 10px;
-            }
-            
-            .header {
-                gap: 10px;
-                margin-bottom: 15px;
-            }
-            
-            .patient-indicator {
-                font-size: 10px;
-                padding: 2px 6px;
-            }
-            
-            .profile-icon {
-                width: 30px;
-                height: 30px;
-                font-size: 14px;
-            }
-            
-            .statistics-container {
-                max-width: 95%;
-            }
-            
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .stat-item {
-                padding: 8px;
-            }
-            
-            .attempt-item {
-                padding: 8px;
-            }
-        }
-        
-        @media (max-width: 360px) {
-            .memory-image {
-                width: 55px;
-                height: 55px;
-            }
-            
-            .option-image {
-                width: 45px;
-                height: 45px;
             }
         }
     </style>
@@ -824,22 +727,7 @@
                 imgElement.dataset.index = index;
                 imgElement.dataset.src = img;
                 
-                // Add both click and touch events for better mobile support
-                imgElement.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    toggleImageSelection(imgElement, img);
-                    if (!firstTapTime) {
-                        firstTapTime = (Date.now() - startTime) / 1000;
-                    }
-                });
-                
-                // Add touch events for mobile
-                imgElement.addEventListener('touchstart', (e) => {
-                    e.preventDefault(); // Prevent scrolling when touching the image
-                });
-                
-                imgElement.addEventListener('touchend', (e) => {
-                    e.preventDefault();
+                imgElement.addEventListener('click', () => {
                     toggleImageSelection(imgElement, img);
                     if (!firstTapTime) {
                         firstTapTime = (Date.now() - startTime) / 1000;
@@ -1203,35 +1091,6 @@
         // Event listeners
         checkButton.addEventListener('click', checkAnswers);
         startOverButton.addEventListener('click', startNewGame);
-
-        // Add viewport meta tag update for better mobile experience
-        document.addEventListener('DOMContentLoaded', () => {
-            // Check for touch device
-            const isTouchDevice = ('ontouchstart' in window) || 
-                                 (navigator.maxTouchPoints > 0) || 
-                                 (navigator.msMaxTouchPoints > 0);
-            
-            if (isTouchDevice) {
-                console.log('Touch device detected, optimizing interface');
-                // Add specific touch optimizations if needed
-            }
-            
-            // Initialize the profile icon
-            const profileIcon = document.getElementById('profileIcon');
-            auth.onAuthStateChanged(user => {
-                if (user && user.email) {
-                    const initials = user.email.split('@')[0].substring(0, 2).toUpperCase();
-                    profileIcon.textContent = initials;
-                }
-            });
-            
-            // Set patient indicator if applicable
-            if (isPatientQuiz) {
-                document.getElementById('patient-indicator').style.display = 'inline-block';
-            }
-            
-            fetchPreviousAttempts();
-        });
 
         // Start the game when the page loads
         window.onload = startNewGame;
