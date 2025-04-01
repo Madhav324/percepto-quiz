@@ -18,19 +18,20 @@
 
         #quiz-container {
             text-align: center;
-            padding: 20px;
+            padding: 15px;
             border-radius: 8px;
             background-color: #fff;
             box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.1);
-            width: 450px;
+            width: 95%;
+            max-width: 450px;
         }
 
         .header {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 20px;
-            margin-bottom: 20px;
+            gap: 15px;
+            margin-bottom: 15px;
         }
 
         .profile-icon {
@@ -69,9 +70,10 @@
 
         .game-area {
             position: relative;
-            width: 400px;
-            height: 400px;
-            margin: 20px auto;
+            width: 100%;
+            max-width: 400px;
+            height: 350px;
+            margin: 10px auto;
             border: 2px solid #4CAF50;
             border-radius: 8px;
             overflow: hidden;
@@ -79,8 +81,8 @@
         }
 
         #center-image {
-            width: 80px;
-            height: 80px;
+            width: 70px;
+            height: 70px;
             position: absolute;
             top: 50%;
             left: 50%;
@@ -90,8 +92,8 @@
 
         .plate-image {
             position: absolute;
-            width: 100px;
-            height: 60px;
+            width: 90px;
+            height: 50px;
             z-index: 1;
         }
 
@@ -166,11 +168,11 @@
         }
 
         .draggable {
-            width: 60px;
-            height: 60px;
+            width: 50px;
+            height: 50px;
             cursor: move;
-            border: 2px solid #ccc;
-            border-radius: 8px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
             transition: transform 0.2s;
             background-color: white;
         }
@@ -181,30 +183,31 @@
 
         .instruction {
             background-color: #e3f2fd;
-            padding: 10px;
+            padding: 8px;
             border-radius: 5px;
-            margin: 10px 0;
+            margin: 8px 0;
             font-weight: bold;
+            font-size: 0.95rem;
         }
 
         .options-container {
             display: flex;
             flex-wrap: wrap;
-            gap: 15px;
+            gap: 8px;
             justify-content: center;
-            margin-top: 20px;
-            padding: 10px;
+            margin-top: 10px;
+            padding: 8px;
             background-color: #f8f8f8;
             border-radius: 8px;
         }
 
         button {
-            padding: 10px 15px;
-            margin: 10px;
+            padding: 8px 12px;
+            margin: 8px;
             border: none;
             background-color: #4CAF50;
             color: white;
-            font-size: 16px;
+            font-size: 14px;
             cursor: pointer;
             border-radius: 5px;
         }
@@ -214,9 +217,30 @@
         }
 
         #quiz-type {
-            font-size: 18px;
+            font-size: 16px;
             color: #2196F3;
+            margin-bottom: 8px;
+        }
+
+        .difficulty-selector {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
             margin-bottom: 10px;
+        }
+
+        .difficulty-btn {
+            padding: 5px 10px;
+            background-color: #e0e0e0;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .difficulty-btn.active {
+            background-color: #4CAF50;
+            color: white;
         }
 
         .statistics-container {
@@ -334,6 +358,70 @@
             font-size: 12px;
             margin-left: 8px;
         }
+
+        /* Mobile-specific styles */
+        @media (max-width: 600px) {
+            #quiz-container {
+                padding: 10px;
+                width: 95%;
+            }
+
+            .game-area {
+                height: 300px;
+            }
+
+            #center-image {
+                width: 60px;
+                height: 60px;
+            }
+
+            .plate-image {
+                width: 80px;
+                height: 45px;
+            }
+
+            .draggable {
+                width: 40px;
+                height: 40px;
+                min-height: 26px;
+                font-size: 0.9rem;
+                padding: 1px;
+                border: 1px solid #ccc;
+            }
+
+            .options-container {
+                gap: 5px;
+                padding: 5px;
+            }
+
+            button {
+                padding: 6px 10px;
+                font-size: 0.9rem;
+                margin: 5px;
+            }
+
+            .header h1 {
+                font-size: 1.3rem;
+            }
+
+            .instruction {
+                font-size: 0.9rem;
+                padding: 5px;
+            }
+
+            .statistics-container {
+                padding: 10px;
+            }
+
+            .stat-item {
+                padding: 5px;
+            }
+
+            .attempt-item {
+                padding: 10px;
+                margin-bottom: 10px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -348,6 +436,14 @@
         </div>
         
         <div id="quiz-type"></div>
+        
+        <div class="difficulty-selector">
+            <button class="difficulty-btn" data-level="easy">Easy</button>
+            <button class="difficulty-btn active" data-level="medium">Medium</button>
+            <button class="difficulty-btn" data-level="hard">Hard</button>
+            <button class="difficulty-btn" data-level="expert">Expert</button>
+        </div>
+        
         <div class="instruction" id="instruction"></div>
         
         <div class="game-area">
@@ -422,35 +518,142 @@
             doctorId: doctorId || 'none'
         });
 
-        // Quiz definitions
+        // Quiz definitions with levels
         const questionTypes = {
-            left: {
+            // Easy level
+            left_easy: {
+                type: "LEFT",
+                questionImage: "images/SR/left.png",
+                options: ["images/SR/apple.png", "images/SR/orange.png"],
+                instruction: "Place ALL objects to the LEFT of the arrow.",
+                correctArea: "left",
+                level: "easy"
+            },
+            right_easy: {
+                type: "RIGHT",
+                questionImage: "images/SR/right.png",
+                options: ["images/SR/apple.png", "images/SR/orange.png"],
+                instruction: "Place ALL objects to the RIGHT of the arrow.",
+                correctArea: "right",
+                level: "easy"
+            },
+            top_easy: {
+                type: "TOP",
+                questionImage: "images/SR/up.png",
+                options: ["images/SR/apple.png", "images/SR/orange.png"],
+                instruction: "Place ALL objects ABOVE the arrow.",
+                correctArea: "top",
+                level: "easy"
+            },
+            bottom_easy: {
+                type: "BOTTOM",
+                questionImage: "images/SR/down.png",
+                options: ["images/SR/apple.png", "images/SR/orange.png"],
+                instruction: "Place ALL objects BELOW the arrow.",
+                correctArea: "bottom",
+                level: "easy"
+            },
+            
+            // Medium level
+            left_medium: {
                 type: "LEFT",
                 questionImage: "images/SR/left.png",
                 options: ["images/SR/apple.png", "images/SR/orange.png", "images/SR/straw.png"],
                 instruction: "Place ALL objects to the LEFT of the arrow.",
-                correctArea: "left"
+                correctArea: "left",
+                level: "medium"
             },
-            right: {
+            right_medium: {
                 type: "RIGHT",
                 questionImage: "images/SR/right.png",
                 options: ["images/SR/apple.png", "images/SR/orange.png", "images/SR/straw.png"],
                 instruction: "Place ALL objects to the RIGHT of the arrow.",
-                correctArea: "right"
+                correctArea: "right",
+                level: "medium"
             },
-            top: {
+            top_medium: {
                 type: "TOP",
                 questionImage: "images/SR/up.png",
                 options: ["images/SR/apple.png", "images/SR/orange.png", "images/SR/straw.png"],
                 instruction: "Place ALL objects ABOVE the arrow.",
-                correctArea: "top"
+                correctArea: "top",
+                level: "medium"
             },
-            bottom: {
+            bottom_medium: {
                 type: "BOTTOM",
                 questionImage: "images/SR/down.png",
                 options: ["images/SR/apple.png", "images/SR/orange.png", "images/SR/straw.png"],
                 instruction: "Place ALL objects BELOW the arrow.",
-                correctArea: "bottom"
+                correctArea: "bottom",
+                level: "medium"
+            },
+            
+            // Hard level
+            left_hard: {
+                type: "LEFT",
+                questionImage: "images/SR/left.png",
+                options: ["images/SR/apple.png", "images/SR/orange.png", "images/SR/straw.png", "images/SR/banana.png"],
+                instruction: "Place ALL objects to the LEFT of the arrow.",
+                correctArea: "left",
+                level: "hard"
+            },
+            right_hard: {
+                type: "RIGHT",
+                questionImage: "images/SR/right.png",
+                options: ["images/SR/apple.png", "images/SR/orange.png", "images/SR/straw.png", "images/SR/banana.png"],
+                instruction: "Place ALL objects to the RIGHT of the arrow.",
+                correctArea: "right",
+                level: "hard"
+            },
+            top_hard: {
+                type: "TOP",
+                questionImage: "images/SR/up.png",
+                options: ["images/SR/apple.png", "images/SR/orange.png", "images/SR/straw.png", "images/SR/banana.png"],
+                instruction: "Place ALL objects ABOVE the arrow.",
+                correctArea: "top",
+                level: "hard"
+            },
+            bottom_hard: {
+                type: "BOTTOM",
+                questionImage: "images/SR/down.png",
+                options: ["images/SR/apple.png", "images/SR/orange.png", "images/SR/straw.png", "images/SR/banana.png"],
+                instruction: "Place ALL objects BELOW the arrow.",
+                correctArea: "bottom",
+                level: "hard"
+            },
+            
+            // Expert level
+            left_expert: {
+                type: "LEFT",
+                questionImage: "images/SR/left.png",
+                options: ["images/SR/apple.png", "images/SR/orange.png", "images/SR/straw.png", "images/SR/banana.png", "images/SR/grapes.png"],
+                instruction: "Place ALL objects to the LEFT of the arrow.",
+                correctArea: "left",
+                level: "expert"
+            },
+            right_expert: {
+                type: "RIGHT",
+                questionImage: "images/SR/right.png",
+                options: ["images/SR/apple.png", "images/SR/orange.png", "images/SR/straw.png", "images/SR/banana.png", "images/SR/grapes.png"],
+                instruction: "Place ALL objects to the RIGHT of the arrow.",
+                correctArea: "right",
+                level: "expert"
+            },
+            top_expert: {
+                type: "TOP",
+                questionImage: "images/SR/up.png",
+                options: ["images/SR/apple.png", "images/SR/orange.png", "images/SR/straw.png", "images/SR/banana.png", "images/SR/grapes.png"],
+                instruction: "Place ALL objects ABOVE the arrow.",
+                correctArea: "top",
+                level: "expert"
+            },
+            bottom_expert: {
+                type: "BOTTOM",
+                questionImage: "images/SR/down.png",
+                options: ["images/SR/apple.png", "images/SR/orange.png", "images/SR/straw.png", "images/SR/banana.png", "images/SR/grapes.png"],
+                instruction: "Place ALL objects BELOW the arrow.",
+                correctArea: "bottom",
+                level: "expert"
             }
         };
 
@@ -458,9 +661,11 @@
         let placedImages = new Map();
         let totalStartTime;
         let totalTaps = 0;
+        let currentDifficulty = 'medium'; // Default difficulty
         let firstPlacementTime = null;
         let score = 0;
         let incorrectAnswers = 0;
+        let questionsAnswered = 0;
         let draggedItem = null;
         let currentTouchId = null;
         let touchStartX = 0;
@@ -540,8 +745,11 @@
         });
 
         function selectRandomQuestion() {
-            const questions = Object.values(questionTypes);
-            return questions[Math.floor(Math.random() * questions.length)];
+            // Filter questions by current difficulty
+            const filteredQuestions = Object.values(questionTypes).filter(
+                q => q.level === currentDifficulty
+            );
+            return filteredQuestions[Math.floor(Math.random() * filteredQuestions.length)];
         }
 
         function rearrangeImages(dropArea, area) {
@@ -654,7 +862,7 @@
             
             centerImage.src = currentQuestion.questionImage;
             instruction.textContent = currentQuestion.instruction;
-            quizType.textContent = `Question Type: ${currentQuestion.type} PLACEMENT`;
+            quizType.textContent = `Question Type: ${currentQuestion.type} PLACEMENT (${currentQuestion.level.toUpperCase()})`;
             
             optionsContainer.innerHTML = '';
             document.querySelectorAll('.placed-image').forEach(img => img.remove());
@@ -677,6 +885,9 @@
                 
                 optionsContainer.appendChild(img);
             });
+            
+            // Reset first placement time for each new question
+            firstPlacementTime = null;
         }
 
         function checkAnswer() {
@@ -717,6 +928,8 @@
                 instruction.style.color = 'red';
             }
             
+            questionsAnswered++;
+            
             // Show results after a brief delay
             setTimeout(() => {
                 showResults();
@@ -734,6 +947,7 @@
             document.querySelector('.instruction').style.display = 'none';
             document.querySelector('button[onclick="window.checkAnswer()"]').style.display = 'none';
             document.getElementById('retry-button').style.display = 'none';
+            document.querySelector('.difficulty-selector').style.display = 'none';
             
             // Show results
             document.getElementById('result-container').style.display = 'block';
@@ -741,7 +955,7 @@
             
             const totalEndTime = Date.now();
             const totalTimeInSeconds = ((totalEndTime - totalStartTime) / 1000).toFixed(2);
-            const averageTimeInSeconds = totalTimeInSeconds; // Since there's only one question
+            const averageTimeInSeconds = questionsAnswered > 0 ? (totalTimeInSeconds / questionsAnswered).toFixed(2) : totalTimeInSeconds;
             
             document.getElementById('score').innerText = score;
             document.getElementById('total-time').innerText = totalTimeInSeconds;
@@ -764,246 +978,14 @@
                 e.target.onclick?.toString().includes('checkAnswer'))) {
                 return;
             }
-            totalTaps++;
-        });
-
-        // Fetch previous quiz attempts
-        async function fetchPreviousAttempts() {
-            try {
-                const user = auth.currentUser;
-                if (!user) return;
-                
-                let path;
-                const reportList = document.getElementById('report-list');
-                reportList.innerHTML = '<h3>Previous Attempts</h3>';
-                
-                // Check if this is a patient quiz (doctor viewing patient)
-                const currentPatientId = sessionStorage.getItem('currentPatientId');
-                const doctorId = sessionStorage.getItem('doctorId');
-                
-                if (currentPatientId && doctorId) {
-                    // This is a doctor testing a patient
-                    console.log(`Fetching patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
-                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/VSpac2`;
-                } else {
-                    // Regular user quiz
-                    // Check if user is a doctor
-                    const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
-                    const role = roleSnapshot.val();
-                    
-                    if (role === 'doctor') {
-                        console.log(`Fetching doctor's own quiz results: ${user.uid}`);
-                        path = `doctors/${user.uid}/quiz/VSpac2`;
-                    } else {
-                        console.log(`Fetching regular user quiz results: ${user.uid}`);
-                        path = `users/${user.uid}/quiz/VSpac2`;
-                    }
-                }
-                
-                console.log(`Fetching previous attempts from path: ${path}`);
-                const resultsSnapshot = await database.ref(path).once('value');
-                
-                if (resultsSnapshot.exists()) {
-                    const results = [];
-                    resultsSnapshot.forEach(childSnapshot => {
-                        results.push({
-                            id: childSnapshot.key,
-                            ...childSnapshot.val()
-                        });
-                    });
-                    
-                    // Sort by timestamp if available (newest first)
-                    results.sort((a, b) => {
-                        return b.timestamp - a.timestamp;
-                    });
-                    
-                    // Take only the most recent 5
-                    const recentResults = results.slice(0, 5);
-                    
-                    if (recentResults.length > 0) {
-                        recentResults.forEach(result => {
-                            const timestamp = result.timestamp;
-                            // Check if timestamp is a number (milliseconds) or a string (ISO format)
-                            const date = typeof timestamp === 'number' 
-                                ? new Date(timestamp) 
-                                : new Date(timestamp);
-                                
-                            const formattedDate = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
-                            
-                            const attemptItem = document.createElement('div');
-                            attemptItem.className = 'attempt-item';
-                            
-                            // Create main display with date and score
-                            const dateScoreDiv = document.createElement('div');
-                            dateScoreDiv.innerHTML = `
-                                <div class="attempt-date">${formattedDate}</div>
-                                <div class="attempt-score">Score: ${result.score}/1</div>
-                            `;
-                            attemptItem.appendChild(dateScoreDiv);
-                            
-                            // Create the details section
-                            const detailsDiv = document.createElement('div');
-                            detailsDiv.className = 'attempt-details';
-                            
-                            // Always show these fields
-                            const detailsHtml = `
-                                <div class="attempt-detail-item">
-                                    <span class="detail-label">Total Time:</span>
-                                    <span>${result.totalTime || 'N/A'}s</span>
-                                </div>
-                                <div class="attempt-detail-item">
-                                    <span class="detail-label">Avg Time:</span>
-                                    <span>${result.averageTime || 'N/A'}s</span>
-                                </div>
-                                <div class="attempt-detail-item">
-                                    <span class="detail-label">First Tap:</span>
-                                    <span>${result.firstTapTime ? result.firstTapTime + 's' : 'N/A'}</span>
-                                </div>
-                                <div class="attempt-detail-item">
-                                    <span class="detail-label">Total Taps:</span>
-                                    <span>${result.totalTaps || 'N/A'}</span>
-                                </div>
-                                <div class="attempt-detail-item">
-                                    <span class="detail-label">Correct:</span>
-                                    <span>${result.correctAnswers || result.score || 'N/A'}</span>
-                                </div>
-                                <div class="attempt-detail-item">
-                                    <span class="detail-label">Incorrect:</span>
-                                    <span>${result.incorrectAnswers || 'N/A'}</span>
-                                </div>
-                            `;
-                            detailsDiv.innerHTML = detailsHtml;
-                            attemptItem.appendChild(detailsDiv);
-                            
-                            // Add a button to toggle details
-                            const toggleBtn = document.createElement('button');
-                            toggleBtn.className = 'toggle-details-btn';
-                            toggleBtn.textContent = 'Show Details';
-                            toggleBtn.onclick = function() {
-                                if (detailsDiv.style.display === 'none' || !detailsDiv.style.display) {
-                                    detailsDiv.style.display = 'grid';
-                                    this.textContent = 'Hide Details';
-                                } else {
-                                    detailsDiv.style.display = 'none';
-                                    this.textContent = 'Show Details';
-                                }
-                            };
-                            dateScoreDiv.appendChild(toggleBtn);
-                            
-                            // Initially hide details
-                            detailsDiv.style.display = 'none';
-                            
-                            reportList.appendChild(attemptItem);
-                        });
-                    } else {
-                        reportList.innerHTML += '<p>No previous attempts found.</p>';
-                    }
-                } else {
-                    reportList.innerHTML += '<p>No previous attempts found.</p>';
-                }
-            } catch (error) {
-                console.error('Error fetching previous attempts:', error);
-                document.getElementById('report-list').innerHTML += '<p>Error loading previous attempts: ' + error.message + '</p>';
-            }
-        }
-
-        async function saveQuizResults(score, totalTime, averageTime, firstTapTime, totalTaps, correctAnswers, incorrectAnswers) {
-            const user = auth.currentUser;
-            if (!user) return;
-
-            try {
-                const timestamp = Date.now();
-                let path;
-
-                // Check if this is a patient quiz (doctor viewing patient)
-                const currentPatientId = sessionStorage.getItem('currentPatientId');
-                const doctorId = sessionStorage.getItem('doctorId');
-                
-                if (currentPatientId && doctorId) {
-                    // This is a doctor testing a patient
-                    console.log(`Saving patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
-                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/VSpac2/${timestamp}`;
-                } else {
-                    // Regular user quiz
-                    // Check if user is a doctor
-                    const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
-                    const role = roleSnapshot.val();
-                    
-                    if (role === 'doctor') {
-                        console.log(`Saving doctor's own quiz results: ${user.uid}`);
-                        path = `doctors/${user.uid}/quiz/VSpac2/${timestamp}`;
-                    } else {
-                        console.log(`Saving regular user quiz results: ${user.uid}`);
-                        path = `users/${user.uid}/quiz/VSpac2/${timestamp}`;
-                    }
-                }
-
-                console.log(`Saving quiz results to path: ${path}`);
-                await database.ref(path).set({
-                    score,
-                    totalTime,
-                    averageTime,
-                    firstTapTime,
-                    totalTaps,
-                    correctAnswers,
-                    incorrectAnswers,
-                    timestamp
-                });
-                
-                console.log('Quiz results saved successfully');
-            } catch (error) {
-                console.error('Error saving quiz results:', error);
-            }
-        }
-
-        async function clearReport() {
-            const user = auth.currentUser;
-            if (!user) {
-                alert('You need to be logged in to clear the report.');
+            
+            // Only count meaningful interaction taps (not clicks on report section)
+            if (e.target.closest('#report-container') || e.target.closest('#result-container')) {
                 return;
             }
-
-            try {
-                let path;
-                
-                // Check if this is a patient quiz (doctor viewing patient)
-                const currentPatientId = sessionStorage.getItem('currentPatientId');
-                const doctorId = sessionStorage.getItem('doctorId');
-                
-                if (currentPatientId && doctorId) {
-                    // This is a doctor testing a patient
-                    console.log(`Clearing patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
-                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/VSpac2`;
-                } else {
-                    // Regular user quiz
-                    // Check if user is a doctor
-                    const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
-                    const role = roleSnapshot.val();
-                    
-                    if (role === 'doctor') {
-                        console.log(`Clearing doctor's own quiz results: ${user.uid}`);
-                        path = `doctors/${user.uid}/quiz/VSpac2`;
-                    } else {
-                        console.log(`Clearing regular user quiz results: ${user.uid}`);
-                        path = `users/${user.uid}/quiz/VSpac2`;
-                    }
-                }
-                
-                console.log(`Removing all quiz results from path: ${path}`);
-                
-                // Remove all data at the specified path
-                await database.ref(path).remove();
-                
-                // Reset the results display
-                document.getElementById('report-list').innerHTML = '<h3>Previous Attempts</h3><p>No previous attempts found.</p>';
-                
-                alert('All quiz reports have been cleared successfully.');
-                
-            } catch (error) {
-                console.error('Error clearing report:', error);
-                alert('Failed to clear the report: ' + error.message);
-            }
-        }
+            
+            totalTaps++;
+        });
 
         // Add mobile touch event handlers
         function touchStart(e) {
@@ -1131,7 +1113,260 @@
         // Make functions accessible globally
         window.checkAnswer = checkAnswer;
         window.reloadRandomQuestion = reloadRandomQuestion;
-        window.clearReport = clearReport;
+        
+        // Set up difficulty selectors
+        document.addEventListener('DOMContentLoaded', function() {
+            const difficultyButtons = document.querySelectorAll('.difficulty-btn');
+            
+            difficultyButtons.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    // Remove active class from all buttons
+                    difficultyButtons.forEach(b => b.classList.remove('active'));
+                    
+                    // Add active class to clicked button
+                    this.classList.add('active');
+                    
+                    // Set current difficulty and reload question
+                    currentDifficulty = this.dataset.level;
+                    initializeQuiz();
+                });
+            });
+        });
+
+        async function saveQuizResults(score, totalTime, averageTime, firstTapTime, totalTaps, correctAnswers, incorrectAnswers) {
+            const user = auth.currentUser;
+            if (!user) return;
+
+            try {
+                const timestamp = Date.now();
+                let path;
+
+                // Check if this is a patient quiz (doctor viewing patient)
+                const currentPatientId = sessionStorage.getItem('currentPatientId');
+                const doctorId = sessionStorage.getItem('doctorId');
+                
+                if (currentPatientId && doctorId) {
+                    // This is a doctor testing a patient
+                    console.log(`Saving patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/VSpac2/${timestamp}`;
+                } else {
+                    // Regular user quiz
+                    // Check if user is a doctor
+                    const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                    const role = roleSnapshot.val();
+                    
+                    if (role === 'doctor') {
+                        console.log(`Saving doctor's own quiz results: ${user.uid}`);
+                        path = `doctors/${user.uid}/quiz/VSpac2/${timestamp}`;
+                    } else {
+                        console.log(`Saving regular user quiz results: ${user.uid}`);
+                        path = `users/${user.uid}/quiz/VSpac2/${timestamp}`;
+                    }
+                }
+
+                console.log(`Saving quiz results to path: ${path}`);
+                await database.ref(path).set({
+                    score,
+                    totalTime,
+                    averageTime,
+                    firstTapTime,
+                    totalTaps,
+                    correctAnswers,
+                    incorrectAnswers,
+                    timestamp
+                });
+                
+                console.log('Quiz results saved successfully');
+            } catch (error) {
+                console.error('Error saving quiz results:', error);
+            }
+        }
+
+        async function fetchPreviousAttempts() {
+            try {
+                const user = auth.currentUser;
+                if (!user) return;
+                
+                let path;
+                
+                // Check if this is a patient quiz (doctor viewing patient)
+                const currentPatientId = sessionStorage.getItem('currentPatientId');
+                const doctorId = sessionStorage.getItem('doctorId');
+                
+                if (currentPatientId && doctorId) {
+                    // This is a doctor testing a patient
+                    console.log(`Fetching patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/VSpac2`;
+                } else {
+                    // Regular user quiz
+                    // Check if user is a doctor
+                    const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                    const role = roleSnapshot.val();
+                    
+                    if (role === 'doctor') {
+                        console.log(`Fetching doctor's own quiz results: ${user.uid}`);
+                        path = `doctors/${user.uid}/quiz/VSpac2`;
+                    } else {
+                        console.log(`Fetching regular user quiz results: ${user.uid}`);
+                        path = `users/${user.uid}/quiz/VSpac2`;
+                    }
+                }
+                
+                console.log(`Fetching previous attempts from path: ${path}`);
+                const resultsSnapshot = await database.ref(path).once('value');
+                
+                if (resultsSnapshot.exists()) {
+                    const results = [];
+                    resultsSnapshot.forEach(childSnapshot => {
+                        results.push({
+                            id: childSnapshot.key,
+                            ...childSnapshot.val()
+                        });
+                    });
+                    
+                    // Sort by timestamp if available (newest first)
+                    results.sort((a, b) => {
+                        return b.timestamp - a.timestamp;
+                    });
+                    
+                    // Take only the most recent 5
+                    const recentResults = results.slice(0, 5);
+                    
+                    if (recentResults.length > 0) {
+                        recentResults.forEach(result => {
+                            const timestamp = result.timestamp;
+                            // Check if timestamp is a number (milliseconds) or a string (ISO format)
+                            const date = typeof timestamp === 'number' 
+                                ? new Date(timestamp) 
+                                : new Date(timestamp);
+                                
+                            const formattedDate = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+                            
+                            const attemptItem = document.createElement('div');
+                            attemptItem.className = 'attempt-item';
+                            
+                            // Create main display with date and score
+                            const dateScoreDiv = document.createElement('div');
+                            dateScoreDiv.innerHTML = `
+                                <div class="attempt-date">${formattedDate}</div>
+                                <div class="attempt-score">Score: ${result.score}/1</div>
+                            `;
+                            attemptItem.appendChild(dateScoreDiv);
+                            
+                            // Create the details section
+                            const detailsDiv = document.createElement('div');
+                            detailsDiv.className = 'attempt-details';
+                            
+                            // Always show these fields
+                            const detailsHtml = `
+                                <div class="attempt-detail-item">
+                                    <span class="detail-label">Total Time:</span>
+                                    <span>${result.totalTime || 'N/A'}s</span>
+                                </div>
+                                <div class="attempt-detail-item">
+                                    <span class="detail-label">Avg Time:</span>
+                                    <span>${result.averageTime || 'N/A'}s</span>
+                                </div>
+                                <div class="attempt-detail-item">
+                                    <span class="detail-label">First Tap:</span>
+                                    <span>${result.firstTapTime ? result.firstTapTime + 's' : 'N/A'}</span>
+                                </div>
+                                <div class="attempt-detail-item">
+                                    <span class="detail-label">Total Taps:</span>
+                                    <span>${result.totalTaps || 'N/A'}</span>
+                                </div>
+                                <div class="attempt-detail-item">
+                                    <span class="detail-label">Correct:</span>
+                                    <span>${result.correctAnswers || result.score || 'N/A'}</span>
+                                </div>
+                                <div class="attempt-detail-item">
+                                    <span class="detail-label">Incorrect:</span>
+                                    <span>${result.incorrectAnswers || 'N/A'}</span>
+                                </div>
+                            `;
+                            detailsDiv.innerHTML = detailsHtml;
+                            attemptItem.appendChild(detailsDiv);
+                            
+                            // Add a button to toggle details
+                            const toggleBtn = document.createElement('button');
+                            toggleBtn.className = 'toggle-details-btn';
+                            toggleBtn.textContent = 'Show Details';
+                            toggleBtn.onclick = function() {
+                                if (detailsDiv.style.display === 'none' || !detailsDiv.style.display) {
+                                    detailsDiv.style.display = 'grid';
+                                    this.textContent = 'Hide Details';
+                                } else {
+                                    detailsDiv.style.display = 'none';
+                                    this.textContent = 'Show Details';
+                                }
+                            };
+                            dateScoreDiv.appendChild(toggleBtn);
+                            
+                            // Initially hide details
+                            detailsDiv.style.display = 'none';
+                            
+                            document.getElementById('report-list').appendChild(attemptItem);
+                        });
+                    } else {
+                        document.getElementById('report-list').innerHTML += '<p>No previous attempts found.</p>';
+                    }
+                } else {
+                    document.getElementById('report-list').innerHTML += '<p>No previous attempts found.</p>';
+                }
+            } catch (error) {
+                console.error('Error fetching previous attempts:', error);
+                document.getElementById('report-list').innerHTML += '<p>Error loading previous attempts: ' + error.message + '</p>';
+            }
+        }
+
+        async function clearReport() {
+            const user = auth.currentUser;
+            if (!user) {
+                alert('You need to be logged in to clear the report.');
+                return;
+            }
+
+            try {
+                let path;
+                
+                // Check if this is a patient quiz (doctor viewing patient)
+                const currentPatientId = sessionStorage.getItem('currentPatientId');
+                const doctorId = sessionStorage.getItem('doctorId');
+                
+                if (currentPatientId && doctorId) {
+                    // This is a doctor testing a patient
+                    console.log(`Clearing patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/VSpac2`;
+                } else {
+                    // Regular user quiz
+                    // Check if user is a doctor
+                    const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                    const role = roleSnapshot.val();
+                    
+                    if (role === 'doctor') {
+                        console.log(`Clearing doctor's own quiz results: ${user.uid}`);
+                        path = `doctors/${user.uid}/quiz/VSpac2`;
+                    } else {
+                        console.log(`Clearing regular user quiz results: ${user.uid}`);
+                        path = `users/${user.uid}/quiz/VSpac2`;
+                    }
+                }
+                
+                console.log(`Removing all quiz results from path: ${path}`);
+                
+                // Remove all data at the specified path
+                await database.ref(path).remove();
+                
+                // Reset the results display
+                document.getElementById('report-list').innerHTML = '<h3>Previous Attempts</h3><p>No previous attempts found.</p>';
+                
+                alert('All quiz reports have been cleared successfully.');
+                
+            } catch (error) {
+                console.error('Error clearing report:', error);
+                alert('Failed to clear the report: ' + error.message);
+            }
+        }
     </script>
 </body>
 </html>
