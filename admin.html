@@ -941,6 +941,35 @@
             overflow-y: auto;
             padding: 5px 0;
         }
+        
+        /* Role badges for dual-role users */
+        .badge {
+            display: inline-block;
+            padding: 0.25em 0.6em;
+            font-size: 75%;
+            font-weight: 700;
+            line-height: 1;
+            text-align: center;
+            white-space: nowrap;
+            vertical-align: baseline;
+            border-radius: 0.25rem;
+            margin-left: 0.5rem;
+        }
+        
+        .badge-primary {
+            color: #fff;
+            background-color: #007bff;
+        }
+        
+        .badge-secondary {
+            color: #fff;
+            background-color: #6c757d;
+        }
+        
+        .badge-info {
+            color: #fff;
+            background-color: #17a2b8;
+        }
     </style>
 </head>
 <body>
@@ -2453,6 +2482,18 @@
                 return;
             }
             
+            // Group users by email to identify those with multiple roles
+            const emailMap = new Map();
+            users.forEach(user => {
+                if (user.email) {
+                    const email = user.email.toLowerCase();
+                    if (!emailMap.has(email)) {
+                        emailMap.set(email, []);
+                    }
+                    emailMap.get(email).push(user);
+                }
+            });
+            
             // Group users by role for sorting (doctors first, then regular users, then patients)
             const doctors = users.filter(user => user.role === 'doctor');
             const regularUsers = users.filter(user => user.role === 'user');
@@ -2469,13 +2510,29 @@
                 const hasPatients = doctor.patientCount > 0;
                 const hasQuizzes = Object.keys(doctor.quizData || {}).length > 0;
                 
+                // Check if this email has multiple roles
+                const email = doctor.email ? doctor.email.toLowerCase() : '';
+                const hasMultipleRoles = email && emailMap.has(email) && emailMap.get(email).length > 1;
+                
+                // Create a badge to indicate role if the user has multiple roles
+                const createRoleBadge = (role) => {
+                    const badgeClasses = {
+                        'doctor': 'badge-primary',
+                        'user': 'badge-secondary',
+                        'patient': 'badge-info'
+                    };
+                    return `<span class="badge ${badgeClasses[role] || 'badge-secondary'}">${role}</span>`;
+                };
+                
+                const roleBadge = hasMultipleRoles ? createRoleBadge('doctor') : '';
+                
                 doctorRow.innerHTML = `
                     <td>
                         <div class="user-details">
                             ${hasPatients ? `<span class="expand-icon">+</span>` : `<span class="expand-icon" style="visibility:hidden">+</span>`}
                             <div class="profile-icon" title="${doctor.name}">${doctor.initials}</div>
                             <div class="user-info">
-                                <div class="user-name">${doctor.name}</div>
+                                <div class="user-name">${doctor.name} ${roleBadge}</div>
                                 <div class="user-email">${doctor.email}</div>
                             </div>
                         </div>
@@ -2511,12 +2568,17 @@
                         patientRow.dataset.userId = patient.id;
                         patientRow.dataset.role = 'patient';
                         
+                        // Check if this email has multiple roles
+                        const patientEmail = patient.email ? patient.email.toLowerCase() : '';
+                        const patientHasMultipleRoles = patientEmail && emailMap.has(patientEmail) && emailMap.get(patientEmail).length > 1;
+                        const patientRoleBadge = patientHasMultipleRoles ? createRoleBadge('patient') : '';
+                        
                         patientRow.innerHTML = `
                             <td>
                                 <div class="user-details">
                                     <div class="profile-icon" title="${patient.name}">${patient.initials}</div>
                                     <div class="user-info">
-                                        <div class="user-name">${patient.name}</div>
+                                        <div class="user-name">${patient.name} ${patientRoleBadge}</div>
                                         <div class="user-email">${patient.email}</div>
                                     </div>
                                 </div>
@@ -2585,6 +2647,11 @@
                 
                 console.log(`User ${user.name} hasQuizzes:`, hasQuizzes);
                 
+                // Check if this email has multiple roles
+                const email = user.email ? user.email.toLowerCase() : '';
+                const hasMultipleRoles = email && emailMap.has(email) && emailMap.get(email).length > 1;
+                const roleBadge = hasMultipleRoles ? createRoleBadge('user') : '';
+                
                 const userRow = document.createElement('tr');
                 userRow.className = 'regular-user-row';
                 userRow.dataset.userId = user.id;
@@ -2596,7 +2663,7 @@
                             <span class="expand-icon" style="visibility:hidden">+</span>
                             <div class="profile-icon" title="${user.name}">${user.initials}</div>
                             <div class="user-info">
-                                <div class="user-name">${user.name}</div>
+                                <div class="user-name">${user.name} ${roleBadge}</div>
                                 <div class="user-email">${user.email}</div>
                             </div>
                         </div>
@@ -2641,13 +2708,18 @@
                     patientRow.dataset.role = 'patient';
                     patientRow.style.display = 'table-row'; // Show by default since not under a doctor
                     
+                    // Check if this email has multiple roles
+                    const patientEmail = patient.email ? patient.email.toLowerCase() : '';
+                    const patientHasMultipleRoles = patientEmail && emailMap.has(patientEmail) && emailMap.get(patientEmail).length > 1;
+                    const patientRoleBadge = patientHasMultipleRoles ? createRoleBadge('patient') : '';
+                    
                     patientRow.innerHTML = `
                         <td>
                             <div class="user-details">
                                 <span class="expand-icon" style="visibility:hidden">+</span>
                                 <div class="profile-icon" title="${patient.name}">${patient.initials}</div>
                                 <div class="user-info">
-                                    <div class="user-name">${patient.name}</div>
+                                    <div class="user-name">${patient.name} ${patientRoleBadge}</div>
                                     <div class="user-email">${patient.email}</div>
                                 </div>
                             </div>
@@ -2754,8 +2826,10 @@
                 });
             }
             
-            // Convert to array and sort by number of attempts
+            // Convert to array and update the UI
             const quizList = Object.values(quizStats);
+            
+            // Sort by number of attempts (most popular first)
             quizList.sort((a, b) => b.attempts - a.attempts);
             
             // Create content for the details row
