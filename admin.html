@@ -2246,12 +2246,115 @@
                     }
                 }
                 
-                // Display users in hierarchical format
-                displayHierarchicalUsersList(userArray, doctorPatientMap, usersContainer);
+                // Consolidate users with the same email
+                console.log(`Loaded ${userArray.length} total users. Consolidating users with multiple roles...`);
                 
-                // Add filter functionality
+                const consolidatedUsers = [];
+                const processedEmails = new Set();
+                
+                userArray.forEach(user => {
+                    if (!user.email) {
+                        consolidatedUsers.push(user);
+                        return;
+                    }
+                    
+                    const email = user.email.toLowerCase();
+                    
+                    if (processedEmails.has(email)) {
+                        return; // Skip this user as we've already processed this email
+                    }
+                    
+                    const usersWithSameEmail = userArray.filter(u => 
+                        u.email && u.email.toLowerCase() === email
+                    );
+                    
+                    if (usersWithSameEmail.length > 1) {
+                        console.log(`Consolidating ${usersWithSameEmail.length} users with email ${email}`);
+                        
+                        // Choose the most complete profile as the base user
+                        // Prioritize doctor profiles as they typically have more complete data
+                        const doctorUser = usersWithSameEmail.find(u => u.role === 'doctor');
+                        const mergedUser = {...(doctorUser || usersWithSameEmail[0])};
+                        
+                        // Create an array of all roles this user has
+                        mergedUser.roles = [...new Set(usersWithSameEmail.map(u => u.role))];
+                        
+                        // Use the primary role for categorization (prioritize doctor > patient > user)
+                        if (mergedUser.roles.includes('doctor')) {
+                            mergedUser.primaryRole = 'doctor';
+                        } else if (mergedUser.roles.includes('patient')) {
+                            mergedUser.primaryRole = 'patient';
+                        } else {
+                            mergedUser.primaryRole = 'user';
+                        }
+                        
+                        // Store the original role for reference
+                        mergedUser.originalRole = mergedUser.role;
+                        mergedUser.role = mergedUser.primaryRole;
+                        
+                        // Merge quiz data
+                        mergedUser.quizData = {};
+                        usersWithSameEmail.forEach(u => {
+                            if (u.quizData) {
+                                mergedUser.quizData = {...mergedUser.quizData, ...u.quizData};
+                            }
+                        });
+                        
+                        // Recalculate quiz count from merged quiz data
+                        mergedUser.quizCount = countQuizzes(mergedUser.quizData);
+                        
+                        // Get the most recent active date
+                        const lastActiveDates = usersWithSameEmail
+                            .map(u => u.lastActive)
+                            .filter(date => date && date !== 'Never')
+                            .map(date => {
+                                try {
+                                    return new Date(date).getTime();
+                                } catch (e) {
+                                    return 0;
+                                }
+                            })
+                            .filter(timestamp => !isNaN(timestamp) && timestamp > 0);
+                        
+                        if (lastActiveDates.length > 0) {
+                            const mostRecentTimestamp = Math.max(...lastActiveDates);
+                            mergedUser.lastActive = new Date(mostRecentTimestamp).toLocaleString();
+                        }
+                        
+                        // Combine all patient relationships
+                        const allPatients = [];
+                        usersWithSameEmail.forEach(u => {
+                            if (u.patients && Array.isArray(u.patients)) {
+                                allPatients.push(...u.patients);
+                            }
+                        });
+                        
+                        // Deduplicate patients
+                        if (allPatients.length > 0) {
+                            const uniquePatientIds = [...new Set(allPatients.map(p => p.id))];
+                            mergedUser.patients = uniquePatientIds.map(id => {
+                                return allPatients.find(p => p.id === id);
+                            }).filter(Boolean);
+                            mergedUser.patientCount = mergedUser.patients.length;
+                        }
+                        
+                        // Add to consolidated list
+                        consolidatedUsers.push(mergedUser);
+                    } else {
+                        // Single-role user
+                        consolidatedUsers.push(usersWithSameEmail[0]);
+                    }
+                    
+                    processedEmails.add(email);
+                });
+                
+                console.log(`Consolidated ${userArray.length} users into ${consolidatedUsers.length} unique users`);
+                
+                // Display consolidated users in hierarchical format
+                displayHierarchicalUsersList(consolidatedUsers, doctorPatientMap, usersContainer);
                 setupUserFilters();
                 
+                return consolidatedUsers; // Return the array for reference
             } catch (error) {
                 console.error("Error loading users data:", error);
                 document.getElementById('usersTable').innerHTML = 
@@ -2474,25 +2577,23 @@
 
         // Display users in hierarchical format
         function displayHierarchicalUsersList(users, doctorPatientMap, container) {
-            // Clear container
+            console.log("Displaying hierarchical users list:", users);
             container.innerHTML = '';
+            
+            // Create a badge to indicate role if the user has multiple roles
+            const createRoleBadge = (role) => {
+                const badgeClasses = {
+                    'doctor': 'badge-primary',
+                    'user': 'badge-secondary',
+                    'patient': 'badge-info'
+                };
+                return `<span class="badge ${badgeClasses[role] || 'badge-secondary'}">${role}</span>`;
+            };
             
             if (users.length === 0) {
                 container.innerHTML = '<tr><td colspan="4">No users found</td></tr>';
                 return;
             }
-            
-            // Group users by email to identify those with multiple roles
-            const emailMap = new Map();
-            users.forEach(user => {
-                if (user.email) {
-                    const email = user.email.toLowerCase();
-                    if (!emailMap.has(email)) {
-                        emailMap.set(email, []);
-                    }
-                    emailMap.get(email).push(user);
-                }
-            });
             
             // Group users by role for sorting (doctors first, then regular users, then patients)
             const doctors = users.filter(user => user.role === 'doctor');
@@ -2510,21 +2611,20 @@
                 const hasPatients = doctor.patientCount > 0;
                 const hasQuizzes = Object.keys(doctor.quizData || {}).length > 0;
                 
-                // Check if this email has multiple roles
-                const email = doctor.email ? doctor.email.toLowerCase() : '';
-                const hasMultipleRoles = email && emailMap.has(email) && emailMap.get(email).length > 1;
-                
-                // Create a badge to indicate role if the user has multiple roles
-                const createRoleBadge = (role) => {
-                    const badgeClasses = {
-                        'doctor': 'badge-primary',
-                        'user': 'badge-secondary',
-                        'patient': 'badge-info'
-                    };
-                    return `<span class="badge ${badgeClasses[role] || 'badge-secondary'}">${role}</span>`;
-                };
-                
-                const roleBadge = hasMultipleRoles ? createRoleBadge('doctor') : '';
+                // Check if this user has multiple roles
+                const hasMultipleRoles = doctor.roles && doctor.roles.length > 1;
+                let roleBadges = '';
+                if (hasMultipleRoles) {
+                    // Always show the current primary role first
+                    roleBadges = createRoleBadge(doctor.role);
+                    
+                    // Then show any other roles
+                    doctor.roles.forEach(role => {
+                        if (role !== doctor.role) {
+                            roleBadges += ' ' + createRoleBadge(role);
+                        }
+                    });
+                }
                 
                 doctorRow.innerHTML = `
                     <td>
@@ -2532,7 +2632,7 @@
                             ${hasPatients ? `<span class="expand-icon">+</span>` : `<span class="expand-icon" style="visibility:hidden">+</span>`}
                             <div class="profile-icon" title="${doctor.name}">${doctor.initials}</div>
                             <div class="user-info">
-                                <div class="user-name">${doctor.name} ${roleBadge}</div>
+                                <div class="user-name">${doctor.name} ${roleBadges}</div>
                                 <div class="user-email">${doctor.email}</div>
                             </div>
                         </div>
@@ -2568,17 +2668,27 @@
                         patientRow.dataset.userId = patient.id;
                         patientRow.dataset.role = 'patient';
                         
-                        // Check if this email has multiple roles
-                        const patientEmail = patient.email ? patient.email.toLowerCase() : '';
-                        const patientHasMultipleRoles = patientEmail && emailMap.has(patientEmail) && emailMap.get(patientEmail).length > 1;
-                        const patientRoleBadge = patientHasMultipleRoles ? createRoleBadge('patient') : '';
+                        // Check if this user has multiple roles
+                        const hasMultipleRoles = patient.roles && patient.roles.length > 1;
+                        let roleBadges = '';
+                        if (hasMultipleRoles) {
+                            // Always show the current primary role first
+                            roleBadges = createRoleBadge('patient');
+                            
+                            // Then show any other roles
+                            patient.roles.forEach(role => {
+                                if (role !== 'patient') {
+                                    roleBadges += ' ' + createRoleBadge(role);
+                                }
+                            });
+                        }
                         
                         patientRow.innerHTML = `
                             <td>
                                 <div class="user-details">
                                     <div class="profile-icon" title="${patient.name}">${patient.initials}</div>
                                     <div class="user-info">
-                                        <div class="user-name">${patient.name} ${patientRoleBadge}</div>
+                                        <div class="user-name">${patient.name} ${roleBadges}</div>
                                         <div class="user-email">${patient.email}</div>
                                     </div>
                                 </div>
@@ -2647,10 +2757,20 @@
                 
                 console.log(`User ${user.name} hasQuizzes:`, hasQuizzes);
                 
-                // Check if this email has multiple roles
-                const email = user.email ? user.email.toLowerCase() : '';
-                const hasMultipleRoles = email && emailMap.has(email) && emailMap.get(email).length > 1;
-                const roleBadge = hasMultipleRoles ? createRoleBadge('user') : '';
+                // Check if this user has multiple roles
+                const hasMultipleRoles = user.roles && user.roles.length > 1;
+                let roleBadges = '';
+                if (hasMultipleRoles) {
+                    // Always show the current primary role first
+                    roleBadges = createRoleBadge('user');
+                    
+                    // Then show any other roles
+                    user.roles.forEach(role => {
+                        if (role !== 'user') {
+                            roleBadges += ' ' + createRoleBadge(role);
+                        }
+                    });
+                }
                 
                 const userRow = document.createElement('tr');
                 userRow.className = 'regular-user-row';
@@ -2663,7 +2783,7 @@
                             <span class="expand-icon" style="visibility:hidden">+</span>
                             <div class="profile-icon" title="${user.name}">${user.initials}</div>
                             <div class="user-info">
-                                <div class="user-name">${user.name} ${roleBadge}</div>
+                                <div class="user-name">${user.name} ${roleBadges}</div>
                                 <div class="user-email">${user.email}</div>
                             </div>
                         </div>
@@ -2708,10 +2828,20 @@
                     patientRow.dataset.role = 'patient';
                     patientRow.style.display = 'table-row'; // Show by default since not under a doctor
                     
-                    // Check if this email has multiple roles
-                    const patientEmail = patient.email ? patient.email.toLowerCase() : '';
-                    const patientHasMultipleRoles = patientEmail && emailMap.has(patientEmail) && emailMap.get(patientEmail).length > 1;
-                    const patientRoleBadge = patientHasMultipleRoles ? createRoleBadge('patient') : '';
+                    // Check if this user has multiple roles
+                    const hasMultipleRoles = patient.roles && patient.roles.length > 1;
+                    let roleBadges = '';
+                    if (hasMultipleRoles) {
+                        // Always show the current primary role first
+                        roleBadges = createRoleBadge('patient');
+                        
+                        // Then show any other roles
+                        patient.roles.forEach(role => {
+                            if (role !== 'patient') {
+                                roleBadges += ' ' + createRoleBadge(role);
+                            }
+                        });
+                    }
                     
                     patientRow.innerHTML = `
                         <td>
@@ -2719,7 +2849,7 @@
                                 <span class="expand-icon" style="visibility:hidden">+</span>
                                 <div class="profile-icon" title="${patient.name}">${patient.initials}</div>
                                 <div class="user-info">
-                                    <div class="user-name">${patient.name} ${patientRoleBadge}</div>
+                                    <div class="user-name">${patient.name} ${roleBadges}</div>
                                     <div class="user-email">${patient.email}</div>
                                 </div>
                             </div>
