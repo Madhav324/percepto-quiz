@@ -2193,12 +2193,6 @@
                                             for (const [patientId, patientData] of Object.entries(userData.patients)) {
                                                 if (!patientData) continue;
                                                 
-                                                // Skip patients we've already processed
-                                                if (userArray.some(u => u.id === patientId)) {
-                                                    doctorPatientMap.get(userId).push(patientId);
-                                                    continue;
-                                                }
-                                                
                                                 const patientProfile = patientData.profile || {};
                                                 
                                                 // Use comprehensive function for patient quiz data
@@ -2246,14 +2240,13 @@
                     }
                 }
                 
-                // Consolidate users with the same email
-                console.log(`Loaded ${userArray.length} total users. Consolidating users with multiple roles...`);
-                
+                // Consolidate users with the same email address into single users with multiple roles
+                console.log("Starting user consolidation...");
                 const consolidatedUsers = [];
                 const processedEmails = new Set();
                 
                 userArray.forEach(user => {
-                    if (!user.email) {
+                    if (!user.email || user.email === 'No email') {
                         consolidatedUsers.push(user);
                         return;
                     }
@@ -2269,17 +2262,14 @@
                     );
                     
                     if (usersWithSameEmail.length > 1) {
-                        console.log(`Consolidating ${usersWithSameEmail.length} users with email ${email}`);
+                        console.log(`Found ${usersWithSameEmail.length} users with email ${email}`);
                         
-                        // Choose the most complete profile as the base user
-                        // Prioritize doctor profiles as they typically have more complete data
-                        const doctorUser = usersWithSameEmail.find(u => u.role === 'doctor');
-                        const mergedUser = {...(doctorUser || usersWithSameEmail[0])};
+                        // Merge users with same email
+                        const mergedUser = {...usersWithSameEmail[0]};
+                        mergedUser.roles = usersWithSameEmail.map(u => u.role);
+                        mergedUser.userIds = usersWithSameEmail.map(u => u.id);
                         
-                        // Create an array of all roles this user has
-                        mergedUser.roles = [...new Set(usersWithSameEmail.map(u => u.role))];
-                        
-                        // Use the primary role for categorization (prioritize doctor > patient > user)
+                        // Determine primary role (prioritize doctor > patient > user)
                         if (mergedUser.roles.includes('doctor')) {
                             mergedUser.primaryRole = 'doctor';
                         } else if (mergedUser.roles.includes('patient')) {
@@ -2288,61 +2278,50 @@
                             mergedUser.primaryRole = 'user';
                         }
                         
-                        // Store the original role for reference
-                        mergedUser.originalRole = mergedUser.role;
-                        mergedUser.role = mergedUser.primaryRole;
-                        
                         // Merge quiz data
                         mergedUser.quizData = {};
                         usersWithSameEmail.forEach(u => {
-                            if (u.quizData) {
-                                mergedUser.quizData = {...mergedUser.quizData, ...u.quizData};
-                            }
+                            mergedUser.quizData = {...mergedUser.quizData, ...u.quizData};
                         });
                         
-                        // Recalculate quiz count from merged quiz data
-                        mergedUser.quizCount = countQuizzes(mergedUser.quizData);
+                        // Sum up quiz counts
+                        mergedUser.quizCount = usersWithSameEmail.reduce((sum, u) => sum + (u.quizCount || 0), 0);
                         
-                        // Get the most recent active date
-                        const lastActiveDates = usersWithSameEmail
+                        // Use the most recent last active date
+                        const activeDates = usersWithSameEmail
                             .map(u => u.lastActive)
                             .filter(date => date && date !== 'Never')
-                            .map(date => {
-                                try {
-                                    return new Date(date).getTime();
-                                } catch (e) {
-                                    return 0;
+                            .map(date => new Date(date));
+                        
+                        if (activeDates.length > 0) {
+                            const latestDate = new Date(Math.max(...activeDates.map(d => d.getTime())));
+                            mergedUser.lastActive = latestDate.toLocaleString();
+                        }
+                        
+                        // Combine patient counts for doctors
+                        if (mergedUser.roles.includes('doctor')) {
+                            mergedUser.patientCount = usersWithSameEmail.reduce((sum, u) => {
+                                return sum + (u.role === 'doctor' ? (u.patientCount || 0) : 0);
+                            }, 0);
+                            
+                            // Combine patient lists
+                            mergedUser.patients = [];
+                            usersWithSameEmail.forEach(u => {
+                                if (u.role === 'doctor' && u.patients) {
+                                    mergedUser.patients = [...mergedUser.patients, ...u.patients];
                                 }
-                            })
-                            .filter(timestamp => !isNaN(timestamp) && timestamp > 0);
-                        
-                        if (lastActiveDates.length > 0) {
-                            const mostRecentTimestamp = Math.max(...lastActiveDates);
-                            mergedUser.lastActive = new Date(mostRecentTimestamp).toLocaleString();
+                            });
                         }
                         
-                        // Combine all patient relationships
-                        const allPatients = [];
-                        usersWithSameEmail.forEach(u => {
-                            if (u.patients && Array.isArray(u.patients)) {
-                                allPatients.push(...u.patients);
-                            }
-                        });
-                        
-                        // Deduplicate patients
-                        if (allPatients.length > 0) {
-                            const uniquePatientIds = [...new Set(allPatients.map(p => p.id))];
-                            mergedUser.patients = uniquePatientIds.map(id => {
-                                return allPatients.find(p => p.id === id);
-                            }).filter(Boolean);
-                            mergedUser.patientCount = mergedUser.patients.length;
-                        }
-                        
-                        // Add to consolidated list
                         consolidatedUsers.push(mergedUser);
+                        console.log(`Consolidated user: ${mergedUser.name} with roles: ${mergedUser.roles.join(', ')}`);
                     } else {
-                        // Single-role user
-                        consolidatedUsers.push(usersWithSameEmail[0]);
+                        // Single role user
+                        const singleUser = {...usersWithSameEmail[0]};
+                        singleUser.roles = [singleUser.role];
+                        singleUser.userIds = [singleUser.id];
+                        singleUser.primaryRole = singleUser.role;
+                        consolidatedUsers.push(singleUser);
                     }
                     
                     processedEmails.add(email);
@@ -2352,9 +2331,10 @@
                 
                 // Display consolidated users in hierarchical format
                 displayHierarchicalUsersList(consolidatedUsers, doctorPatientMap, usersContainer);
+                
+                // Add filter functionality
                 setupUserFilters();
                 
-                return consolidatedUsers; // Return the array for reference
             } catch (error) {
                 console.error("Error loading users data:", error);
                 document.getElementById('usersTable').innerHTML = 
@@ -2577,10 +2557,37 @@
 
         // Display users in hierarchical format
         function displayHierarchicalUsersList(users, doctorPatientMap, container) {
-            console.log("Displaying hierarchical users list:", users);
+            // Clear container
             container.innerHTML = '';
             
-            // Create a badge to indicate role if the user has multiple roles
+            if (users.length === 0) {
+                container.innerHTML = '<tr><td colspan="4">No users found</td></tr>';
+                return;
+            }
+            
+            // Group users by email to identify those with multiple roles
+            const emailMap = new Map();
+            users.forEach(user => {
+                if (user.email) {
+                    const email = user.email.toLowerCase();
+                    if (!emailMap.has(email)) {
+                        emailMap.set(email, []);
+                    }
+                    emailMap.get(email).push(user);
+                }
+            });
+            
+            // Group users by role for sorting (doctors first, then regular users, then patients)
+            const doctors = users.filter(user => user.primaryRole === 'doctor' || user.roles?.includes('doctor'));
+            const regularUsers = users.filter(user => 
+                (user.primaryRole === 'user' || user.roles?.includes('user')) && 
+                !user.roles?.includes('doctor'));
+            const patients = users.filter(user => 
+                (user.primaryRole === 'patient' || user.roles?.includes('patient')) && 
+                !user.roles?.includes('doctor') && 
+                !user.roles?.includes('user'));
+            
+            // Create a function to generate role badges
             const createRoleBadge = (role) => {
                 const badgeClasses = {
                     'doctor': 'badge-primary',
@@ -2590,192 +2597,142 @@
                 return `<span class="badge ${badgeClasses[role] || 'badge-secondary'}">${role}</span>`;
             };
             
-            if (users.length === 0) {
-                container.innerHTML = '<tr><td colspan="4">No users found</td></tr>';
-                return;
-            }
-            
-            // Group users by role for sorting (doctors first, then regular users, then patients)
-            const doctors = users.filter(user => user.role === 'doctor');
-            const regularUsers = users.filter(user => user.role === 'user');
-            const patients = users.filter(user => user.role === 'patient');
-            
             // Add doctors with their patients
             doctors.forEach(doctor => {
                 // Add doctor row
                 const doctorRow = document.createElement('tr');
                 doctorRow.className = 'expandable doctor-row';
                 doctorRow.dataset.userId = doctor.id;
-                doctorRow.dataset.role = 'doctor';
+                doctorRow.dataset.role = doctor.primaryRole;
                 
                 const hasPatients = doctor.patientCount > 0;
                 const hasQuizzes = Object.keys(doctor.quizData || {}).length > 0;
                 
-                // Check if this user has multiple roles
-                const hasMultipleRoles = doctor.roles && doctor.roles.length > 1;
-                let roleBadges = '';
-                if (hasMultipleRoles) {
-                    // Always show the current primary role first
-                    roleBadges = createRoleBadge(doctor.role);
-                    
-                    // Then show any other roles
-                    doctor.roles.forEach(role => {
-                        if (role !== doctor.role) {
-                            roleBadges += ' ' + createRoleBadge(role);
-                        }
-                    });
-                }
+                // Generate role badges for multi-role users
+                const rolesBadges = doctor.roles && doctor.roles.length > 1 
+                    ? doctor.roles.map(role => createRoleBadge(role)).join(' ')
+                    : '';
                 
                 doctorRow.innerHTML = `
                     <td>
                         <div class="user-details">
-                            ${hasPatients ? `<span class="expand-icon">+</span>` : `<span class="expand-icon" style="visibility:hidden">+</span>`}
+                            <span class="expand-icon">${hasPatients ? '+' : ''}</span>
                             <div class="profile-icon" title="${doctor.name}">${doctor.initials}</div>
                             <div class="user-info">
-                                <div class="user-name">${doctor.name} ${roleBadges}</div>
+                                <div class="user-name">${doctor.name} ${rolesBadges}</div>
                                 <div class="user-email">${doctor.email}</div>
                             </div>
                         </div>
                     </td>
-                    <td><span class="user-indicator">Doctor</span></td>
-                    <td>
-                        ${doctor.patientCount} patients, ${doctor.quizCount} quizzes
-                        ${hasQuizzes ? `<button class="view-quizzes-btn" data-user-id="${doctor.id}">Show Quizzes</button>` : ''}
-                        <div class="user-additional-info">
-                            <div><strong>Age:</strong> ${doctor.age}</div>
-                            <div><strong>Gender:</strong> ${doctor.gender}</div>
-                            <div><strong>Medical:</strong> ${doctor.medicalCondition || 'N/A'}</div>
-                            <div><strong>Recommendation:</strong> ${doctor.doctorRecommendation || 'N/A'}</div>
-                        </div>
-                    </td>
-                    <td>${doctor.lastActive}</td>
+                    <td>${doctor.patientCount || 0}</td>
+                    <td>${doctor.quizCount || 0}</td>
+                    <td>${doctor.lastActive || 'Never'}</td>
                 `;
                 
+                // Add click handler for expanding
+                if (hasPatients) {
+                    doctorRow.addEventListener('click', function(e) {
+                        // Only toggle if the click was on the row itself or the expand icon
+                        // (not on a button within the row)
+                        if (e.target.tagName !== 'BUTTON' && 
+                            !e.target.closest('button') && 
+                            !e.target.closest('.user-actions')) {
+                            
+                            this.classList.toggle('expanded');
+                            const expandIcon = this.querySelector('.expand-icon');
+                            expandIcon.textContent = this.classList.contains('expanded') ? '-' : '+';
+                            
+                            // Re-filter to show/hide patient rows
+                            filterUsers();
+                        }
+                    });
+                }
+                
+                // Add the row to the container
                 container.appendChild(doctorRow);
                 
-                // If doctor has patients, add them as child rows
-                const patientIds = doctorPatientMap.get(doctor.id) || [];
-                if (patientIds.length > 0) {
-                    patientIds.forEach(patientId => {
-                        const patient = patients.find(p => p.id === patientId);
-                        if (!patient) return;
-                        
-                        const hasPatientQuizzes = Object.keys(patient.quizData || {}).length > 0;
-                        
+                // If there are patients, add them
+                if (doctor.patients && doctor.patients.length > 0) {
+                    doctor.patients.forEach(patient => {
                         const patientRow = document.createElement('tr');
                         patientRow.className = 'patient-row';
                         patientRow.dataset.doctorId = doctor.id;
                         patientRow.dataset.userId = patient.id;
                         patientRow.dataset.role = 'patient';
                         
-                        // Check if this user has multiple roles
-                        const hasMultipleRoles = patient.roles && patient.roles.length > 1;
-                        let roleBadges = '';
-                        if (hasMultipleRoles) {
-                            // Always show the current primary role first
-                            roleBadges = createRoleBadge('patient');
-                            
-                            // Then show any other roles
-                            patient.roles.forEach(role => {
-                                if (role !== 'patient') {
-                                    roleBadges += ' ' + createRoleBadge(role);
-                                }
-                            });
-                        }
+                        // Generate role badges for multi-role patients
+                        const patientRolesBadges = patient.roles && patient.roles.length > 1 
+                            ? patient.roles.map(role => createRoleBadge(role)).join(' ')
+                            : '';
                         
                         patientRow.innerHTML = `
                             <td>
                                 <div class="user-details">
+                                    <span class="expand-icon" style="visibility:hidden">+</span>
                                     <div class="profile-icon" title="${patient.name}">${patient.initials}</div>
                                     <div class="user-info">
-                                        <div class="user-name">${patient.name} ${roleBadges}</div>
+                                        <div class="user-name">${patient.name} ${patientRolesBadges}</div>
                                         <div class="user-email">${patient.email}</div>
                                     </div>
                                 </div>
                             </td>
-                            <td><span class="user-indicator">Patient</span></td>
-                            <td>
-                                ${patient.quizCount} quizzes, ${patient.medicalCondition}
-                                ${hasPatientQuizzes ? `<button class="view-quizzes-btn" data-user-id="${patient.id}">Show Quizzes</button>` : ''}
-                                <div class="user-additional-info">
-                                    <div><strong>Age:</strong> ${patient.age}</div>
-                                    <div><strong>Gender:</strong> ${patient.gender}</div>
-                                    <div><strong>Medical:</strong> ${patient.medicalCondition}</div>
-                                    <div><strong>Recommendation:</strong> ${patient.doctorRecommendation}</div>
-                                </div>
-                            </td>
-                            <td>${patient.lastActive}</td>
+                            <td>${patient.medicalCondition || 'N/A'}</td>
+                            <td>${patient.quizCount || 0}</td>
+                            <td>${patient.lastActive || 'Never'}</td>
                         `;
                         
+                        // Add the row to the container
                         container.appendChild(patientRow);
                         
-                        // Add quiz data row (initially hidden)
-                        if (hasPatientQuizzes) {
+                        // Add quiz data
+                        if (hasQuizzes) {
                             const quizDataRow = createUserQuizDataRow(patient.id, patient.quizData);
                             container.appendChild(quizDataRow);
-                        }
-                    });
-                    
-                    // Add expand/collapse functionality
-                    doctorRow.querySelector('.expand-icon').addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        const doctorId = doctorRow.dataset.userId;
-                        const patientRows = document.querySelectorAll(`.patient-row[data-doctor-id="${doctorId}"]`);
-                        
-                        const isExpanded = doctorRow.classList.contains('expanded');
-                        
-                        if (isExpanded) {
-                            // Collapse
-                            patientRows.forEach(row => row.style.display = 'none');
-                            doctorRow.classList.remove('expanded');
-                            doctorRow.querySelector('.expand-icon').textContent = '+';
-                        } else {
-                            // Expand
-                            patientRows.forEach(row => row.style.display = 'table-row');
-                            doctorRow.classList.add('expanded');
-                            doctorRow.querySelector('.expand-icon').textContent = '−';
+                            
+                            // Add expand handler to show quiz data
+                            patientRow.addEventListener('click', function(e) {
+                                if (e.target.tagName !== 'BUTTON' && 
+                                    !e.target.closest('button') && 
+                                    !e.target.closest('.user-actions')) {
+                                    toggleUserQuizzes(patient.id);
+                                }
+                            });
                         }
                     });
                 }
                 
-                // Add quiz data row (initially hidden)
+                // Add quiz data row for doctor
                 if (hasQuizzes) {
                     const quizDataRow = createUserQuizDataRow(doctor.id, doctor.quizData);
                     container.appendChild(quizDataRow);
+                    
+                    // Add expand handler to show quiz data
+                    doctorRow.addEventListener('dblclick', function(e) {
+                        if (e.target.tagName !== 'BUTTON' && 
+                            !e.target.closest('button') && 
+                            !e.target.closest('.user-actions')) {
+                            toggleUserQuizzes(doctor.id);
+                        }
+                    });
                 }
             });
             
             // Add regular users
             regularUsers.forEach(user => {
-                // Explicitly log quiz data to verify it exists
-                console.log(`User ${user.name} (${user.id}) quiz data:`, user.quizData);
-                
                 // More robust check for quiz data - consider both undefined and empty objects
                 const hasQuizzes = user.quizData && 
                     typeof user.quizData === 'object' && 
                     Object.keys(user.quizData).length > 0;
                 
-                console.log(`User ${user.name} hasQuizzes:`, hasQuizzes);
-                
-                // Check if this user has multiple roles
-                const hasMultipleRoles = user.roles && user.roles.length > 1;
-                let roleBadges = '';
-                if (hasMultipleRoles) {
-                    // Always show the current primary role first
-                    roleBadges = createRoleBadge('user');
-                    
-                    // Then show any other roles
-                    user.roles.forEach(role => {
-                        if (role !== 'user') {
-                            roleBadges += ' ' + createRoleBadge(role);
-                        }
-                    });
-                }
+                // Generate role badges for multi-role users
+                const rolesBadges = user.roles && user.roles.length > 1 
+                    ? user.roles.map(role => createRoleBadge(role)).join(' ')
+                    : '';
                 
                 const userRow = document.createElement('tr');
                 userRow.className = 'regular-user-row';
                 userRow.dataset.userId = user.id;
-                userRow.dataset.role = 'user';
+                userRow.dataset.role = user.primaryRole;
                 
                 userRow.innerHTML = `
                     <td>
@@ -2783,122 +2740,93 @@
                             <span class="expand-icon" style="visibility:hidden">+</span>
                             <div class="profile-icon" title="${user.name}">${user.initials}</div>
                             <div class="user-info">
-                                <div class="user-name">${user.name} ${roleBadges}</div>
+                                <div class="user-name">${user.name} ${rolesBadges}</div>
                                 <div class="user-email">${user.email}</div>
                             </div>
                         </div>
                     </td>
-                    <td><span class="user-indicator">User</span></td>
-                    <td>
-                        ${user.quizCount} quizzes
-                        ${hasQuizzes ? `<button class="view-quizzes-btn" data-user-id="${user.id}">Show Quizzes</button>` : ''}
-                        <div class="user-additional-info">
-                            <div><strong>Age:</strong> ${user.age || 'N/A'}</div>
-                            <div><strong>Gender:</strong> ${user.gender || 'N/A'}</div>
-                            <div><strong>Medical:</strong> ${user.medicalCondition || 'N/A'}</div>
-                            <div><strong>Recommendation:</strong> ${user.doctorRecommendation || 'N/A'}</div>
-                        </div>
-                    </td>
-                    <td>${user.lastActive}</td>
+                    <td>N/A</td>
+                    <td>${user.quizCount || 0}</td>
+                    <td>${user.lastActive || 'Never'}</td>
                 `;
                 
+                // Add the row to the container
                 container.appendChild(userRow);
                 
-                // Add quiz data row (initially hidden)
+                // Add quiz data
                 if (hasQuizzes) {
-                    console.log(`Creating quiz data row for user ${user.name}`);
                     const quizDataRow = createUserQuizDataRow(user.id, user.quizData);
                     container.appendChild(quizDataRow);
+                    
+                    // Add expand handler to show quiz data
+                    userRow.addEventListener('click', function(e) {
+                        if (e.target.tagName !== 'BUTTON' && 
+                            !e.target.closest('button') && 
+                            !e.target.closest('.user-actions')) {
+                            toggleUserQuizzes(user.id);
+                        }
+                    });
                 }
             });
             
-            // Add patients that aren't already displayed under a doctor (should be rare)
-            const displayedPatientIds = new Set();
-            doctorPatientMap.forEach((patientIds) => {
-                patientIds.forEach(id => displayedPatientIds.add(id));
-            });
-            
-            patients.forEach(patient => {
-                if (!displayedPatientIds.has(patient.id)) {
-                    const hasPatientQuizzes = Object.keys(patient.quizData || {}).length > 0;
-                    
-                    const patientRow = document.createElement('tr');
-                    patientRow.className = 'patient-row';
-                    patientRow.dataset.userId = patient.id;
-                    patientRow.dataset.role = 'patient';
-                    patientRow.style.display = 'table-row'; // Show by default since not under a doctor
-                    
-                    // Check if this user has multiple roles
-                    const hasMultipleRoles = patient.roles && patient.roles.length > 1;
-                    let roleBadges = '';
-                    if (hasMultipleRoles) {
-                        // Always show the current primary role first
-                        roleBadges = createRoleBadge('patient');
-                        
-                        // Then show any other roles
-                        patient.roles.forEach(role => {
-                            if (role !== 'patient') {
-                                roleBadges += ' ' + createRoleBadge(role);
-                            }
-                        });
-                    }
-                    
-                    patientRow.innerHTML = `
-                        <td>
-                            <div class="user-details">
-                                <span class="expand-icon" style="visibility:hidden">+</span>
-                                <div class="profile-icon" title="${patient.name}">${patient.initials}</div>
-                                <div class="user-info">
-                                    <div class="user-name">${patient.name} ${roleBadges}</div>
-                                    <div class="user-email">${patient.email}</div>
-                                </div>
+            // Add patients who aren't assigned to a doctor
+            const unassignedPatients = patients.filter(patient => !patient.assignedDoctor);
+            unassignedPatients.forEach(patient => {
+                const hasQuizzes = patient.quizData && 
+                    typeof patient.quizData === 'object' && 
+                    Object.keys(patient.quizData).length > 0;
+                
+                // Generate role badges for multi-role patients
+                const rolesBadges = patient.roles && patient.roles.length > 1 
+                    ? patient.roles.map(role => createRoleBadge(role)).join(' ')
+                    : '';
+                
+                const patientRow = document.createElement('tr');
+                patientRow.className = 'patient-row unassigned';
+                patientRow.dataset.userId = patient.id;
+                patientRow.dataset.role = patient.primaryRole;
+                patientRow.style.display = 'table-row'; // Show by default since not under a doctor
+                
+                patientRow.innerHTML = `
+                    <td>
+                        <div class="user-details">
+                            <span class="expand-icon" style="visibility:hidden">+</span>
+                            <div class="profile-icon" title="${patient.name}">${patient.initials}</div>
+                            <div class="user-info">
+                                <div class="user-name">${patient.name} ${rolesBadges}</div>
+                                <div class="user-email">${patient.email}</div>
                             </div>
-                        </td>
-                        <td><span class="user-indicator">Patient</span></td>
-                        <td>
-                            ${patient.quizCount} quizzes, ${patient.medicalCondition}
-                            ${hasPatientQuizzes ? `<button class="view-quizzes-btn" data-user-id="${patient.id}">Show Quizzes</button>` : ''}
-                            <div class="user-additional-info">
-                                <div><strong>Age:</strong> ${patient.age}</div>
-                                <div><strong>Gender:</strong> ${patient.gender}</div>
-                                <div><strong>Medical:</strong> ${patient.medicalCondition}</div>
-                                <div><strong>Recommendation:</strong> ${patient.doctorRecommendation}</div>
-                            </div>
-                        </td>
-                        <td>${patient.lastActive}</td>
-                    `;
+                        </div>
+                    </td>
+                    <td>${patient.medicalCondition || 'N/A'}</td>
+                    <td>${patient.quizCount || 0}</td>
+                    <td>${patient.lastActive || 'Never'}</td>
+                `;
+                
+                // Add the row to the container
+                container.appendChild(patientRow);
+                
+                // Add quiz data
+                if (hasQuizzes) {
+                    const quizDataRow = createUserQuizDataRow(patient.id, patient.quizData);
+                    container.appendChild(quizDataRow);
                     
-                    container.appendChild(patientRow);
-                    
-                    // Add quiz data row (initially hidden)
-                    if (hasPatientQuizzes) {
-                        const quizDataRow = createUserQuizDataRow(patient.id, patient.quizData);
-                        container.appendChild(quizDataRow);
-                    }
+                    // Add expand handler to show quiz data
+                    patientRow.addEventListener('click', function(e) {
+                        if (e.target.tagName !== 'BUTTON' && 
+                            !e.target.closest('button') && 
+                            !e.target.closest('.user-actions')) {
+                            toggleUserQuizzes(patient.id);
+                        }
+                    });
                 }
             });
             
-            // Hide all patient rows initially
-            document.querySelectorAll('.patient-row').forEach(row => {
-                if (row.dataset.doctorId) {
-                    row.style.display = 'none';
-                }
-            });
-            
-            // Hide all quiz data rows initially
+            // Setup all quiz data filters
             document.querySelectorAll('.user-quiz-details').forEach(row => {
-                row.style.display = 'none';
-            });
-            
-            // Explicitly attach event listeners after DOM has been updated
-            console.log("Attaching event listeners to quiz buttons...");
-            document.querySelectorAll('.view-quizzes-btn').forEach(button => {
-                console.log(`Attaching listener to button for user ${button.dataset.userId}`);
-                button.addEventListener('click', function() {
-                    const userId = this.getAttribute('data-user-id');
-                    console.log(`Quiz button clicked for user ${userId}`);
-                    toggleUserQuizzes(userId);
-                });
+                if (row.setupFilter) {
+                    row.setupFilter();
+                }
             });
         }
         
