@@ -1984,13 +1984,25 @@
                         let hasDoctorRole = false;
                         
                         try {
-                            // Check if user exists in doctors collection
+                            // Check if user exists in doctors collection with more complete data validation
                             const doctorSnapshot = await db.ref(`doctors/${userId}`).once('value');
-                            hasDoctorRole = doctorSnapshot.exists();
+                            hasDoctorRole = doctorSnapshot.exists() && doctorSnapshot.val() !== null;
                             
-                            // Check if user exists in users collection
+                            // Also check for profile data to ensure it's a valid doctor record
+                            if (hasDoctorRole) {
+                                const doctorVal = doctorSnapshot.val();
+                                hasDoctorRole = doctorVal && (doctorVal.profile || doctorVal.patients);
+                            }
+                            
+                            // Check if user exists in users collection with data validation
                             const userSnapshot = await db.ref(`users/${userId}`).once('value');
-                            hasUserRole = userSnapshot.exists();
+                            hasUserRole = userSnapshot.exists() && userSnapshot.val() !== null;
+                            
+                            // Also check for profile or quiz data to ensure it's a valid user record
+                            if (hasUserRole) {
+                                const userVal = userSnapshot.val();
+                                hasUserRole = userVal && (userVal.profile || userVal.quiz);
+                            }
                             
                             console.log(`User ${userId} roles: doctor=${hasDoctorRole}, user=${hasUserRole}`);
                         } catch (error) {
@@ -2138,7 +2150,7 @@
                             // Process each user role
                             for (const [userId, role] of Object.entries(roles)) {
                                 // Skip users we've already processed
-                                if (userArray.some(u => u.id === userId)) continue;
+                                if (userArray.some(u => u.id === userId && u.role === role)) continue;
                                 
                                 // Use comprehensive profile data loading
                                 const { profileData, found: foundProfileData } = await loadUserProfileData(userId, role);
@@ -2385,102 +2397,87 @@
             };
         }
         
-        // Function to load user profile data from all possible sources
-        async function loadUserProfileData(userId, userRole = null) {
-            console.log(`Loading profile data for user ${userId} with role ${userRole || 'unknown'}`);
-            
+        // Load comprehensive user profile data from either Firestore or Realtime DB
+        async function loadUserProfileData(userId, role = 'user') {
+            console.log(`Loading profile data for ${userId} with role ${role}`);
             let profileData = {
-                name: 'Unknown User',
-                email: 'No email',
-                role: userRole || 'user',
-                medicalCondition: 'N/A',
+                id: userId,
+                name: 'Unknown',
+                email: 'N/A',
+                role: role,
                 age: 'N/A',
                 gender: 'N/A',
-                updatedAt: null
+                medicalCondition: 'N/A'
             };
             let found = false;
             
-            // Try Firestore first (userProfiles collection)
+            // Try different paths based on role to get the most appropriate data
+            
+            // Try path 1: Firestore
             try {
-                const userProfileDoc = await firestore.collection('userProfiles').doc(userId).get();
-                if (userProfileDoc.exists) {
-                    const fsData = userProfileDoc.data();
-                    console.log(`Found profile in Firestore for ${userId}`, fsData);
+                const userDoc = await firestore.collection('users').doc(userId).get();
+                if (userDoc.exists) {
+                    const userData = userDoc.data();
+                    profileData = {
+                        ...profileData,
+                        ...userData,
+                        role: role // Ensure we use the role passed to this function rather than what's in Firestore
+                    };
                     
-                    // Merge data
-                    Object.entries(fsData).forEach(([key, value]) => {
-                        if (value !== null && value !== undefined) {
-                            profileData[key] = value;
-                        }
-                    });
-                    found = true;
+                    if (userData.name) {
+                        found = true;
+                        console.log(`Found ${role} profile data for ${userId} in Firestore`);
+                    }
                 }
             } catch (error) {
-                console.warn(`Could not access Firestore profile for ${userId}:`, error);
+                console.warn(`Could not fetch ${role} profile data for ${userId} from Firestore:`, error);
             }
             
-            // Try Realtime Database user path
-            const dbPath = userRole === 'doctor' ? 'doctors' : 'users';
+            // Try path 2: Realtime Database user path
+            const dbPath = role === 'doctor' ? 'doctors' : 'users';
             try {
                 const userRef = await db.ref(`${dbPath}/${userId}/profile`).once('value');
-                if (userRef.exists() && userRef.val()) {
-                    const rtdbData = userRef.val();
-                    console.log(`Found profile in RTDB at ${dbPath}/${userId}/profile`, rtdbData);
-                    
-                    // Merge data
-                    Object.entries(rtdbData).forEach(([key, value]) => {
-                        if (value !== null && value !== undefined) {
-                            profileData[key] = value;
-                        }
-                    });
-                    found = true;
+                
+                if (userRef.exists()) {
+                    const userData = userRef.val();
+                    if (userData && userData.name) {
+                        profileData = {
+                            ...profileData,
+                            ...userData,
+                            role: role // Force the role to be what was passed in
+                        };
+                        found = true;
+                        console.log(`Found ${role} profile data for ${userId} in Realtime DB ${dbPath}`);
+                    }
                 }
             } catch (error) {
-                console.warn(`Could not access RTDB profile at ${dbPath}/${userId}:`, error);
+                console.warn(`Could not fetch ${role} profile for ${userId} from Realtime DB ${dbPath}:`, error);
             }
             
-            // If this is a patient, check all doctors
-            if (userRole !== 'doctor') {
+            // If the profile is for a doctor and not found, check doctors collection
+            if (role === 'doctor' && !found) {
                 try {
-                    const doctorsRef = await db.ref('doctors').once('value');
-                    if (doctorsRef.exists()) {
-                        const doctors = doctorsRef.val();
-                        for (const [docId, doctorData] of Object.entries(doctors)) {
-                            if (doctorData.patients && doctorData.patients[userId] && doctorData.patients[userId].profile) {
-                                const patientProfile = doctorData.patients[userId].profile;
-                                console.log(`Found patient profile under doctor ${docId}`, patientProfile);
-                                
-                                // For patient profiles, prioritize medical information
-                                if (patientProfile.medicalCondition) {
-                                    profileData.medicalCondition = patientProfile.medicalCondition;
-                                }
-                                if (patientProfile.age) {
-                                    profileData.age = patientProfile.age;
-                                }
-                                if (patientProfile.gender) {
-                                    profileData.gender = patientProfile.gender;
-                                }
-                                
-                                // Only update name/email if missing
-                                if (profileData.name === 'Unknown User' && patientProfile.name) {
-                                    profileData.name = patientProfile.name;
-                                }
-                                if (profileData.email === 'No email' && patientProfile.email) {
-                                    profileData.email = patientProfile.email;
-                                }
-                                
-                                found = true;
-                            }
+                    const doctorRef = await db.ref(`doctors/${userId}`).once('value');
+                    if (doctorRef.exists()) {
+                        const doctorData = doctorRef.val();
+                        if (doctorData && doctorData.profile && doctorData.profile.name) {
+                            profileData = {
+                                ...profileData,
+                                ...doctorData.profile,
+                                role: 'doctor'
+                            };
+                            found = true;
+                            console.log(`Found doctor profile for ${userId} in Realtime DB doctors`);
                         }
                     }
                 } catch (error) {
-                    console.warn(`Error searching doctors for patient ${userId}:`, error);
+                    console.warn(`Could not fetch doctor profile for ${userId} from Realtime DB doctors:`, error);
                 }
             }
             
             return { profileData, found };
         }
-
+        
         // Display users in hierarchical format
         function displayHierarchicalUsersList(users, doctorPatientMap, container) {
             // Clear container
