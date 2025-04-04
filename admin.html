@@ -702,23 +702,6 @@
             gap: 20px;
         }
         
-        /* Mobile responsiveness for charts */
-        @media (max-width: 768px) {
-            .charts-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-        
         .chart-card {
             background-color: #fff;
             border-radius: 8px;
@@ -1165,7 +1148,7 @@
                         <div class="chart-card">
                             <h3>Recent User Activity</h3>
                             <div class="chart-container">
-                                <canvas id="usersActivityChart"></canvas>
+                                <canvas id="recentUserActivityChart"></canvas>
                             </div>
                         </div>
                     </div>
@@ -2532,53 +2515,7 @@
             
             return latestTimestamp ? new Date(latestTimestamp).toLocaleString() : null;
         }
-
-        // Helper function to get the last active timestamp from quiz data
-        function getLastActiveTimestamp(quizData) {
-            if (!quizData) return null;
-            
-            let latestTimestamp = 0;
-            
-            Object.values(quizData).forEach(attempts => {
-                if (attempts) {
-                    Object.keys(attempts).forEach(timestamp => {
-                        const ts = parseInt(timestamp);
-                        if (ts > latestTimestamp) {
-                            latestTimestamp = ts;
-                        }
-                    });
-                }
-            });
-            
-            return latestTimestamp || null;
-        }
-
-        // Helper function to update activity data based on timestamp
-        function updateActivityData(activityData, timestamp, now, oneDayAgo, oneWeekAgo, oneMonthAgo, threeMonthsAgo) {
-            if (timestamp >= oneDayAgo) {
-                activityData["Today"]++;
-            } else if (timestamp >= oneWeekAgo) {
-                activityData["Past Week"]++;
-            } else if (timestamp >= oneMonthAgo) {
-                activityData["Past Month"]++;
-            } else if (timestamp >= threeMonthsAgo) {
-                activityData["Past 3 Months"]++;
-            } else {
-                activityData["Older"]++;
-            }
-        }
         
-        // Helper function to categorize age into ranges
-        function getAgeRange(age) {
-            if (!age || isNaN(age)) return 'Unknown';
-            
-            if (age <= 18) return '0-18';
-            if (age <= 30) return '19-30';
-            if (age <= 45) return '31-45';
-            if (age <= 60) return '46-60';
-            return '61+';
-        }
-
         // Helper function to process quiz data
         function processQuizData(quizData) {
             if (!quizData) return { totalQuizzes: 0, lastActive: 'Never' };
@@ -3220,6 +3157,25 @@
             newSearchFilter.addEventListener('input', filterUsers);
         }
         
+        // Helper function to process user quiz activity and track dates
+        function processUserActivity(quizData, activityData) {
+            if (!quizData) return;
+            
+            Object.entries(quizData).forEach(([quizType, attempts]) => {
+                if (!attempts) return;
+                
+                Object.entries(attempts).forEach(([timestamp, _]) => {
+                    const date = new Date(parseInt(timestamp));
+                    const dateString = date.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+                    
+                    if (!activityData[dateString]) {
+                        activityData[dateString] = 0;
+                    }
+                    activityData[dateString]++;
+                });
+            });
+        }
+
         // Load and display user statistics in the users tab
         async function loadUsersStats() {
             try {
@@ -3242,157 +3198,103 @@
                     "Unknown": 0
                 };
                 
-                // For activity chart data - time periods
-                const activityData = {
-                    "Today": 0,
-                    "Past Week": 0,
-                    "Past Month": 0,
-                    "Past 3 Months": 0,
-                    "Older": 0
-                };
+                // For recent activity chart
+                const activityData = {};
                 
-                // Current time for activity calculations
-                const now = Date.now();
-                const oneDayAgo = now - (24 * 60 * 60 * 1000);
-                const oneWeekAgo = now - (7 * 24 * 60 * 60 * 1000);
-                const oneMonthAgo = now - (30 * 24 * 60 * 60 * 1000);
-                const threeMonthsAgo = now - (90 * 24 * 60 * 60 * 1000);
-                
-                // Load user stats from Firebase
-                try {
-                    // Get all doctors
-                    const doctorsSnapshot = await db.ref('doctors').once('value');
-                    const doctors = doctorsSnapshot.val() || {};
-                    const doctorIds = Object.keys(doctors);
-                    totalDoctors = doctorIds.length;
+                // Get all doctors from Realtime DB
+                const doctorsSnapshot = await db.ref('doctors').once('value');
+                if (doctorsSnapshot.exists()) {
+                    const doctorsData = doctorsSnapshot.val() || {};
+                    totalDoctors = Object.keys(doctorsData).length;
                     userTypeData.doctors = totalDoctors;
                     
-                    // Get all patients (across all doctors)
-                    const patientIds = new Set();
-                    for (const doctorId of doctorIds) {
-                        const doctorPatientsSnapshot = await db.ref(`doctors/${doctorId}/patients`).once('value');
-                        const doctorPatients = doctorPatientsSnapshot.val() || {};
-                        Object.keys(doctorPatients).forEach(patientId => patientIds.add(patientId));
+                    console.log(`Found ${totalDoctors} doctors`);
+                    
+                    // Process doctors' data
+                    for (const [doctorId, doctorData] of Object.entries(doctorsData)) {
+                        // Process doctor's age data
+                        if (doctorData.profile && doctorData.profile.age) {
+                            updateAgeData(ageData, doctorData.profile.age);
+                        }
                         
-                        // Get doctor profile data for age statistics
-                        try {
-                            const doctorProfileSnapshot = await db.ref(`doctors/${doctorId}/profile`).once('value');
-                            const doctorProfile = doctorProfileSnapshot.val() || {};
-                            if (doctorProfile.age) {
-                                const ageRange = getAgeRange(parseInt(doctorProfile.age));
-                                ageData[ageRange]++;
-                            } else {
-                                ageData['Unknown']++;
-                            }
+                        // Track doctor's activity based on their quiz data
+                        if (doctorData.quiz) {
+                            processUserActivity(doctorData.quiz, activityData);
+                        }
+                        
+                        // Process patients of each doctor
+                        if (doctorData.patients) {
+                            totalPatients += Object.keys(doctorData.patients).length;
                             
-                            // Check for last activity
-                            const doctorQuizzesSnapshot = await db.ref(`doctors/${doctorId}/quiz`).once('value');
-                            if (doctorQuizzesSnapshot.exists()) {
-                                const quizData = doctorQuizzesSnapshot.val() || {};
-                                const lastActive = getLastActiveTimestamp(quizData);
-                                if (lastActive) {
-                                    updateActivityData(activityData, lastActive, now, oneDayAgo, oneWeekAgo, oneMonthAgo, threeMonthsAgo);
+                            // Process patient quiz data for activity
+                            for (const [patientId, patientData] of Object.entries(doctorData.patients)) {
+                                if (patientData.quiz) {
+                                    processUserActivity(patientData.quiz, activityData);
+                                }
+                                
+                                // Process patient age data
+                                if (patientData.profile && patientData.profile.age) {
+                                    updateAgeData(ageData, patientData.profile.age);
                                 }
                             }
-                        } catch (error) {
-                            console.warn(`Could not get age data for doctor ${doctorId}:`, error);
-                            ageData['Unknown']++;
                         }
                     }
-                    totalPatients = patientIds.size;
-                    userTypeData.patients = totalPatients;
-                    
-                    // Get all regular users (not doctors or patients)
-                    const usersSnapshot = await db.ref('users').once('value');
-                    const users = usersSnapshot.val() || {};
-                    const regularUserIds = Object.keys(users).filter(userId => 
-                        !doctorIds.includes(userId) && !patientIds.has(userId));
-                    totalRegularUsers = regularUserIds.length;
-                    userTypeData.regular = totalRegularUsers;
-                    
-                    // Get age data for patients and regular users
-                    const processedUserIds = new Set();
-                    
-                    // Process patient ages and activity
-                    for (const patientId of patientIds) {
-                        // Skip already processed users
-                        if (processedUserIds.has(patientId)) continue;
-                        processedUserIds.add(patientId);
-                        
-                        try {
-                            // First try to get from users collection
-                            const userProfileSnapshot = await db.ref(`users/${patientId}/profile`).once('value');
-                            const userProfile = userProfileSnapshot.val() || {};
-                            if (userProfile.age) {
-                                const ageRange = getAgeRange(parseInt(userProfile.age));
-                                ageData[ageRange]++;
-                            } else {
-                                ageData['Unknown']++;
-                            }
-                            
-                            // Check for last activity
-                            const userQuizzesSnapshot = await db.ref(`users/${patientId}/quiz`).once('value');
-                            if (userQuizzesSnapshot.exists()) {
-                                const quizData = userQuizzesSnapshot.val() || {};
-                                const lastActive = getLastActiveTimestamp(quizData);
-                                if (lastActive) {
-                                    updateActivityData(activityData, lastActive, now, oneDayAgo, oneWeekAgo, oneMonthAgo, threeMonthsAgo);
-                                }
-                            }
-                        } catch (error) {
-                            console.warn(`Could not get age data for patient ${patientId}:`, error);
-                            ageData['Unknown']++;
-                        }
-                    }
-                    
-                    // Process regular user ages and activity
-                    for (const userId of regularUserIds) {
-                        // Skip already processed users
-                        if (processedUserIds.has(userId)) continue;
-                        processedUserIds.add(userId);
-                        
-                        try {
-                            const userProfileSnapshot = await db.ref(`users/${userId}/profile`).once('value');
-                            const userProfile = userProfileSnapshot.val() || {};
-                            if (userProfile.age) {
-                                const ageRange = getAgeRange(parseInt(userProfile.age));
-                                ageData[ageRange]++;
-                            } else {
-                                ageData['Unknown']++;
-                            }
-                            
-                            // Check for last activity
-                            const userQuizzesSnapshot = await db.ref(`users/${userId}/quiz`).once('value');
-                            if (userQuizzesSnapshot.exists()) {
-                                const quizData = userQuizzesSnapshot.val() || {};
-                                const lastActive = getLastActiveTimestamp(quizData);
-                                if (lastActive) {
-                                    updateActivityData(activityData, lastActive, now, oneDayAgo, oneWeekAgo, oneMonthAgo, threeMonthsAgo);
-                                }
-                            }
-                        } catch (error) {
-                            console.warn(`Could not get data for regular user ${userId}:`, error);
-                            ageData['Unknown']++;
-                        }
-                    }
-                    
-                    // Total users count
-                    totalUsers = totalDoctors + totalPatients + totalRegularUsers;
-                    
-                    // Update UI elements
-                    document.getElementById('usersTotalUsers').innerText = totalUsers;
-                    document.getElementById('usersTotalDoctors').innerText = totalDoctors;
-                    document.getElementById('usersTotalPatients').innerText = totalPatients;
-                    document.getElementById('usersTotalRegular').innerText = totalRegularUsers;
-                } catch (error) {
-                    console.error("Error loading user statistics:", error);
-                    throw error;
                 }
+                
+                // Get direct patients from the users table 
+                const rolesSnapshot = await db.ref('roles').once('value');
+                const roles = rolesSnapshot.val() || {};
+                
+                // Count patients and regular users from roles
+                for (const [userId, userRole] of Object.entries(roles)) {
+                    if (userRole === 'patient') {
+                        // Only count those that aren't already counted through doctors
+                        let isAlreadyCounted = false;
+                        for (const [_, doctorData] of Object.entries(doctorsSnapshot.val() || {})) {
+                            if (doctorData.patients && doctorData.patients[userId]) {
+                                isAlreadyCounted = true;
+                                break;
+                            }
+                        }
+                        
+                        if (!isAlreadyCounted) {
+                            totalPatients++;
+                        }
+                    } else if (userRole === 'user') {
+                        totalRegularUsers++;
+                    }
+                }
+                
+                // Update totals for chart
+                userTypeData.patients = totalPatients;
+                userTypeData.regular = totalRegularUsers;
+                totalUsers = totalDoctors + totalPatients + totalRegularUsers;
+                
+                // Get age data and activity for all users
+                const usersSnapshot = await db.ref('users').once('value');
+                const users = usersSnapshot.val() || {};
+                
+                for (const [userId, userData] of Object.entries(users)) {
+                    if (userData.profile && userData.profile.age) {
+                        updateAgeData(ageData, userData.profile.age);
+                    }
+                    
+                    // Process quiz data for activity tracking
+                    if (userData.quiz) {
+                        processUserActivity(userData.quiz, activityData);
+                    }
+                }
+                
+                // Update the UI
+                document.getElementById('usersTotalUsers').innerText = totalUsers;
+                document.getElementById('usersTotalDoctors').innerText = totalDoctors;
+                document.getElementById('usersTotalPatients').innerText = totalPatients;
+                document.getElementById('usersTotalRegular').innerText = totalRegularUsers;
                 
                 // Generate charts
                 generateUsersDistributionChart(userTypeData);
                 generateUsersAgeDistributionChart(ageData);
-                generateUsersActivityChart(activityData);
+                generateRecentUserActivityChart(activityData);
                 
                 console.log("Users statistics loaded successfully");
                 
@@ -3452,67 +3354,6 @@
             });
         }
         
-        // Generate User Activity Chart for users tab
-        function generateUsersActivityChart(activityData) {
-            const ctx = document.getElementById('usersActivityChart').getContext('2d');
-            
-            if (!ctx) {
-                console.error("Could not get context for users activity chart");
-                return;
-            }
-            
-            // Check for existing chart
-            if (window.usersActivityChart) {
-                window.usersActivityChart.destroy();
-            }
-            
-            // Convert timestamps to readable dates for labels
-            const labels = Object.keys(activityData).map(period => period);
-            const data = Object.values(activityData);
-            
-            window.usersActivityChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Active Users',
-                        data: data,
-                        backgroundColor: '#4e73df',
-                        borderColor: '#3a5cbf',
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                precision: 0,
-                                stepSize: 1
-                            }
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            callbacks: {
-                                title: (items) => {
-                                    return items[0].label;
-                                },
-                                label: (item) => {
-                                    return `${item.formattedValue} active users`;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
-        
         // Generate Age Distribution Chart for users tab
         function generateUsersAgeDistributionChart(ageData) {
             const ctx = document.getElementById('usersAgeDistributionChart').getContext('2d');
@@ -3552,6 +3393,87 @@
                     plugins: {
                         legend: {
                             display: false
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Generate Recent User Activity Chart
+        function generateRecentUserActivityChart(activityData) {
+            const ctx = document.getElementById('recentUserActivityChart').getContext('2d');
+            
+            if (!ctx) {
+                console.error("Could not get context for recent user activity chart");
+                return;
+            }
+            
+            // Check for existing chart
+            if (window.recentActivityChart) {
+                window.recentActivityChart.destroy();
+            }
+            
+            // Prepare data - ensure we show last 7 days
+            const today = new Date();
+            const last7Days = {};
+            
+            // Initialize with last 7 days
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date(today);
+                date.setDate(today.getDate() - i);
+                const dateString = date.toISOString().split('T')[0];
+                last7Days[dateString] = 0; // Initialize with zero
+            }
+            
+            // Merge with actual data
+            Object.assign(last7Days, activityData);
+            
+            // Convert to arrays for chart
+            const dates = Object.keys(last7Days).sort();
+            const counts = dates.map(date => last7Days[date]);
+            
+            window.recentActivityChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates.map(date => {
+                        const d = new Date(date);
+                        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    }),
+                    datasets: [{
+                        label: 'Active Users',
+                        data: counts,
+                        borderColor: '#4e73df',
+                        backgroundColor: 'rgba(78, 115, 223, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                precision: 0
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                title: function(tooltipItems) {
+                                    const date = new Date(dates[tooltipItems[0].dataIndex]);
+                                    return date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                                },
+                                label: function(context) {
+                                    return `  ${context.raw} active users`;
+                                }
+                            }
                         }
                     }
                 }
