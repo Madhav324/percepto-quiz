@@ -1170,6 +1170,16 @@
                         </select>
                     </div>
                     <div class="form-group">
+                        <label for="userActivityFilter">Filter by activity:</label>
+                        <select id="userActivityFilter">
+                            <option value="">All activity</option>
+                            <option value="3days">Last 3 days</option>
+                            <option value="week">Last week</option>
+                            <option value="month">Last month</option>
+                            <option value="6months">Last 6 months</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label for="userSearchFilter">Search by name/email:</label>
                         <input type="text" id="userSearchFilter" placeholder="Search...">
                     </div>
@@ -3129,9 +3139,10 @@
         function setupUserFilters() {
             const roleFilter = document.getElementById('userRoleFilter');
             const ageFilter = document.getElementById('userAgeFilter');
+            const activityFilter = document.getElementById('userActivityFilter');
             const searchFilter = document.getElementById('userSearchFilter');
             
-            if (!roleFilter || !ageFilter || !searchFilter) {
+            if (!roleFilter || !ageFilter || !activityFilter || !searchFilter) {
                 console.error("Could not find user filter elements");
                 return;
             }
@@ -3139,15 +3150,18 @@
             // Remove existing listeners
             const newRoleFilter = roleFilter.cloneNode(true);
             const newAgeFilter = ageFilter.cloneNode(true);
+            const newActivityFilter = activityFilter.cloneNode(true);
             const newSearchFilter = searchFilter.cloneNode(true);
             
             roleFilter.parentNode.replaceChild(newRoleFilter, roleFilter);
             ageFilter.parentNode.replaceChild(newAgeFilter, ageFilter);
+            activityFilter.parentNode.replaceChild(newActivityFilter, activityFilter);
             searchFilter.parentNode.replaceChild(newSearchFilter, searchFilter);
             
             // Add event listeners
             newRoleFilter.addEventListener('change', filterUsers);
             newAgeFilter.addEventListener('change', filterUsers);
+            newActivityFilter.addEventListener('change', filterUsers);
             newSearchFilter.addEventListener('input', filterUsers);
         }
         
@@ -3344,14 +3358,29 @@
             });
         }
         
-        // Filter users based on role, age, and search query
+        // Filter users based on role, age, activity, and search query
         function filterUsers() {
             const roleFilter = document.getElementById('userRoleFilter').value;
             const ageFilter = document.getElementById('userAgeFilter').value;
+            const activityFilter = document.getElementById('userActivityFilter').value;
             const searchFilter = document.getElementById('userSearchFilter').value.toLowerCase();
             
             // Get all user rows
             const userRows = document.querySelectorAll('#usersTable tr[data-role]');
+            
+            // Calculate cutoff dates for activity filters
+            const now = new Date();
+            let activityCutoff = null;
+            
+            if (activityFilter === '3days') {
+                activityCutoff = new Date(now.getTime() - (3 * 24 * 60 * 60 * 1000)); // 3 days ago
+            } else if (activityFilter === 'week') {
+                activityCutoff = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000)); // 1 week ago
+            } else if (activityFilter === 'month') {
+                activityCutoff = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000)); // 30 days ago
+            } else if (activityFilter === '6months') {
+                activityCutoff = new Date(now.getTime() - (180 * 24 * 60 * 60 * 1000)); // 180 days ago
+            }
             
             // Process each row
             userRows.forEach(row => {
@@ -3359,6 +3388,8 @@
                 const userId = row.dataset.userId;
                 const userName = row.querySelector('.user-name').textContent.toLowerCase();
                 const userEmail = row.querySelector('.user-email').textContent.toLowerCase();
+                
+                // Get age
                 let userAge = '';
                 const ageElement = row.querySelector('.user-additional-info div:nth-child(1)');
                 if (ageElement) {
@@ -3366,6 +3397,19 @@
                     const ageMatch = ageText.match(/Age:\s*(\d+)/i);
                     if (ageMatch && ageMatch[1]) {
                         userAge = parseInt(ageMatch[1], 10);
+                    }
+                }
+                
+                // Get last active date
+                let lastActive = null;
+                const lastActiveCell = row.querySelector('td:nth-child(4)');
+                if (lastActiveCell && lastActiveCell.textContent.trim() !== 'Never') {
+                    const lastActiveText = lastActiveCell.textContent;
+                    try {
+                        // Try to parse the date from the text
+                        lastActive = new Date(lastActiveText);
+                    } catch (e) {
+                        console.warn(`Failed to parse last active date: ${lastActiveText}`, e);
                     }
                 }
                 
@@ -3390,13 +3434,25 @@
                     }
                 }
                 
+                // Check if row should be visible based on activity filter
+                let activityMatch = true;
+                if (activityFilter !== '' && activityCutoff !== null) {
+                    // If there's no last active date or it's 'Never', it doesn't match any activity filter
+                    if (!lastActive) {
+                        activityMatch = false;
+                    } else {
+                        // Check if the last active date is after the cutoff date
+                        activityMatch = lastActive >= activityCutoff;
+                    }
+                }
+                
                 // Check if row should be visible based on search filter
                 const searchMatch = searchFilter === '' || 
                                     userName.includes(searchFilter) || 
                                     userEmail.includes(searchFilter);
                 
                 // Determine visibility
-                if (roleMatch && ageMatch && searchMatch) {
+                if (roleMatch && ageMatch && activityMatch && searchMatch) {
                     // For patient rows, always show if searching
                     if (row.classList.contains('patient-row')) {
                         row.style.display = 'table-row';
