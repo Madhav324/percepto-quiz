@@ -13,21 +13,9 @@
         }
         
         .container {
-            max-width: 1200px;
+            max-width: 650px;
             margin: 0 auto;
-            padding: 15px;
-            box-sizing: border-box;
-            width: 100%;
-        }
-        
-        .dashboard {
-            overflow-x: auto;
-            max-width: 100%;
-        }
-        
-        .dashboard table {
-            table-layout: fixed;
-            width: 100%;
+            padding: 20px;
         }
         
         .login-panel {
@@ -36,6 +24,14 @@
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             margin-bottom: 20px;
+        }
+        
+        .dashboard {
+            display: none;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
         
         h1 {
@@ -283,7 +279,7 @@
         
         .filter-controls {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(3, 1fr);
             gap: 10px;
             margin-bottom: 15px;
         }
@@ -1060,10 +1056,6 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="userSearchFilter">Search by name/email:</label>
-                        <input type="text" id="userSearchFilter" placeholder="Search...">
-                    </div>
-                    <div class="form-group">
                         <label for="userAgeFilter">Filter by age group:</label>
                         <select id="userAgeFilter">
                             <option value="">All ages</option>
@@ -1071,8 +1063,12 @@
                             <option value="19-30">19-30</option>
                             <option value="31-45">31-45</option>
                             <option value="46-60">46-60</option>
-                            <option value="60+">Over 60</option>
+                            <option value="61+">Over 60</option>
                         </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="userSearchFilter">Search by name/email:</label>
+                        <input type="text" id="userSearchFilter" placeholder="Search...">
                     </div>
                 </div>
                 
@@ -2926,34 +2922,34 @@
         // Setup filters for the user table
         function setupUserFilters() {
             const roleFilter = document.getElementById('userRoleFilter');
-            const searchFilter = document.getElementById('userSearchFilter');
             const ageFilter = document.getElementById('userAgeFilter');
+            const searchFilter = document.getElementById('userSearchFilter');
             
-            if (!roleFilter || !searchFilter || !ageFilter) {
+            if (!roleFilter || !ageFilter || !searchFilter) {
                 console.error("Could not find user filter elements");
                 return;
             }
             
             // Remove existing listeners
             const newRoleFilter = roleFilter.cloneNode(true);
-            const newSearchFilter = searchFilter.cloneNode(true);
             const newAgeFilter = ageFilter.cloneNode(true);
+            const newSearchFilter = searchFilter.cloneNode(true);
             
             roleFilter.parentNode.replaceChild(newRoleFilter, roleFilter);
-            searchFilter.parentNode.replaceChild(newSearchFilter, searchFilter);
             ageFilter.parentNode.replaceChild(newAgeFilter, ageFilter);
+            searchFilter.parentNode.replaceChild(newSearchFilter, searchFilter);
             
             // Add event listeners
             newRoleFilter.addEventListener('change', filterUsers);
-            newSearchFilter.addEventListener('input', filterUsers);
             newAgeFilter.addEventListener('change', filterUsers);
+            newSearchFilter.addEventListener('input', filterUsers);
         }
         
-        // Filter users based on role, age group, and search query
+        // Filter users based on role, age, and search query
         function filterUsers() {
             const roleFilter = document.getElementById('userRoleFilter').value;
-            const searchFilter = document.getElementById('userSearchFilter').value.toLowerCase();
             const ageFilter = document.getElementById('userAgeFilter').value;
+            const searchFilter = document.getElementById('userSearchFilter').value.toLowerCase();
             
             // Get all user rows
             const userRows = document.querySelectorAll('#usersTable tr[data-role]');
@@ -2964,52 +2960,50 @@
                 const userId = row.dataset.userId;
                 const userName = row.querySelector('.user-name').textContent.toLowerCase();
                 const userEmail = row.querySelector('.user-email').textContent.toLowerCase();
+                let userAge = '';
+                const ageElement = row.querySelector('.user-additional-info div:nth-child(1)');
+                if (ageElement) {
+                    const ageText = ageElement.textContent;
+                    const ageMatch = ageText.match(/Age:\s*(\d+)/i);
+                    if (ageMatch && ageMatch[1]) {
+                        userAge = parseInt(ageMatch[1], 10);
+                    }
+                }
                 
                 // Check if row should be visible based on role filter
                 const roleMatch = roleFilter === '' || role === roleFilter;
+                
+                // Check if row should be visible based on age filter
+                let ageMatch = true;
+                if (ageFilter !== '') {
+                    if (userAge === '' || isNaN(userAge)) {
+                        ageMatch = false;
+                    } else if (ageFilter === '0-18') {
+                        ageMatch = userAge >= 0 && userAge <= 18;
+                    } else if (ageFilter === '19-30') {
+                        ageMatch = userAge >= 19 && userAge <= 30;
+                    } else if (ageFilter === '31-45') {
+                        ageMatch = userAge >= 31 && userAge <= 45;
+                    } else if (ageFilter === '46-60') {
+                        ageMatch = userAge >= 46 && userAge <= 60;
+                    } else if (ageFilter === '61+') {
+                        ageMatch = userAge >= 61;
+                    }
+                }
                 
                 // Check if row should be visible based on search filter
                 const searchMatch = searchFilter === '' || 
                                     userName.includes(searchFilter) || 
                                     userEmail.includes(searchFilter);
                 
-                // Get age if available (might be in text format)
-                let ageMatch = true;
-                if (ageFilter !== '') {
-                    const additionalInfo = row.querySelector('.user-additional-info');
-                    if (additionalInfo) {
-                        const ageText = Array.from(additionalInfo.querySelectorAll('div'))
-                            .find(div => div.textContent.includes('Age:'))?.textContent || '';
-                        const ageValue = ageText.replace(/[^\d]/g, '');
-                        
-                        if (ageValue) {
-                            const age = parseInt(ageValue);
-                            
-                            // Match based on selected age range
-                            if (ageFilter === '0-18') {
-                                ageMatch = age <= 18;
-                            } else if (ageFilter === '19-30') {
-                                ageMatch = age >= 19 && age <= 30;
-                            } else if (ageFilter === '31-45') {
-                                ageMatch = age >= 31 && age <= 45;
-                            } else if (ageFilter === '46-60') {
-                                ageMatch = age >= 46 && age <= 60;
-                            } else if (ageFilter === '60+') {
-                                ageMatch = age > 60;
-                            }
-                        } else {
-                            // No age found, don't show this row when filtering by age
-                            ageMatch = false;
-                        }
-                    } else {
-                        // No additional info section, don't show when filtering by age
-                        ageMatch = false;
-                    }
-                }
-                
                 // Determine visibility
-                if (roleMatch && searchMatch && ageMatch) {
-                    row.style.display = 'table-row';
+                if (roleMatch && ageMatch && searchMatch) {
+                    // For patient rows, always show if searching
+                    if (row.classList.contains('patient-row')) {
+                        row.style.display = 'table-row';
+                    } else {
+                        row.style.display = 'table-row';
+                    }
                 } else {
                     row.style.display = 'none';
                 }
