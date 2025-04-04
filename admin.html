@@ -1252,15 +1252,7 @@
                             <option value="low">Low popularity (1-4 attempts)</option>
                         </select>
                     </div>
-                    <div class="form-group">
-                        <label for="quizScoreFilter">Filter by avg. score:</label>
-                        <select id="quizScoreFilter">
-                            <option value="">All scores</option>
-                            <option value="high">High scores (80-100%)</option>
-                            <option value="medium">Medium scores (60-79%)</option>
-                            <option value="low">Low scores (0-59%)</option>
-                        </select>
-                    </div>
+                    <!-- Score filter removed as requested -->
                     <div class="form-group">
                         <label for="quizSearchFilter">Search by name:</label>
                         <input type="text" id="quizSearchFilter" placeholder="Search...">
@@ -1276,7 +1268,6 @@
                                 <th>Times Taken</th>
                                 <th>Avg. Score</th>
                                 <th>User Types</th>
-                                <th>View Details</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -3878,12 +3869,12 @@
                     }
                 });
                 
-                const overallAvgScore = totalAttempts > 0 ? (totalScores / totalAttempts).toFixed(2) : 'N/A';
+                const overallAvgScore = totalAttempts > 0 ? Math.round(totalScores / totalAttempts) : 'N/A';
                 
                 // Update the statistics cards
                 document.getElementById('quizzesTotalQuizzes').textContent = totalQuizzes;
                 document.getElementById('quizzesTotalAttempts').textContent = totalAttempts;
-                document.getElementById('quizzesAvgScore').textContent = `${Math.round(overallAvgScore * 100)}`;
+                document.getElementById('quizzesAvgScore').textContent = `${overallAvgScore}`;
                 document.getElementById('quizzesTopQuiz').textContent = topQuizName;
                 
                 // Prepare data for charts
@@ -3896,13 +3887,13 @@
                     quizStatsList.forEach(quiz => {
                         // Calculate averages
                         const regularAvg = quiz.regularUsers.attempts > 0 && quiz.regularUsers.totalScore !== undefined ? 
-                            (quiz.regularUsers.totalScore / quiz.regularUsers.attempts).toFixed(2) : 'N/A';
+                            Math.round(quiz.regularUsers.totalScore / quiz.regularUsers.attempts) : 'N/A';
                             
                         const patientsAvg = quiz.patients.attempts > 0 && quiz.patients.totalScore !== undefined ? 
-                            (quiz.patients.totalScore / quiz.patients.attempts).toFixed(2) : 'N/A';
+                            Math.round(quiz.patients.totalScore / quiz.patients.attempts) : 'N/A';
                             
                         const totalAvg = quiz.total.attempts > 0 && quiz.total.totalScore !== undefined ? 
-                            (quiz.total.totalScore / quiz.total.attempts).toFixed(2) : 'N/A';
+                            Math.round(quiz.total.totalScore / quiz.total.attempts) : 'N/A';
                         
                         // Determine user types
                         const userTypes = [];
@@ -3916,7 +3907,7 @@
                         row.innerHTML = `
                             <td><strong>${quiz.name}</strong></td>
                             <td>${quiz.total.attempts}</td>
-                            <td>${Math.round(totalAvg * 100)}</td>
+                            <td>${totalAvg}</td>
                             <td>${userTypeText}</td>
                             <td></td>
                         `;
@@ -3944,19 +3935,19 @@
                                             <tr>
                                                 <td>Regular Users</td>
                                                 <td>${quiz.regularUsers.attempts}</td>
-                                                <td>${Math.round(regularAvg * 100)}</td>
+                                                <td>${regularAvg}</td>
                                                 <td>${quiz.regularUsers.totalTime ? (quiz.regularUsers.totalTime / quiz.regularUsers.attempts).toFixed(1) : 'N/A'}</td>
                                             </tr>
                                             <tr>
                                                 <td>Patients</td>
                                                 <td>${quiz.patients.attempts}</td>
-                                                <td>${Math.round(patientsAvg * 100)}</td>
+                                                <td>${patientsAvg}</td>
                                                 <td>${quiz.patients.totalTime ? (quiz.patients.totalTime / quiz.patients.attempts).toFixed(1) : 'N/A'}</td>
                                             </tr>
                                             <tr class="total-row">
                                                 <td><strong>Total</strong></td>
                                                 <td><strong>${quiz.total.attempts}</strong></td>
-                                                <td><strong>${Math.round(totalAvg * 100)}</strong></td>
+                                                <td><strong>${totalAvg}</strong></td>
                                                 <td><strong>${quiz.total.totalTime ? (quiz.total.totalTime / quiz.total.attempts).toFixed(1) : 'N/A'}</strong></td>
                                             </tr>
                                         </tbody>
@@ -3973,13 +3964,13 @@
                     // Initialize the quiz filters
                     setupQuizFilters();
                 } else {
-                    quizzesTable.innerHTML = '<tr><td colspan="5">No quiz data found</td></tr>';
+                    quizzesTable.innerHTML = '<tr><td colspan="4">No quiz data found</td></tr>';
                 }
                 
             } catch (error) {
                 console.error("Error loading quizzes data:", error);
                 document.getElementById('quizzesTable').querySelector('tbody').innerHTML = 
-                    `<tr><td colspan="5">Error loading data: ${error.message}</td></tr>`;
+                    `<tr><td colspan="4">Error loading data: ${error.message}</td></tr>`;
                 
                 // Reset stats cards on error
                 document.getElementById('quizzesTotalQuizzes').textContent = '0';
