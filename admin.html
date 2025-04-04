@@ -1371,12 +1371,8 @@
             try {
                 console.log("Loading dashboard data...");
                 
-                // Load total users count from Firestore
-                const userProfilesSnapshot = await firestore.collection('userProfiles').get();
-                const totalUsers = userProfilesSnapshot.size;
-                document.getElementById('totalUsers').innerText = totalUsers;
-                
                 // Initialize counters
+                let totalUsers = 0;
                 let totalDoctors = 0;
                 let totalPatients = 0;
                 let totalQuizAttempts = 0;
@@ -1395,49 +1391,82 @@
                 const quizActivityData = {};
                 const quizPerformanceData = {};
                 
-                // Create maps for easier access
+                // 1. Directly query all user collections first to find ALL users with ALL their roles
+                console.log("Dashboard: Finding all users and their potential roles");
+                
+                // Get all doctors from Realtime DB
+                let doctorIds = [];
+                try {
+                    const doctorsSnapshot = await db.ref('doctors').once('value');
+                    if (doctorsSnapshot.exists()) {
+                        doctorIds = Object.keys(doctorsSnapshot.val() || {});
+                        console.log(`Dashboard: Found ${doctorIds.length} doctors in Realtime DB`);
+                        totalDoctors = doctorIds.length;
+                        userTypeData.doctors = doctorIds.length;
+                    }
+                } catch (error) {
+                    console.error("Dashboard: Error fetching doctors:", error);
+                }
+                
+                // Get all users from Realtime DB
+                let userIds = [];
+                try {
+                    const usersSnapshot = await db.ref('users').once('value');
+                    if (usersSnapshot.exists()) {
+                        userIds = Object.keys(usersSnapshot.val() || {});
+                        console.log(`Dashboard: Found ${userIds.length} users in Realtime DB`);
+                    }
+                } catch (error) {
+                    console.error("Dashboard: Error fetching users:", error);
+                }
+                
+                // Get user profiles from Firestore
                 const userProfiles = new Map();
-                userProfilesSnapshot.docs.forEach(doc => {
-                    const userData = doc.data();
-                    userProfiles.set(doc.id, {
-                        id: doc.id,
-                        ...userData
-                    });
+                let profileUsers = 0;
+                try {
+                    const userProfilesSnapshot = await firestore.collection('userProfiles').get();
+                    profileUsers = userProfilesSnapshot.size;
                     
-                    // Process age data
-                    if (userData.age) {
-                        const age = parseInt(userData.age);
-                        if (!isNaN(age)) {
-                            if (age <= 18) ageData["0-18"]++;
-                            else if (age <= 30) ageData["19-30"]++;
-                            else if (age <= 45) ageData["31-45"]++;
-                            else if (age <= 60) ageData["46-60"]++;
-                            else ageData["61+"]++;
+                    userProfilesSnapshot.docs.forEach(doc => {
+                        const userData = doc.data();
+                        userProfiles.set(doc.id, {
+                            id: doc.id,
+                            ...userData
+                        });
+                        
+                        // Process age data
+                        if (userData.age) {
+                            const age = parseInt(userData.age);
+                            if (!isNaN(age)) {
+                                if (age <= 18) ageData["0-18"]++;
+                                else if (age <= 30) ageData["19-30"]++;
+                                else if (age <= 45) ageData["31-45"]++;
+                                else if (age <= 60) ageData["46-60"]++;
+                                else ageData["61+"]++;
+                            } else {
+                                ageData["Unknown"]++;
+                            }
                         } else {
                             ageData["Unknown"]++;
                         }
-                    } else {
-                        ageData["Unknown"]++;
-                    }
-                });
+                    });
+                    
+                    console.log(`Dashboard: Found ${userProfilesSnapshot.size} user profiles in Firestore`);
+                } catch (error) {
+                    console.error("Dashboard: Error accessing userProfiles collection:", error);
+                }
                 
-                // Count doctors and process their quiz data
-                const doctorIds = [];
-                const regularUserIds = [];
+                // Combine all unique user IDs
+                const allUserIds = new Set([...doctorIds, ...userIds, ...userProfiles.keys()]);
+                totalUsers = allUserIds.size;
+                console.log(`Dashboard: Found ${allUserIds.size} unique user IDs across all collections`);
                 
-                // Split users by role
-                userProfiles.forEach((profile, id) => {
-                    if (profile.role === 'doctor') {
-                        totalDoctors++;
-                        doctorIds.push(id);
-                        userTypeData.doctors++;
-                    } else {
-                        regularUserIds.push(id);
-                        userTypeData.regular++;
-                    }
-                });
+                // Count regular users (not doctors)
+                const regularUserIds = Array.from(allUserIds).filter(id => !doctorIds.includes(id));
+                userTypeData.regular = regularUserIds.length;
                 
                 // Process doctors and their patients
+                let patientCount = 0;
                 const doctorPromises = doctorIds.map(async doctorId => {
                     try {
                         // Get patients for this doctor
@@ -1445,9 +1474,8 @@
                         const patientsData = patientsSnapshot.val() || {};
                         
                         // Count patients
-                        const patientCount = Object.keys(patientsData).length;
-                        totalPatients += patientCount;
-                        userTypeData.patients += patientCount;
+                        const docPatientCount = Object.keys(patientsData).length;
+                        patientCount += docPatientCount;
                         
                         // Process each patient's quizzes
                         Object.entries(patientsData).forEach(([patientId, patientData]) => {
@@ -1521,11 +1549,14 @@
                             }
                         });
                     } catch (error) {
-                        console.warn(`Error processing doctor ${doctorId}:`, error);
+                        console.warn(`Dashboard: Error processing doctor ${doctorId}:`, error);
                     }
                 });
                 
-                // Process regular users
+                totalPatients = patientCount;
+                userTypeData.patients = patientCount;
+                
+                // Process regular users separately
                 const userPromises = regularUserIds.map(async userId => {
                     try {
                         // Check user's quizzes
@@ -1563,7 +1594,7 @@
                             }
                         });
                     } catch (error) {
-                        console.warn(`Error processing user ${userId}:`, error);
+                        console.warn(`Dashboard: Error processing user ${userId}:`, error);
                     }
                 });
                 
@@ -1571,6 +1602,7 @@
                 await Promise.all([...doctorPromises, ...userPromises]);
                 
                 // Update the dashboard statistics
+                document.getElementById('totalUsers').innerText = totalUsers;
                 document.getElementById('totalDoctors').innerText = totalDoctors;
                 document.getElementById('totalPatients').innerText = totalPatients;
                 document.getElementById('totalQuizzes').innerText = uniqueQuizTypes.size;
@@ -1799,7 +1831,16 @@
                     console.log(`Loaded ${userProfiles.size} user profiles from Firestore`);
                 } catch (error) {
                     console.error("Error accessing userProfiles collection:", error);
-                    throw new Error(`Could not access userProfiles: ${error.message}`);
+                    // Display error message to user
+                    document.getElementById('dashboardContent').innerHTML = `
+                        <div class="error-message">
+                            <h3>Database Connection Error</h3>
+                            <p>${error.message}</p>
+                            <p>This could be due to missing permissions or network issues.</p>
+                            <p>Please ensure you have proper admin access or contact the system administrator.</p>
+                        </div>
+                    `;
+                    return false;
                 }
                 
                 // Process doctors and their patients
@@ -2067,255 +2108,6 @@
                     }
                 });
             });
-        }
-        
-        // Load quizzes data for the Quizzes tab
-        async function loadQuizzesData() {
-            try {
-                console.log("Loading quizzes statistics...");
-                const quizzesTable = document.getElementById('quizzesTable').querySelector('tbody');
-                quizzesTable.innerHTML = '<tr><td colspan="4">Loading quiz statistics...</td></tr>';
-                
-                // Store all quiz statistics
-                const quizStats = {};
-                
-                // Instead of directly accessing Firestore, we'll follow the pattern from loadUsersData
-                // which is working correctly
-                
-                // Step 1: Process doctors and their patients
-                console.log("Loading doctors and their patients' quiz data...");
-                
-                // Get doctor IDs from Realtime Database using the roles path (avoiding Firestore)
-                const rolesSnapshot = await db.ref('roles').once('value');
-                const roles = rolesSnapshot.val() || {};
-                
-                const doctorIds = [];
-                Object.entries(roles).forEach(([userId, role]) => {
-                    if (role === 'doctor') {
-                        doctorIds.push(userId);
-                    }
-                });
-                
-                console.log(`Found ${doctorIds.length} doctors`);
-                
-                // Process each doctor
-                for (const doctorId of doctorIds) {
-                    // Doctor's own quizzes
-                    const doctorQuizSnapshot = await db.ref(`doctors/${doctorId}/quiz`).once('value');
-                    const doctorQuizData = doctorQuizSnapshot.val();
-                    
-                    if (doctorQuizData) {
-                        Object.entries(doctorQuizData).forEach(([quizType, attempts]) => {
-                            if (!quizStats[quizType]) {
-                                quizStats[quizType] = {
-                                    name: quizType,
-                                    regularUsers: { attempts: 0, totalScore: 0 },
-                                    patients: { attempts: 0, totalScore: 0 },
-                                    total: { attempts: 0, totalScore: 0 }
-                                };
-                            }
-                            
-                            Object.entries(attempts || {}).forEach(([timestamp, attempt]) => {
-                                if (attempt.score !== undefined) {
-                                    quizStats[quizType].regularUsers.attempts++;
-                                    quizStats[quizType].regularUsers.totalScore += parseFloat(attempt.score);
-                                    quizStats[quizType].total.attempts++;
-                                    quizStats[quizType].total.totalScore += parseFloat(attempt.score);
-                                }
-                            });
-                        });
-                    }
-                    
-                    // Process patients' quizzes
-                    const patientsSnapshot = await db.ref(`doctors/${doctorId}/patients`).once('value');
-                    const patients = patientsSnapshot.val() || {};
-                    
-                    Object.entries(patients).forEach(([patientId, patientData]) => {
-                        if (patientData && patientData.quiz) {
-                            Object.entries(patientData.quiz).forEach(([quizType, attempts]) => {
-                                if (!quizStats[quizType]) {
-                                    quizStats[quizType] = {
-                                        name: quizType,
-                                        regularUsers: { attempts: 0, totalScore: 0 },
-                                        patients: { attempts: 0, totalScore: 0 },
-                                        total: { attempts: 0, totalScore: 0 }
-                                    };
-                                }
-                                
-                                Object.entries(attempts || {}).forEach(([timestamp, attempt]) => {
-                                    if (attempt.score !== undefined) {
-                                        quizStats[quizType].patients.attempts++;
-                                        quizStats[quizType].patients.totalScore += parseFloat(attempt.score);
-                                        quizStats[quizType].total.attempts++;
-                                        quizStats[quizType].total.totalScore += parseFloat(attempt.score);
-                                    }
-                                });
-                            });
-                        }
-                    });
-                }
-                
-                // Step 2: Process regular users
-                console.log("Loading regular users' quiz data...");
-                
-                // Get regular user IDs from roles
-                const regularUserIds = [];
-                Object.entries(roles).forEach(([userId, role]) => {
-                    if (role !== 'doctor') {
-                        regularUserIds.push(userId);
-                    }
-                });
-                
-                // Add users who might not have a role defined yet
-                const usersSnapshot = await db.ref('users').once('value');
-                const users = usersSnapshot.val() || {};
-                
-                Object.keys(users).forEach(userId => {
-                    if (!regularUserIds.includes(userId) && !doctorIds.includes(userId)) {
-                        regularUserIds.push(userId);
-                    }
-                });
-                
-                console.log(`Found ${regularUserIds.length} regular users`);
-                
-                // Process each regular user
-                for (const userId of regularUserIds) {
-                    const userQuizSnapshot = await db.ref(`users/${userId}/quiz`).once('value');
-                    const userQuizData = userQuizSnapshot.val() || {};
-                    
-                    Object.entries(userQuizData).forEach(([quizType, attempts]) => {
-                        if (!quizStats[quizType]) {
-                            quizStats[quizType] = {
-                                name: quizType,
-                                regularUsers: { attempts: 0, totalScore: 0 },
-                                patients: { attempts: 0, totalScore: 0 },
-                                total: { attempts: 0, totalScore: 0 }
-                            };
-                        }
-                        
-                        Object.entries(attempts || {}).forEach(([timestamp, attempt]) => {
-                            if (attempt.score !== undefined) {
-                                quizStats[quizType].regularUsers.attempts++;
-                                quizStats[quizType].regularUsers.totalScore += parseFloat(attempt.score);
-                                quizStats[quizType].total.attempts++;
-                                quizStats[quizType].total.totalScore += parseFloat(attempt.score);
-                            }
-                        });
-                    });
-                }
-                
-                // Convert to array and update the UI
-                const quizStatsList = Object.values(quizStats);
-                
-                // Sort by total attempts (most popular first)
-                quizStatsList.sort((a, b) => b.total.attempts - a.total.attempts);
-                
-                // Update the quizzes table
-                quizzesTable.innerHTML = '';
-                
-                if (quizStatsList.length > 0) {
-                    quizStatsList.forEach(quiz => {
-                        // Calculate averages
-                        const regularAvg = quiz.regularUsers.attempts > 0 && quiz.regularUsers.totalScore !== undefined ? 
-                            (quiz.regularUsers.totalScore / quiz.regularUsers.attempts).toFixed(2) : 'N/A';
-                            
-                        const patientsAvg = quiz.patients.attempts > 0 && quiz.patients.totalScore !== undefined ? 
-                            (quiz.patients.totalScore / quiz.patients.attempts).toFixed(2) : 'N/A';
-                            
-                        const totalAvg = quiz.total.attempts > 0 && quiz.total.totalScore !== undefined ? 
-                            (quiz.total.totalScore / quiz.total.attempts).toFixed(2) : 'N/A';
-                        
-                        // Create the main quiz row
-                        const row = document.createElement('tr');
-                        row.className = 'quiz-row';
-                        row.innerHTML = `
-                            <td><strong>${quiz.name}</strong></td>
-                            <td>${quiz.total.attempts}</td>
-                            <td>${totalAvg}%</td>
-                            <td>
-                                <button class="view-details-btn" onclick="toggleQuizDetails(this)">Show Details</button>
-                            </td>
-                        `;
-                        quizzesTable.appendChild(row);
-                        
-                        // Create the details row with statistics breakdown
-                        const detailsRow = document.createElement('tr');
-                        detailsRow.className = 'quiz-details';
-                        detailsRow.style.display = 'none';
-                        
-                        // Create a nested table for the detailed statistics
-                        detailsRow.innerHTML = `
-                            <td colspan="4">
-                                <table class="details-table">
-                                    <thead>
-                                        <tr>
-                                            <th>User Type</th>
-                                            <th>Attempts</th>
-                                            <th>Avg. Score</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr>
-                                            <td>Regular Users</td>
-                                            <td>${quiz.regularUsers.attempts}</td>
-                                            <td>${regularAvg}%</td>
-                                        </tr>
-                                        <tr>
-                                            <td>Patients</td>
-                                            <td>${quiz.patients.attempts}</td>
-                                            <td>${patientsAvg}%</td>
-                                        </tr>
-                                        <tr class="total-row">
-                                            <td><strong>Total</strong></td>
-                                            <td><strong>${quiz.total.attempts}</strong></td>
-                                            <td><strong>${totalAvg}%</strong></td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </td>
-                        `;
-                        quizzesTable.appendChild(detailsRow);
-                    });
-                } else {
-                    quizzesTable.innerHTML = '<tr><td colspan="4">No quiz data found</td></tr>';
-                }
-                
-            } catch (error) {
-                console.error("Error loading quizzes data:", error);
-                document.getElementById('quizzesTable').querySelector('tbody').innerHTML = 
-                    `<tr><td colspan="4">Error loading data: ${error.message}</td></tr>`;
-            }
-        }
-        
-        // Toggle quiz details
-        function toggleQuizDetails(button) {
-            const detailsRow = button.closest('tr').nextElementSibling;
-            if (detailsRow.style.display === 'none') {
-                // Hide any other open quiz details first
-                document.querySelectorAll('.quiz-details').forEach(row => {
-                    row.style.display = 'none';
-                });
-                
-                // Reset all buttons
-                document.querySelectorAll('.view-details-btn').forEach(btn => {
-                    btn.textContent = 'Show Details';
-                });
-                
-                // Ensure the details row is positioned immediately after the quiz row
-                if (button.closest('tr') && button.closest('tr').nextElementSibling !== detailsRow) {
-                    try {
-                        button.closest('tr').parentNode.insertBefore(detailsRow, button.closest('tr').nextElementSibling);
-                    } catch (e) {
-                        console.warn("Could not reposition quiz details row:", e);
-                    }
-                }
-                
-                detailsRow.style.display = 'table-row';
-                button.textContent = 'Hide Details';
-            } else {
-                detailsRow.style.display = 'none';
-                button.textContent = 'Show Details';
-            }
         }
         
         // Load users data for the Users tab
