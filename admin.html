@@ -2998,8 +2998,8 @@
             // Add event listeners for expanding/collapsing doctor rows
             document.querySelectorAll('.doctor-row').forEach(doctorRow => {
                 doctorRow.addEventListener('click', function(e) {
-                    // Don't expand if clicking a button
-                    if (e.target.tagName === 'BUTTON') {
+                    // Don't expand if clicking a button or its descendant
+                    if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
                         return;
                     }
                     
@@ -3018,10 +3018,25 @@
                             row.style.display = currentlyVisible ? 'none' : 'table-row';
                         });
                         
+                        // Hide any open quiz details when collapsing
+                        if (currentlyVisible) {
+                            document.querySelectorAll('.user-quiz-details').forEach(row => {
+                                row.style.display = 'none';
+                            });
+                            
+                            // Reset all quiz buttons
+                            document.querySelectorAll('.view-quizzes-btn').forEach(btn => {
+                                btn.textContent = 'Show Quizzes';
+                            });
+                        }
+                        
                         // Update the expand icon
                         if (expandIcon) {
                             expandIcon.textContent = currentlyVisible ? '+' : '-';
                         }
+                        
+                        // Toggle expanded class for styling
+                        this.classList.toggle('expanded');
                     }
                 });
             });
@@ -3030,7 +3045,10 @@
             console.log("Attaching event listeners to quiz buttons...");
             document.querySelectorAll('.view-quizzes-btn').forEach(button => {
                 console.log(`Attaching listener to button for user ${button.dataset.userId}`);
-                button.addEventListener('click', function() {
+                button.addEventListener('click', function(event) {
+                    // Prevent event from bubbling up (important for buttons in doctor rows)
+                    event.stopPropagation();
+                    
                     const userId = this.getAttribute('data-user-id');
                     console.log(`Quiz button clicked for user ${userId}`);
                     toggleUserQuizzes(userId);
