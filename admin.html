@@ -2297,11 +2297,34 @@
                                 // Load quiz data
                                 try {
                                     const { quizData, found: foundQuizData } = await loadPatientQuizData(userId);
+                                     
+                                    // Log details about the quiz data for debugging
+                                    console.log(`Regular user ${userId} (${regularUser.name}) quiz data:`, quizData);
+                                    console.log(`Found quiz data: ${foundQuizData}`);
+                                     
                                     if (foundQuizData) {
                                         regularUser.quizData = quizData;
                                         const quizInfo = processQuizData(quizData);
                                         regularUser.quizCount = quizInfo.totalQuizzes;
                                         regularUser.lastActive = quizInfo.lastActive;
+                                        console.log(`Quiz count for ${regularUser.name}: ${regularUser.quizCount}`);
+                                    } else {
+                                        // Try direct database access as a fallback
+                                        try {
+                                            const directQuizRef = await db.ref(`users/${userId}/quiz`).once('value');
+                                            console.log(`Direct quiz check for ${userId}:`, directQuizRef.val());
+                                             
+                                            if (directQuizRef.exists && directQuizRef.val()) {
+                                                const directQuizData = directQuizRef.val();
+                                                regularUser.quizData = directQuizData;
+                                                const quizInfo = processQuizData(directQuizData);
+                                                regularUser.quizCount = quizInfo.totalQuizzes;
+                                                regularUser.lastActive = quizInfo.lastActive;
+                                                console.log(`Direct quiz count for ${regularUser.name}: ${regularUser.quizCount}`);
+                                            }
+                                        } catch (err) {
+                                            console.warn(`Failed to directly get quiz data for ${userId}:`, err);
+                                        }
                                     }
                                 } catch (error) {
                                     console.warn(`Error loading quiz data for regular user ${userId}:`, error);
