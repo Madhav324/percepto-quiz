@@ -1024,6 +1024,26 @@
             <div id="usersTab" class="tab-content active">
                 <h2>Users</h2>
                 
+                <!-- User Stats Summary Section -->
+                <div class="stats-container">
+                    <div class="stat-card">
+                        <div class="stat-label">Total Users</div>
+                        <div class="stat-value" id="usersTotalUsers">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Doctors</div>
+                        <div class="stat-value" id="usersTotalDoctors">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Patients</div>
+                        <div class="stat-value" id="usersTotalPatients">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Regular Users</div>
+                        <div class="stat-value" id="usersTotalRegular">0</div>
+                    </div>
+                </div>
+                
                 <div class="filter-controls">
                     <div class="form-group">
                         <label for="userRoleFilter">Filter by role:</label>
@@ -1048,26 +1068,6 @@
                     <div class="form-group">
                         <label for="userSearchFilter">Search by name/email:</label>
                         <input type="text" id="userSearchFilter" placeholder="Search...">
-                    </div>
-                </div>
-                
-                <!-- User Stats Summary Section -->
-                <div class="stats-container">
-                    <div class="stat-card">
-                        <div class="stat-label">Total Users</div>
-                        <div class="stat-value" id="usersTotalUsers">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Doctors</div>
-                        <div class="stat-value" id="usersTotalDoctors">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Patients</div>
-                        <div class="stat-value" id="usersTotalPatients">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Regular Users</div>
-                        <div class="stat-value" id="usersTotalRegular">0</div>
                     </div>
                 </div>
                 
@@ -2476,22 +2476,24 @@
                     }
                 }
                 
-                // Update user statistics counters
-                document.getElementById('usersTotalUsers').innerText = userArray.length;
-                document.getElementById('usersTotalDoctors').innerText = userTypeData.doctors;
-                document.getElementById('usersTotalPatients').innerText = userTypeData.patients;
-                document.getElementById('usersTotalRegular').innerText = userTypeData.regular;
+                // Update user type statistics in the UI
+                document.getElementById('usersTotalUsers').textContent = userArray.length;
+                document.getElementById('usersTotalDoctors').textContent = userTypeData.doctors;
+                document.getElementById('usersTotalPatients').textContent = userTypeData.patients;
+                document.getElementById('usersTotalRegular').textContent = userTypeData.regular;
                 
-                // Generate charts
+                // Generate charts for the users tab
                 generateUsersDistributionChart(userTypeData);
                 generateUsersAgeDistributionChart(ageData);
                 generateUsersQuizActivityChart(quizActivityData);
                 generateUsersPerformanceChart(quizPerformanceData);
                 
-                // Display users in hierarchical format
-                displayHierarchicalUsersList(userArray, doctorPatientMap, document.getElementById('usersTable'));
-                
-                // Add filter functionality
+                // Display the user table
+                const usersTable = document.getElementById('usersTable');
+                console.log("Displaying users table with", userArray.length, "users");
+                displayHierarchicalUsersList(userArray, doctorPatientMap, usersTable);
+
+                // Setup filters
                 setupUserFilters();
                 
             } catch (error) {
