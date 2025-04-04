@@ -1357,9 +1357,7 @@
             document.getElementById(tabName + 'Tab').classList.add('active');
             
             // Load specific data for the tab if needed
-            if (tabName === 'overview') {
-                loadDashboardData();
-            } else if (tabName === 'users') {
+            if (tabName === 'users') {
                 loadUsersData();
             } else if (tabName === 'quizzes') {
                 loadQuizzesData();
@@ -1373,24 +1371,12 @@
             try {
                 console.log("Loading dashboard data...");
                 
-                // Clear existing charts to prevent visual glitches
-                if (window.userDistChart) window.userDistChart.destroy();
-                if (window.ageDistChart) window.ageDistChart.destroy();
-                if (window.quizActivityChart) window.quizActivityChart.destroy();
-                if (window.quizPerfChart) window.quizPerfChart.destroy();
+                // Load total users count from Firestore
+                const userProfilesSnapshot = await firestore.collection('userProfiles').get();
+                const totalUsers = userProfilesSnapshot.size;
+                document.getElementById('totalUsers').innerText = totalUsers;
                 
-                // Show loading indicators in stats
-                document.getElementById('totalUsers').innerText = "Loading...";
-                document.getElementById('totalDoctors').innerText = "Loading...";
-                document.getElementById('totalPatients').innerText = "Loading...";
-                document.getElementById('totalQuizzes').innerText = "Loading...";
-                document.getElementById('totalQuizAttempts').innerText = "Loading...";
-                
-                // Initialize counters and data structures
-                const userArray = [];
-                const processedUserRoles = new Map(); // Track which user IDs + roles we've processed
-                const doctorPatientMap = new Map(); // Map of doctor ID to array of patient IDs
-                let totalUsers = 0;
+                // Initialize counters
                 let totalDoctors = 0;
                 let totalPatients = 0;
                 let totalQuizAttempts = 0;
@@ -1409,299 +1395,182 @@
                 const quizActivityData = {};
                 const quizPerformanceData = {};
                 
-                // 1. Directly query all user collections first to find ALL users with ALL their roles
-                console.log("Dashboard Step 1: Finding all users and their potential roles");
-                
-                // Get all doctors
-                let doctorIds = [];
-                try {
-                    const doctorsSnapshot = await db.ref('doctors').once('value');
-                    if (doctorsSnapshot.exists) {
-                        doctorIds = Object.keys(doctorsSnapshot.val() || {});
-                        console.log(`Dashboard: Found ${doctorIds.length} doctors in Realtime DB`);
-                        totalDoctors = doctorIds.length;
-                        userTypeData.doctors = doctorIds.length;
-                    }
-                } catch (error) {
-                    console.error("Error fetching doctors:", error);
-                }
-                
-                // Get all users
-                let userIds = [];
-                try {
-                    const usersSnapshot = await db.ref('users').once('value');
-                    if (usersSnapshot.exists) {
-                        userIds = Object.keys(usersSnapshot.val() || {});
-                        console.log(`Dashboard: Found ${userIds.length} users in Realtime DB`);
-                    }
-                } catch (error) {
-                    console.error("Error fetching users:", error);
-                }
-                
-                // Get all Firestore users
-                let firestoreUserIds = [];
-                try {
-                    const querySnapshot = await firestore.collection('users').get();
-                    firestoreUserIds = querySnapshot.docs.map(doc => doc.id);
-                    console.log(`Dashboard: Found ${firestoreUserIds.length} users in Firestore`);
-                } catch (error) {
-                    console.error("Error fetching Firestore users:", error);
-                }
-                
-                // Combine all unique IDs
-                const allUserIds = new Set([...doctorIds, ...userIds, ...firestoreUserIds]);
-                console.log(`Dashboard: Found ${allUserIds.size} unique user IDs across all collections`);
-                totalUsers = allUserIds.size;
-                document.getElementById('totalUsers').innerText = totalUsers;
-                
-                // 2. For each unique ID, explicitly process as both doctor and user if needed
-                console.log("Dashboard Step 2: Processing each user with their potential roles");
-                
-                for (const userId of allUserIds) {
-                    console.log(`Dashboard: Processing user ID: ${userId}`);
+                // Create maps for easier access
+                const userProfiles = new Map();
+                userProfilesSnapshot.docs.forEach(doc => {
+                    const userData = doc.data();
+                    userProfiles.set(doc.id, {
+                        id: doc.id,
+                        ...userData
+                    });
                     
-                    // Determine if this ID exists as a doctor
-                    let isDoctor = doctorIds.includes(userId);
-                    
-                    // Determine if this ID exists as a regular user
-                    let isUser = userIds.includes(userId) || firestoreUserIds.includes(userId);
-                    
-                    console.log(`User ${userId} roles: doctor=${isDoctor}, user=${isUser}`);
-                    
-                    // IMPORTANT: Process as doctor if applicable
-                    if (isDoctor) {
-                        console.log(`Dashboard: Processing ${userId} as doctor`);
-                        
-                        // Skip if already processed
-                        const doctorRoleKey = `${userId}-doctor`;
-                        if (!processedUserRoles.has(doctorRoleKey)) {
-                            processedUserRoles.set(doctorRoleKey, true);
-                            
-                            // Load profile for doctor role
-                            const { profileData, found } = await loadUserProfileData(userId, 'doctor');
-                            
-                            if (found) {
-                                // Process age data for charts
-                                if (profileData.age) {
-                                    const age = parseInt(profileData.age);
-                                    if (!isNaN(age)) {
-                                        if (age <= 18) ageData["0-18"]++;
-                                        else if (age <= 30) ageData["19-30"]++;
-                                        else if (age <= 45) ageData["31-45"]++;
-                                        else if (age <= 60) ageData["46-60"]++;
-                                        else ageData["61+"]++;
-                                    } else {
-                                        ageData["Unknown"]++;
-                                    }
-                                } else {
-                                    ageData["Unknown"]++;
-                                }
-                                
-                                // Load doctor's own quizzes
-                                try {
-                                    const doctorQuizzesSnapshot = await db.ref(`doctors/${userId}/quiz`).once('value');
-                                    const doctorQuizzes = doctorQuizzesSnapshot.val() || {};
-                                    
-                                    Object.entries(doctorQuizzes).forEach(([quizType, attempts]) => {
-                                        uniqueQuizTypes.add(quizType);
-                                        
-                                        if (attempts) {
-                                            Object.entries(attempts).forEach(([timestamp, result]) => {
-                                                totalQuizAttempts++;
-                                                
-                                                // Store quiz performance data
-                                                if (!quizPerformanceData[quizType]) {
-                                                    quizPerformanceData[quizType] = {
-                                                        attempts: 0,
-                                                        totalScore: 0
-                                                    };
-                                                }
-                                                quizPerformanceData[quizType].attempts++;
-                                                if (result.score !== undefined) {
-                                                    quizPerformanceData[quizType].totalScore += parseFloat(result.score);
-                                                }
-                                                
-                                                // Process date for trend chart
-                                                const date = new Date(parseInt(timestamp));
-                                                const dateString = date.toISOString().split('T')[0];
-                                                
-                                                if (!quizActivityData[dateString]) {
-                                                    quizActivityData[dateString] = 0;
-                                                }
-                                                quizActivityData[dateString]++;
-                                            });
-                                        }
-                                    });
-                                } catch (error) {
-                                    console.warn(`Dashboard: Error loading quizzes for doctor ${userId}:`, error);
-                                }
-                                
-                                // Load patients
-                                try {
-                                    const patientsSnapshot = await db.ref(`doctors/${userId}/patients`).once('value');
-                                    if (patientsSnapshot.exists) {
-                                        const patients = patientsSnapshot.val() || {};
-                                        const patientCount = Object.keys(patients).length;
-                                        totalPatients += patientCount;
-                                        userTypeData.patients += patientCount;
-                                        
-                                        // Create patient map for hierarchical display
-                                        doctorPatientMap.set(userId, []);
-                                        
-                                        // Process each patient
-                                        for (const [patientId, patientData] of Object.entries(patients)) {
-                                            if (!patientData) {
-                                                continue;
-                                            }
-                                            
-                                            // Get patient profile data
-                                            const patientProfile = patientData.profile || {};
-                                            
-                                            // Process age data for patients
-                                            if (patientProfile.age) {
-                                                const age = parseInt(patientProfile.age);
-                                                if (!isNaN(age)) {
-                                                    if (age <= 18) ageData["0-18"]++;
-                                                    else if (age <= 30) ageData["19-30"]++;
-                                                    else if (age <= 45) ageData["31-45"]++;
-                                                    else if (age <= 60) ageData["46-60"]++;
-                                                    else ageData["61+"]++;
-                                                } else {
-                                                    ageData["Unknown"]++;
-                                                }
-                                            } else {
-                                                ageData["Unknown"]++;
-                                            }
-                                            
-                                            // Process patient quizzes
-                                            if (patientData.quiz) {
-                                                Object.entries(patientData.quiz).forEach(([quizType, attempts]) => {
-                                                    uniqueQuizTypes.add(quizType);
-                                                    
-                                                    if (attempts) {
-                                                        Object.entries(attempts).forEach(([timestamp, result]) => {
-                                                            totalQuizAttempts++;
-                                                            
-                                                            // Store quiz performance data
-                                                            if (!quizPerformanceData[quizType]) {
-                                                                quizPerformanceData[quizType] = {
-                                                                    attempts: 0,
-                                                                    totalScore: 0
-                                                                };
-                                                            }
-                                                            quizPerformanceData[quizType].attempts++;
-                                                            if (result.score !== undefined) {
-                                                                quizPerformanceData[quizType].totalScore += parseFloat(result.score);
-                                                            }
-                                                            
-                                                            // Process date for trend chart
-                                                            const date = new Date(parseInt(timestamp));
-                                                            const dateString = date.toISOString().split('T')[0];
-                                                            
-                                                            if (!quizActivityData[dateString]) {
-                                                                quizActivityData[dateString] = 0;
-                                                            }
-                                                            quizActivityData[dateString]++;
-                                                        });
-                                                    }
-                                                });
-                                            }
-                                            
-                                            // Add to doctor's patients array
-                                            doctorPatientMap.get(userId).push(patientId);
-                                        }
-                                    }
-                                } catch (error) {
-                                    console.warn(`Dashboard: Error loading patients for doctor ${userId}:`, error);
-                                }
-                            } else {
-                                console.log(`Dashboard: No doctor profile found for ${userId}, skipping doctor role`);
-                            }
+                    // Process age data
+                    if (userData.age) {
+                        const age = parseInt(userData.age);
+                        if (!isNaN(age)) {
+                            if (age <= 18) ageData["0-18"]++;
+                            else if (age <= 30) ageData["19-30"]++;
+                            else if (age <= 45) ageData["31-45"]++;
+                            else if (age <= 60) ageData["46-60"]++;
+                            else ageData["61+"]++;
                         } else {
-                            console.log(`Dashboard: Already processed ${userId} as doctor, skipping`);
+                            ageData["Unknown"]++;
                         }
+                    } else {
+                        ageData["Unknown"]++;
                     }
-                    
-                    // IMPORTANT: Process as regular user if applicable
-                    if (isUser) {
-                        console.log(`Dashboard: Processing ${userId} as regular user`);
-                        
-                        // Skip if already processed
-                        const userRoleKey = `${userId}-user`;
-                        if (!processedUserRoles.has(userRoleKey)) {
-                            processedUserRoles.set(userRoleKey, true);
-                            
-                            // Load profile for user role
-                            const { profileData, found } = await loadUserProfileData(userId, 'user');
-                            
-                            if (found) {
-                                // Process age data for charts
-                                if (profileData.age) {
-                                    const age = parseInt(profileData.age);
-                                    if (!isNaN(age)) {
-                                        if (age <= 18) ageData["0-18"]++;
-                                        else if (age <= 30) ageData["19-30"]++;
-                                        else if (age <= 45) ageData["31-45"]++;
-                                        else if (age <= 60) ageData["46-60"]++;
-                                        else ageData["61+"]++;
-                                    } else {
-                                        ageData["Unknown"]++;
-                                    }
-                                } else {
-                                    ageData["Unknown"]++;
-                                }
-                                
-                                // Count regular users for charts
-                                userTypeData.regular++;
-                                
-                                // Load user quizzes
-                                try {
-                                    const userQuizzesSnapshot = await db.ref(`users/${userId}/quiz`).once('value');
-                                    const userQuizzes = userQuizzesSnapshot.val() || {};
-                                    
-                                    Object.entries(userQuizzes).forEach(([quizType, attempts]) => {
-                                        uniqueQuizTypes.add(quizType);
-                                        
-                                        if (attempts) {
-                                            Object.entries(attempts).forEach(([timestamp, result]) => {
-                                                totalQuizAttempts++;
-                                                
-                                                // Store quiz performance data
-                                                if (!quizPerformanceData[quizType]) {
-                                                    quizPerformanceData[quizType] = {
-                                                        attempts: 0,
-                                                        totalScore: 0
-                                                    };
-                                                }
-                                                quizPerformanceData[quizType].attempts++;
-                                                if (result.score !== undefined) {
-                                                    quizPerformanceData[quizType].totalScore += parseFloat(result.score);
-                                                }
-                                                
-                                                // Process date for trend chart
-                                                const date = new Date(parseInt(timestamp));
-                                                const dateString = date.toISOString().split('T')[0];
-                                                
-                                                if (!quizActivityData[dateString]) {
-                                                    quizActivityData[dateString] = 0;
-                                                }
-                                                quizActivityData[dateString]++;
-                                            });
-                                        }
-                                    });
-                                } catch (error) {
-                                    console.warn(`Dashboard: Error loading quizzes for user ${userId}:`, error);
-                                }
-                            } else {
-                                console.log(`Dashboard: No user profile found for ${userId}, skipping user role`);
-                            }
-                        } else {
-                            console.log(`Dashboard: Already processed ${userId} as user, skipping`);
-                        }
-                    }
-                }
+                });
                 
-                // Update stat counts
+                // Count doctors and process their quiz data
+                const doctorIds = [];
+                const regularUserIds = [];
+                
+                // Split users by role
+                userProfiles.forEach((profile, id) => {
+                    if (profile.role === 'doctor') {
+                        totalDoctors++;
+                        doctorIds.push(id);
+                        userTypeData.doctors++;
+                    } else {
+                        regularUserIds.push(id);
+                        userTypeData.regular++;
+                    }
+                });
+                
+                // Process doctors and their patients
+                const doctorPromises = doctorIds.map(async doctorId => {
+                    try {
+                        // Get patients for this doctor
+                        const patientsSnapshot = await db.ref(`doctors/${doctorId}/patients`).once('value');
+                        const patientsData = patientsSnapshot.val() || {};
+                        
+                        // Count patients
+                        const patientCount = Object.keys(patientsData).length;
+                        totalPatients += patientCount;
+                        userTypeData.patients += patientCount;
+                        
+                        // Process each patient's quizzes
+                        Object.entries(patientsData).forEach(([patientId, patientData]) => {
+                            if (patientData && patientData.quiz) {
+                                Object.entries(patientData.quiz).forEach(([quizType, attempts]) => {
+                                    uniqueQuizTypes.add(quizType);
+                                    
+                                    if (attempts) {
+                                        // For quiz activity trends by date
+                                        Object.entries(attempts).forEach(([timestamp, result]) => {
+                                            totalQuizAttempts++;
+                                            
+                                            // Store quiz performance data
+                                            if (!quizPerformanceData[quizType]) {
+                                                quizPerformanceData[quizType] = {
+                                                    attempts: 0,
+                                                    totalScore: 0
+                                                };
+                                            }
+                                            quizPerformanceData[quizType].attempts++;
+                                            if (result.score !== undefined) {
+                                                quizPerformanceData[quizType].totalScore += parseFloat(result.score);
+                                            }
+                                            
+                                            // Process date for trend chart
+                                            const date = new Date(parseInt(timestamp));
+                                            const dateString = date.toISOString().split('T')[0];
+                                            
+                                            if (!quizActivityData[dateString]) {
+                                                quizActivityData[dateString] = 0;
+                                            }
+                                            quizActivityData[dateString]++;
+                                        });
+                                    }
+                                });
+                            }
+                        });
+                        
+                        // Process doctor's own quizzes
+                        const doctorQuizzesSnapshot = await db.ref(`doctors/${doctorId}/quiz`).once('value');
+                        const doctorQuizzes = doctorQuizzesSnapshot.val() || {};
+                        
+                        Object.entries(doctorQuizzes).forEach(([quizType, attempts]) => {
+                            uniqueQuizTypes.add(quizType);
+                            
+                            if (attempts) {
+                                Object.entries(attempts).forEach(([timestamp, result]) => {
+                                    totalQuizAttempts++;
+                                    
+                                    // Store quiz performance data
+                                    if (!quizPerformanceData[quizType]) {
+                                        quizPerformanceData[quizType] = {
+                                            attempts: 0,
+                                            totalScore: 0
+                                        };
+                                    }
+                                    quizPerformanceData[quizType].attempts++;
+                                    if (result.score !== undefined) {
+                                        quizPerformanceData[quizType].totalScore += parseFloat(result.score);
+                                    }
+                                    
+                                    // Process date for trend chart
+                                    const date = new Date(parseInt(timestamp));
+                                    const dateString = date.toISOString().split('T')[0];
+                                    
+                                    if (!quizActivityData[dateString]) {
+                                        quizActivityData[dateString] = 0;
+                                    }
+                                    quizActivityData[dateString]++;
+                                });
+                            }
+                        });
+                    } catch (error) {
+                        console.warn(`Error processing doctor ${doctorId}:`, error);
+                    }
+                });
+                
+                // Process regular users
+                const userPromises = regularUserIds.map(async userId => {
+                    try {
+                        // Check user's quizzes
+                        const userQuizzesSnapshot = await db.ref(`users/${userId}/quiz`).once('value');
+                        const userQuizzes = userQuizzesSnapshot.val() || {};
+                        
+                        Object.entries(userQuizzes).forEach(([quizType, attempts]) => {
+                            uniqueQuizTypes.add(quizType);
+                            
+                            if (attempts) {
+                                Object.entries(attempts).forEach(([timestamp, result]) => {
+                                    totalQuizAttempts++;
+                                    
+                                    // Store quiz performance data
+                                    if (!quizPerformanceData[quizType]) {
+                                        quizPerformanceData[quizType] = {
+                                            attempts: 0,
+                                            totalScore: 0
+                                        };
+                                    }
+                                    quizPerformanceData[quizType].attempts++;
+                                    if (result.score !== undefined) {
+                                        quizPerformanceData[quizType].totalScore += parseFloat(result.score);
+                                    }
+                                    
+                                    // Process date for trend chart
+                                    const date = new Date(parseInt(timestamp));
+                                    const dateString = date.toISOString().split('T')[0];
+                                    
+                                    if (!quizActivityData[dateString]) {
+                                        quizActivityData[dateString] = 0;
+                                    }
+                                    quizActivityData[dateString]++;
+                                });
+                            }
+                        });
+                    } catch (error) {
+                        console.warn(`Error processing user ${userId}:`, error);
+                    }
+                });
+                
+                // Wait for all promises to complete
+                await Promise.all([...doctorPromises, ...userPromises]);
+                
+                // Update the dashboard statistics
                 document.getElementById('totalDoctors').innerText = totalDoctors;
                 document.getElementById('totalPatients').innerText = totalPatients;
                 document.getElementById('totalQuizzes').innerText = uniqueQuizTypes.size;
@@ -1713,16 +1582,17 @@
                 generateQuizActivityChart(quizActivityData);
                 generateQuizPerformanceChart(quizPerformanceData);
                 
-                console.log("Dashboard data loaded successfully");
+                // Load recent activity
+                await loadRecentActivity();
+                
+                // Load top quizzes
+                await loadTopQuizzes();
+                
             } catch (error) {
                 console.error("Error loading dashboard data:", error);
-                
-                // Show error in stats
-                document.getElementById('totalUsers').innerText = "Error";
-                document.getElementById('totalDoctors').innerText = "Error";
-                document.getElementById('totalPatients').innerText = "Error";
-                document.getElementById('totalQuizzes').innerText = "Error";
-                document.getElementById('totalQuizAttempts').innerText = "Error";
+                document.getElementById('dashboardContent').innerHTML = `
+                    <div class="error-message">Error loading dashboard data: ${error.message}</div>
+                `;
             }
         }
         
@@ -1941,7 +1811,7 @@
                     // Doctor's own quizzes
                     try {
                         const doctorQuizzes = await db.ref(`doctors/${doctorId}/quiz`).once('value');
-                        if (doctorQuizzes.exists) {
+                        if (doctorQuizzes.exists()) {
                             const doctorProfile = userProfiles.get(doctorId);
                             
                             Object.entries(doctorQuizzes.val()).forEach(([quizType, attempts]) => {
@@ -1965,31 +1835,29 @@
                     // Patients' quizzes
                     try {
                         const patientsSnapshot = await db.ref(`doctors/${doctorId}/patients`).once('value');
-                        if (patientsSnapshot.exists) {
+                        if (patientsSnapshot.exists()) {
                             
                             Object.entries(patientsSnapshot.val()).forEach(([patientId, patientData]) => {
-                                if (!patientData) {
-                                    return;
-                                }
-                                
-                                // Try to get patient name from profile if it exists
-                                const patientName = patientData.profile && patientData.profile.name 
-                                    ? patientData.profile.name
-                                    : 'Patient';
-                                
-                                Object.entries(patientData.quiz).forEach(([quizType, attempts]) => {
-                                    if (attempts) {
-                                        Object.entries(attempts).forEach(([timestamp, result]) => {
-                                            recentAttempts.push({
-                                                timestamp: parseInt(timestamp),
-                                                user: patientName,
-                                                quizType,
-                                                score: result.score !== undefined ? `${result.score}%` : 'N/A',
-                                                userType: 'Patient'
+                                if (patientData && patientData.quiz) {
+                                    // Try to get patient name from profile if it exists
+                                    const patientName = patientData.profile && patientData.profile.name 
+                                        ? patientData.profile.name
+                                        : 'Patient';
+                                    
+                                    Object.entries(patientData.quiz).forEach(([quizType, attempts]) => {
+                                        if (attempts) {
+                                            Object.entries(attempts).forEach(([timestamp, result]) => {
+                                                recentAttempts.push({
+                                                    timestamp: parseInt(timestamp),
+                                                    user: patientName,
+                                                    quizType,
+                                                    score: result.score !== undefined ? `${result.score}%` : 'N/A',
+                                                    userType: 'Patient'
+                                                });
                                             });
-                                        });
-                                    }
-                                });
+                                        }
+                                    });
+                                }
                             });
                         }
                     } catch (error) {
@@ -2009,7 +1877,7 @@
                         // If the role exists, use the path that matches the user's profile structure
                         
                         const userQuizzes = await db.ref(`users/${userId}/quiz`).once('value');
-                        if (userQuizzes.exists) {
+                        if (userQuizzes.exists()) {
                             const userProfile = userProfiles.get(userId);
                             
                             Object.entries(userQuizzes.val()).forEach(([quizType, attempts]) => {
@@ -2087,321 +1955,118 @@
                 // Initialize quiz data structure
                 const quizData = {};
                 
-                // 1. Directly query all user collections first to find ALL users with ALL their roles
-                console.log("Dashboard Step 1: Finding all users and their potential roles");
+                // Process doctor quiz results from Realtime Database
+                const doctorIds = Array.from(userProfiles.entries())
+                    .filter(([_, profile]) => profile.role === 'doctor')
+                    .map(([id, _]) => id);
                 
-                // Get all doctors
-                let doctorIds = [];
-                try {
-                    const doctorsSnapshot = await db.ref('doctors').once('value');
-                    if (doctorsSnapshot.exists) {
-                        doctorIds = Object.keys(doctorsSnapshot.val() || {});
-                        console.log(`Dashboard: Found ${doctorIds.length} doctors in Realtime DB`);
-                        totalDoctors = doctorIds.length;
-                        userTypeData.doctors = doctorIds.length;
+                for (const doctorId of doctorIds) {
+                    // Doctor's own quizzes (if any)
+                    const doctorQuizzes = await db.ref(`doctors/${doctorId}/quiz`).once('value');
+                    if (doctorQuizzes.exists()) {
+                        processQuizData(quizData, doctorQuizzes.val(), 'Doctor');
                     }
-                } catch (error) {
-                    console.error("Error fetching doctors:", error);
-                }
-                
-                // Get all users
-                let userIds = [];
-                try {
-                    const usersSnapshot = await db.ref('users').once('value');
-                    if (usersSnapshot.exists) {
-                        userIds = Object.keys(usersSnapshot.val() || {});
-                        console.log(`Dashboard: Found ${userIds.length} users in Realtime DB`);
-                    }
-                } catch (error) {
-                    console.error("Error fetching users:", error);
-                }
-                
-                // Get all Firestore users
-                let firestoreUserIds = [];
-                try {
-                    const querySnapshot = await firestore.collection('users').get();
-                    firestoreUserIds = querySnapshot.docs.map(doc => doc.id);
-                    console.log(`Dashboard: Found ${firestoreUserIds.length} users in Firestore`);
-                } catch (error) {
-                    console.error("Error fetching Firestore users:", error);
-                }
-                
-                // Combine all unique IDs
-                const allUserIds = new Set([...doctorIds, ...userIds, ...firestoreUserIds]);
-                console.log(`Dashboard: Found ${allUserIds.size} unique user IDs across all collections`);
-                totalUsers = allUserIds.size;
-                document.getElementById('totalUsers').innerText = totalUsers;
-                
-                // 2. For each unique ID, explicitly process as both doctor and user if needed
-                console.log("Dashboard Step 2: Processing each user with their potential roles");
-                
-                for (const userId of allUserIds) {
-                    console.log(`Dashboard: Processing user ID: ${userId}`);
                     
-                    // Determine if this ID exists as a doctor
-                    let isDoctor = doctorIds.includes(userId);
-                    
-                    // Determine if this ID exists as a regular user
-                    let isUser = userIds.includes(userId) || firestoreUserIds.includes(userId);
-                    
-                    console.log(`User ${userId} roles: doctor=${isDoctor}, user=${isUser}`);
-                    
-                    // IMPORTANT: Process as doctor if applicable
-                    if (isDoctor) {
-                        console.log(`Dashboard: Processing ${userId} as doctor`);
-                        
-                        // Skip if already processed
-                        const doctorRoleKey = `${userId}-doctor`;
-                        if (!processedUserRoles.has(doctorRoleKey)) {
-                            processedUserRoles.set(doctorRoleKey, true);
-                            
-                            // Load profile for doctor role
-                            const { profileData, found } = await loadUserProfileData(userId, 'doctor');
-                            
-                            if (found) {
-                                // Process age data for charts
-                                if (profileData.age) {
-                                    const age = parseInt(profileData.age);
-                                    if (!isNaN(age)) {
-                                        if (age <= 18) ageData["0-18"]++;
-                                        else if (age <= 30) ageData["19-30"]++;
-                                        else if (age <= 45) ageData["31-45"]++;
-                                        else if (age <= 60) ageData["46-60"]++;
-                                        else ageData["61+"]++;
-                                    } else {
-                                        ageData["Unknown"]++;
-                                    }
-                                } else {
-                                    ageData["Unknown"]++;
-                                }
-                                
-                                // Load doctor's own quizzes
-                                try {
-                                    const doctorQuizzesSnapshot = await db.ref(`doctors/${userId}/quiz`).once('value');
-                                    const doctorQuizzes = doctorQuizzesSnapshot.val() || {};
-                                    
-                                    Object.entries(doctorQuizzes).forEach(([quizType, attempts]) => {
-                                        uniqueQuizTypes.add(quizType);
-                                        
-                                        if (attempts) {
-                                            Object.entries(attempts).forEach(([timestamp, result]) => {
-                                                totalQuizAttempts++;
-                                                
-                                                // Store quiz performance data
-                                                if (!quizPerformanceData[quizType]) {
-                                                    quizPerformanceData[quizType] = {
-                                                        attempts: 0,
-                                                        totalScore: 0
-                                                    };
-                                                }
-                                                quizPerformanceData[quizType].attempts++;
-                                                if (result.score !== undefined) {
-                                                    quizPerformanceData[quizType].totalScore += parseFloat(result.score);
-                                                }
-                                                
-                                                // Process date for trend chart
-                                                const date = new Date(parseInt(timestamp));
-                                                const dateString = date.toISOString().split('T')[0];
-                                                
-                                                if (!quizActivityData[dateString]) {
-                                                    quizActivityData[dateString] = 0;
-                                                }
-                                                quizActivityData[dateString]++;
-                                            });
-                                        }
-                                    });
-                                } catch (error) {
-                                    console.warn(`Dashboard: Error loading quizzes for doctor ${userId}:`, error);
-                                }
-                                
-                                // Load patients
-                                try {
-                                    const patientsSnapshot = await db.ref(`doctors/${userId}/patients`).once('value');
-                                    if (patientsSnapshot.exists) {
-                                        const patients = patientsSnapshot.val() || {};
-                                        const patientCount = Object.keys(patients).length;
-                                        totalPatients += patientCount;
-                                        userTypeData.patients += patientCount;
-                                        
-                                        // Create patient map for hierarchical display
-                                        doctorPatientMap.set(userId, []);
-                                        
-                                        // Process each patient
-                                        for (const [patientId, patientData] of Object.entries(patients)) {
-                                            if (!patientData) {
-                                                continue;
-                                            }
-                                            
-                                            // Get patient profile data
-                                            const patientProfile = patientData.profile || {};
-                                            
-                                            // Process age data for patients
-                                            if (patientProfile.age) {
-                                                const age = parseInt(patientProfile.age);
-                                                if (!isNaN(age)) {
-                                                    if (age <= 18) ageData["0-18"]++;
-                                                    else if (age <= 30) ageData["19-30"]++;
-                                                    else if (age <= 45) ageData["31-45"]++;
-                                                    else if (age <= 60) ageData["46-60"]++;
-                                                    else ageData["61+"]++;
-                                                } else {
-                                                    ageData["Unknown"]++;
-                                                }
-                                            } else {
-                                                ageData["Unknown"]++;
-                                            }
-                                            
-                                            // Process patient quizzes
-                                            if (patientData.quiz) {
-                                                Object.entries(patientData.quiz).forEach(([quizType, attempts]) => {
-                                                    uniqueQuizTypes.add(quizType);
-                                                    
-                                                    if (attempts) {
-                                                        Object.entries(attempts).forEach(([timestamp, result]) => {
-                                                            totalQuizAttempts++;
-                                                            
-                                                            // Store quiz performance data
-                                                            if (!quizPerformanceData[quizType]) {
-                                                                quizPerformanceData[quizType] = {
-                                                                    attempts: 0,
-                                                                    totalScore: 0
-                                                                };
-                                                            }
-                                                            quizPerformanceData[quizType].attempts++;
-                                                            if (result.score !== undefined) {
-                                                                quizPerformanceData[quizType].totalScore += parseFloat(result.score);
-                                                            }
-                                                            
-                                                            // Process date for trend chart
-                                                            const date = new Date(parseInt(timestamp));
-                                                            const dateString = date.toISOString().split('T')[0];
-                                                            
-                                                            if (!quizActivityData[dateString]) {
-                                                                quizActivityData[dateString] = 0;
-                                                            }
-                                                            quizActivityData[dateString]++;
-                                                        });
-                                                    }
-                                                });
-                                            }
-                                            
-                                            // Add to doctor's patients array
-                                            doctorPatientMap.get(userId).push(patientId);
-                                        }
-                                    }
-                                } catch (error) {
-                                    console.warn(`Dashboard: Error loading patients for doctor ${userId}:`, error);
-                                }
-                            } else {
-                                console.log(`Dashboard: No doctor profile found for ${userId}, skipping doctor role`);
+                    // Patients' quizzes
+                    const patientsSnapshot = await db.ref(`doctors/${doctorId}/patients`).once('value');
+                    if (patientsSnapshot.exists()) {
+                        const patients = patientsSnapshot.val();
+                        Object.entries(patients).forEach(([patientId, patientData]) => {
+                            if (patientData && patientData.quiz) {
+                                processQuizData(quizData, patientData.quiz, 'Patient');
                             }
-                        } else {
-                            console.log(`Dashboard: Already processed ${userId} as doctor, skipping`);
-                        }
-                    }
-                    
-                    // IMPORTANT: Process as regular user if applicable
-                    if (isUser) {
-                        console.log(`Dashboard: Processing ${userId} as regular user`);
-                        
-                        // Skip if already processed
-                        const userRoleKey = `${userId}-user`;
-                        if (!processedUserRoles.has(userRoleKey)) {
-                            processedUserRoles.set(userRoleKey, true);
-                            
-                            // Load profile for user role
-                            const { profileData, found } = await loadUserProfileData(userId, 'user');
-                            
-                            if (found) {
-                                // Process age data for charts
-                                if (profileData.age) {
-                                    const age = parseInt(profileData.age);
-                                    if (!isNaN(age)) {
-                                        if (age <= 18) ageData["0-18"]++;
-                                        else if (age <= 30) ageData["19-30"]++;
-                                        else if (age <= 45) ageData["31-45"]++;
-                                        else if (age <= 60) ageData["46-60"]++;
-                                        else ageData["61+"]++;
-                                    } else {
-                                        ageData["Unknown"]++;
-                                    }
-                                } else {
-                                    ageData["Unknown"]++;
-                                }
-                                
-                                // Count regular users for charts
-                                userTypeData.regular++;
-                                
-                                // Load user quizzes
-                                try {
-                                    const userQuizzesSnapshot = await db.ref(`users/${userId}/quiz`).once('value');
-                                    const userQuizzes = userQuizzesSnapshot.val() || {};
-                                    
-                                    Object.entries(userQuizzes).forEach(([quizType, attempts]) => {
-                                        uniqueQuizTypes.add(quizType);
-                                        
-                                        if (attempts) {
-                                            Object.entries(attempts).forEach(([timestamp, result]) => {
-                                                totalQuizAttempts++;
-                                                
-                                                // Store quiz performance data
-                                                if (!quizPerformanceData[quizType]) {
-                                                    quizPerformanceData[quizType] = {
-                                                        attempts: 0,
-                                                        totalScore: 0
-                                                    };
-                                                }
-                                                quizPerformanceData[quizType].attempts++;
-                                                if (result.score !== undefined) {
-                                                    quizPerformanceData[quizType].totalScore += parseFloat(result.score);
-                                                }
-                                                
-                                                // Process date for trend chart
-                                                const date = new Date(parseInt(timestamp));
-                                                const dateString = date.toISOString().split('T')[0];
-                                                
-                                                if (!quizActivityData[dateString]) {
-                                                    quizActivityData[dateString] = 0;
-                                                }
-                                                quizActivityData[dateString]++;
-                                            });
-                                        }
-                                    });
-                                } catch (error) {
-                                    console.warn(`Dashboard: Error loading quizzes for user ${userId}:`, error);
-                                }
-                            } else {
-                                console.log(`Dashboard: No user profile found for ${userId}, skipping user role`);
-                            }
-                        } else {
-                            console.log(`Dashboard: Already processed ${userId} as user, skipping`);
-                        }
+                        });
                     }
                 }
                 
-                // Update stat counts
-                document.getElementById('totalDoctors').innerText = totalDoctors;
-                document.getElementById('totalPatients').innerText = totalPatients;
-                document.getElementById('totalQuizzes').innerText = uniqueQuizTypes.size;
-                document.getElementById('totalQuizAttempts').innerText = totalQuizAttempts;
+                // Process regular user quiz results from Realtime Database
+                const regularUserIds = Array.from(userProfiles.entries())
+                    .filter(([_, profile]) => profile.role !== 'doctor')
+                    .map(([id, _]) => id);
                 
-                // Generate charts
-                generateUserDistributionChart(userTypeData);
-                generateAgeDistributionChart(ageData);
-                generateQuizActivityChart(quizActivityData);
-                generateQuizPerformanceChart(quizPerformanceData);
+                for (const userId of regularUserIds) {
+                    const userQuizzes = await db.ref(`users/${userId}/quiz`).once('value');
+                    if (userQuizzes.exists()) {
+                        processQuizData(quizData, userQuizzes.val(), 'Regular User');
+                    }
+                }
                 
-                console.log("Dashboard data loaded successfully");
+                // Convert to array and sort by total attempts
+                const quizStats = Object.keys(quizData).map(quizType => {
+                    const stats = quizData[quizType];
+                    const totalAttempts = stats.doctorAttempts + stats.patientAttempts + stats.userAttempts;
+                    const avgScore = stats.totalScore / totalAttempts || 0;
+                    
+                    return {
+                        name: quizType,
+                        totalAttempts,
+                        avgScore: avgScore.toFixed(2),
+                        doctorAttempts: stats.doctorAttempts,
+                        patientAttempts: stats.patientAttempts,
+                        userAttempts: stats.userAttempts
+                    };
+                });
+                
+                quizStats.sort((a, b) => b.totalAttempts - a.totalAttempts);
+                
+                // Display quiz statistics
+                topQuizzesContainer.innerHTML = ''; // Clear loading message
+                if (quizStats.length > 0) {
+                    quizStats.forEach(quiz => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${quiz.name}</td>
+                            <td>${quiz.totalAttempts}</td>
+                            <td>${quiz.avgScore}%</td>
+                            <td>${quiz.doctorAttempts}</td>
+                            <td>${quiz.patientAttempts}</td>
+                            <td>${quiz.userAttempts}</td>
+                        `;
+                        topQuizzesContainer.appendChild(row);
+                    });
+                } else {
+                    topQuizzesContainer.innerHTML = '<tr><td colspan="6">No quiz data found</td></tr>';
+                }
+                
             } catch (error) {
-                console.error("Error loading dashboard data:", error);
-                
-                // Show error in stats
-                document.getElementById('totalUsers').innerText = "Error";
-                document.getElementById('totalDoctors').innerText = "Error";
-                document.getElementById('totalPatients').innerText = "Error";
-                document.getElementById('totalQuizzes').innerText = "Error";
-                document.getElementById('totalQuizAttempts').innerText = "Error";
+                console.error("Error loading top quizzes:", error);
+                document.getElementById('topQuizzesTable').innerHTML = 
+                    `<tr><td colspan="6">Error loading data: ${error.message}</td></tr>`;
             }
+        }
+        
+        // Process quiz data and update statistics
+        function processQuizData(quizData, quizzes, userType) {
+            Object.entries(quizzes).forEach(([quizType, attempts]) => {
+                if (!attempts) return;
+                
+                // Initialize quiz stats if needed
+                if (!quizData[quizType]) {
+                    quizData[quizType] = {
+                        totalScore: 0,
+                        doctorAttempts: 0,
+                        patientAttempts: 0,
+                        userAttempts: 0
+                    };
+                }
+                
+                // Process all attempts for this quiz type
+                Object.entries(attempts).forEach(([timestamp, result]) => {
+                    // Add to appropriate counter based on user type
+                    if (userType === 'Doctor') {
+                        quizData[quizType].doctorAttempts++;
+                    } else if (userType === 'Patient') {
+                        quizData[quizType].patientAttempts++;
+                    } else {
+                        quizData[quizType].userAttempts++;
+                    }
+                    
+                    // Add to total score if available
+                    if (result.score !== undefined) {
+                        quizData[quizType].totalScore += parseFloat(result.score);
+                    }
+                });
+            });
         }
         
         // Load quizzes data for the Quizzes tab
@@ -2668,7 +2333,7 @@
                 let doctorIds = [];
                 try {
                     const doctorsSnapshot = await db.ref('doctors').once('value');
-                    if (doctorsSnapshot.exists) {
+                    if (doctorsSnapshot.exists()) {
                         doctorIds = Object.keys(doctorsSnapshot.val() || {});
                         console.log(`Found ${doctorIds.length} doctors in Realtime DB`);
                     }
@@ -2680,7 +2345,7 @@
                 let userIds = [];
                 try {
                     const usersSnapshot = await db.ref('users').once('value');
-                    if (usersSnapshot.exists) {
+                    if (usersSnapshot.exists()) {
                         userIds = Object.keys(usersSnapshot.val() || {});
                         console.log(`Found ${userIds.length} users in Realtime DB`);
                     }
@@ -2765,7 +2430,7 @@
                                 // Load patients
                                 try {
                                     const patientsSnapshot = await db.ref(`doctors/${userId}/patients`).once('value');
-                                    if (patientsSnapshot.exists) {
+                                    if (patientsSnapshot.exists()) {
                                         const patients = patientsSnapshot.val();
                                         doctorUser.patientCount = Object.keys(patients).length;
                                         
@@ -2774,70 +2439,56 @@
                                         
                                         // Process each patient
                                         for (const [patientId, patientData] of Object.entries(patients)) {
-                                            if (!patientData) {
-                                                continue;
-                                            }
+                                            if (!patientData) continue;
                                             
                                             // Get patient profile data
                                             const patientProfile = patientData.profile || {};
                                             
-                                            // Process age data for patients
-                                            if (patientProfile.age) {
-                                                const age = parseInt(patientProfile.age);
-                                                if (!isNaN(age)) {
-                                                    if (age <= 18) ageData["0-18"]++;
-                                                    else if (age <= 30) ageData["19-30"]++;
-                                                    else if (age <= 45) ageData["31-45"]++;
-                                                    else if (age <= 60) ageData["46-60"]++;
-                                                    else ageData["61+"]++;
-                                                } else {
-                                                    ageData["Unknown"]++;
-                                                }
-                                            } else {
-                                                ageData["Unknown"]++;
-                                            }
+                                            // Use our comprehensive function to get patient quiz data
+                                            const { quizData: patientQuizData, found: foundPatientQuizData } = 
+                                                await loadPatientQuizData(patientId, userId);
+                                                
+                                            const quizCount = foundPatientQuizData ? countQuizzes(patientQuizData) : 0;
                                             
-                                            // Process patient quizzes
-                                            if (patientData.quiz) {
-                                                Object.entries(patientData.quiz).forEach(([quizType, attempts]) => {
-                                                    uniqueQuizTypes.add(quizType);
-                                                    
-                                                    if (attempts) {
-                                                        Object.entries(attempts).forEach(([timestamp, result]) => {
-                                                            totalQuizAttempts++;
-                                                            
-                                                            // Store quiz performance data
-                                                            if (!quizPerformanceData[quizType]) {
-                                                                quizPerformanceData[quizType] = {
-                                                                    attempts: 0,
-                                                                    totalScore: 0
-                                                                };
-                                                            }
-                                                            quizPerformanceData[quizType].attempts++;
-                                                            if (result.score !== undefined) {
-                                                                quizPerformanceData[quizType].totalScore += parseFloat(result.score);
-                                                            }
-                                                            
-                                                            // Process date for trend chart
-                                                            const date = new Date(parseInt(timestamp));
-                                                            const dateString = date.toISOString().split('T')[0];
-                                                            
-                                                            if (!quizActivityData[dateString]) {
-                                                                quizActivityData[dateString] = 0;
-                                                            }
-                                                            quizActivityData[dateString]++;
-                                                        });
-                                                    }
-                                                });
-                                            }
+                                            // Create patient object
+                                            const patient = {
+                                                id: patientId,
+                                                name: patientProfile.name || 'Unknown Patient',
+                                                email: patientProfile.email || 'No email',
+                                                role: 'patient',
+                                                quizCount: quizCount,
+                                                lastActive: foundPatientQuizData ? getLastActiveDate(patientQuizData) : 'Never',
+                                                medicalCondition: patientProfile.medicalCondition || 'N/A',
+                                                age: patientProfile.age || 'N/A',
+                                                gender: patientProfile.gender || 'N/A',
+                                                assignedDoctor: userId,
+                                                initials: getInitials(patientProfile.name || 'Unknown Patient'),
+                                                quizData: patientQuizData,
+                                                roleDisplay: `${patientProfile.name || 'Unknown Patient'} (Patient)`
+                                            };
                                             
                                             // Add to doctor's patients array
                                             doctorPatientMap.get(userId).push(patientId);
+                                            
+                                            // Add to overall user array if not already added
+                                            const patientExists = userArray.some(u => 
+                                                u.id === patientId && u.role === 'patient' && u.assignedDoctor === userId);
+                                            
+                                            if (!patientExists) {
+                                                userArray.push(patient);
+                                            }
                                         }
+                                    } else {
+                                        doctorUser.patientCount = 0;
                                     }
                                 } catch (error) {
                                     console.warn(`Error loading patients for doctor ${userId}:`, error);
+                                    doctorUser.patientCount = 0;
                                 }
+                                
+                                // Add doctor to user array
+                                userArray.push(doctorUser);
+                                console.log(`Added user ${userId} as doctor role`);
                             } else {
                                 console.log(`No doctor profile found for ${userId}, skipping doctor role`);
                             }
@@ -2917,87 +2568,6 @@
             }
         }
         
-        // Load comprehensive user profile data from either Firestore or Realtime DB
-        async function loadUserProfileData(userId, role = 'user') {
-            console.log(`Loading profile data for ${userId} with role ${role}`);
-            let profileData = {
-                id: userId,
-                name: 'Unknown',
-                email: 'N/A',
-                role: role,
-                age: 'N/A',
-                gender: 'N/A',
-                medicalCondition: 'N/A'
-            };
-            let found = false;
-            
-            // Try different paths based on role to get the most appropriate data
-            
-            // Try path 1: Firestore
-            try {
-                const userDoc = await firestore.collection('users').doc(userId).get();
-                if (userDoc.exists) {
-                    const userData = userDoc.data();
-                    profileData = {
-                        ...profileData,
-                        ...userData,
-                        role: role // Ensure we use the role passed to this function rather than what's in Firestore
-                    };
-                    
-                    if (userData.name) {
-                        found = true;
-                        console.log(`Found ${role} profile data for ${userId} in Firestore`);
-                    }
-                }
-            } catch (error) {
-                console.warn(`Could not fetch ${role} profile data for ${userId} from Firestore:`, error);
-            }
-            
-            // Try path 2: Realtime Database user path
-            const dbPath = role === 'doctor' ? 'doctors' : 'users';
-            try {
-                const userRef = await db.ref(`${dbPath}/${userId}/profile`).once('value');
-                
-                if (userRef.exists) {
-                    const userData = userRef.val();
-                    if (userData && userData.name) {
-                        profileData = {
-                            ...profileData,
-                            ...userData,
-                            role: role // Force the role to be what was passed in
-                        };
-                        found = true;
-                        console.log(`Found ${role} profile data for ${userId} in Realtime DB ${dbPath}`);
-                    }
-                }
-            } catch (error) {
-                console.warn(`Could not fetch ${role} profile for ${userId} from Realtime DB ${dbPath}:`, error);
-            }
-            
-            // If the profile is for a doctor and not found, check doctors collection
-            if (role === 'doctor' && !found) {
-                try {
-                    const doctorRef = await db.ref(`doctors/${userId}`).once('value');
-                    if (doctorRef.exists) {
-                        const doctorData = doctorRef.val();
-                        if (doctorData && doctorData.profile && doctorData.profile.name) {
-                            profileData = {
-                                ...profileData,
-                                ...doctorData.profile,
-                                role: 'doctor'
-                            };
-                            found = true;
-                            console.log(`Found doctor profile for ${userId} in Realtime DB doctors`);
-                        }
-                    }
-                } catch (error) {
-                    console.warn(`Could not fetch doctor profile for ${userId} from Realtime DB doctors:`, error);
-                }
-            }
-            
-            return { profileData, found };
-        }
-        
         // Function to load patient quiz data from all possible paths
         async function loadPatientQuizData(patientId, doctorId = null) {
             console.log(`Loading quiz data for user ${patientId}, doctor: ${doctorId || 'N/A'}`);
@@ -3007,7 +2577,7 @@
             // Try path 1: under regular users
             try {
                 const quizRef = await db.ref(`users/${patientId}/quiz`).once('value');
-                if (quizRef.exists) {
+                if (quizRef.exists()) {
                     console.log(`Found quiz data in users/${patientId}/quiz`);
                     quizData = {...quizData, ...quizRef.val()};
                     found = true;
@@ -3020,7 +2590,7 @@
             // Try path 2: check if this person is/was a doctor (has quiz data as doctor)
             try {
                 const doctorQuizRef = await db.ref(`doctors/${patientId}/quiz`).once('value');
-                if (doctorQuizRef.exists) {
+                if (doctorQuizRef.exists()) {
                     console.log(`Found quiz data in doctors/${patientId}/quiz - user has doctor role`);
                     quizData = {...quizData, ...doctorQuizRef.val()};
                     found = true;
@@ -3034,7 +2604,7 @@
             if (doctorId) {
                 try {
                     const quizRef = await db.ref(`doctors/${doctorId}/patients/${patientId}/quiz`).once('value');
-                    if (quizRef.exists) {
+                    if (quizRef.exists()) {
                         console.log(`Found quiz data in doctors/${doctorId}/patients/${patientId}/quiz`);
                         quizData = {...quizData, ...quizRef.val()};
                         found = true;
@@ -3048,7 +2618,7 @@
             if (!doctorId) {
                 try {
                     const doctorsRef = await db.ref('doctors').once('value');
-                    if (doctorsRef.exists) {
+                    if (doctorsRef.exists()) {
                         const doctors = doctorsRef.val();
                         for (const [docId, doctorData] of Object.entries(doctors)) {
                             if (doctorData.patients && doctorData.patients[patientId] && doctorData.patients[patientId].quiz) {
@@ -3126,6 +2696,87 @@
                 totalQuizzes,
                 lastActive: latestTimestamp > 0 ? new Date(latestTimestamp).toLocaleString() : 'Never'
             };
+        }
+        
+        // Load comprehensive user profile data from either Firestore or Realtime DB
+        async function loadUserProfileData(userId, role = 'user') {
+            console.log(`Loading profile data for ${userId} with role ${role}`);
+            let profileData = {
+                id: userId,
+                name: 'Unknown',
+                email: 'N/A',
+                role: role,
+                age: 'N/A',
+                gender: 'N/A',
+                medicalCondition: 'N/A'
+            };
+            let found = false;
+            
+            // Try different paths based on role to get the most appropriate data
+            
+            // Try path 1: Firestore
+            try {
+                const userDoc = await firestore.collection('users').doc(userId).get();
+                if (userDoc.exists) {
+                    const userData = userDoc.data();
+                    profileData = {
+                        ...profileData,
+                        ...userData,
+                        role: role // Ensure we use the role passed to this function rather than what's in Firestore
+                    };
+                    
+                    if (userData.name) {
+                        found = true;
+                        console.log(`Found ${role} profile data for ${userId} in Firestore`);
+                    }
+                }
+            } catch (error) {
+                console.warn(`Could not fetch ${role} profile data for ${userId} from Firestore:`, error);
+            }
+            
+            // Try path 2: Realtime Database user path
+            const dbPath = role === 'doctor' ? 'doctors' : 'users';
+            try {
+                const userRef = await db.ref(`${dbPath}/${userId}/profile`).once('value');
+                
+                if (userRef.exists()) {
+                    const userData = userRef.val();
+                    if (userData && userData.name) {
+                        profileData = {
+                            ...profileData,
+                            ...userData,
+                            role: role // Force the role to be what was passed in
+                        };
+                        found = true;
+                        console.log(`Found ${role} profile data for ${userId} in Realtime DB ${dbPath}`);
+                    }
+                }
+            } catch (error) {
+                console.warn(`Could not fetch ${role} profile for ${userId} from Realtime DB ${dbPath}:`, error);
+            }
+            
+            // If the profile is for a doctor and not found, check doctors collection
+            if (role === 'doctor' && !found) {
+                try {
+                    const doctorRef = await db.ref(`doctors/${userId}`).once('value');
+                    if (doctorRef.exists()) {
+                        const doctorData = doctorRef.val();
+                        if (doctorData && doctorData.profile && doctorData.profile.name) {
+                            profileData = {
+                                ...profileData,
+                                ...doctorData.profile,
+                                role: 'doctor'
+                            };
+                            found = true;
+                            console.log(`Found doctor profile for ${userId} in Realtime DB doctors`);
+                        }
+                    }
+                } catch (error) {
+                    console.warn(`Could not fetch doctor profile for ${userId} from Realtime DB doctors:`, error);
+                }
+            }
+            
+            return { profileData, found };
         }
         
         // Display users in hierarchical format
@@ -3735,28 +3386,6 @@
                 .toUpperCase()
                 .substring(0, 2);
         }
-        
-        // Ensure the dashboard data loads when the page is loaded
-        document.addEventListener('DOMContentLoaded', async function() {
-            try {
-                console.log("DOM Content Loaded");
-                await testDatabaseConnectivity();
-                
-                // Explicitly load the dashboard data when the page loads
-                loadDashboardData();
-                
-                // Setup event listeners
-                setupTabEventListeners();
-            } catch (error) {
-                console.error("Initialization error:", error);
-                document.getElementById('dashboardContent').innerHTML = `
-                    <div class="error-message">
-                        <h2>Error Initializing Dashboard</h2>
-                        <p>${error.message}</p>
-                    </div>
-                `;
-            }
-        });
     </script>
 </body>
 </html>
