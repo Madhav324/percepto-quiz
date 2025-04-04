@@ -1272,7 +1272,7 @@
                 // Test Realtime Database access
                 console.log("Testing Realtime Database access...");
                 const testRef = await db.ref('accessTest').once('value');
-                console.log("Realtime DB access test:", testRef.exists() ? "Successful" : "Node not found but access granted");
+                console.log("Realtime DB access test:", testRef.exists() ? "Success" : "Node not found but access granted");
                 
                 return true;
             } catch (error) {
@@ -1373,141 +1373,163 @@
             try {
                 console.log("Loading dashboard data...");
                 
-                // Clear existing charts first to prevent visual glitches
+                // Clear existing charts to prevent visual glitches
                 if (window.userDistChart) window.userDistChart.destroy();
                 if (window.ageDistChart) window.ageDistChart.destroy();
                 if (window.quizActivityChart) window.quizActivityChart.destroy();
                 if (window.quizPerfChart) window.quizPerfChart.destroy();
                 
-                // Display loading indicators
+                // Show loading indicators in stats
                 document.getElementById('totalUsers').innerText = "Loading...";
                 document.getElementById('totalDoctors').innerText = "Loading...";
                 document.getElementById('totalPatients').innerText = "Loading...";
                 document.getElementById('totalQuizzes').innerText = "Loading...";
                 document.getElementById('totalQuizAttempts').innerText = "Loading...";
                 
-                // Initialize data structures
+                // Initialize counters
                 let totalUsers = 0;
                 let totalDoctors = 0;
                 let totalPatients = 0;
                 let totalQuizAttempts = 0;
-                let patientCount = 0;
+                let uniqueQuizTypes = new Set();
                 
+                // For charts data
+                const userTypeData = { doctors: 0, patients: 0, regular: 0 };
                 const ageData = {
-                    'Under 18': 0,
-                    '18-30': 0,
-                    '31-45': 0,
-                    '46-60': 0,
-                    'Over 60': 0
+                    "0-18": 0,
+                    "19-30": 0,
+                    "31-45": 0,
+                    "46-60": 0,
+                    "61+": 0,
+                    "Unknown": 0
                 };
-                
-                const userTypeData = {
-                    doctors: 0,
-                    patients: 0,
-                    regular: 0
-                };
-                
-                const uniqueQuizTypes = new Set();
-                const quizPerformanceData = {};
                 const quizActivityData = {};
+                const quizPerformanceData = {};
                 
-                // Initialize last 30 days for quiz activity chart
-                const today = new Date();
-                for (let i = 30; i >= 0; i--) {
-                    const d = new Date(today);
-                    d.setDate(d.getDate() - i);
-                    const dateString = d.toISOString().split('T')[0];
-                    quizActivityData[dateString] = 0;
-                }
+                // 1. Directly query all user collections first to find ALL users with ALL their roles
+                console.log("Dashboard: Finding all users and their potential roles");
                 
-                // Step 1: Get all user IDs from all collections (same approach as loadUsersData)
-                console.log("Step 1: Finding all users from all collections");
-                
-                // Get all doctors
+                // Get all doctors from Realtime DB
                 let doctorIds = [];
                 try {
                     const doctorsSnapshot = await db.ref('doctors').once('value');
                     if (doctorsSnapshot.exists()) {
                         doctorIds = Object.keys(doctorsSnapshot.val() || {});
-                        console.log(`Found ${doctorIds.length} doctors in Realtime DB`);
+                        console.log(`Dashboard: Found ${doctorIds.length} doctors in Realtime DB`);
                         totalDoctors = doctorIds.length;
                         userTypeData.doctors = doctorIds.length;
                     }
                 } catch (error) {
-                    console.error("Error fetching doctors:", error);
+                    console.error("Dashboard: Error fetching doctors:", error);
                 }
                 
-                // Get all users
+                // Get all users from Realtime DB
                 let userIds = [];
                 try {
                     const usersSnapshot = await db.ref('users').once('value');
                     if (usersSnapshot.exists()) {
                         userIds = Object.keys(usersSnapshot.val() || {});
-                        console.log(`Found ${userIds.length} users in Realtime DB`);
+                        console.log(`Dashboard: Found ${userIds.length} users in Realtime DB`);
                     }
                 } catch (error) {
-                    console.error("Error fetching users:", error);
+                    console.error("Dashboard: Error fetching users:", error);
                 }
                 
-                // Get all Firestore users
-                let firestoreUserIds = [];
-                let userProfiles = new Map();
+                // Get user profiles from Firestore
+                const userProfiles = new Map();
+                let profileUsers = 0;
                 try {
-                    const querySnapshot = await firestore.collection('users').get();
-                    firestoreUserIds = querySnapshot.docs.map(doc => doc.id);
+                    const userProfilesSnapshot = await firestore.collection('userProfiles').get();
+                    profileUsers = userProfilesSnapshot.size;
                     
-                    // Store user profiles for age data
-                    querySnapshot.docs.forEach(doc => {
-                        userProfiles.set(doc.id, doc.data());
+                    userProfilesSnapshot.docs.forEach(doc => {
+                        const userData = doc.data();
+                        userProfiles.set(doc.id, {
+                            id: doc.id,
+                            ...userData
+                        });
+                        
+                        // Process age data
+                        if (userData.age) {
+                            const age = parseInt(userData.age);
+                            if (!isNaN(age)) {
+                                if (age <= 18) ageData["0-18"]++;
+                                else if (age <= 30) ageData["19-30"]++;
+                                else if (age <= 45) ageData["31-45"]++;
+                                else if (age <= 60) ageData["46-60"]++;
+                                else ageData["61+"]++;
+                            } else {
+                                ageData["Unknown"]++;
+                            }
+                        } else {
+                            ageData["Unknown"]++;
+                        }
                     });
                     
-                    console.log(`Found ${firestoreUserIds.length} users in Firestore`);
+                    console.log(`Dashboard: Found ${userProfilesSnapshot.size} user profiles in Firestore`);
                 } catch (error) {
-                    console.error("Error fetching Firestore users:", error);
+                    console.error("Dashboard: Error accessing userProfiles collection:", error);
                 }
                 
-                // Combine all unique IDs
-                const allUserIds = new Set([...doctorIds, ...userIds, ...firestoreUserIds]);
-                console.log(`Found ${allUserIds.size} unique user IDs across all collections`);
+                // Combine all unique user IDs
+                const allUserIds = new Set([...doctorIds, ...userIds, ...userProfiles.keys()]);
                 totalUsers = allUserIds.size;
+                console.log(`Dashboard: Found ${allUserIds.size} unique user IDs across all collections`);
                 
-                // Regular users are those who are not doctors
-                userTypeData.regular = totalUsers - totalDoctors - totalPatients;
+                // Count regular users (not doctors)
+                const regularUserIds = Array.from(allUserIds).filter(id => !doctorIds.includes(id));
+                userTypeData.regular = regularUserIds.length;
                 
-                // Step 2: Process age data from user profiles
-                console.log("Step 2: Processing age distribution");
-                userProfiles.forEach((profile, userId) => {
-                    if (profile.age) {
-                        const age = parseInt(profile.age);
-                        if (age < 18) {
-                            ageData['Under 18']++;
-                        } else if (age <= 30) {
-                            ageData['18-30']++;
-                        } else if (age <= 45) {
-                            ageData['31-45']++;
-                        } else if (age <= 60) {
-                            ageData['46-60']++;
-                        } else {
-                            ageData['Over 60']++;
-                        }
-                    }
-                });
-                
-                // Step 3: Process quiz data from all users
-                console.log("Step 3: Processing quiz data for all users");
-                
-                // Process doctor quiz data and doctor-patient relationships
+                // Process doctors and their patients
+                let patientCount = 0;
                 const doctorPromises = doctorIds.map(async doctorId => {
                     try {
-                        // Process doctor-patient relationships to count patients
+                        // Get patients for this doctor
                         const patientsSnapshot = await db.ref(`doctors/${doctorId}/patients`).once('value');
-                        const patients = patientsSnapshot.val() || {};
+                        const patientsData = patientsSnapshot.val() || {};
                         
-                        // Count total patients
-                        const doctorPatientCount = Object.keys(patients).length;
-                        patientCount += doctorPatientCount;
+                        // Count patients
+                        const docPatientCount = Object.keys(patientsData).length;
+                        patientCount += docPatientCount;
                         
-                        // Process doctor's quizzes
+                        // Process each patient's quizzes
+                        Object.entries(patientsData).forEach(([patientId, patientData]) => {
+                            if (patientData && patientData.quiz) {
+                                Object.entries(patientData.quiz).forEach(([quizType, attempts]) => {
+                                    uniqueQuizTypes.add(quizType);
+                                    
+                                    if (attempts) {
+                                        // For quiz activity trends by date
+                                        Object.entries(attempts).forEach(([timestamp, result]) => {
+                                            totalQuizAttempts++;
+                                            
+                                            // Store quiz performance data
+                                            if (!quizPerformanceData[quizType]) {
+                                                quizPerformanceData[quizType] = {
+                                                    attempts: 0,
+                                                    totalScore: 0
+                                                };
+                                            }
+                                            quizPerformanceData[quizType].attempts++;
+                                            if (result.score !== undefined) {
+                                                quizPerformanceData[quizType].totalScore += parseFloat(result.score);
+                                            }
+                                            
+                                            // Process date for trend chart
+                                            const date = new Date(parseInt(timestamp));
+                                            const dateString = date.toISOString().split('T')[0];
+                                            
+                                            if (!quizActivityData[dateString]) {
+                                                quizActivityData[dateString] = 0;
+                                            }
+                                            quizActivityData[dateString]++;
+                                        });
+                                    }
+                                });
+                            }
+                        });
+                        
+                        // Process doctor's own quizzes
                         const doctorQuizzesSnapshot = await db.ref(`doctors/${doctorId}/quiz`).once('value');
                         const doctorQuizzes = doctorQuizzesSnapshot.val() || {};
                         
@@ -1546,8 +1568,8 @@
                     }
                 });
                 
-                // Process regular users quiz data
-                const userPromises = userIds.map(async userId => {
+                // Process regular users separately
+                const userPromises = regularUserIds.map(async userId => {
                     try {
                         // Check user's quizzes
                         const userQuizzesSnapshot = await db.ref(`users/${userId}/quiz`).once('value');
@@ -1602,13 +1624,10 @@
                     totalPatients,
                     totalQuizAttempts,
                     uniqueQuizTypes: Array.from(uniqueQuizTypes),
-                    // Add this to check if data is being processed
-                    chartData: {
-                        userTypeData,
-                        ageData,
-                        quizActivityData: Object.keys(quizActivityData).length,
-                        quizPerformanceData: Object.keys(quizPerformanceData)
-                    }
+                    userTypeData,
+                    ageGroups: Object.keys(ageData).map(group => `${group}: ${ageData[group]}`),
+                    quizActivityDates: Object.keys(quizActivityData).length,
+                    quizPerformanceTypes: Object.keys(quizPerformanceData)
                 });
                 
                 // Update the dashboard statistics
@@ -1664,8 +1683,6 @@
                     return;
                 }
                 
-                console.log("Canvas element 'userDistributionChart' found, proceeding with chart generation");
-                
                 // Destroy existing chart if it exists
                 if (window.userDistChart) {
                     window.userDistChart.destroy();
@@ -1714,8 +1731,6 @@
                     console.error("Could not find ageDistributionChart canvas element");
                     return;
                 }
-                
-                console.log("Canvas element 'ageDistributionChart' found, proceeding with chart generation");
                 
                 // Destroy existing chart if it exists
                 if (window.ageDistChart) {
@@ -1770,8 +1785,6 @@
                     console.error("Could not find quizActivityChart canvas element");
                     return;
                 }
-                
-                console.log("Canvas element 'quizActivityChart' found, proceeding with chart generation");
                 
                 // Destroy existing chart if it exists
                 if (window.quizActivityChart) {
@@ -1831,8 +1844,6 @@
                     console.error("Could not find quizPerformanceChart canvas element");
                     return;
                 }
-                
-                console.log("Canvas element 'quizPerformanceChart' found, proceeding with chart generation");
                 
                 // Destroy existing chart if it exists
                 if (window.quizPerfChart) {
@@ -1905,7 +1916,7 @@
                     profilesSnapshot.docs.forEach(doc => {
                         userProfiles.set(doc.id, doc.data());
                     });
-                    console.log(`Loaded ${profilesSnapshot.size} user profiles from Firestore`);
+                    console.log(`Loaded ${userProfiles.size} user profiles from Firestore`);
                 } catch (error) {
                     console.error("Error accessing userProfiles collection:", error);
                     // Display error message to user
@@ -2085,11 +2096,11 @@
                 // Get user profiles from Firestore
                 const userProfiles = new Map();
                 try {
-                    const profilesSnapshot = await firestore.collection('userProfiles').get();
-                    profilesSnapshot.docs.forEach(doc => {
+                    const userProfilesSnapshot = await firestore.collection('userProfiles').get();
+                    userProfilesSnapshot.docs.forEach(doc => {
                         userProfiles.set(doc.id, doc.data());
                     });
-                    console.log(`Loaded ${profilesSnapshot.size} user profiles from Firestore`);
+                    console.log(`Loaded ${userProfilesSnapshot.size} user profiles from Firestore`);
                 } catch (error) {
                     console.error("Error accessing userProfiles collection:", error);
                 }
