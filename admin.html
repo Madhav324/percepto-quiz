@@ -1357,7 +1357,9 @@
             document.getElementById(tabName + 'Tab').classList.add('active');
             
             // Load specific data for the tab if needed
-            if (tabName === 'users') {
+            if (tabName === 'overview') {
+                loadDashboardData();
+            } else if (tabName === 'users') {
                 loadUsersData();
             } else if (tabName === 'quizzes') {
                 loadQuizzesData();
@@ -1371,12 +1373,21 @@
             try {
                 console.log("Loading dashboard data...");
                 
-                // Load total users count from Firestore
-                const userProfilesSnapshot = await firestore.collection('userProfiles').get();
-                const totalUsers = userProfilesSnapshot.size;
-                document.getElementById('totalUsers').innerText = totalUsers;
+                // Clear existing charts to prevent visual glitches
+                if (window.userDistChart) window.userDistChart.destroy();
+                if (window.ageDistChart) window.ageDistChart.destroy();
+                if (window.quizActivityChart) window.quizActivityChart.destroy();
+                if (window.quizPerfChart) window.quizPerfChart.destroy();
+                
+                // Show loading indicators in stats
+                document.getElementById('totalUsers').innerText = "Loading...";
+                document.getElementById('totalDoctors').innerText = "Loading...";
+                document.getElementById('totalPatients').innerText = "Loading...";
+                document.getElementById('totalQuizzes').innerText = "Loading...";
+                document.getElementById('totalQuizAttempts').innerText = "Loading...";
                 
                 // Initialize counters
+                let totalUsers = 0;
                 let totalDoctors = 0;
                 let totalPatients = 0;
                 let totalQuizAttempts = 0;
@@ -1394,6 +1405,11 @@
                 };
                 const quizActivityData = {};
                 const quizPerformanceData = {};
+                
+                // Get all users from Firestore for accurate counting
+                const userProfilesSnapshot = await firestore.collection('userProfiles').get();
+                totalUsers = userProfilesSnapshot.size;
+                console.log(`Dashboard: Found ${totalUsers} users in Firestore`);
                 
                 // Create maps for easier access
                 const userProfiles = new Map();
@@ -1571,6 +1587,7 @@
                 await Promise.all([...doctorPromises, ...userPromises]);
                 
                 // Update the dashboard statistics
+                document.getElementById('totalUsers').innerText = totalUsers;
                 document.getElementById('totalDoctors').innerText = totalDoctors;
                 document.getElementById('totalPatients').innerText = totalPatients;
                 document.getElementById('totalQuizzes').innerText = uniqueQuizTypes.size;
@@ -3386,6 +3403,28 @@
                 .toUpperCase()
                 .substring(0, 2);
         }
+        
+        // Ensure the dashboard data loads when the page loads
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                console.log("DOM Content Loaded");
+                await testDatabaseConnectivity();
+                
+                // Explicitly load the dashboard data when the page loads
+                loadDashboardData();
+                
+                // Setup event listeners
+                setupTabEventListeners();
+            } catch (error) {
+                console.error("Initialization error:", error);
+                document.getElementById('dashboardContent').innerHTML = `
+                    <div class="error-message">
+                        <h2>Error Initializing Dashboard</h2>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        });
     </script>
 </body>
 </html>
