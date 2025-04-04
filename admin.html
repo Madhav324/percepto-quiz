@@ -1145,12 +1145,6 @@
                                 <canvas id="usersAgeDistributionChart"></canvas>
                             </div>
                         </div>
-                        <div class="chart-card">
-                            <h3>Recent User Activity</h3>
-                            <div class="chart-container">
-                                <canvas id="recentUserActivityChart"></canvas>
-                            </div>
-                        </div>
                     </div>
                 </div>
                 
@@ -3157,25 +3151,6 @@
             newSearchFilter.addEventListener('input', filterUsers);
         }
         
-        // Helper function to process user quiz activity and track dates
-        function processUserActivity(quizData, activityData) {
-            if (!quizData) return;
-            
-            Object.entries(quizData).forEach(([quizType, attempts]) => {
-                if (!attempts) return;
-                
-                Object.entries(attempts).forEach(([timestamp, _]) => {
-                    const date = new Date(parseInt(timestamp));
-                    const dateString = date.toISOString().split('T')[0]; // Format: YYYY-MM-DD
-                    
-                    if (!activityData[dateString]) {
-                        activityData[dateString] = 0;
-                    }
-                    activityData[dateString]++;
-                });
-            });
-        }
-
         // Load and display user statistics in the users tab
         async function loadUsersStats() {
             try {
@@ -3198,94 +3173,65 @@
                     "Unknown": 0
                 };
                 
-                // For recent activity chart
-                const activityData = {};
-                
                 // Get all doctors from Realtime DB
-                const doctorsSnapshot = await db.ref('doctors').once('value');
-                if (doctorsSnapshot.exists()) {
-                    const doctorsData = doctorsSnapshot.val() || {};
-                    totalDoctors = Object.keys(doctorsData).length;
-                    userTypeData.doctors = totalDoctors;
-                    
-                    console.log(`Found ${totalDoctors} doctors`);
-                    
-                    // Process doctors' data
-                    for (const [doctorId, doctorData] of Object.entries(doctorsData)) {
-                        // Process doctor's age data
-                        if (doctorData.profile && doctorData.profile.age) {
-                            updateAgeData(ageData, doctorData.profile.age);
-                        }
+                try {
+                    const doctorsSnapshot = await db.ref('doctors').once('value');
+                    if (doctorsSnapshot.exists) {
+                        const doctorsData = doctorsSnapshot.val() || {};
+                        totalDoctors = Object.keys(doctorsData).length;
+                        userTypeData.doctors = totalDoctors;
                         
-                        // Track doctor's activity based on their quiz data
-                        if (doctorData.quiz) {
-                            processUserActivity(doctorData.quiz, activityData);
-                        }
-                        
-                        // Process patients of each doctor
-                        if (doctorData.patients) {
-                            totalPatients += Object.keys(doctorData.patients).length;
-                            
-                            // Process patient quiz data for activity
-                            for (const [patientId, patientData] of Object.entries(doctorData.patients)) {
-                                if (patientData.quiz) {
-                                    processUserActivity(patientData.quiz, activityData);
-                                }
+                        // Count patients
+                        for (const doctorId in doctorsData) {
+                            const doctor = doctorsData[doctorId];
+                            if (doctor.patients) {
+                                const patientCount = Object.keys(doctor.patients).length;
+                                totalPatients += patientCount;
                                 
-                                // Process patient age data
-                                if (patientData.profile && patientData.profile.age) {
-                                    updateAgeData(ageData, patientData.profile.age);
+                                // Process age data for each patient
+                                for (const patientId in doctor.patients) {
+                                    const patient = doctor.patients[patientId];
+                                    if (patient && patient.profile && patient.profile.age) {
+                                        updateAgeData(ageData, patient.profile.age);
+                                    }
                                 }
                             }
-                        }
-                    }
-                }
-                
-                // Get direct patients from the users table 
-                const rolesSnapshot = await db.ref('roles').once('value');
-                const roles = rolesSnapshot.val() || {};
-                
-                // Count patients and regular users from roles
-                for (const [userId, userRole] of Object.entries(roles)) {
-                    if (userRole === 'patient') {
-                        // Only count those that aren't already counted through doctors
-                        let isAlreadyCounted = false;
-                        for (const [_, doctorData] of Object.entries(doctorsSnapshot.val() || {})) {
-                            if (doctorData.patients && doctorData.patients[userId]) {
-                                isAlreadyCounted = true;
-                                break;
+                            
+                            // Process doctor's age data if available
+                            if (doctor.profile && doctor.profile.age) {
+                                updateAgeData(ageData, doctor.profile.age);
                             }
                         }
-                        
-                        if (!isAlreadyCounted) {
-                            totalPatients++;
-                        }
-                    } else if (userRole === 'user') {
-                        totalRegularUsers++;
+                        userTypeData.patients = totalPatients;
                     }
+                } catch (error) {
+                    console.error("Error fetching doctors:", error);
                 }
                 
-                // Update totals for chart
-                userTypeData.patients = totalPatients;
-                userTypeData.regular = totalRegularUsers;
+                // Get all users from Realtime DB
+                try {
+                    const usersSnapshot = await db.ref('users').once('value');
+                    if (usersSnapshot.exists) {
+                        const usersData = usersSnapshot.val() || {};
+                        totalRegularUsers = Object.keys(usersData).length;
+                        userTypeData.regular = totalRegularUsers;
+                        
+                        // Process users' age data
+                        for (const userId in usersData) {
+                            const user = usersData[userId];
+                            if (user.profile && user.profile.age) {
+                                updateAgeData(ageData, user.profile.age);
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error("Error fetching users:", error);
+                }
+                
+                // Calculate total users (doctors + patients + regular users)
                 totalUsers = totalDoctors + totalPatients + totalRegularUsers;
                 
-                // Get age data and activity for all users
-                const usersSnapshot = await db.ref('users').once('value');
-                const users = usersSnapshot.val() || {};
-                
-                for (const [userId, userData] of Object.entries(users)) {
-                    if (userData.profile && userData.profile.age) {
-                        updateAgeData(ageData, userData.profile.age);
-                    }
-                    
-                    // Process quiz data for activity tracking
-                    if (userData.quiz) {
-                        processUserActivity(userData.quiz, activityData);
-                    }
-                }
-                
-                // Update the UI
+                // Update the statistics
                 document.getElementById('usersTotalUsers').innerText = totalUsers;
                 document.getElementById('usersTotalDoctors').innerText = totalDoctors;
                 document.getElementById('usersTotalPatients').innerText = totalPatients;
@@ -3294,7 +3240,6 @@
                 // Generate charts
                 generateUsersDistributionChart(userTypeData);
                 generateUsersAgeDistributionChart(ageData);
-                generateRecentUserActivityChart(activityData);
                 
                 console.log("Users statistics loaded successfully");
                 
@@ -3393,87 +3338,6 @@
                     plugins: {
                         legend: {
                             display: false
-                        }
-                    }
-                }
-            });
-        }
-        
-        // Generate Recent User Activity Chart
-        function generateRecentUserActivityChart(activityData) {
-            const ctx = document.getElementById('recentUserActivityChart').getContext('2d');
-            
-            if (!ctx) {
-                console.error("Could not get context for recent user activity chart");
-                return;
-            }
-            
-            // Check for existing chart
-            if (window.recentActivityChart) {
-                window.recentActivityChart.destroy();
-            }
-            
-            // Prepare data - ensure we show last 7 days
-            const today = new Date();
-            const last7Days = {};
-            
-            // Initialize with last 7 days
-            for (let i = 6; i >= 0; i--) {
-                const date = new Date(today);
-                date.setDate(today.getDate() - i);
-                const dateString = date.toISOString().split('T')[0];
-                last7Days[dateString] = 0; // Initialize with zero
-            }
-            
-            // Merge with actual data
-            Object.assign(last7Days, activityData);
-            
-            // Convert to arrays for chart
-            const dates = Object.keys(last7Days).sort();
-            const counts = dates.map(date => last7Days[date]);
-            
-            window.recentActivityChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: dates.map(date => {
-                        const d = new Date(date);
-                        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                    }),
-                    datasets: [{
-                        label: 'Active Users',
-                        data: counts,
-                        borderColor: '#4e73df',
-                        backgroundColor: 'rgba(78, 115, 223, 0.1)',
-                        borderWidth: 2,
-                        tension: 0.1,
-                        fill: true
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                precision: 0
-                            }
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            callbacks: {
-                                title: function(tooltipItems) {
-                                    const date = new Date(dates[tooltipItems[0].dataIndex]);
-                                    return date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-                                },
-                                label: function(context) {
-                                    return `  ${context.raw} active users`;
-                                }
-                            }
                         }
                     }
                 }
