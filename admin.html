@@ -660,7 +660,7 @@
         
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            grid-template-columns: repeat(4, 1fr);
             gap: 15px;
             margin-bottom: 20px;
         }
@@ -1129,11 +1129,6 @@
                             <div class="stat-icon">👤</div>
                             <div class="stat-value" id="usersTotalRegular">Loading...</div>
                             <div class="stat-label">Regular Users</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon">📊</div>
-                            <div class="stat-value" id="usersTotalQuizzes">Loading...</div>
-                            <div class="stat-label">Quiz Attempts</div>
                         </div>
                     </div>
                     
@@ -2345,7 +2340,7 @@
             // Try path 1: under regular users
             try {
                 const quizRef = await db.ref(`users/${patientId}/quiz`).once('value');
-                if (quizRef.exists()) {
+                if (quizRef.exists) {
                     console.log(`Found quiz data in users/${patientId}/quiz`);
                     quizData = {...quizData, ...quizRef.val()};
                     found = true;
@@ -2358,7 +2353,7 @@
             // Try path 2: check if this person is/was a doctor (has quiz data as doctor)
             try {
                 const doctorQuizRef = await db.ref(`doctors/${patientId}/quiz`).once('value');
-                if (doctorQuizRef.exists()) {
+                if (doctorQuizRef.exists) {
                     console.log(`Found quiz data in doctors/${patientId}/quiz - user has doctor role`);
                     quizData = {...quizData, ...doctorQuizRef.val()};
                     found = true;
@@ -2372,7 +2367,7 @@
             if (doctorId) {
                 try {
                     const quizRef = await db.ref(`doctors/${doctorId}/patients/${patientId}/quiz`).once('value');
-                    if (quizRef.exists()) {
+                    if (quizRef.exists) {
                         console.log(`Found quiz data in doctors/${doctorId}/patients/${patientId}/quiz`);
                         quizData = {...quizData, ...quizRef.val()};
                         found = true;
@@ -2386,7 +2381,7 @@
             if (!doctorId) {
                 try {
                     const doctorsRef = await db.ref('doctors').once('value');
-                    if (doctorsRef.exists()) {
+                    if (doctorsRef.exists) {
                         const doctors = doctorsRef.val();
                         for (const [docId, doctorData] of Object.entries(doctors)) {
                             if (doctorData.patients && doctorData.patients[patientId] && doctorData.patients[patientId].quiz) {
@@ -3088,8 +3083,6 @@
                 let totalDoctors = 0;
                 let totalPatients = 0;
                 let totalRegularUsers = 0;
-                let totalQuizAttempts = 0;
-                let quizTypeCount = new Set();
                 
                 // For charts data
                 const userTypeData = { doctors: 0, patients: 0, regular: 0 };
@@ -3117,40 +3110,18 @@
                                 const patientCount = Object.keys(doctor.patients).length;
                                 totalPatients += patientCount;
                                 
-                                                // Process age data and quiz data for each patient
+                                // Process age data for each patient
                                 for (const patientId in doctor.patients) {
                                     const patient = doctor.patients[patientId];
                                     if (patient && patient.profile && patient.profile.age) {
                                         updateAgeData(ageData, patient.profile.age);
                                     }
-                                    
-                                    // Count quiz attempts for patients
-                                    if (patient && patient.quiz) {
-                                        const quizAttempts = countQuizAttempts(patient.quiz);
-                                        totalQuizAttempts += quizAttempts;
-                                        
-                                        // Add quiz types to the set
-                                        Object.keys(patient.quiz).forEach(quizType => {
-                                            quizTypeCount.add(quizType);
-                                        });
-                                    }
                                 }
                             }
                             
-                                        // Process doctor's age data if available
+                            // Process doctor's age data if available
                             if (doctor.profile && doctor.profile.age) {
                                 updateAgeData(ageData, doctor.profile.age);
-                            }
-                            
-                            // Process doctor's quiz data
-                            if (doctor.quiz) {
-                                const quizAttempts = countQuizAttempts(doctor.quiz);
-                                totalQuizAttempts += quizAttempts;
-                                
-                                // Add quiz types to the set
-                                Object.keys(doctor.quiz).forEach(quizType => {
-                                    quizTypeCount.add(quizType);
-                                });
                             }
                         }
                         userTypeData.patients = totalPatients;
@@ -3167,22 +3138,11 @@
                         totalRegularUsers = Object.keys(usersData).length;
                         userTypeData.regular = totalRegularUsers;
                         
-                                // Process users' age data and quiz data
+                        // Process users' age data
                         for (const userId in usersData) {
                             const user = usersData[userId];
                             if (user.profile && user.profile.age) {
                                 updateAgeData(ageData, user.profile.age);
-                            }
-                            
-                            // Count quiz attempts for regular users
-                            if (user.quiz) {
-                                const quizAttempts = countQuizAttempts(user.quiz);
-                                totalQuizAttempts += quizAttempts;
-                                
-                                // Add quiz types to the set
-                                Object.keys(user.quiz).forEach(quizType => {
-                                    quizTypeCount.add(quizType);
-                                });
                             }
                         }
                     }
@@ -3198,7 +3158,6 @@
                 document.getElementById('usersTotalDoctors').innerText = totalDoctors;
                 document.getElementById('usersTotalPatients').innerText = totalPatients;
                 document.getElementById('usersTotalRegular').innerText = totalRegularUsers;
-                document.getElementById('usersTotalQuizzes').innerText = totalQuizAttempts;
                 
                 // Generate charts
                 generateUsersDistributionChart(userTypeData);
@@ -3260,22 +3219,6 @@
                     }
                 }
             });
-        }
-        
-        // Helper function to count quiz attempts
-        function countQuizAttempts(quizData) {
-            let count = 0;
-            
-            // For each quiz type (morning, VD, etc)
-            Object.keys(quizData).forEach(quizType => {
-                const attempts = quizData[quizType];
-                // Add number of attempts for this quiz type
-                if (attempts) {
-                    count += Object.keys(attempts).length;
-                }
-            });
-            
-            return count;
         }
         
         // Generate Age Distribution Chart for users tab
