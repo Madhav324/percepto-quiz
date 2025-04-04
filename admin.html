@@ -3109,6 +3109,14 @@
                             if (doctor.patients) {
                                 const patientCount = Object.keys(doctor.patients).length;
                                 totalPatients += patientCount;
+                                
+                                // Process age data for each patient
+                                for (const patientId in doctor.patients) {
+                                    const patient = doctor.patients[patientId];
+                                    if (patient && patient.profile && patient.profile.age) {
+                                        updateAgeData(ageData, patient.profile.age);
+                                    }
+                                }
                             }
                             
                             // Process doctor's age data if available
@@ -3142,8 +3150,8 @@
                     console.error("Error fetching users:", error);
                 }
                 
-                // Calculate total users
-                totalUsers = totalDoctors + totalRegularUsers;
+                // Calculate total users (doctors + patients + regular users)
+                totalUsers = totalDoctors + totalPatients + totalRegularUsers;
                 
                 // Update the statistics
                 document.getElementById('usersTotalUsers').innerText = totalUsers;
