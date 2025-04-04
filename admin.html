@@ -1624,11 +1624,24 @@
                     totalPatients,
                     totalQuizAttempts,
                     uniqueQuizTypes: Array.from(uniqueQuizTypes),
-                    userTypeData,
-                    ageGroups: Object.keys(ageData).map(group => `${group}: ${ageData[group]}`),
-                    quizActivityDates: Object.keys(quizActivityData).length,
-                    quizPerformanceTypes: Object.keys(quizPerformanceData)
+                    chartData: {
+                        userTypeData,
+                        ageData,
+                        quizActivityData: Object.keys(quizActivityData).length,
+                        quizPerformanceData: Object.keys(quizPerformanceData)
+                    }
                 });
+                
+                // Add Firebase authentication verification
+                console.log("Firebase authentication status:", firebase.auth().currentUser ? "Authenticated" : "Not authenticated");
+                
+                // Test query to verify database connectivity
+                try {
+                    const testQuery = await db.ref('/users').limitToFirst(1).once('value');
+                    console.log("Database connectivity test:", testQuery.exists() ? "Successful" : "Failed");
+                } catch (dbError) {
+                    console.error("Database connectivity test failed:", dbError);
+                }
                 
                 // Update the dashboard statistics
                 document.getElementById('totalUsers').innerText = totalUsers;
@@ -1683,6 +1696,8 @@
                     return;
                 }
                 
+                console.log("Canvas element 'userDistributionChart' found, proceeding with chart generation");
+                
                 // Destroy existing chart if it exists
                 if (window.userDistChart) {
                     window.userDistChart.destroy();
@@ -1731,6 +1746,8 @@
                     console.error("Could not find ageDistributionChart canvas element");
                     return;
                 }
+                
+                console.log("Canvas element 'ageDistributionChart' found, proceeding with chart generation");
                 
                 // Destroy existing chart if it exists
                 if (window.ageDistChart) {
@@ -1785,6 +1802,8 @@
                     console.error("Could not find quizActivityChart canvas element");
                     return;
                 }
+                
+                console.log("Canvas element 'quizActivityChart' found, proceeding with chart generation");
                 
                 // Destroy existing chart if it exists
                 if (window.quizActivityChart) {
@@ -1844,6 +1863,8 @@
                     console.error("Could not find quizPerformanceChart canvas element");
                     return;
                 }
+                
+                console.log("Canvas element 'quizPerformanceChart' found, proceeding with chart generation");
                 
                 // Destroy existing chart if it exists
                 if (window.quizPerfChart) {
@@ -1916,7 +1937,7 @@
                     profilesSnapshot.docs.forEach(doc => {
                         userProfiles.set(doc.id, doc.data());
                     });
-                    console.log(`Loaded ${userProfiles.size} user profiles from Firestore`);
+                    console.log(`Loaded ${profilesSnapshot.size} user profiles from Firestore`);
                 } catch (error) {
                     console.error("Error accessing userProfiles collection:", error);
                     // Display error message to user
