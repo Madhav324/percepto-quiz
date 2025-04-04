@@ -1335,15 +1335,21 @@
                 // Test database connectivity before loading data
                 testDatabaseConnectivity().then(dbConnected => {
                     if (dbConnected) {
-                        // Load dashboard data
+                        // Just switch to overview tab - data will be loaded by the switchTab function
+                        // This prevents the double-loading issue when both login and switchTab try to load data
+                        
+                        // Set the overview tab as active (visual only)
+                        const tabs = document.querySelectorAll('.tab');
+                        tabs.forEach(tab => tab.classList.remove('active'));
+                        document.querySelector('[onclick="switchTab(\'overview\')"]').classList.add('active');
+                        
+                        // Show the overview tab content
+                        const tabContents = document.querySelectorAll('.tab-content');
+                        tabContents.forEach(content => content.classList.remove('active'));
+                        document.getElementById('overviewTab').classList.add('active');
+                        
+                        // Now load the data for the overview tab
                         loadDashboardData();
-                        
-                        // Load other tabs data
-                        loadUsersData();
-                        loadQuizzesData();
-                        
-                        // Start with overview tab active
-                        switchTab('overview');
                     }
                 });
             } else {
