@@ -2995,7 +2995,38 @@
                 row.style.display = 'none';
             });
             
-            // Explicitly attach event listeners after DOM has been updated
+            // Add event listeners for expanding/collapsing doctor rows
+            document.querySelectorAll('.doctor-row').forEach(doctorRow => {
+                doctorRow.addEventListener('click', function(e) {
+                    // Don't expand if clicking a button
+                    if (e.target.tagName === 'BUTTON') {
+                        return;
+                    }
+                    
+                    const doctorId = this.dataset.userId;
+                    const expandIcon = this.querySelector('.expand-icon');
+                    
+                    // Find all patients for this doctor
+                    const patientRows = document.querySelectorAll(`.patient-row[data-doctor-id="${doctorId}"]`);
+                    
+                    if (patientRows.length > 0) {
+                        // Check the current display state based on first patient
+                        const currentlyVisible = patientRows[0].style.display !== 'none';
+                        
+                        // Toggle the display
+                        patientRows.forEach(row => {
+                            row.style.display = currentlyVisible ? 'none' : 'table-row';
+                        });
+                        
+                        // Update the expand icon
+                        if (expandIcon) {
+                            expandIcon.textContent = currentlyVisible ? '+' : '-';
+                        }
+                    }
+                });
+            });
+            
+            // Explicitly attach event listeners for quiz buttons
             console.log("Attaching event listeners to quiz buttons...");
             document.querySelectorAll('.view-quizzes-btn').forEach(button => {
                 console.log(`Attaching listener to button for user ${button.dataset.userId}`);
