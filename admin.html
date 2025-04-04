@@ -1221,7 +1221,7 @@
                         <div class="stat-card">
                             <div class="stat-icon">📈</div>
                             <div class="stat-value" id="quizzesAvgScore">Loading...</div>
-                            <div class="stat-label">Avg. Score</div>
+                            <div class="stat-label">Avg. Score (out of 100)</div>
                         </div>
                         <div class="stat-card">
                             <div class="stat-icon">⭐</div>
@@ -1237,12 +1237,7 @@
                                 <canvas id="quizPopularityChart"></canvas>
                             </div>
                         </div>
-                        <div class="chart-card">
-                            <h3>User Performance</h3>
-                            <div class="chart-container">
-                                <canvas id="quizPerformanceChart"></canvas>
-                            </div>
-                        </div>
+                        <!-- User Performance chart removed as requested -->
                     </div>
                 </div>
                 
@@ -3666,6 +3661,17 @@
                     if (result.score !== undefined) {
                         quizData[quizType].totalScore += parseFloat(result.score);
                     }
+                    
+                    // Capture additional statistics if available
+                    if (result.timeSpent) {
+                        quizData[quizType].totalTime = (quizData[quizType].totalTime || 0) + parseFloat(result.timeSpent);
+                    }
+                    if (result.correctAnswers) {
+                        quizData[quizType].totalCorrect = (quizData[quizType].totalCorrect || 0) + parseFloat(result.correctAnswers);
+                    }
+                    if (result.totalQuestions) {
+                        quizData[quizType].totalQuestions = (quizData[quizType].totalQuestions || 0) + parseFloat(result.totalQuestions);
+                    }
                 });
             });
         }
@@ -3714,9 +3720,9 @@
                                 if (!quizStats[quizType]) {
                                     quizStats[quizType] = {
                                         name: quizType,
-                                        regularUsers: { attempts: 0, totalScore: 0 },
-                                        patients: { attempts: 0, totalScore: 0 },
-                                        total: { attempts: 0, totalScore: 0 }
+                                        regularUsers: { attempts: 0, totalScore: 0, totalTime: 0, totalCorrect: 0, totalQuestions: 0 },
+                                        patients: { attempts: 0, totalScore: 0, totalTime: 0, totalCorrect: 0, totalQuestions: 0 },
+                                        total: { attempts: 0, totalScore: 0, totalTime: 0, totalCorrect: 0, totalQuestions: 0 }
                                     };
                                 }
                                 
@@ -3726,6 +3732,20 @@
                                         quizStats[quizType].patients.totalScore += parseFloat(attempt.score);
                                         quizStats[quizType].total.attempts++;
                                         quizStats[quizType].total.totalScore += parseFloat(attempt.score);
+                                    }
+                                    
+                                    // Capture additional statistics
+                                    if (attempt.timeSpent) {
+                                        quizStats[quizType].patients.totalTime += parseFloat(attempt.timeSpent);
+                                        quizStats[quizType].total.totalTime += parseFloat(attempt.timeSpent);
+                                    }
+                                    if (attempt.correctAnswers) {
+                                        quizStats[quizType].patients.totalCorrect += parseFloat(attempt.correctAnswers);
+                                        quizStats[quizType].total.totalCorrect += parseFloat(attempt.correctAnswers);
+                                    }
+                                    if (attempt.totalQuestions) {
+                                        quizStats[quizType].patients.totalQuestions += parseFloat(attempt.totalQuestions);
+                                        quizStats[quizType].total.totalQuestions += parseFloat(attempt.totalQuestions);
                                     }
                                 });
                             });
@@ -3739,9 +3759,9 @@
                                 if (!quizStats[quizType]) {
                                     quizStats[quizType] = {
                                         name: quizType,
-                                        regularUsers: { attempts: 0, totalScore: 0 },
-                                        patients: { attempts: 0, totalScore: 0 },
-                                        total: { attempts: 0, totalScore: 0 }
+                                        regularUsers: { attempts: 0, totalScore: 0, totalTime: 0, totalCorrect: 0, totalQuestions: 0 },
+                                        patients: { attempts: 0, totalScore: 0, totalTime: 0, totalCorrect: 0, totalQuestions: 0 },
+                                        total: { attempts: 0, totalScore: 0, totalTime: 0, totalCorrect: 0, totalQuestions: 0 }
                                     };
                                 }
                                 
@@ -3751,6 +3771,20 @@
                                         quizStats[quizType].patients.totalScore += parseFloat(attempt.score);
                                         quizStats[quizType].total.attempts++;
                                         quizStats[quizType].total.totalScore += parseFloat(attempt.score);
+                                    }
+                                    
+                                    // Capture additional statistics
+                                    if (attempt.timeSpent) {
+                                        quizStats[quizType].patients.totalTime += parseFloat(attempt.timeSpent);
+                                        quizStats[quizType].total.totalTime += parseFloat(attempt.timeSpent);
+                                    }
+                                    if (attempt.correctAnswers) {
+                                        quizStats[quizType].patients.totalCorrect += parseFloat(attempt.correctAnswers);
+                                        quizStats[quizType].total.totalCorrect += parseFloat(attempt.correctAnswers);
+                                    }
+                                    if (attempt.totalQuestions) {
+                                        quizStats[quizType].patients.totalQuestions += parseFloat(attempt.totalQuestions);
+                                        quizStats[quizType].total.totalQuestions += parseFloat(attempt.totalQuestions);
                                     }
                                 });
                             });
@@ -3790,9 +3824,9 @@
                         if (!quizStats[quizType]) {
                             quizStats[quizType] = {
                                 name: quizType,
-                                regularUsers: { attempts: 0, totalScore: 0 },
-                                patients: { attempts: 0, totalScore: 0 },
-                                total: { attempts: 0, totalScore: 0 }
+                                regularUsers: { attempts: 0, totalScore: 0, totalTime: 0, totalCorrect: 0, totalQuestions: 0 },
+                                patients: { attempts: 0, totalScore: 0, totalTime: 0, totalCorrect: 0, totalQuestions: 0 },
+                                total: { attempts: 0, totalScore: 0, totalTime: 0, totalCorrect: 0, totalQuestions: 0 }
                             };
                         }
                         
@@ -3802,6 +3836,20 @@
                                 quizStats[quizType].regularUsers.totalScore += parseFloat(attempt.score);
                                 quizStats[quizType].total.attempts++;
                                 quizStats[quizType].total.totalScore += parseFloat(attempt.score);
+                            }
+                            
+                            // Capture additional statistics for regular users
+                            if (attempt.timeSpent) {
+                                quizStats[quizType].regularUsers.totalTime += parseFloat(attempt.timeSpent);
+                                quizStats[quizType].total.totalTime += parseFloat(attempt.timeSpent);
+                            }
+                            if (attempt.correctAnswers) {
+                                quizStats[quizType].regularUsers.totalCorrect += parseFloat(attempt.correctAnswers);
+                                quizStats[quizType].total.totalCorrect += parseFloat(attempt.correctAnswers);
+                            }
+                            if (attempt.totalQuestions) {
+                                quizStats[quizType].regularUsers.totalQuestions += parseFloat(attempt.totalQuestions);
+                                quizStats[quizType].total.totalQuestions += parseFloat(attempt.totalQuestions);
                             }
                         });
                     });
@@ -3835,7 +3883,7 @@
                 // Update the statistics cards
                 document.getElementById('quizzesTotalQuizzes').textContent = totalQuizzes;
                 document.getElementById('quizzesTotalAttempts').textContent = totalAttempts;
-                document.getElementById('quizzesAvgScore').textContent = overallAvgScore !== 'N/A' ? `${overallAvgScore}%` : 'N/A';
+                document.getElementById('quizzesAvgScore').textContent = `${Math.round(overallAvgScore * 100)}/${quizStatsList[0].total.totalQuestions}`;
                 document.getElementById('quizzesTopQuiz').textContent = topQuizName;
                 
                 // Prepare data for charts
@@ -3868,7 +3916,7 @@
                         row.innerHTML = `
                             <td><strong>${quiz.name}</strong></td>
                             <td>${quiz.total.attempts}</td>
-                            <td>${totalAvg}%</td>
+                            <td>${Math.round(totalAvg * 100)}/${quiz.total.totalQuestions}</td>
                             <td>${userTypeText}</td>
                             <td>
                                 <button class="view-details-btn" onclick="toggleQuizDetails(this)">Show Details</button>
@@ -3891,23 +3939,31 @@
                                                 <th>User Type</th>
                                                 <th>Attempts</th>
                                                 <th>Avg. Score</th>
+                                                <th>Avg. Time (s)</th>
+                                                <th>Correct Answers</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             <tr>
                                                 <td>Regular Users</td>
                                                 <td>${quiz.regularUsers.attempts}</td>
-                                                <td>${regularAvg}%</td>
+                                                <td>${Math.round(regularAvg * 100)}/${quiz.regularUsers.totalQuestions}</td>
+                                                <td>${quiz.regularUsers.totalTime ? (quiz.regularUsers.totalTime / quiz.regularUsers.attempts).toFixed(1) : 'N/A'}</td>
+                                                <td>${quiz.regularUsers.totalCorrect ? Math.round(quiz.regularUsers.totalCorrect / quiz.regularUsers.attempts) : 'N/A'}</td>
                                             </tr>
                                             <tr>
                                                 <td>Patients</td>
                                                 <td>${quiz.patients.attempts}</td>
-                                                <td>${patientsAvg}%</td>
+                                                <td>${Math.round(patientsAvg * 100)}/${quiz.patients.totalQuestions}</td>
+                                                <td>${quiz.patients.totalTime ? (quiz.patients.totalTime / quiz.patients.attempts).toFixed(1) : 'N/A'}</td>
+                                                <td>${quiz.patients.totalCorrect ? Math.round(quiz.patients.totalCorrect / quiz.patients.attempts) : 'N/A'}</td>
                                             </tr>
                                             <tr class="total-row">
                                                 <td><strong>Total</strong></td>
                                                 <td><strong>${quiz.total.attempts}</strong></td>
-                                                <td><strong>${totalAvg}%</strong></td>
+                                                <td><strong>${Math.round(totalAvg * 100)}/${quiz.total.totalQuestions}</strong></td>
+                                                <td><strong>${quiz.total.totalTime ? (quiz.total.totalTime / quiz.total.attempts).toFixed(1) : 'N/A'}</strong></td>
+                                                <td><strong>${quiz.total.totalCorrect ? Math.round(quiz.total.totalCorrect / quiz.total.attempts) : 'N/A'}</strong></td>
                                             </tr>
                                         </tbody>
                                     </table>
@@ -3992,54 +4048,7 @@
                     }
                 }
             });
-            
-            // Performance Chart (Bar chart comparing regular users vs patients)
-            const performanceCtx = document.getElementById('quizPerformanceChart').getContext('2d');
-            
-            // Destroy existing chart if it exists
-            if (window.performanceChart instanceof Chart) {
-                window.performanceChart.destroy();
-            }
-            
-            window.performanceChart = new Chart(performanceCtx, {
-                type: 'bar',
-                data: {
-                    labels: top5Quizzes.map(quiz => quiz.name),
-                    datasets: [{
-                        label: 'Regular Users',
-                        data: top5Quizzes.map(quiz => 
-                            quiz.regularUsers.attempts > 0 ? 
-                                quiz.regularUsers.totalScore / quiz.regularUsers.attempts : 0
-                        ),
-                        backgroundColor: 'rgba(75, 192, 192, 0.7)',
-                        borderColor: 'rgba(75, 192, 192, 1)',
-                        borderWidth: 1
-                    }, {
-                        label: 'Patients',
-                        data: top5Quizzes.map(quiz => 
-                            quiz.patients.attempts > 0 ? 
-                                quiz.patients.totalScore / quiz.patients.attempts : 0
-                        ),
-                        backgroundColor: 'rgba(255, 159, 64, 0.7)',
-                        borderColor: 'rgba(255, 159, 64, 1)',
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Average Score (%)'
-                            },
-                            max: 100
-                        }
-                    }
-                }
-            });
+                       // User Performance chart removed as requested
             
             // Create mini charts for each quiz in the details rows
             quizStatsList.forEach(quiz => {
