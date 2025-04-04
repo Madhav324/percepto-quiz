@@ -1721,14 +1721,22 @@
         
         // Generate User Distribution Chart for users tab
         function generateUsersDistributionChart(userData) {
-            const ctx = document.getElementById('usersDistributionChart').getContext('2d');
-            
-            // Destroy existing chart if it exists
-            if (window.usersDistChart) {
-                window.usersDistChart.destroy();
+            const ctx = document.getElementById('usersDistributionChart');
+            if (!ctx) {
+                console.error('Could not find usersDistributionChart canvas element');
+                return;
             }
             
-            window.usersDistChart = new Chart(ctx, {
+            // Safely destroy existing chart if it exists
+            try {
+                if (window.usersDistChart && typeof window.usersDistChart.destroy === 'function') {
+                    window.usersDistChart.destroy();
+                }
+            } catch (e) {
+                console.warn('Error destroying existing chart:', e);
+            }
+            
+            window.usersDistChart = new Chart(ctx.getContext('2d'), {
                 type: 'pie',
                 data: {
                     labels: ['Doctors', 'Patients', 'Regular Users'],
@@ -1760,14 +1768,22 @@
         
         // Generate Age Distribution Chart for users tab
         function generateUsersAgeDistributionChart(ageData) {
-            const ctx = document.getElementById('usersAgeDistributionChart').getContext('2d');
-            
-            // Destroy existing chart if it exists
-            if (window.usersAgeDistChart) {
-                window.usersAgeDistChart.destroy();
+            const ctx = document.getElementById('usersAgeDistributionChart');
+            if (!ctx) {
+                console.error('Could not find usersAgeDistributionChart canvas element');
+                return;
             }
             
-            window.usersAgeDistChart = new Chart(ctx, {
+            // Safely destroy existing chart if it exists
+            try {
+                if (window.usersAgeDistChart && typeof window.usersAgeDistChart.destroy === 'function') {
+                    window.usersAgeDistChart.destroy();
+                }
+            } catch (e) {
+                console.warn('Error destroying existing chart:', e);
+            }
+            
+            window.usersAgeDistChart = new Chart(ctx.getContext('2d'), {
                 type: 'bar',
                 data: {
                     labels: Object.keys(ageData),
@@ -1801,7 +1817,11 @@
         
         // Generate Quiz Activity Chart for users tab
         function generateUsersQuizActivityChart(activityData) {
-            const ctx = document.getElementById('usersQuizActivityChart').getContext('2d');
+            const ctx = document.getElementById('usersQuizActivityChart');
+            if (!ctx) {
+                console.error('Could not find usersQuizActivityChart canvas element');
+                return;
+            }
             
             // Sort dates and ensure we have data for recent days
             const dates = Object.keys(activityData).sort();
@@ -1812,12 +1832,18 @@
                 counts.push(activityData[date] || 0);
             });
             
-            // Destroy existing chart if it exists
-            if (window.usersQuizActivityChart) {
-                window.usersQuizActivityChart.destroy();
+            // Safely destroy existing chart if it exists
+            try {
+                if (window.usersQuizActivityChart && typeof window.usersQuizActivityChart.destroy === 'function') {
+                    window.usersQuizActivityChart.destroy();
+                }
+            } catch (e) {
+                console.warn('Error destroying existing quiz activity chart:', e);
+                // Reset the reference if there was an error
+                window.usersQuizActivityChart = null;
             }
             
-            window.usersQuizActivityChart = new Chart(ctx, {
+            window.usersQuizActivityChart = new Chart(ctx.getContext('2d'), {
                 type: 'line',
                 data: {
                     labels: dates,
@@ -1852,7 +1878,11 @@
         
         // Generate Quiz Performance Chart for users tab
         function generateUsersPerformanceChart(performanceData) {
-            const ctx = document.getElementById('usersPerformanceChart').getContext('2d');
+            const ctx = document.getElementById('usersPerformanceChart');
+            if (!ctx) {
+                console.error('Could not find usersPerformanceChart canvas element');
+                return;
+            }
             
             // Calculate average scores and sort by highest
             const quizTypes = [];
@@ -1867,12 +1897,18 @@
                     avgScores.push((data.totalScore / data.attempts).toFixed(1));
                 });
             
-            // Destroy existing chart if it exists
-            if (window.usersQuizPerfChart) {
-                window.usersQuizPerfChart.destroy();
+            // Safely destroy existing chart if it exists
+            try {
+                if (window.usersQuizPerfChart && typeof window.usersQuizPerfChart.destroy === 'function') {
+                    window.usersQuizPerfChart.destroy();
+                }
+            } catch (e) {
+                console.warn('Error destroying existing performance chart:', e);
+                // Reset the reference if there was an error
+                window.usersQuizPerfChart = null;
             }
             
-            window.usersQuizPerfChart = new Chart(ctx, {
+            window.usersQuizPerfChart = new Chart(ctx.getContext('2d'), {
                 type: 'bar',
                 data: {
                     labels: quizTypes,
