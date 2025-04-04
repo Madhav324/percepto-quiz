@@ -1406,10 +1406,12 @@
                 const quizActivityData = {};
                 const quizPerformanceData = {};
                 
-                // Get all users from Firestore for accurate counting
+                console.log("Retrieving user profiles from Firestore...");
+                
+                // Get user profiles from Firestore
                 const userProfilesSnapshot = await firestore.collection('userProfiles').get();
+                console.log(`Retrieved ${userProfilesSnapshot.size} user profiles from Firestore`);
                 totalUsers = userProfilesSnapshot.size;
-                console.log(`Dashboard: Found ${totalUsers} users in Firestore`);
                 
                 // Create maps for easier access
                 const userProfiles = new Map();
@@ -1437,156 +1439,116 @@
                     }
                 });
                 
-                // Count doctors and process their quiz data
-                const doctorIds = [];
-                const regularUserIds = [];
+                // Get doctors and patients from Realtime DB
+                console.log("Retrieving doctors from Realtime DB...");
+                const doctorsSnapshot = await db.ref('doctors').once('value');
+                if (doctorsSnapshot.exists()) {
+                    const doctors = doctorsSnapshot.val() || {};
+                    totalDoctors = Object.keys(doctors).length;
+                    userTypeData.doctors = totalDoctors;
+                    console.log(`Found ${totalDoctors} doctors in Realtime DB`);
+                }
                 
-                // Split users by role
-                userProfiles.forEach((profile, id) => {
-                    if (profile.role === 'doctor') {
-                        totalDoctors++;
-                        doctorIds.push(id);
-                        userTypeData.doctors++;
-                    } else {
-                        regularUserIds.push(id);
-                        userTypeData.regular++;
-                    }
-                });
-                
-                // Process doctors and their patients
-                const doctorPromises = doctorIds.map(async doctorId => {
-                    try {
-                        // Get patients for this doctor
-                        const patientsSnapshot = await db.ref(`doctors/${doctorId}/patients`).once('value');
-                        const patientsData = patientsSnapshot.val() || {};
+                console.log("Retrieving patients data...");
+                const doctorPatientMap = new Map();
+                // Retrieve doctor-patient relationships
+                try {
+                    const docPatientsSnapshot = await db.ref('doctor-patients').once('value');
+                    if (docPatientsSnapshot.exists()) {
+                        const docPatients = docPatientsSnapshot.val() || {};
                         
-                        // Count patients
-                        const patientCount = Object.keys(patientsData).length;
-                        totalPatients += patientCount;
-                        userTypeData.patients += patientCount;
+                        // Count patients while avoiding duplicates
+                        const allPatientIds = new Set();
                         
-                        // Process each patient's quizzes
-                        Object.entries(patientsData).forEach(([patientId, patientData]) => {
-                            if (patientData && patientData.quiz) {
-                                Object.entries(patientData.quiz).forEach(([quizType, attempts]) => {
-                                    uniqueQuizTypes.add(quizType);
-                                    
-                                    if (attempts) {
-                                        // For quiz activity trends by date
-                                        Object.entries(attempts).forEach(([timestamp, result]) => {
-                                            totalQuizAttempts++;
-                                            
-                                            // Store quiz performance data
-                                            if (!quizPerformanceData[quizType]) {
-                                                quizPerformanceData[quizType] = {
-                                                    attempts: 0,
-                                                    totalScore: 0
-                                                };
-                                            }
-                                            quizPerformanceData[quizType].attempts++;
-                                            if (result.score !== undefined) {
-                                                quizPerformanceData[quizType].totalScore += parseFloat(result.score);
-                                            }
-                                            
-                                            // Process date for trend chart
-                                            const date = new Date(parseInt(timestamp));
-                                            const dateString = date.toISOString().split('T')[0];
-                                            
-                                            if (!quizActivityData[dateString]) {
-                                                quizActivityData[dateString] = 0;
-                                            }
-                                            quizActivityData[dateString]++;
-                                        });
-                                    }
+                        Object.entries(docPatients).forEach(([doctorId, patients]) => {
+                            if (patients) {
+                                const patientIds = Object.keys(patients);
+                                doctorPatientMap.set(doctorId, patientIds);
+                                
+                                patientIds.forEach(patientId => {
+                                    allPatientIds.add(patientId);
                                 });
                             }
                         });
                         
-                        // Process doctor's own quizzes
-                        const doctorQuizzesSnapshot = await db.ref(`doctors/${doctorId}/quiz`).once('value');
-                        const doctorQuizzes = doctorQuizzesSnapshot.val() || {};
+                        totalPatients = allPatientIds.size;
+                        userTypeData.patients = totalPatients;
+                        console.log(`Found ${totalPatients} unique patients in doctor-patient relationships`);
+                    }
+                } catch (error) {
+                    console.error("Error retrieving doctor-patient relationships:", error);
+                }
+                
+                // Calculate regular users (total - doctors - patients)
+                userTypeData.regular = totalUsers - totalDoctors - totalPatients;
+                if (userTypeData.regular < 0) userTypeData.regular = 0;
+                
+                console.log(`User distribution: doctors=${userTypeData.doctors}, patients=${userTypeData.patients}, regular=${userTypeData.regular}`);
+                
+                // Get quiz data
+                console.log("Retrieving quiz data...");
+                try {
+                    const quizzesSnapshot = await db.ref('quizzes').once('value');
+                    if (quizzesSnapshot.exists()) {
+                        const quizzes = quizzesSnapshot.val() || {};
+                        uniqueQuizTypes = new Set(Object.values(quizzes).map(q => q.type));
+                        console.log(`Found ${Object.keys(quizzes).length} quizzes with ${uniqueQuizTypes.size} unique types`);
+                    }
+                } catch (error) {
+                    console.error("Error retrieving quizzes:", error);
+                }
+                
+                // Get quiz attempts
+                console.log("Retrieving quiz attempts...");
+                try {
+                    const quizAttemptsSnapshot = await db.ref('quizAttempts').once('value');
+                    if (quizAttemptsSnapshot.exists()) {
+                        const attempts = quizAttemptsSnapshot.val() || {};
+                        totalQuizAttempts = Object.keys(attempts).length;
                         
-                        Object.entries(doctorQuizzes).forEach(([quizType, attempts]) => {
-                            uniqueQuizTypes.add(quizType);
+                        // Process quiz activity data
+                        Object.values(attempts).forEach(attempt => {
+                            if (attempt.timestamp) {
+                                const date = new Date(attempt.timestamp);
+                                const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                                
+                                if (!quizActivityData[dateStr]) {
+                                    quizActivityData[dateStr] = 0;
+                                }
+                                quizActivityData[dateStr]++;
+                            }
                             
-                            if (attempts) {
-                                Object.entries(attempts).forEach(([timestamp, result]) => {
-                                    totalQuizAttempts++;
-                                    
-                                    // Store quiz performance data
-                                    if (!quizPerformanceData[quizType]) {
-                                        quizPerformanceData[quizType] = {
-                                            attempts: 0,
-                                            totalScore: 0
-                                        };
-                                    }
-                                    quizPerformanceData[quizType].attempts++;
-                                    if (result.score !== undefined) {
-                                        quizPerformanceData[quizType].totalScore += parseFloat(result.score);
-                                    }
-                                    
-                                    // Process date for trend chart
-                                    const date = new Date(parseInt(timestamp));
-                                    const dateString = date.toISOString().split('T')[0];
-                                    
-                                    if (!quizActivityData[dateString]) {
-                                        quizActivityData[dateString] = 0;
-                                    }
-                                    quizActivityData[dateString]++;
-                                });
+                            // Process quiz performance data by type
+                            if (attempt.quizType && attempt.score !== undefined) {
+                                if (!quizPerformanceData[attempt.quizType]) {
+                                    quizPerformanceData[attempt.quizType] = {
+                                        totalScore: 0,
+                                        attempts: 0
+                                    };
+                                }
+                                
+                                quizPerformanceData[attempt.quizType].totalScore += Number(attempt.score);
+                                quizPerformanceData[attempt.quizType].attempts++;
                             }
                         });
-                    } catch (error) {
-                        console.warn(`Error processing doctor ${doctorId}:`, error);
-                    }
-                });
-                
-                // Process regular users
-                const userPromises = regularUserIds.map(async userId => {
-                    try {
-                        // Check user's quizzes
-                        const userQuizzesSnapshot = await db.ref(`users/${userId}/quiz`).once('value');
-                        const userQuizzes = userQuizzesSnapshot.val() || {};
                         
-                        Object.entries(userQuizzes).forEach(([quizType, attempts]) => {
-                            uniqueQuizTypes.add(quizType);
-                            
-                            if (attempts) {
-                                Object.entries(attempts).forEach(([timestamp, result]) => {
-                                    totalQuizAttempts++;
-                                    
-                                    // Store quiz performance data
-                                    if (!quizPerformanceData[quizType]) {
-                                        quizPerformanceData[quizType] = {
-                                            attempts: 0,
-                                            totalScore: 0
-                                        };
-                                    }
-                                    quizPerformanceData[quizType].attempts++;
-                                    if (result.score !== undefined) {
-                                        quizPerformanceData[quizType].totalScore += parseFloat(result.score);
-                                    }
-                                    
-                                    // Process date for trend chart
-                                    const date = new Date(parseInt(timestamp));
-                                    const dateString = date.toISOString().split('T')[0];
-                                    
-                                    if (!quizActivityData[dateString]) {
-                                        quizActivityData[dateString] = 0;
-                                    }
-                                    quizActivityData[dateString]++;
-                                });
+                        // Calculate average scores
+                        Object.keys(quizPerformanceData).forEach(type => {
+                            const data = quizPerformanceData[type];
+                            if (data.attempts > 0) {
+                                data.avgScore = Math.round(data.totalScore / data.attempts);
+                            } else {
+                                data.avgScore = 0;
                             }
                         });
-                    } catch (error) {
-                        console.warn(`Error processing user ${userId}:`, error);
+                        
+                        console.log(`Processed ${totalQuizAttempts} quiz attempts`);
                     }
-                });
+                } catch (error) {
+                    console.error("Error retrieving quiz attempts:", error);
+                }
                 
-                // Wait for all promises to complete
-                await Promise.all([...doctorPromises, ...userPromises]);
-                
-                // Update the dashboard statistics
+                // Update dashboard stats
                 document.getElementById('totalUsers').innerText = totalUsers;
                 document.getElementById('totalDoctors').innerText = totalDoctors;
                 document.getElementById('totalPatients').innerText = totalPatients;
@@ -1594,22 +1556,29 @@
                 document.getElementById('totalQuizAttempts').innerText = totalQuizAttempts;
                 
                 // Generate charts
+                console.log("Generating charts...");
                 generateUserDistributionChart(userTypeData);
                 generateAgeDistributionChart(ageData);
                 generateQuizActivityChart(quizActivityData);
                 generateQuizPerformanceChart(quizPerformanceData);
                 
                 // Load recent activity
-                await loadRecentActivity();
+                console.log("Loading recent activity...");
+                loadRecentActivity();
                 
                 // Load top quizzes
-                await loadTopQuizzes();
+                console.log("Loading top quizzes...");
+                loadTopQuizzes();
+                
+                console.log("Dashboard data loaded successfully");
                 
             } catch (error) {
                 console.error("Error loading dashboard data:", error);
-                document.getElementById('dashboardContent').innerHTML = `
-                    <div class="error-message">Error loading dashboard data: ${error.message}</div>
-                `;
+                document.getElementById('totalUsers').innerText = "Error";
+                document.getElementById('totalDoctors').innerText = "Error";
+                document.getElementById('totalPatients').innerText = "Error";
+                document.getElementById('totalQuizzes').innerText = "Error";
+                document.getElementById('totalQuizAttempts').innerText = "Error";
             }
         }
         
