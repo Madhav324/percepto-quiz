@@ -1204,21 +1204,93 @@
             
             <div id="quizzesTab" class="tab-content">
                 <h2>Quiz Statistics</h2>
-                <table id="quizzesTable">
-                    <thead>
-                        <tr>
-                            <th>Quiz Name</th>
-                            <th>Times Taken</th>
-                            <th>Avg. Score</th>
-                            <th>View Details</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td colspan="4">Loading data...</td>
-                    </tr>
-                </tbody>
-            </table>
+                
+                <!-- Quiz Statistics Overview Section -->
+                <div class="quiz-stats-overview">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon">📊</div>
+                            <div class="stat-value" id="quizzesTotalQuizzes">Loading...</div>
+                            <div class="stat-label">Unique Quizzes</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">🧠</div>
+                            <div class="stat-value" id="quizzesTotalAttempts">Loading...</div>
+                            <div class="stat-label">Total Attempts</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">📈</div>
+                            <div class="stat-value" id="quizzesAvgScore">Loading...</div>
+                            <div class="stat-label">Avg. Score</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">⭐</div>
+                            <div class="stat-value" id="quizzesTopQuiz">Loading...</div>
+                            <div class="stat-label">Most Popular Quiz</div>
+                        </div>
+                    </div>
+                    
+                    <div class="charts-grid">
+                        <div class="chart-card">
+                            <h3>Quiz Popularity</h3>
+                            <div class="chart-container">
+                                <canvas id="quizPopularityChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="chart-card">
+                            <h3>User Performance</h3>
+                            <div class="chart-container">
+                                <canvas id="quizPerformanceChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Filters for quizzes -->
+                <div class="filter-controls">
+                    <div class="form-group">
+                        <label for="quizPopularityFilter">Filter by popularity:</label>
+                        <select id="quizPopularityFilter">
+                            <option value="">All quizzes</option>
+                            <option value="high">High popularity (10+ attempts)</option>
+                            <option value="medium">Medium popularity (5-9 attempts)</option>
+                            <option value="low">Low popularity (1-4 attempts)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="quizScoreFilter">Filter by avg. score:</label>
+                        <select id="quizScoreFilter">
+                            <option value="">All scores</option>
+                            <option value="high">High scores (80-100%)</option>
+                            <option value="medium">Medium scores (60-79%)</option>
+                            <option value="low">Low scores (0-59%)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="quizSearchFilter">Search by name:</label>
+                        <input type="text" id="quizSearchFilter" placeholder="Search...">
+                    </div>
+                </div>
+                
+                <!-- Quizzes Table -->
+                <div class="table-container">
+                    <table id="quizzesTable">
+                        <thead>
+                            <tr>
+                                <th>Quiz Name</th>
+                                <th>Times Taken</th>
+                                <th>Avg. Score</th>
+                                <th>User Types</th>
+                                <th>View Details</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="5">Loading data...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
         </div>
         
         <!-- Patient quiz details modal -->
@@ -2057,6 +2129,96 @@
                 document.getElementById('topQuizzesTable').innerHTML = 
                     `<tr><td colspan="6">Error loading data: ${error.message}</td></tr>`;
             }
+        }
+        
+        // Setup filters for the quizzes table
+        function setupQuizFilters() {
+            const popularityFilter = document.getElementById('quizPopularityFilter');
+            const scoreFilter = document.getElementById('quizScoreFilter');
+            const searchFilter = document.getElementById('quizSearchFilter');
+            
+            if (!popularityFilter || !scoreFilter || !searchFilter) {
+                console.error("Could not find quiz filter elements");
+                return;
+            }
+            
+            // Remove existing listeners
+            const newPopularityFilter = popularityFilter.cloneNode(true);
+            const newScoreFilter = scoreFilter.cloneNode(true);
+            const newSearchFilter = searchFilter.cloneNode(true);
+            
+            popularityFilter.parentNode.replaceChild(newPopularityFilter, popularityFilter);
+            scoreFilter.parentNode.replaceChild(newScoreFilter, scoreFilter);
+            searchFilter.parentNode.replaceChild(newSearchFilter, searchFilter);
+            
+            // Add event listeners
+            newPopularityFilter.addEventListener('change', filterQuizzes);
+            newScoreFilter.addEventListener('change', filterQuizzes);
+            newSearchFilter.addEventListener('input', filterQuizzes);
+        }
+        
+        // Filter quizzes based on popularity, score, and search query
+        function filterQuizzes() {
+            const popularityFilter = document.getElementById('quizPopularityFilter').value;
+            const scoreFilter = document.getElementById('quizScoreFilter').value;
+            const searchFilter = document.getElementById('quizSearchFilter').value.toLowerCase();
+            
+            // Get all quiz rows
+            const quizRows = document.querySelectorAll('#quizzesTable tbody tr.quiz-row');
+            
+            // Process each row
+            quizRows.forEach(row => {
+                const quizName = row.querySelector('td:first-child').textContent.toLowerCase();
+                const attempts = parseInt(row.querySelector('td:nth-child(2)').textContent, 10);
+                const avgScoreText = row.querySelector('td:nth-child(3)').textContent;
+                const avgScore = parseFloat(avgScoreText.replace('%', ''));
+                
+                // Check if row should be visible based on popularity filter
+                let popularityMatch = true;
+                if (popularityFilter !== '') {
+                    if (popularityFilter === 'high') {
+                        popularityMatch = attempts >= 10;
+                    } else if (popularityFilter === 'medium') {
+                        popularityMatch = attempts >= 5 && attempts < 10;
+                    } else if (popularityFilter === 'low') {
+                        popularityMatch = attempts >= 1 && attempts < 5;
+                    }
+                }
+                
+                // Check if row should be visible based on score filter
+                let scoreMatch = true;
+                if (scoreFilter !== '') {
+                    if (isNaN(avgScore)) {
+                        scoreMatch = false;
+                    } else if (scoreFilter === 'high') {
+                        scoreMatch = avgScore >= 80;
+                    } else if (scoreFilter === 'medium') {
+                        scoreMatch = avgScore >= 60 && avgScore < 80;
+                    } else if (scoreFilter === 'low') {
+                        scoreMatch = avgScore < 60;
+                    }
+                }
+                
+                // Check if row should be visible based on search filter
+                const searchMatch = searchFilter === '' || quizName.includes(searchFilter);
+                
+                // Determine visibility
+                if (popularityMatch && scoreMatch && searchMatch) {
+                    row.style.display = 'table-row';
+                    // If this row has a details row, keep it hidden unless it was manually expanded
+                    const detailsRow = row.nextElementSibling;
+                    if (detailsRow && detailsRow.classList.contains('quiz-details')) {
+                        // Keep the current display state (shown if expanded, hidden if not)
+                    }
+                } else {
+                    row.style.display = 'none';
+                    // Also hide any associated details row
+                    const detailsRow = row.nextElementSibling;
+                    if (detailsRow && detailsRow.classList.contains('quiz-details')) {
+                        detailsRow.style.display = 'none';
+                    }
+                }
+            });
         }
         
         // Toggle quiz details
@@ -3508,23 +3670,19 @@
             });
         }
         
-        // Load quizzes data for the Quizzes tab
         async function loadQuizzesData() {
             try {
-                console.log("Loading quizzes statistics...");
+                console.log("Loading quizzes data...");
                 const quizzesTable = document.getElementById('quizzesTable').querySelector('tbody');
-                quizzesTable.innerHTML = '<tr><td colspan="4">Loading quiz statistics...</td></tr>';
+                quizzesTable.innerHTML = '<tr><td colspan="5">Loading data...</td></tr>';
                 
-                // Store all quiz statistics
+                // Initialize quiz stats object
                 const quizStats = {};
                 
-                // Instead of directly accessing Firestore, we'll follow the pattern from loadUsersData
-                // which is working correctly
+                // Step 1: Process doctor's patients' quiz data
+                console.log("Loading doctors' patients' quiz data...");
                 
-                // Step 1: Process doctors and their patients
-                console.log("Loading doctors and their patients' quiz data...");
-                
-                // Get doctor IDs from Realtime Database using the roles path (avoiding Firestore)
+                // Get doctors
                 const rolesSnapshot = await db.ref('roles').once('value');
                 const roles = rolesSnapshot.val() || {};
                 
@@ -3539,39 +3697,20 @@
                 
                 // Process each doctor
                 for (const doctorId of doctorIds) {
-                    // Doctor's own quizzes
-                    const doctorQuizSnapshot = await db.ref(`doctors/${doctorId}/quiz`).once('value');
-                    const doctorQuizData = doctorQuizSnapshot.val();
-                    
-                    if (doctorQuizData) {
-                        Object.entries(doctorQuizData).forEach(([quizType, attempts]) => {
-                            if (!quizStats[quizType]) {
-                                quizStats[quizType] = {
-                                    name: quizType,
-                                    regularUsers: { attempts: 0, totalScore: 0 },
-                                    patients: { attempts: 0, totalScore: 0 },
-                                    total: { attempts: 0, totalScore: 0 }
-                                };
-                            }
-                            
-                            Object.entries(attempts || {}).forEach(([timestamp, attempt]) => {
-                                if (attempt.score !== undefined) {
-                                    quizStats[quizType].regularUsers.attempts++;
-                                    quizStats[quizType].regularUsers.totalScore += parseFloat(attempt.score);
-                                    quizStats[quizType].total.attempts++;
-                                    quizStats[quizType].total.totalScore += parseFloat(attempt.score);
-                                }
-                            });
-                        });
-                    }
-                    
-                    // Process patients' quizzes
                     const patientsSnapshot = await db.ref(`doctors/${doctorId}/patients`).once('value');
                     const patients = patientsSnapshot.val() || {};
                     
-                    Object.entries(patients).forEach(([patientId, patientData]) => {
-                        if (patientData && patientData.quiz) {
-                            Object.entries(patientData.quiz).forEach(([quizType, attempts]) => {
+                    // Process each patient
+                    for (const patientId in patients) {
+                        // Check if patient exists
+                        const patientQuizSnapshot = await db.ref(`users/${patientId}/quiz`).once('value');
+                        const doctorPathQuizSnapshot = await db.ref(`doctors/${doctorId}/patients/${patientId}/quiz`).once('value');
+                        
+                        // Process patient's quiz data from user path
+                        if (patientQuizSnapshot.exists) {
+                            const patientQuizData = patientQuizSnapshot.val() || {};
+                            
+                            Object.entries(patientQuizData).forEach(([quizType, attempts]) => {
                                 if (!quizStats[quizType]) {
                                     quizStats[quizType] = {
                                         name: quizType,
@@ -3591,7 +3730,32 @@
                                 });
                             });
                         }
-                    });
+                        
+                        // Process patient's quiz data from doctor path
+                        if (doctorPathQuizSnapshot.exists) {
+                            const doctorPathQuizData = doctorPathQuizSnapshot.val() || {};
+                            
+                            Object.entries(doctorPathQuizData).forEach(([quizType, attempts]) => {
+                                if (!quizStats[quizType]) {
+                                    quizStats[quizType] = {
+                                        name: quizType,
+                                        regularUsers: { attempts: 0, totalScore: 0 },
+                                        patients: { attempts: 0, totalScore: 0 },
+                                        total: { attempts: 0, totalScore: 0 }
+                                    };
+                                }
+                                
+                                Object.entries(attempts || {}).forEach(([timestamp, attempt]) => {
+                                    if (attempt.score !== undefined) {
+                                        quizStats[quizType].patients.attempts++;
+                                        quizStats[quizType].patients.totalScore += parseFloat(attempt.score);
+                                        quizStats[quizType].total.attempts++;
+                                        quizStats[quizType].total.totalScore += parseFloat(attempt.score);
+                                    }
+                                });
+                            });
+                        }
+                    }
                 }
                 
                 // Step 2: Process regular users
@@ -3649,6 +3813,34 @@
                 // Sort by total attempts (most popular first)
                 quizStatsList.sort((a, b) => b.total.attempts - a.total.attempts);
                 
+                // Calculate overall statistics
+                const totalQuizzes = quizStatsList.length;
+                let totalAttempts = 0;
+                let totalScores = 0;
+                let topQuizName = "None";
+                let topQuizAttempts = 0;
+                
+                quizStatsList.forEach(quiz => {
+                    totalAttempts += quiz.total.attempts;
+                    totalScores += quiz.total.totalScore;
+                    
+                    if (quiz.total.attempts > topQuizAttempts) {
+                        topQuizName = quiz.name;
+                        topQuizAttempts = quiz.total.attempts;
+                    }
+                });
+                
+                const overallAvgScore = totalAttempts > 0 ? (totalScores / totalAttempts).toFixed(2) : 'N/A';
+                
+                // Update the statistics cards
+                document.getElementById('quizzesTotalQuizzes').textContent = totalQuizzes;
+                document.getElementById('quizzesTotalAttempts').textContent = totalAttempts;
+                document.getElementById('quizzesAvgScore').textContent = overallAvgScore !== 'N/A' ? `${overallAvgScore}%` : 'N/A';
+                document.getElementById('quizzesTopQuiz').textContent = topQuizName;
+                
+                // Prepare data for charts
+                renderQuizCharts(quizStatsList);
+                
                 // Update the quizzes table
                 quizzesTable.innerHTML = '';
                 
@@ -3664,6 +3856,12 @@
                         const totalAvg = quiz.total.attempts > 0 && quiz.total.totalScore !== undefined ? 
                             (quiz.total.totalScore / quiz.total.attempts).toFixed(2) : 'N/A';
                         
+                        // Determine user types
+                        const userTypes = [];
+                        if (quiz.regularUsers.attempts > 0) userTypes.push('Regular Users');
+                        if (quiz.patients.attempts > 0) userTypes.push('Patients');
+                        const userTypeText = userTypes.join(', ') || 'None';
+                        
                         // Create the main quiz row
                         const row = document.createElement('tr');
                         row.className = 'quiz-row';
@@ -3671,6 +3869,7 @@
                             <td><strong>${quiz.name}</strong></td>
                             <td>${quiz.total.attempts}</td>
                             <td>${totalAvg}%</td>
+                            <td>${userTypeText}</td>
                             <td>
                                 <button class="view-details-btn" onclick="toggleQuizDetails(this)">Show Details</button>
                             </td>
@@ -3684,47 +3883,216 @@
                         
                         // Create a nested table for the detailed statistics
                         detailsRow.innerHTML = `
-                            <td colspan="4">
-                                <table class="details-table">
-                                    <thead>
-                                        <tr>
-                                            <th>User Type</th>
-                                            <th>Attempts</th>
-                                            <th>Avg. Score</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr>
-                                            <td>Regular Users</td>
-                                            <td>${quiz.regularUsers.attempts}</td>
-                                            <td>${regularAvg}%</td>
-                                        </tr>
-                                        <tr>
-                                            <td>Patients</td>
-                                            <td>${quiz.patients.attempts}</td>
-                                            <td>${patientsAvg}%</td>
-                                        </tr>
-                                        <tr class="total-row">
-                                            <td><strong>Total</strong></td>
-                                            <td><strong>${quiz.total.attempts}</strong></td>
-                                            <td><strong>${totalAvg}%</strong></td>
-                                        </tr>
-                                    </tbody>
-                                </table>
+                            <td colspan="5">
+                                <div class="quiz-details-content">
+                                    <table class="details-table">
+                                        <thead>
+                                            <tr>
+                                                <th>User Type</th>
+                                                <th>Attempts</th>
+                                                <th>Avg. Score</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>Regular Users</td>
+                                                <td>${quiz.regularUsers.attempts}</td>
+                                                <td>${regularAvg}%</td>
+                                            </tr>
+                                            <tr>
+                                                <td>Patients</td>
+                                                <td>${quiz.patients.attempts}</td>
+                                                <td>${patientsAvg}%</td>
+                                            </tr>
+                                            <tr class="total-row">
+                                                <td><strong>Total</strong></td>
+                                                <td><strong>${quiz.total.attempts}</strong></td>
+                                                <td><strong>${totalAvg}%</strong></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                    <div class="quiz-performance-mini-chart">
+                                        <canvas id="chart-${quiz.name.replace(/\s+/g, '-')}"></canvas>
+                                    </div>
+                                </div>
                             </td>
                         `;
                         quizzesTable.appendChild(detailsRow);
                     });
+                    
+                    // Initialize the quiz filters
+                    setupQuizFilters();
                 } else {
-                    quizzesTable.innerHTML = '<tr><td colspan="4">No quiz data found</td></tr>';
+                    quizzesTable.innerHTML = '<tr><td colspan="5">No quiz data found</td></tr>';
                 }
                 
             } catch (error) {
                 console.error("Error loading quizzes data:", error);
                 document.getElementById('quizzesTable').querySelector('tbody').innerHTML = 
-                    `<tr><td colspan="4">Error loading data: ${error.message}</td></tr>`;
+                    `<tr><td colspan="5">Error loading data: ${error.message}</td></tr>`;
+                
+                // Reset stats cards on error
+                document.getElementById('quizzesTotalQuizzes').textContent = '0';
+                document.getElementById('quizzesTotalAttempts').textContent = '0';
+                document.getElementById('quizzesAvgScore').textContent = 'N/A';
+                document.getElementById('quizzesTopQuiz').textContent = 'None';
             }
         }
-    </script>
-</body>
+        
+        // Render quiz charts using Chart.js
+        function renderQuizCharts(quizStatsList) {
+            // Make sure Chart.js is loaded
+            if (typeof Chart === 'undefined') {
+                console.warn('Chart.js is not loaded. Loading from CDN...');
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+                script.onload = () => createCharts(quizStatsList);
+                document.head.appendChild(script);
+            } else {
+                createCharts(quizStatsList);
+            }
+        }
+        
+        // Create the actual charts
+        function createCharts(quizStatsList) {
+            // Limit to top 5 quizzes for better visualization
+            const top5Quizzes = quizStatsList.slice(0, 5);
+            
+            // Popularity Chart (Bar chart)
+            const popularityCtx = document.getElementById('quizPopularityChart').getContext('2d');
+            
+            // Destroy existing chart if it exists
+            if (window.popularityChart instanceof Chart) {
+                window.popularityChart.destroy();
+            }
+            
+            window.popularityChart = new Chart(popularityCtx, {
+                type: 'bar',
+                data: {
+                    labels: top5Quizzes.map(quiz => quiz.name),
+                    datasets: [{
+                        label: 'Total Attempts',
+                        data: top5Quizzes.map(quiz => quiz.total.attempts),
+                        backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Number of Attempts'
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Performance Chart (Bar chart comparing regular users vs patients)
+            const performanceCtx = document.getElementById('quizPerformanceChart').getContext('2d');
+            
+            // Destroy existing chart if it exists
+            if (window.performanceChart instanceof Chart) {
+                window.performanceChart.destroy();
+            }
+            
+            window.performanceChart = new Chart(performanceCtx, {
+                type: 'bar',
+                data: {
+                    labels: top5Quizzes.map(quiz => quiz.name),
+                    datasets: [{
+                        label: 'Regular Users',
+                        data: top5Quizzes.map(quiz => 
+                            quiz.regularUsers.attempts > 0 ? 
+                                quiz.regularUsers.totalScore / quiz.regularUsers.attempts : 0
+                        ),
+                        backgroundColor: 'rgba(75, 192, 192, 0.7)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1
+                    }, {
+                        label: 'Patients',
+                        data: top5Quizzes.map(quiz => 
+                            quiz.patients.attempts > 0 ? 
+                                quiz.patients.totalScore / quiz.patients.attempts : 0
+                        ),
+                        backgroundColor: 'rgba(255, 159, 64, 0.7)',
+                        borderColor: 'rgba(255, 159, 64, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Average Score (%)'
+                            },
+                            max: 100
+                        }
+                    }
+                }
+            });
+            
+            // Create mini charts for each quiz in the details rows
+            quizStatsList.forEach(quiz => {
+                const canvasId = `chart-${quiz.name.replace(/\s+/g, '-')}`;
+                const canvas = document.getElementById(canvasId);
+                
+                if (canvas) {
+                    const ctx = canvas.getContext('2d');
+                    
+                    // Calculate actual scores for the chart
+                    const regularAvg = quiz.regularUsers.attempts > 0 ? 
+                        quiz.regularUsers.totalScore / quiz.regularUsers.attempts : 0;
+                    const patientAvg = quiz.patients.attempts > 0 ? 
+                        quiz.patients.totalScore / quiz.patients.attempts : 0;
+                    
+                    // Create mini doughnut chart
+                        new Chart(ctx, {
+                            type: 'doughnut',
+                            data: {
+                                labels: ['Regular Users', 'Patients'],
+                                datasets: [{
+                                    data: [regularAvg, patientAvg],
+                                    backgroundColor: [
+                                        'rgba(75, 192, 192, 0.7)',
+                                        'rgba(255, 159, 64, 0.7)'
+                                    ],
+                                    borderColor: [
+                                        'rgba(75, 192, 192, 1)',
+                                        'rgba(255, 159, 64, 1)'
+                                    ],
+                                    borderWidth: 1
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    title: {
+                                        display: true,
+                                        text: 'Avg. Score Comparison'
+                                    },
+                                    legend: {
+                                        position: 'bottom',
+                                        labels: {
+                                            boxWidth: 10
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    }
+                });
+            }
+        </script>
+    </body>
 </html>
