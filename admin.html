@@ -2340,10 +2340,20 @@
             // Try path 1: under regular users
             try {
                 const quizRef = await db.ref(`users/${patientId}/quiz`).once('value');
+                console.log(`Quiz ref for ${patientId}:`, quizRef);
+                console.log(`Quiz ref exists:`, quizRef.exists);
+                console.log(`Quiz ref value:`, quizRef.val());
+                
                 if (quizRef.exists) {
                     console.log(`Found quiz data in users/${patientId}/quiz`);
-                    quizData = {...quizData, ...quizRef.val()};
-                    found = true;
+                    const quizValue = quizRef.val();
+                    if (quizValue) {
+                        quizData = {...quizData, ...quizValue};
+                        found = true;
+                        console.log(`Quiz data merged, now contains ${Object.keys(quizData).length} quiz types`);
+                    } else {
+                        console.log(`Quiz reference exists but value is null or empty`);
+                    }
                     // Don't return yet, continue checking other paths
                 }
             } catch (error) {
@@ -2405,12 +2415,24 @@
             if (!quizData) return 0;
             
             let count = 0;
-            Object.values(quizData).forEach(attempts => {
+            console.log('Counting quizzes from data:', quizData);
+            
+            Object.entries(quizData).forEach(([quizType, attempts]) => {
+                console.log(`Quiz type: ${quizType}, attempts:`, attempts);
                 if (attempts) {
-                    count += Object.keys(attempts).length;
+                    const attemptKeys = Object.keys(attempts);
+                    count += attemptKeys.length;
+                    console.log(`Found ${attemptKeys.length} attempts for ${quizType}`);
+                    
+                    // Log the first attempt to see its structure
+                    if (attemptKeys.length > 0) {
+                        const firstAttemptKey = attemptKeys[0];
+                        console.log(`Sample attempt data for ${firstAttemptKey}:`, attempts[firstAttemptKey]);
+                    }
                 }
             });
             
+            console.log(`Total quiz count: ${count}`);
             return count;
         }
         
