@@ -1416,26 +1416,26 @@
                 let doctorIds = [];
                 try {
                     const doctorsSnapshot = await db.ref('doctors').once('value');
-                    if (doctorsSnapshot.exists()) {
+                    if (doctorsSnapshot.exists) {
                         doctorIds = Object.keys(doctorsSnapshot.val() || {});
                         console.log(`Dashboard: Found ${doctorIds.length} doctors in Realtime DB`);
                         totalDoctors = doctorIds.length;
                         userTypeData.doctors = doctorIds.length;
                     }
                 } catch (error) {
-                    console.error("Dashboard: Error fetching doctors:", error);
+                    console.error("Error fetching doctors:", error);
                 }
                 
                 // Get all users
                 let userIds = [];
                 try {
                     const usersSnapshot = await db.ref('users').once('value');
-                    if (usersSnapshot.exists()) {
+                    if (usersSnapshot.exists) {
                         userIds = Object.keys(usersSnapshot.val() || {});
                         console.log(`Dashboard: Found ${userIds.length} users in Realtime DB`);
                     }
                 } catch (error) {
-                    console.error("Dashboard: Error fetching users:", error);
+                    console.error("Error fetching users:", error);
                 }
                 
                 // Get all Firestore users
@@ -1445,7 +1445,7 @@
                     firestoreUserIds = querySnapshot.docs.map(doc => doc.id);
                     console.log(`Dashboard: Found ${firestoreUserIds.length} users in Firestore`);
                 } catch (error) {
-                    console.error("Dashboard: Error fetching Firestore users:", error);
+                    console.error("Error fetching Firestore users:", error);
                 }
                 
                 // Combine all unique IDs
@@ -1539,7 +1539,7 @@
                                 // Load patients
                                 try {
                                     const patientsSnapshot = await db.ref(`doctors/${userId}/patients`).once('value');
-                                    if (patientsSnapshot.exists()) {
+                                    if (patientsSnapshot.exists) {
                                         const patients = patientsSnapshot.val() || {};
                                         const patientCount = Object.keys(patients).length;
                                         totalPatients += patientCount;
@@ -1941,7 +1941,7 @@
                     // Doctor's own quizzes
                     try {
                         const doctorQuizzes = await db.ref(`doctors/${doctorId}/quiz`).once('value');
-                        if (doctorQuizzes.exists()) {
+                        if (doctorQuizzes.exists) {
                             const doctorProfile = userProfiles.get(doctorId);
                             
                             Object.entries(doctorQuizzes.val()).forEach(([quizType, attempts]) => {
@@ -1965,7 +1965,7 @@
                     // Patients' quizzes
                     try {
                         const patientsSnapshot = await db.ref(`doctors/${doctorId}/patients`).once('value');
-                        if (patientsSnapshot.exists()) {
+                        if (patientsSnapshot.exists) {
                             
                             Object.entries(patientsSnapshot.val()).forEach(([patientId, patientData]) => {
                                 if (!patientData) {
@@ -2009,7 +2009,7 @@
                         // If the role exists, use the path that matches the user's profile structure
                         
                         const userQuizzes = await db.ref(`users/${userId}/quiz`).once('value');
-                        if (userQuizzes.exists()) {
+                        if (userQuizzes.exists) {
                             const userProfile = userProfiles.get(userId);
                             
                             Object.entries(userQuizzes.val()).forEach(([quizType, attempts]) => {
@@ -2094,7 +2094,7 @@
                 let doctorIds = [];
                 try {
                     const doctorsSnapshot = await db.ref('doctors').once('value');
-                    if (doctorsSnapshot.exists()) {
+                    if (doctorsSnapshot.exists) {
                         doctorIds = Object.keys(doctorsSnapshot.val() || {});
                         console.log(`Dashboard: Found ${doctorIds.length} doctors in Realtime DB`);
                         totalDoctors = doctorIds.length;
@@ -2108,7 +2108,7 @@
                 let userIds = [];
                 try {
                     const usersSnapshot = await db.ref('users').once('value');
-                    if (usersSnapshot.exists()) {
+                    if (usersSnapshot.exists) {
                         userIds = Object.keys(usersSnapshot.val() || {});
                         console.log(`Dashboard: Found ${userIds.length} users in Realtime DB`);
                     }
@@ -2217,8 +2217,8 @@
                                 // Load patients
                                 try {
                                     const patientsSnapshot = await db.ref(`doctors/${userId}/patients`).once('value');
-                                    if (patientsSnapshot.exists()) {
-                                        const patients = patientsSnapshot.val();
+                                    if (patientsSnapshot.exists) {
+                                        const patients = patientsSnapshot.val() || {};
                                         const patientCount = Object.keys(patients).length;
                                         totalPatients += patientCount;
                                         userTypeData.patients += patientCount;
@@ -2668,7 +2668,7 @@
                 let doctorIds = [];
                 try {
                     const doctorsSnapshot = await db.ref('doctors').once('value');
-                    if (doctorsSnapshot.exists()) {
+                    if (doctorsSnapshot.exists) {
                         doctorIds = Object.keys(doctorsSnapshot.val() || {});
                         console.log(`Found ${doctorIds.length} doctors in Realtime DB`);
                     }
@@ -2680,7 +2680,7 @@
                 let userIds = [];
                 try {
                     const usersSnapshot = await db.ref('users').once('value');
-                    if (usersSnapshot.exists()) {
+                    if (usersSnapshot.exists) {
                         userIds = Object.keys(usersSnapshot.val() || {});
                         console.log(`Found ${userIds.length} users in Realtime DB`);
                     }
@@ -2765,7 +2765,7 @@
                                 // Load patients
                                 try {
                                     const patientsSnapshot = await db.ref(`doctors/${userId}/patients`).once('value');
-                                    if (patientsSnapshot.exists()) {
+                                    if (patientsSnapshot.exists) {
                                         const patients = patientsSnapshot.val();
                                         doctorUser.patientCount = Object.keys(patients).length;
                                         
@@ -2917,6 +2917,87 @@
             }
         }
         
+        // Load comprehensive user profile data from either Firestore or Realtime DB
+        async function loadUserProfileData(userId, role = 'user') {
+            console.log(`Loading profile data for ${userId} with role ${role}`);
+            let profileData = {
+                id: userId,
+                name: 'Unknown',
+                email: 'N/A',
+                role: role,
+                age: 'N/A',
+                gender: 'N/A',
+                medicalCondition: 'N/A'
+            };
+            let found = false;
+            
+            // Try different paths based on role to get the most appropriate data
+            
+            // Try path 1: Firestore
+            try {
+                const userDoc = await firestore.collection('users').doc(userId).get();
+                if (userDoc.exists) {
+                    const userData = userDoc.data();
+                    profileData = {
+                        ...profileData,
+                        ...userData,
+                        role: role // Ensure we use the role passed to this function rather than what's in Firestore
+                    };
+                    
+                    if (userData.name) {
+                        found = true;
+                        console.log(`Found ${role} profile data for ${userId} in Firestore`);
+                    }
+                }
+            } catch (error) {
+                console.warn(`Could not fetch ${role} profile data for ${userId} from Firestore:`, error);
+            }
+            
+            // Try path 2: Realtime Database user path
+            const dbPath = role === 'doctor' ? 'doctors' : 'users';
+            try {
+                const userRef = await db.ref(`${dbPath}/${userId}/profile`).once('value');
+                
+                if (userRef.exists) {
+                    const userData = userRef.val();
+                    if (userData && userData.name) {
+                        profileData = {
+                            ...profileData,
+                            ...userData,
+                            role: role // Force the role to be what was passed in
+                        };
+                        found = true;
+                        console.log(`Found ${role} profile data for ${userId} in Realtime DB ${dbPath}`);
+                    }
+                }
+            } catch (error) {
+                console.warn(`Could not fetch ${role} profile for ${userId} from Realtime DB ${dbPath}:`, error);
+            }
+            
+            // If the profile is for a doctor and not found, check doctors collection
+            if (role === 'doctor' && !found) {
+                try {
+                    const doctorRef = await db.ref(`doctors/${userId}`).once('value');
+                    if (doctorRef.exists) {
+                        const doctorData = doctorRef.val();
+                        if (doctorData && doctorData.profile && doctorData.profile.name) {
+                            profileData = {
+                                ...profileData,
+                                ...doctorData.profile,
+                                role: 'doctor'
+                            };
+                            found = true;
+                            console.log(`Found doctor profile for ${userId} in Realtime DB doctors`);
+                        }
+                    }
+                } catch (error) {
+                    console.warn(`Could not fetch doctor profile for ${userId} from Realtime DB doctors:`, error);
+                }
+            }
+            
+            return { profileData, found };
+        }
+        
         // Function to load patient quiz data from all possible paths
         async function loadPatientQuizData(patientId, doctorId = null) {
             console.log(`Loading quiz data for user ${patientId}, doctor: ${doctorId || 'N/A'}`);
@@ -2926,7 +3007,7 @@
             // Try path 1: under regular users
             try {
                 const quizRef = await db.ref(`users/${patientId}/quiz`).once('value');
-                if (quizRef.exists()) {
+                if (quizRef.exists) {
                     console.log(`Found quiz data in users/${patientId}/quiz`);
                     quizData = {...quizData, ...quizRef.val()};
                     found = true;
@@ -2939,7 +3020,7 @@
             // Try path 2: check if this person is/was a doctor (has quiz data as doctor)
             try {
                 const doctorQuizRef = await db.ref(`doctors/${patientId}/quiz`).once('value');
-                if (doctorQuizRef.exists()) {
+                if (doctorQuizRef.exists) {
                     console.log(`Found quiz data in doctors/${patientId}/quiz - user has doctor role`);
                     quizData = {...quizData, ...doctorQuizRef.val()};
                     found = true;
@@ -2953,7 +3034,7 @@
             if (doctorId) {
                 try {
                     const quizRef = await db.ref(`doctors/${doctorId}/patients/${patientId}/quiz`).once('value');
-                    if (quizRef.exists()) {
+                    if (quizRef.exists) {
                         console.log(`Found quiz data in doctors/${doctorId}/patients/${patientId}/quiz`);
                         quizData = {...quizData, ...quizRef.val()};
                         found = true;
@@ -2967,7 +3048,7 @@
             if (!doctorId) {
                 try {
                     const doctorsRef = await db.ref('doctors').once('value');
-                    if (doctorsRef.exists()) {
+                    if (doctorsRef.exists) {
                         const doctors = doctorsRef.val();
                         for (const [docId, doctorData] of Object.entries(doctors)) {
                             if (doctorData.patients && doctorData.patients[patientId] && doctorData.patients[patientId].quiz) {
@@ -3045,87 +3126,6 @@
                 totalQuizzes,
                 lastActive: latestTimestamp > 0 ? new Date(latestTimestamp).toLocaleString() : 'Never'
             };
-        }
-        
-        // Load comprehensive user profile data from either Firestore or Realtime DB
-        async function loadUserProfileData(userId, role = 'user') {
-            console.log(`Loading profile data for ${userId} with role ${role}`);
-            let profileData = {
-                id: userId,
-                name: 'Unknown',
-                email: 'N/A',
-                role: role,
-                age: 'N/A',
-                gender: 'N/A',
-                medicalCondition: 'N/A'
-            };
-            let found = false;
-            
-            // Try different paths based on role to get the most appropriate data
-            
-            // Try path 1: Firestore
-            try {
-                const userDoc = await firestore.collection('users').doc(userId).get();
-                if (userDoc.exists) {
-                    const userData = userDoc.data();
-                    profileData = {
-                        ...profileData,
-                        ...userData,
-                        role: role // Ensure we use the role passed to this function rather than what's in Firestore
-                    };
-                    
-                    if (userData.name) {
-                        found = true;
-                        console.log(`Found ${role} profile data for ${userId} in Firestore`);
-                    }
-                }
-            } catch (error) {
-                console.warn(`Could not fetch ${role} profile data for ${userId} from Firestore:`, error);
-            }
-            
-            // Try path 2: Realtime Database user path
-            const dbPath = role === 'doctor' ? 'doctors' : 'users';
-            try {
-                const userRef = await db.ref(`${dbPath}/${userId}/profile`).once('value');
-                
-                if (userRef.exists()) {
-                    const userData = userRef.val();
-                    if (userData && userData.name) {
-                        profileData = {
-                            ...profileData,
-                            ...userData,
-                            role: role // Force the role to be what was passed in
-                        };
-                        found = true;
-                        console.log(`Found ${role} profile data for ${userId} in Realtime DB ${dbPath}`);
-                    }
-                }
-            } catch (error) {
-                console.warn(`Could not fetch ${role} profile for ${userId} from Realtime DB ${dbPath}:`, error);
-            }
-            
-            // If the profile is for a doctor and not found, check doctors collection
-            if (role === 'doctor' && !found) {
-                try {
-                    const doctorRef = await db.ref(`doctors/${userId}`).once('value');
-                    if (doctorRef.exists()) {
-                        const doctorData = doctorRef.val();
-                        if (doctorData && doctorData.profile && doctorData.profile.name) {
-                            profileData = {
-                                ...profileData,
-                                ...doctorData.profile,
-                                role: 'doctor'
-                            };
-                            found = true;
-                            console.log(`Found doctor profile for ${userId} in Realtime DB doctors`);
-                        }
-                    }
-                } catch (error) {
-                    console.warn(`Could not fetch doctor profile for ${userId} from Realtime DB doctors:`, error);
-                }
-            }
-            
-            return { profileData, found };
         }
         
         // Display users in hierarchical format
