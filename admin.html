@@ -1357,7 +1357,9 @@
             document.getElementById(tabName + 'Tab').classList.add('active');
             
             // Load specific data for the tab if needed
-            if (tabName === 'users') {
+            if (tabName === 'overview') {
+                loadDashboardData();
+            } else if (tabName === 'users') {
                 loadUsersData();
             } else if (tabName === 'quizzes') {
                 loadQuizzesData();
@@ -1370,6 +1372,19 @@
         async function loadDashboardData() {
             try {
                 console.log("Loading dashboard data...");
+                
+                // Clear existing charts to prevent visual glitches
+                if (window.userDistChart) window.userDistChart.destroy();
+                if (window.ageDistChart) window.ageDistChart.destroy();
+                if (window.quizActivityChart) window.quizActivityChart.destroy();
+                if (window.quizPerfChart) window.quizPerfChart.destroy();
+                
+                // Show loading indicators in stats
+                document.getElementById('totalUsers').innerText = "Loading...";
+                document.getElementById('totalDoctors').innerText = "Loading...";
+                document.getElementById('totalPatients').innerText = "Loading...";
+                document.getElementById('totalQuizzes').innerText = "Loading...";
+                document.getElementById('totalQuizAttempts').innerText = "Loading...";
                 
                 // Initialize counters
                 let totalUsers = 0;
@@ -1553,9 +1568,6 @@
                     }
                 });
                 
-                totalPatients = patientCount;
-                userTypeData.patients = patientCount;
-                
                 // Process regular users separately
                 const userPromises = regularUserIds.map(async userId => {
                     try {
@@ -1601,6 +1613,23 @@
                 // Wait for all promises to complete
                 await Promise.all([...doctorPromises, ...userPromises]);
                 
+                // Set total patients count after processing all doctors
+                totalPatients = patientCount;
+                userTypeData.patients = patientCount;
+                
+                // Log the data we've gathered for debugging
+                console.log("Dashboard data collected:", {
+                    totalUsers,
+                    totalDoctors,
+                    totalPatients,
+                    totalQuizAttempts,
+                    uniqueQuizTypes: Array.from(uniqueQuizTypes),
+                    userTypeData,
+                    ageGroups: Object.keys(ageData).map(group => `${group}: ${ageData[group]}`),
+                    quizActivityDates: Object.keys(quizActivityData).length,
+                    quizPerformanceTypes: Object.keys(quizPerformanceData)
+                });
+                
                 // Update the dashboard statistics
                 document.getElementById('totalUsers').innerText = totalUsers;
                 document.getElementById('totalDoctors').innerText = totalDoctors;
@@ -1608,11 +1637,26 @@
                 document.getElementById('totalQuizzes').innerText = uniqueQuizTypes.size;
                 document.getElementById('totalQuizAttempts').innerText = totalQuizAttempts;
                 
-                // Generate charts
-                generateUserDistributionChart(userTypeData);
-                generateAgeDistributionChart(ageData);
-                generateQuizActivityChart(quizActivityData);
-                generateQuizPerformanceChart(quizPerformanceData);
+                // Generate charts with a small delay to ensure DOM is ready
+                setTimeout(() => {
+                    try {
+                        console.log("Generating user distribution chart...");
+                        generateUserDistributionChart(userTypeData);
+                        
+                        console.log("Generating age distribution chart...");
+                        generateAgeDistributionChart(ageData);
+                        
+                        console.log("Generating quiz activity chart...");
+                        generateQuizActivityChart(quizActivityData);
+                        
+                        console.log("Generating quiz performance chart...");
+                        generateQuizPerformanceChart(quizPerformanceData);
+                        
+                        console.log("All charts generated successfully");
+                    } catch (chartError) {
+                        console.error("Error generating charts:", chartError);
+                    }
+                }, 100);
                 
                 // Load recent activity
                 await loadRecentActivity();
@@ -1630,185 +1674,229 @@
         
         // Generate User Distribution Chart
         function generateUserDistributionChart(userData) {
-            const ctx = document.getElementById('userDistributionChart').getContext('2d');
-            
-            // Destroy existing chart if it exists
-            if (window.userDistChart) {
-                window.userDistChart.destroy();
-            }
-            
-            window.userDistChart = new Chart(ctx, {
-                type: 'pie',
-                data: {
-                    labels: ['Doctors', 'Patients', 'Regular Users'],
-                    datasets: [{
-                        data: [userData.doctors, userData.patients, userData.regular],
-                        backgroundColor: [
-                            '#4e73df',
-                            '#1cc88a',
-                            '#36b9cc'
-                        ],
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'right',
-                        },
-                        title: {
-                            display: true,
-                            text: 'User Distribution by Role'
+            try {
+                console.log("User distribution data:", userData);
+                const ctx = document.getElementById('userDistributionChart');
+                
+                if (!ctx) {
+                    console.error("Could not find userDistributionChart canvas element");
+                    return;
+                }
+                
+                // Destroy existing chart if it exists
+                if (window.userDistChart) {
+                    window.userDistChart.destroy();
+                }
+                
+                window.userDistChart = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: ['Doctors', 'Patients', 'Regular Users'],
+                        datasets: [{
+                            data: [userData.doctors, userData.patients, userData.regular],
+                            backgroundColor: [
+                                '#4e73df',
+                                '#1cc88a',
+                                '#36b9cc'
+                            ],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'right',
+                            },
+                            title: {
+                                display: true,
+                                text: 'User Distribution by Role'
+                            }
                         }
                     }
-                }
-            });
+                });
+            } catch (error) {
+                console.error("Error generating user distribution chart:", error);
+            }
         }
         
         // Generate Age Distribution Chart
         function generateAgeDistributionChart(ageData) {
-            const ctx = document.getElementById('ageDistributionChart').getContext('2d');
-            
-            // Destroy existing chart if it exists
-            if (window.ageDistChart) {
-                window.ageDistChart.destroy();
-            }
-            
-            window.ageDistChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: Object.keys(ageData),
-                    datasets: [{
-                        label: 'Number of Users',
-                        data: Object.values(ageData),
-                        backgroundColor: '#36b9cc',
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                precision: 0
+            try {
+                console.log("Age distribution data:", ageData);
+                const ctx = document.getElementById('ageDistributionChart');
+                
+                if (!ctx) {
+                    console.error("Could not find ageDistributionChart canvas element");
+                    return;
+                }
+                
+                // Destroy existing chart if it exists
+                if (window.ageDistChart) {
+                    window.ageDistChart.destroy();
+                }
+                
+                const ageLabels = Object.keys(ageData);
+                const ageValues = Object.values(ageData);
+                
+                window.ageDistChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ageLabels,
+                        datasets: [{
+                            label: 'Number of Users',
+                            data: ageValues,
+                            backgroundColor: '#4e73df',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    precision: 0
+                                }
+                            }
+                        },
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'User Age Distribution'
                             }
                         }
-                    },
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: 'Users by Age Group'
-                        }
                     }
-                }
-            });
+                });
+            } catch (error) {
+                console.error("Error generating age distribution chart:", error);
+            }
         }
         
         // Generate Quiz Activity Chart
         function generateQuizActivityChart(activityData) {
-            const ctx = document.getElementById('quizActivityChart').getContext('2d');
-            
-            // Sort dates and ensure we have at least the last 7 days
-            const dates = Object.keys(activityData).sort();
-            const counts = [];
-            
-            // Add data for each date, or 0 if no data
-            dates.forEach(date => {
-                counts.push(activityData[date] || 0);
-            });
-            
-            // Destroy existing chart if it exists
-            if (window.quizActivityChart) {
-                window.quizActivityChart.destroy();
-            }
-            
-            window.quizActivityChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: dates,
-                    datasets: [{
-                        label: 'Quiz Attempts',
-                        data: counts,
-                        fill: false,
-                        borderColor: '#4e73df',
-                        tension: 0.1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                precision: 0
+            try {
+                console.log("Quiz activity data:", Object.keys(activityData).length, "dates");
+                const ctx = document.getElementById('quizActivityChart');
+                
+                if (!ctx) {
+                    console.error("Could not find quizActivityChart canvas element");
+                    return;
+                }
+                
+                // Destroy existing chart if it exists
+                if (window.quizActivityChart) {
+                    window.quizActivityChart.destroy();
+                }
+                
+                // Sort dates and get the latest 30 days of data
+                const sortedDates = Object.keys(activityData).sort();
+                const recentDates = sortedDates.slice(-30); // Last 30 days
+                
+                const labels = recentDates;
+                const values = recentDates.map(date => activityData[date] || 0);
+                
+                window.quizActivityChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Quiz Attempts',
+                            data: values,
+                            fill: false,
+                            borderColor: '#1cc88a',
+                            tension: 0.1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    precision: 0
+                                }
+                            }
+                        },
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Quiz Activity Trend (Last 30 Days)'
                             }
                         }
-                    },
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: 'Quiz Activity Over Time'
-                        }
                     }
-                }
-            });
+                });
+            } catch (error) {
+                console.error("Error generating quiz activity chart:", error);
+            }
         }
         
         // Generate Quiz Performance Chart
         function generateQuizPerformanceChart(performanceData) {
-            const ctx = document.getElementById('quizPerformanceChart').getContext('2d');
-            
-            // Calculate average scores and sort by highest
-            const quizTypes = [];
-            const avgScores = [];
-            
-            Object.entries(performanceData)
-                .filter(([_, data]) => data.attempts > 0) // Only include quizzes with attempts
-                .sort((a, b) => (b[1].totalScore / b[1].attempts) - (a[1].totalScore / a[1].attempts))
-                .slice(0, 5) // Take top 5
-                .forEach(([quizType, data]) => {
-                    quizTypes.push(quizType);
-                    avgScores.push((data.totalScore / data.attempts).toFixed(1));
+            try {
+                console.log("Quiz performance data:", performanceData);
+                const ctx = document.getElementById('quizPerformanceChart');
+                
+                if (!ctx) {
+                    console.error("Could not find quizPerformanceChart canvas element");
+                    return;
+                }
+                
+                // Destroy existing chart if it exists
+                if (window.quizPerfChart) {
+                    window.quizPerfChart.destroy();
+                }
+                
+                // Calculate average scores and sort by highest
+                const quizStats = Object.entries(performanceData).map(([quizType, data]) => {
+                    const avgScore = data.attempts > 0 ? data.totalScore / data.attempts : 0;
+                    return {
+                        name: quizType,
+                        avgScore: avgScore,
+                        attempts: data.attempts
+                    };
                 });
-            
-            // Destroy existing chart if it exists
-            if (window.quizPerfChart) {
-                window.quizPerfChart.destroy();
-            }
-            
-            window.quizPerfChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: quizTypes,
-                    datasets: [{
-                        label: 'Average Score (%)',
-                        data: avgScores,
-                        backgroundColor: '#1cc88a',
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            max: 100
-                        }
+                
+                // Sort by average score (descending)
+                quizStats.sort((a, b) => b.avgScore - a.avgScore);
+                
+                // Take top 5 quizzes
+                const topQuizzes = quizStats.slice(0, 5);
+                
+                window.quizPerfChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: topQuizzes.map(q => q.name),
+                        datasets: [{
+                            label: 'Average Score (%)',
+                            data: topQuizzes.map(q => q.avgScore.toFixed(2)),
+                            backgroundColor: '#36b9cc',
+                            borderWidth: 1
+                        }]
                     },
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: 'Top Quiz Performance'
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100
+                            }
+                        },
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Top Quiz Performance'
+                            }
                         }
                     }
-                }
-            });
+                });
+            } catch (error) {
+                console.error("Error generating quiz performance chart:", error);
+            }
         }
         
         // Load recent activity for the dashboard
@@ -1981,70 +2069,142 @@
                 const quizScoreSum = {};
                 const quizAttempts = {};
                 
+                // Get all doctors from Realtime DB
+                let doctorIds = [];
+                try {
+                    const doctorsSnapshot = await db.ref('doctors').once('value');
+                    if (doctorsSnapshot.exists()) {
+                        doctorIds = Object.keys(doctorsSnapshot.val() || {});
+                        console.log(`Found ${doctorIds.length} doctors in Realtime DB`);
+                    }
+                } catch (error) {
+                    console.error("Error fetching doctors:", error);
+                }
+                
+                // Get all users from Realtime DB
+                let userIds = [];
+                try {
+                    const usersSnapshot = await db.ref('users').once('value');
+                    if (usersSnapshot.exists()) {
+                        userIds = Object.keys(usersSnapshot.val() || {});
+                        console.log(`Found ${userIds.length} users in Realtime DB`);
+                    }
+                } catch (error) {
+                    console.error("Error fetching users:", error);
+                }
+                
                 // Get user profiles from Firestore
                 const userProfiles = new Map();
                 try {
-                    const profilesSnapshot = await firestore.collection('userProfiles').get();
-                    profilesSnapshot.docs.forEach(doc => {
+                    const userProfilesSnapshot = await firestore.collection('userProfiles').get();
+                    userProfilesSnapshot.docs.forEach(doc => {
                         userProfiles.set(doc.id, doc.data());
                     });
+                    console.log(`Loaded ${userProfilesSnapshot.size} user profiles from Firestore`);
                 } catch (error) {
                     console.error("Error accessing userProfiles collection:", error);
-                    throw new Error(`Could not access userProfiles: ${error.message}`);
                 }
                 
-                // Initialize quiz data structure
-                const quizData = {};
-                
-                // Process doctor quiz results from Realtime Database
-                const doctorIds = Array.from(userProfiles.entries())
-                    .filter(([_, profile]) => profile.role === 'doctor')
-                    .map(([id, _]) => id);
-                
-                for (const doctorId of doctorIds) {
-                    // Doctor's own quizzes (if any)
-                    const doctorQuizzes = await db.ref(`doctors/${doctorId}/quiz`).once('value');
-                    if (doctorQuizzes.exists()) {
-                        processQuizData(quizData, doctorQuizzes.val(), 'Doctor');
-                    }
-                    
-                    // Patients' quizzes
-                    const patientsSnapshot = await db.ref(`doctors/${doctorId}/patients`).once('value');
-                    if (patientsSnapshot.exists()) {
-                        const patients = patientsSnapshot.val();
-                        Object.entries(patients).forEach(([patientId, patientData]) => {
+                // Process doctors and their patients
+                const doctorPromises = doctorIds.map(async doctorId => {
+                    try {
+                        // Get patients for this doctor
+                        const patientsSnapshot = await db.ref(`doctors/${doctorId}/patients`).once('value');
+                        const patientsData = patientsSnapshot.val() || {};
+                        
+                        // Count patients
+                        const docPatientCount = Object.keys(patientsData).length;
+                        
+                        // Process each patient's quizzes
+                        Object.entries(patientsData).forEach(([patientId, patientData]) => {
                             if (patientData && patientData.quiz) {
-                                processQuizData(quizData, patientData.quiz, 'Patient');
+                                Object.entries(patientData.quiz).forEach(([quizType, attempts]) => {
+                                    if (!quizCounts[quizType]) {
+                                        quizCounts[quizType] = 0;
+                                        quizScoreSum[quizType] = 0;
+                                        quizAttempts[quizType] = 0;
+                                    }
+                                    
+                                    quizCounts[quizType]++;
+                                    quizAttempts[quizType] += Object.keys(attempts).length;
+                                    
+                                    Object.entries(attempts).forEach(([timestamp, result]) => {
+                                        if (result.score !== undefined) {
+                                            quizScoreSum[quizType] += parseFloat(result.score);
+                                        }
+                                    });
+                                });
                             }
                         });
+                        
+                        // Process doctor's own quizzes
+                        const doctorQuizzesSnapshot = await db.ref(`doctors/${doctorId}/quiz`).once('value');
+                        const doctorQuizzes = doctorQuizzesSnapshot.val() || {};
+                        
+                        Object.entries(doctorQuizzes).forEach(([quizType, attempts]) => {
+                            if (!quizCounts[quizType]) {
+                                quizCounts[quizType] = 0;
+                                quizScoreSum[quizType] = 0;
+                                quizAttempts[quizType] = 0;
+                            }
+                            
+                            quizCounts[quizType]++;
+                            quizAttempts[quizType] += Object.keys(attempts).length;
+                            
+                            Object.entries(attempts).forEach(([timestamp, result]) => {
+                                if (result.score !== undefined) {
+                                    quizScoreSum[quizType] += parseFloat(result.score);
+                                }
+                            });
+                        });
+                    } catch (error) {
+                        console.warn(`Error processing doctor ${doctorId}:`, error);
                     }
-                }
+                });
                 
-                // Process regular user quiz results from Realtime Database
-                const regularUserIds = Array.from(userProfiles.entries())
-                    .filter(([_, profile]) => profile.role !== 'doctor')
-                    .map(([id, _]) => id);
-                
-                for (const userId of regularUserIds) {
-                    const userQuizzes = await db.ref(`users/${userId}/quiz`).once('value');
-                    if (userQuizzes.exists()) {
-                        processQuizData(quizData, userQuizzes.val(), 'Regular User');
+                // Process regular users separately
+                const userPromises = userIds.map(async userId => {
+                    try {
+                        // Check user's quizzes
+                        const userQuizzesSnapshot = await db.ref(`users/${userId}/quiz`).once('value');
+                        const userQuizzes = userQuizzesSnapshot.val() || {};
+                        
+                        Object.entries(userQuizzes).forEach(([quizType, attempts]) => {
+                            if (!quizCounts[quizType]) {
+                                quizCounts[quizType] = 0;
+                                quizScoreSum[quizType] = 0;
+                                quizAttempts[quizType] = 0;
+                            }
+                            
+                            quizCounts[quizType]++;
+                            quizAttempts[quizType] += Object.keys(attempts).length;
+                            
+                            Object.entries(attempts).forEach(([timestamp, result]) => {
+                                if (result.score !== undefined) {
+                                    quizScoreSum[quizType] += parseFloat(result.score);
+                                }
+                            });
+                        });
+                    } catch (error) {
+                        console.warn(`Error processing user ${userId}:`, error);
                     }
-                }
+                });
+                
+                // Wait for all promises to complete
+                await Promise.all([...doctorPromises, ...userPromises]);
                 
                 // Convert to array and sort by total attempts
-                const quizStats = Object.keys(quizData).map(quizType => {
-                    const stats = quizData[quizType];
-                    const totalAttempts = stats.doctorAttempts + stats.patientAttempts + stats.userAttempts;
-                    const avgScore = stats.totalScore / totalAttempts || 0;
+                const quizStats = Object.keys(quizCounts).map(quizType => {
+                    const totalAttempts = quizAttempts[quizType];
+                    const avgScore = quizScoreSum[quizType] / totalAttempts || 0;
                     
                     return {
                         name: quizType,
                         totalAttempts,
                         avgScore: avgScore.toFixed(2),
-                        doctorAttempts: stats.doctorAttempts,
-                        patientAttempts: stats.patientAttempts,
-                        userAttempts: stats.userAttempts
+                        doctorAttempts: 0,
+                        patientAttempts: 0,
+                        userAttempts: 0
                     };
                 });
                 
@@ -2074,40 +2234,6 @@
                 document.getElementById('topQuizzesTable').innerHTML = 
                     `<tr><td colspan="6">Error loading data: ${error.message}</td></tr>`;
             }
-        }
-        
-        // Process quiz data and update statistics
-        function processQuizData(quizData, quizzes, userType) {
-            Object.entries(quizzes).forEach(([quizType, attempts]) => {
-                if (!attempts) return;
-                
-                // Initialize quiz stats if needed
-                if (!quizData[quizType]) {
-                    quizData[quizType] = {
-                        totalScore: 0,
-                        doctorAttempts: 0,
-                        patientAttempts: 0,
-                        userAttempts: 0
-                    };
-                }
-                
-                // Process all attempts for this quiz type
-                Object.entries(attempts).forEach(([timestamp, result]) => {
-                    // Add to appropriate counter based on user type
-                    if (userType === 'Doctor') {
-                        quizData[quizType].doctorAttempts++;
-                    } else if (userType === 'Patient') {
-                        quizData[quizType].patientAttempts++;
-                    } else {
-                        quizData[quizType].userAttempts++;
-                    }
-                    
-                    // Add to total score if available
-                    if (result.score !== undefined) {
-                        quizData[quizType].totalScore += parseFloat(result.score);
-                    }
-                });
-            });
         }
         
         // Load users data for the Users tab
