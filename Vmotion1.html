@@ -3,242 +3,741 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cat Path Game</title>
+    <title>Motion Perception - Percepto</title>
     <style>
-        .container {
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
             display: flex;
-            flex-direction: column;
+            justify-content: center;
             align-items: center;
-            padding: 20px;
+            min-height: 100vh;
+            overflow-y: auto;
+            margin: 0;
+            flex-direction: column;
         }
-        .controls {
+
+        #game-container {
+            text-align: center;
+            padding: 20px;
+            border-radius: 8px;
+            background-color: #fff;
+            box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.1);
+            width: 450px;
+            max-width: 95vw;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
             margin-bottom: 20px;
         }
-        button {
-            padding: 10px 20px;
-            margin: 0 5px;
+
+        .profile-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #2196F3;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             cursor: pointer;
+            font-weight: bold;
+            text-decoration: none;
+            transition: background-color 0.3s;
+            font-size: 18px;
         }
-        canvas {
-            border: 2px solid #333;
+        
+        .profile-icon:hover {
+            background-color: #1976D2;
+        }
+
+        .patient-indicator {
+            display: inline-block;
+            background-color: #e9f5e9;
+            color: #4CAF50;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+
+        button {
+            padding: 10px 15px;
+            margin: 10px;
+            border: none;
+            background-color: #4CAF50;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        #game-canvas {
+            border: 2px solid #ddd;
+            border-radius: 8px;
             background: white;
+            touch-action: none;
+            max-width: 100%;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .score-container {
+            margin-top: 15px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        #timer {
+            display: inline-block;
+            font-size: 1.2rem;
+            margin: 10px 0;
+            color: #666;
+        }
+
+        #level-indicator {
+            color: #2196F3;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        #instruction {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #e9f5ff;
+            border-radius: 5px;
+            font-size: 0.9rem;
+        }
+
+        #result-container {
+            display: none;
+            margin-top: 20px;
+        }
+
+        #report-container {
+            margin-top: 40px;
+            width: 80%;
+            max-width: 600px;
+            display: none;  
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #report-container h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        #report-container ul {
+            list-style-type: none;
+            padding: 0;
+            width: 100%;
+        }
+
+        .attempt-item {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .attempt-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .attempt-date {
+            font-weight: 500;
+            color: #555;
+        }
+
+        .attempt-score {
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        .attempt-details {
+            display: none;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+            background-color: #f0f0f0;
+            padding: 15px;
+            border-radius: 5px;
+        }
+
+        .attempt-detail-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .detail-label {
+            font-weight: bold;
+            color: #555;
+        }
+
+        .toggle-details-btn {
+            margin-top: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+
+        .toggle-details-btn:hover {
+            background-color: #45a049;
+        }
+
+        @media (max-width: 600px) {
+            #game-container {
+                width: 95%;
+                padding: 15px 10px;
+            }
+
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            #game-canvas {
+                width: 95%;
+                height: auto;
+            }
+
+            .header {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .profile-icon {
+                width: 35px;
+                height: 35px;
+                font-size: 16px;
+            }
+
+            button {
+                padding: 8px 12px;
+                font-size: 14px;
+                margin: 5px;
+            }
+
+            .attempt-details {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Guide the Cat!</h1>
-        <div class="controls">
-            <button id="drawMode">Draw Path</button>
-            <button id="resetGame">Reset</button>
+    <div id="game-container">
+        <div class="header">
+            <h1>Motion Perception</h1>
+            <div class="profile-icon" id="profileIcon" title="Back to Home" onclick="window.location.href='index.html'"></div>
+            <div class="patient-indicator" id="patient-indicator" style="display: none;">Patient</div>
         </div>
-        <p>1. Draw your path</p>
-        <p>2. Click and drag the cat to move it along the path</p>
-        <canvas id="gameCanvas" width="600" height="400"></canvas>
+        
+        <div id="level-indicator">Level: <span id="current-level">1</span></div>
+        
+        <div id="instruction">
+            Follow the highlighted path with your finger or mouse to guide the character to the goal
+        </div>
+        
+        <div id="timer">Time: 0s</div>
+        
+        <canvas id="game-canvas" width="400" height="300"></canvas>
+        
+        <div class="score-container">
+            Score: <span id="score">0</span>
+        </div>
+        
+        <div class="controls">
+            <button id="start-btn">Start Game</button>
+            <button id="next-level-btn" style="display: none;">Next Level</button>
+            <button id="reset-btn" style="display: none;">Try Again</button>
+        </div>
+        
+        <div id="result-container">
+            <h2>Game Results</h2>
+            <ul>
+                <li><strong>Total Time:</strong> <span id="total-time">0</span> seconds</li>
+                <li><strong>Score:</strong> <span id="final-score">0</span></li>
+                <li><strong>Accuracy:</strong> <span id="accuracy">0</span>%</li>
+                <li><strong>Path Deviations:</strong> <span id="deviations">0</span></li>
+            </ul>
+            <a href="index.html" style="text-decoration: none;"><button>Return Home</button></a>
+        </div>
+    </div>
+    
+    <div id="report-container">
+        <h2>All Quiz Attempts</h2>
+        <ul id="report-list"></ul>
+        <button id="clear-report" onclick="clearReport()">Clear Report</button>
     </div>
 
+    <!-- Firebase Scripts -->  
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
     <script>
-        const canvas = document.getElementById('gameCanvas');
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
+            authDomain: "projeccvi.firebaseapp.com",
+            projectId: "projeccvi",
+            storageBucket: "projeccvi.appspot.com",
+            messagingSenderId: "279067566247",
+            appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const database = firebase.database();
+        
+        // Get quiz context from session storage
+        const currentPatientId = sessionStorage.getItem('currentPatientId');
+        const doctorId = sessionStorage.getItem('doctorId');
+        const isPatientQuiz = !!(currentPatientId && doctorId);
+        
+        console.log('Quiz context in Motion Perception:', { 
+            isPatientQuiz, 
+            currentPatientId: currentPatientId || 'none',
+            doctorId: doctorId || 'none'
+        });
+
+        // Game canvas and context
+        const canvas = document.getElementById('game-canvas');
         const ctx = canvas.getContext('2d');
         
-        let pathPoints = [];
-        let gameMode = 'draw';
+        // Game state variables
+        let gameRunning = false;
+        let gameStarted = false;
+        let currentLevel = 1;
+        let score = 0;
+        let totalDeviations = 0;
+        let accuracy = 100;
+        let startTime = null;
+        let elapsedTime = 0;
+        let timerInterval = null;
+        let firstInteractionTime = null;
+        let totalInteractions = 0;
+        
+        // Character position tracking
+        let characterPosition = { x: 0, y: 0 };
+        let characterSpeed = 3;
+        let targetPosition = { x: 0, y: 0 };
         let isDragging = false;
-        let currentPosition = { x: 0, y: 0 };
-        let isDraggingCat = false;
-        let nearestPointIndex = 0;
-        let hasReachedEnd = false;
-        let maxStepSize = 5; // Maximum distance to move per step
+        let isOnPath = true;
+        let pathDeviation = 0;
+        
+        // Path variables
+        let currentPath = [];
+        let pathWidth = 20; // Width of acceptable path area
+        let goalReached = false;
+        
+        // Touch tracking
+        let lastTouchX = 0;
+        let lastTouchY = 0;
+        
+        // Images
+        const characterImg = new Image();
+        characterImg.src = 'images/VC/animal/cat1.png';
+        const goalImg = new Image();
+        goalImg.src = 'images/VC/animal/cat.png';
 
-        // Load images
-        const catImage = new Image();
-        catImage.src = 'images/VC/animal/cat1.png';
-        const goalImage = new Image();
-        goalImage.src = 'images/VC/animal/cat.png';
-
-        function drawCat(x, y) {
-            ctx.drawImage(catImage, x - 25, y - 25, 50, 50);
+        // Draw character at specified position
+        function drawCharacter(x, y) {
+            ctx.drawImage(characterImg, x - 25, y - 25, 50, 50);
         }
 
+        // Draw goal at specified position
         function drawGoal(x, y) {
-            ctx.drawImage(goalImage, x - 25, y - 25, 50, 50);
+            ctx.drawImage(goalImg, x - 25, y - 25, 50, 50);
         }
 
+        // Draw the current path
         function drawPath() {
-            if (pathPoints.length < 2) return;
+            if (currentPath.length < 2) return;
             
+            // Draw path base (wider background)
             ctx.beginPath();
-            ctx.moveTo(pathPoints[0].x, pathPoints[0].y);
-            for (let i = 1; i < pathPoints.length; i++) {
-                ctx.lineTo(pathPoints[i].x, pathPoints[i].y);
+            ctx.moveTo(currentPath[0].x, currentPath[0].y);
+            for (let i = 1; i < currentPath.length; i++) {
+                ctx.lineTo(currentPath[i].x, currentPath[i].y);
             }
-            ctx.strokeStyle = '#666';
-            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#aaaaaa';
+            ctx.lineWidth = pathWidth;
             ctx.stroke();
+            
+            // Draw highlighted path (center)
+            ctx.beginPath();
+            ctx.moveTo(currentPath[0].x, currentPath[0].y);
+            for (let i = 1; i < currentPath.length; i++) {
+                ctx.lineTo(currentPath[i].x, currentPath[i].y);
+            }
+            ctx.strokeStyle = '#2196F3';
+            ctx.lineWidth = pathWidth / 2;
+            ctx.stroke();
+            
+            // Draw start and goal
+            drawGoal(currentPath[currentPath.length - 1].x, currentPath[currentPath.length - 1].y);
         }
 
+        // Clear the canvas
         function clearCanvas() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
         }
 
-        function drawGame() {
+        // Render the game state
+        function render() {
             clearCanvas();
             drawPath();
+            drawCharacter(characterPosition.x, characterPosition.y);
             
-            // Draw goal if path exists
-            if (pathPoints.length > 1) {
-                drawGoal(pathPoints[pathPoints.length - 1].x, pathPoints[pathPoints.length - 1].y);
+            // Draw path status indicator
+            if (!isOnPath && gameRunning) {
+                ctx.beginPath();
+                ctx.arc(characterPosition.x, characterPosition.y, 30, 0, Math.PI * 2);
+                ctx.strokeStyle = '#ff6b6b';
+                ctx.lineWidth = 3;
+                ctx.stroke();
             }
             
-            // Draw cat at current position
-            drawCat(currentPosition.x, currentPosition.y);
+            // Check if goal reached
+            if (gameRunning && !goalReached) {
+                const distToGoal = distanceToPoint(
+                    characterPosition.x, 
+                    characterPosition.y, 
+                    currentPath[currentPath.length - 1].x, 
+                    currentPath[currentPath.length - 1].y
+                );
+                
+                if (distToGoal < 30) {
+                    goalReached = true;
+                    completeLevel();
+                }
+            }
         }
 
+        // Profile icon initialization
+        function initProfileIcon() {
+            const profileIcon = document.getElementById('profileIcon');
+            const patientIndicator = document.getElementById('patient-indicator');
+            
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    const uid = user.uid;
+                    const userEmail = user.email || '';
+                    const initials = userEmail.split('@')[0].substring(0, 2).toUpperCase();
+                    profileIcon.innerText = initials;
+                    
+                    if (isPatientQuiz) {
+                        patientIndicator.style.display = 'inline-block';
+                    }
+                } else {
+                    console.log('No user is signed in');
+                    profileIcon.innerText = 'GU'; // Guest User
+                }
+            });
+        }
+
+        // Generate a randomized path for the current level
+        function generateRandomPath(level) {
+            const paths = [
+                // Level 1: Simple straight line
+                [{ x: 50, y: 150 }, { x: 350, y: 150 }],
+                
+                // Level 2: Slight curve
+                [{ x: 50, y: 150 }, { x: 150, y: 100 }, { x: 250, y: 200 }, { x: 350, y: 150 }],
+                
+                // Level 3: Zigzag
+                [{ x: 50, y: 50 }, { x: 150, y: 150 }, { x: 250, y: 50 }, { x: 350, y: 150 }],
+                
+                // Level 4: Complex curve
+                [{ x: 50, y: 150 }, { x: 100, y: 50 }, { x: 200, y: 250 }, { x: 300, y: 50 }, { x: 350, y: 150 }],
+                
+                // Level 5: S-curve
+                [{ x: 50, y: 50 }, { x: 125, y: 150 }, { x: 200, y: 50 }, { x: 275, y: 150 }, { x: 350, y: 50 }]
+            ];
+            
+            // Select path based on level (with fallback to last path if level is too high)
+            const pathIndex = Math.min(level - 1, paths.length - 1);
+            return paths[pathIndex];
+        }
+
+        // Calculate distance between two points
         function distanceToPoint(x1, y1, x2, y2) {
-            return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            return Math.sqrt(dx * dx + dy * dy);
         }
 
-        function findNearestPointOnPath(x, y) {
-            if (pathPoints.length < 2) return 0;
+        // Find the nearest point on the path to the given coordinates
+        function findNearestPointOnPath(x, y, path) {
+            if (!path || path.length < 2) return null;
             
             let minDist = Infinity;
-            let nearestIndex = nearestPointIndex;
-            let searchRange = 10; // Look ahead/behind up to 10 points
+            let nearestPoint = null;
+            let nearestSegment = null;
             
-            // Look both forward and backward within the search range
-            const startIndex = Math.max(0, nearestPointIndex - searchRange);
-            const endIndex = Math.min(pathPoints.length, nearestPointIndex + searchRange);
-            
-            for (let i = startIndex; i < endIndex; i++) {
-                const dist = distanceToPoint(x, y, pathPoints[i].x, pathPoints[i].y);
+            // Check each segment of the path
+            for (let i = 0; i < path.length - 1; i++) {
+                const p1 = path[i];
+                const p2 = path[i + 1];
+                
+                // Calculate the nearest point on this segment
+                const point = nearestPointOnSegment(x, y, p1.x, p1.y, p2.x, p2.y);
+                const dist = distanceToPoint(x, y, point.x, point.y);
+                
                 if (dist < minDist) {
                     minDist = dist;
-                    nearestIndex = i;
+                    nearestPoint = point;
+                    nearestSegment = i;
                 }
             }
             
-            return nearestIndex;
+            return { 
+                point: nearestPoint, 
+                distance: minDist,
+                segment: nearestSegment
+            };
         }
 
-        function moveTowardsPoint(targetX, targetY) {
-            const dx = targetX - currentPosition.x;
-            const dy = targetY - currentPosition.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
+        // Find the nearest point on a line segment
+        function nearestPointOnSegment(x, y, x1, y1, x2, y2) {
+            const A = x - x1;
+            const B = y - y1;
+            const C = x2 - x1;
+            const D = y2 - y1;
             
-            if (distance <= maxStepSize) {
-                currentPosition.x = targetX;
-                currentPosition.y = targetY;
-                return true;
+            const dot = A * C + B * D;
+            const lenSq = C * C + D * D;
+            let param = -1;
+            
+            if (lenSq !== 0) param = dot / lenSq;
+            
+            let xx, yy;
+            
+            if (param < 0) {
+                xx = x1;
+                yy = y1;
+            } else if (param > 1) {
+                xx = x2;
+                yy = y2;
             } else {
-                // Move in the direction of the target, but only by maxStepSize
-                const ratio = maxStepSize / distance;
-                currentPosition.x += dx * ratio;
-                currentPosition.y += dy * ratio;
-                return false;
+                xx = x1 + param * C;
+                yy = y1 + param * D;
             }
-        }
-
-        function updateCatPosition(mouseX, mouseY) {
-            if (!isDraggingCat || pathPoints.length < 2) return;
-
-            const newIndex = findNearestPointOnPath(mouseX, mouseY);
             
-            // Allow movement in both directions
-            if (newIndex !== nearestPointIndex) {
-                // Determine which point to move towards based on the new index
-                const targetIndex = newIndex > nearestPointIndex ? 
-                    nearestPointIndex + 1 : nearestPointIndex - 1;
-                
-                // Check if we're at the ends of the path
-                if (targetIndex >= 0 && targetIndex < pathPoints.length) {
-                    const reached = moveTowardsPoint(pathPoints[targetIndex].x, pathPoints[targetIndex].y);
-                    if (reached) {
-                        nearestPointIndex = targetIndex;
-                        
-                        // Check if reached end
-                        if (nearestPointIndex === pathPoints.length - 1 && !hasReachedEnd) {
-                            hasReachedEnd = true;
-                            setTimeout(() => {
-                                alert('Great job! You reached the end!');
-                            }, 100);
-                        }
-                    }
-                }
-            }
+            return { x: xx, y: yy };
         }
 
-        // Mouse events
-        canvas.addEventListener('mousedown', (e) => {
+        // Start a new level
+        function startLevel(level) {
+            document.getElementById('current-level').textContent = level;
+            
+            // Reset level variables
+            goalReached = false;
+            isOnPath = true;
+            pathDeviation = 0;
+            elapsedTime = 0;
+            startTime = Date.now();
+            
+            // Generate new path for this level
+            currentPath = generateRandomPath(level);
+            
+            // Set character at start of path
+            characterPosition = { x: currentPath[0].x, y: currentPath[0].y };
+            
+            // Update UI
+            document.getElementById('start-btn').style.display = 'none';
+            document.getElementById('next-level-btn').style.display = 'none';
+            document.getElementById('reset-btn').style.display = 'inline-block';
+            
+            // Start the game
+            gameRunning = true;
+            if (!gameStarted) gameStarted = true;
+            
+            // Start timer
+            timerInterval = setInterval(updateTimer, 1000);
+            
+            // Render initial state
+            render();
+        }
+
+        // Complete the current level
+        function completeLevel() {
+            gameRunning = false;
+            clearInterval(timerInterval);
+            
+            // Update score based on level, time, and accuracy
+            const levelBonus = currentLevel * 50;
+            const timeBonus = Math.max(0, 300 - elapsedTime);
+            const accuracyBonus = Math.floor(accuracy);
+            
+            const levelScore = levelBonus + timeBonus + accuracyBonus;
+            score += levelScore;
+            
+            // Update UI
+            document.getElementById('score').textContent = score;
+            
+            // Check if there are more levels
+            if (currentLevel < 5) {
+                document.getElementById('next-level-btn').style.display = 'inline-block';
+                document.getElementById('reset-btn').style.display = 'none';
+            } else {
+                // Game complete
+                showResults();
+            }
+        }
+        
+        // Event listeners for game controls
+        document.getElementById('start-btn').addEventListener('click', function() {
+            startLevel(currentLevel);
+        });
+        
+        document.getElementById('next-level-btn').addEventListener('click', function() {
+            currentLevel++;
+            startLevel(currentLevel);
+        });
+        
+        document.getElementById('reset-btn').addEventListener('click', function() {
+            gameRunning = false;
+            clearInterval(timerInterval);
+            startLevel(currentLevel);
+        });
+        
+        // Mouse events for character movement
+        canvas.addEventListener('mousedown', function(e) {
+            if (!gameRunning) return;
+            
             const rect = canvas.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
             
-            if (gameMode === 'draw') {
-                pathPoints = [{x, y}];
-                currentPosition = {x, y};
-                isDragging = true;
-                hasReachedEnd = false;
-                nearestPointIndex = 0;
-            } else if (isNearCat(x, y)) {
-                isDraggingCat = true;
+            isDragging = true;
+            
+            // Record first meaningful interaction time
+            if (firstInteractionTime === null) {
+                firstInteractionTime = Date.now() - startTime;
             }
             
-            drawGame();
+            totalInteractions++;
+            
+            handleInteraction(x, y);
         });
-
-        canvas.addEventListener('mousemove', (e) => {
+        
+        canvas.addEventListener('mousemove', function(e) {
+            if (!gameRunning || !isDragging) return;
+            
             const rect = canvas.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
             
-            if (isDragging && gameMode === 'draw') {
-                const lastPoint = pathPoints[pathPoints.length - 1];
-                const distance = distanceToPoint(x, y, lastPoint.x, lastPoint.y);
-                
-                if (distance >= 5) {
-                    pathPoints.push({x, y});
-                    drawGame();
-                }
-            } else if (isDraggingCat && pathPoints.length > 1) {
-                updateCatPosition(x, y);
-                drawGame();
-            }
+            handleInteraction(x, y);
         });
-
-        canvas.addEventListener('mouseup', () => {
+        
+        canvas.addEventListener('mouseup', function() {
             isDragging = false;
-            isDraggingCat = false;
+        });
+        
+        // Touch events for mobile
+        canvas.addEventListener('touchstart', function(e) {
+            if (!gameRunning) return;
+            e.preventDefault();
             
-            if (gameMode === 'draw') {
-                gameMode = 'play';
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+            
+            lastTouchX = x;
+            lastTouchY = y;
+            isDragging = true;
+            
+            // Record first meaningful interaction time
+            if (firstInteractionTime === null) {
+                firstInteractionTime = Date.now() - startTime;
             }
+            
+            totalInteractions++;
+            
+            handleInteraction(x, y);
         });
-
-        // Controls
-        document.getElementById('drawMode').addEventListener('click', () => {
-            gameMode = 'draw';
-            pathPoints = [];
-            currentPosition = {x: 0, y: 0};
-            nearestPointIndex = 0;
-            hasReachedEnd = false;
-            drawGame();
+        
+        canvas.addEventListener('touchmove', function(e) {
+            if (!gameRunning || !isDragging) return;
+            e.preventDefault();
+            
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+            
+            lastTouchX = x;
+            lastTouchY = y;
+            
+            handleInteraction(x, y);
         });
-
-        document.getElementById('resetGame').addEventListener('click', () => {
-            gameMode = 'draw';
-            pathPoints = [];
-            currentPosition = {x: 0, y: 0};
-            nearestPointIndex = 0;
-            hasReachedEnd = false;
-            drawGame();
+        
+        canvas.addEventListener('touchend', function(e) {
+            e.preventDefault();
+            isDragging = false;
         });
-
-        function isNearCat(x, y) {
-            return distanceToPoint(x, y, currentPosition.x, currentPosition.y) < 30;
+        
+        // Handle user interaction (mouse or touch)
+        function handleInteraction(x, y) {
+            if (goalReached) return;
+            
+            // Find nearest point on the path
+            const pathInfo = findNearestPointOnPath(x, y, currentPath);
+            
+            if (pathInfo && pathInfo.distance <= pathWidth / 2) {
+                // User is on the path
+                characterPosition.x = pathInfo.point.x;
+                characterPosition.y = pathInfo.point.y;
+                isOnPath = true;
+            } else {
+                // User is off the path
+                characterPosition.x = x;
+                characterPosition.y = y;
+                isOnPath = false;
+                pathDeviation++;
+                totalDeviations++;
+                
+                // Update accuracy
+                accuracy = Math.max(0, 100 - (totalDeviations / totalInteractions * 100));
+            }
+            
+            render();
         }
-
-        // Initial draw
-        drawGame();
+        
+        // Initialize the game
+        function init() {
+            initProfileIcon();
+            loadPreviousAttempts();
+            render();
+        }
+        
+        // Start when everything is loaded
+        window.onload = init;
     </script>
 </body>
 </html>
