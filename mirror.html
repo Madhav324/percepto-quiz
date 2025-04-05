@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CVI Fixation Mirror Assessment</title>
+    <style>
+        /* Reset and base styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 15px;
+        }
+
+        .container {
+            text-align: center;
+            border-radius: 8px;
+            background-color: #fff;
+            box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 650px;
+            padding: 20px;
+            position: relative;
+        }
+
+        /* Header and profile styles */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        
+        h1 {
+            font-size: 22px;
+            color: #333;
+            margin: 0;
+        }
+        
+        h2 {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 15px;
+        }
+        
+        /* Profile Icon */
+        .profile-icon {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background-color: #4CAF50;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: bold;
+            text-decoration: none;
+            transition: all 0.3s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            font-size: 14px;
+        }
+        
+        .profile-icon:hover {
+            background-color: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        .patient-indicator {
+            display: inline-block;
+            background-color: #e9f5e9;
+            color: #4CAF50;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+
+        /* Camera container */
+        .camera-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            height: 0;
+            padding-bottom: 75%; /* 4:3 aspect ratio */
+            margin: 0 auto 20px;
+            overflow: hidden;
+            border-radius: 8px;
+        }
+
+        #camera {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1); /* Mirror effect */
+        }
+
+        /* Mirror frames */
+        .mirror-frame {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5;
+            border: 15px solid;
+            border-radius: 8px;
+        }
+
+        .classic-mirror {
+            border-color: #c0c0c0;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.2);
+        }
+
+        .led-mirror {
+            border-color: #fff;
+            box-shadow: 0 0 15px rgba(255,255,255,0.8), inset 0 0 10px rgba(255,255,255,0.5);
+        }
+
+        .toy-mirror {
+            border-color: #ff9800;
+            border-style: dashed;
+            box-shadow: inset 0 0 10px rgba(255,152,0,0.5);
+        }
+
+        /* Light stimulus */
+        .light-stimulus {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(255,255,0,0.8) 70%);
+            box-shadow: 0 0 15px rgba(255,255,0,0.8);
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 5px;
+        }
+
+        .control-group label {
+            font-size: 14px;
+            color: #333;
+        }
+
+        select, input[type="range"] {
+            width: 100%;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            justify-content: center;
+        }
+
+        button {
+            padding: 8px 15px;
+            border: none;
+            background-color: #4CAF50;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        /* Observation checklist */
+        .observation-container {
+            margin-top: 20px;
+            text-align: left;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .observation-container h3 {
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        .observation-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .observation-item input[type="checkbox"] {
+            margin-right: 10px;
+        }
+
+        /* Report container */
+        #report-container {
+            margin-top: 40px;
+            width: 100%;
+            max-width: 600px;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Responsive styles */
+        @media (max-width: 600px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .camera-container {
+                padding-bottom: 100%; /* Square aspect ratio on mobile */
+            }
+            
+            .mirror-frame {
+                border-width: 10px;
+            }
+            
+            .button-group {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>CVI Fixation Mirror Assessment</h1>
+            <div class="profile-icon" id="profileIcon" title="Back to Home" onclick="window.location.href='index.html'"></div>
+        </div>
+        
+        <div id="patientIndicator" class="patient-indicator" style="display: none;">Patient Assessment</div>
+        
+        <div class="camera-container">
+            <video id="camera" autoplay playsinline></video>
+            <div id="mirrorFrame" class="mirror-frame classic-mirror"></div>
+            <div id="lightStimulus" class="light-stimulus"></div>
+        </div>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label for="pattern">Movement Pattern:</label>
+                <select id="pattern">
+                    <option value="linear">Linear (Left to Right)</option>
+                    <option value="diagonal">Diagonal</option>
+                    <option value="circular">Circular</option>
+                    <option value="random">Random</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="speed">Speed:</label>
+                <input type="range" id="speed" min="1" max="10" value="5">
+            </div>
+            
+            <div class="control-group">
+                <label for="frameStyle">Mirror Style:</label>
+                <select id="frameStyle">
+                    <option value="classic-mirror">Classic Silver</option>
+                    <option value="led-mirror">LED Lights</option>
+                    <option value="toy-mirror">Toy Theme</option>
+                </select>
+            </div>
+            
+            <div class="button-group">
+                <button id="startBtn">Start Stimulus</button>
+                <button id="stopBtn">Stop</button>
+                <button id="pauseBtn">Pause</button>
+                <button id="reverseBtn">Reverse</button>
+            </div>
+        </div>
+        
+        <div class="observation-container">
+            <h3>Observation Checklist</h3>
+            <div class="observation-item">
+                <input type="checkbox" id="fixation">
+                <label for="fixation">Fixation achieved</label>
+            </div>
+            <div class="observation-item">
+                <input type="checkbox" id="leftField">
+                <label for="leftField">Response to left field</label>
+            </div>
+            <div class="observation-item">
+                <input type="checkbox" id="rightField">
+                <label for="rightField">Response to right field</label>
+            </div>
+            <div class="observation-item">
+                <input type="checkbox" id="centerField">
+                <label for="centerField">Response to center field</label>
+            </div>
+            <div class="observation-item">
+                <label for="duration">Approximate duration of eye contact (seconds):</label>
+                <input type="number" id="duration" min="0" max="300" value="0">
+            </div>
+            <div class="observation-item">
+                <label for="notes">Notes:</label>
+                <textarea id="notes" rows="3" style="width: 100%;"></textarea>
+            </div>
+            <div class="button-group">
+                <button id="saveBtn">Save Observations</button>
+            </div>
+        </div>
+        
+        <div id="report-container">
+            <h2>Previous Assessments</h2>
+            <ul id="report-list"></ul>
+            <button id="clear-report" onclick="clearReport()">Clear Reports</button>
+        </div>
+    </div>
+
+    <!-- Firebase App (the core Firebase SDK) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <!-- Firebase Auth -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <!-- Firebase Database -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
+            authDomain: "projeccvi.firebaseapp.com",
+            projectId: "projeccvi",
+            storageBucket: "projeccvi.appspot.com",
+            messagingSenderId: "198292153802",
+            appId: "1:198292153802:web:7d7be38e3721fdea613064",
+            measurementId: "G-82VHYJEHFN"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const database = firebase.database();
+        
+        // Check if we're in a doctor-patient context
+        const isPatientQuiz = sessionStorage.getItem('currentPatientId') !== null;
+        const currentPatientId = sessionStorage.getItem('currentPatientId');
+        const doctorId = sessionStorage.getItem('doctorId');
+        
+        console.log('Quiz context in Mirror:', { 
+            isPatientQuiz, 
+            currentPatientId: currentPatientId || 'none',
+            doctorId: doctorId || 'none'
+        });
+
+        // Camera variables
+        let camera = document.getElementById('camera');
+        let cameraStream = null;
+        
+        // Light stimulus variables
+        let lightStimulus = document.getElementById('lightStimulus');
+        let animationId = null;
+        let isRunning = false;
+        let isPaused = false;
+        let isReversed = false;
+        let speed = 5;
+        let pattern = 'linear';
+        let xPos = 50;
+        let yPos = 50;
+        let angle = 0;
+        
+        // Assessment data
+        let startTime = 0;
+        let assessmentDuration = 0;
+        let interactionCount = 0;
+
+        // Auth state observer
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                console.log('User authenticated in Mirror:', user.uid);
+                
+                try {
+                    // Check if user is a doctor
+                    if (!isPatientQuiz) {
+                        const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                        const role = roleSnapshot.val();
+                        
+                        if (role === 'doctor') {
+                            console.log('Doctor authenticated');
+                            // Check if we're in doctor-patient context
+                            if (currentPatientId && doctorId) {
+                                console.log(`Doctor ${doctorId} viewing patient ${currentPatientId}`);
+                                // Display patient indicator
+                                document.getElementById('patientIndicator').style.display = 'inline-block';
+                                
+                                // Get patient profile
+                                const patientSnapshot = await database.ref(`doctors/${doctorId}/patients/${currentPatientId}/profile`).once('value');
+                                profile = patientSnapshot.val();
+                            } else {
+                                console.log('Doctor viewing their own quiz');
+                                // Get doctor profile
+                                const doctorSnapshot = await database.ref(`doctors/${user.uid}/profile`).once('value');
+                                profile = doctorSnapshot.val();
+                            }
+                        } else {
+                            // Regular user
+                            console.log('Loading user profile in Mirror');
+                            const userSnapshot = await database.ref(`users/${user.uid}/profile`).once('value');
+                            profile = userSnapshot.val();
+                        }
+                    } else {
+                        // Patient context
+                        document.getElementById('patientIndicator').style.display = 'inline-block';
+                        const patientSnapshot = await database.ref(`doctors/${doctorId}/patients/${currentPatientId}/profile`).once('value');
+                        profile = patientSnapshot.val();
+                    }
+                    
+                    // Set profile initial
+                    let initial = 'U';
+                    if (profile && profile.name) {
+                        initial = profile.name.charAt(0).toUpperCase();
+                    } else if (user.email) {
+                        initial = user.email.charAt(0).toUpperCase();
+                    }
+                    
+                    document.getElementById('profileIcon').textContent = initial;
+                    
+                    // Initialize camera
+                    initCamera();
+                    
+                    // Load previous assessments
+                    loadPreviousAssessments();
+                    
+                } catch (error) {
+                    console.error('Error initializing:', error);
+                }
+            } else {
+                // Not logged in, redirect to login
+                const currentPatientId = sessionStorage.getItem('currentPatientId');
+                if (!currentPatientId) {
+                    window.location.href = 'login.html';
+                }
+            }
+        });
+        
+        // Initialize camera
+        async function initCamera() {
+            try {
+                cameraStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'user',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    } 
+                });
+                camera.srcObject = cameraStream;
+                console.log('Camera initialized successfully');
+            } catch (error) {
+                console.error('Error accessing camera:', error);
+                alert('Could not access camera. Please check your camera permissions.');
+            }
+        }
+        
+        // Event listeners for controls
+        document.getElementById('pattern').addEventListener('change', function() {
+            pattern = this.value;
+            interactionCount++;
+            if (isRunning && !isPaused) {
+                stopAnimation();
+                startAnimation();
+            }
+        });
+        
+        document.getElementById('speed').addEventListener('input', function() {
+            speed = parseInt(this.value);
+            interactionCount++;
+        });
+        
+        document.getElementById('frameStyle').addEventListener('change', function() {
+            const mirrorFrame = document.getElementById('mirrorFrame');
+            // Remove all classes
+            mirrorFrame.classList.remove('classic-mirror', 'led-mirror', 'toy-mirror');
+            // Add selected class
+            mirrorFrame.classList.add(this.value);
+            interactionCount++;
+        });
+        
+        document.getElementById('startBtn').addEventListener('click', function() {
+            startAssessment();
+            interactionCount++;
+        });
+        
+        document.getElementById('stopBtn').addEventListener('click', function() {
+            stopAssessment();
+            interactionCount++;
+        });
+        
+        document.getElementById('pauseBtn').addEventListener('click', function() {
+            togglePause();
+            interactionCount++;
+        });
+        
+        document.getElementById('reverseBtn').addEventListener('click', function() {
+            toggleReverse();
+            interactionCount++;
+        });
+        
+        document.getElementById('saveBtn').addEventListener('click', function() {
+            saveAssessment();
+        });
+        
+        // Start assessment
+        function startAssessment() {
+            if (!isRunning) {
+                startTime = Date.now();
+                startAnimation();
+                isRunning = true;
+                isPaused = false;
+            }
+        }
+        
+        // Stop assessment
+        function stopAssessment() {
+            if (isRunning) {
+                stopAnimation();
+                isRunning = false;
+                isPaused = false;
+                assessmentDuration = (Date.now() - startTime) / 1000; // in seconds
+            }
+        }
+        
+        // Toggle pause
+        function togglePause() {
+            if (isRunning) {
+                if (isPaused) {
+                    // Resume
+                    startAnimation();
+                    isPaused = false;
+                } else {
+                    // Pause
+                    stopAnimation();
+                    isPaused = true;
+                }
+            }
+        }
+        
+        // Toggle direction
+        function toggleReverse() {
+            isReversed = !isReversed;
+            if (isRunning && !isPaused) {
+                // No need to restart animation, just reverse direction
+            }
+        }
+        
+        // Animation functions
+        function startAnimation() {
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+            
+            animateStimulus();
+        }
+        
+        function stopAnimation() {
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+        }
+        
+        function animateStimulus() {
+            const containerWidth = lightStimulus.parentElement.offsetWidth;
+            const containerHeight = lightStimulus.parentElement.offsetHeight;
+            const stimulusWidth = lightStimulus.offsetWidth;
+            const stimulusHeight = lightStimulus.offsetHeight;
+            
+            const maxX = containerWidth - stimulusWidth;
+            const maxY = containerHeight - stimulusHeight;
+            
+            // Calculate speed factor (1-10 scale)
+            const speedFactor = speed / 5;
+            
+            // Different movement patterns
+            switch(pattern) {
+                case 'linear':
+                    // Linear movement (left to right)
+                    if (!isReversed) {
+                        xPos += speedFactor;
+                        if (xPos > maxX) xPos = 0;
+                    } else {
+                        xPos -= speedFactor;
+                        if (xPos < 0) xPos = maxX;
+                    }
+                    break;
+                    
+                case 'diagonal':
+                    // Diagonal movement
+                    if (!isReversed) {
+                        xPos += speedFactor;
+                        yPos += speedFactor;
+                        if (xPos > maxX) xPos = 0;
+                        if (yPos > maxY) yPos = 0;
+                    } else {
+                        xPos -= speedFactor;
+                        yPos -= speedFactor;
+                        if (xPos < 0) xPos = maxX;
+                        if (yPos < 0) yPos = maxY;
+                    }
+                    break;
+                    
+                case 'circular':
+                    // Circular movement
+                    angle += (isReversed ? -0.02 : 0.02) * speedFactor;
+                    xPos = maxX / 2 + Math.cos(angle) * (maxX / 2.5);
+                    yPos = maxY / 2 + Math.sin(angle) * (maxY / 2.5);
+                    break;
+                    
+                case 'random':
+                    // Random movement
+                    if (Math.random() > 0.95) {
+                        xPos += (Math.random() - 0.5) * speedFactor * 10;
+                        yPos += (Math.random() - 0.5) * speedFactor * 10;
+                        
+                        // Keep within bounds
+                        xPos = Math.max(0, Math.min(xPos, maxX));
+                        yPos = Math.max(0, Math.min(yPos, maxY));
+                    }
+                    break;
+            }
+            
+            // Update position
+            lightStimulus.style.left = `${xPos}px`;
+            lightStimulus.style.top = `${yPos}px`;
+            
+            // Continue animation
+            animationId = requestAnimationFrame(animateStimulus);
+        }
+        
+        // Save assessment results
+        async function saveAssessment() {
+            const user = auth.currentUser;
+            if (!user) {
+                alert('You need to be logged in to save assessment results.');
+                return;
+            }
+            
+            if (!isRunning && assessmentDuration === 0) {
+                alert('You need to run an assessment before saving results.');
+                return;
+            }
+            
+            // Stop assessment if still running
+            if (isRunning) {
+                stopAssessment();
+            }
+            
+            try {
+                // Get observation data
+                const fixation = document.getElementById('fixation').checked;
+                const leftField = document.getElementById('leftField').checked;
+                const rightField = document.getElementById('rightField').checked;
+                const centerField = document.getElementById('centerField').checked;
+                const duration = document.getElementById('duration').value;
+                const notes = document.getElementById('notes').value;
+                
+                // Prepare data object
+                const timestamp = Date.now();
+                const assessmentData = {
+                    timestamp,
+                    assessmentDuration,
+                    interactionCount,
+                    pattern,
+                    speed,
+                    observations: {
+                        fixation,
+                        leftField,
+                        rightField,
+                        centerField,
+                        duration,
+                        notes
+                    }
+                };
+                
+                // Determine the correct path based on user role
+                let path;
+                
+                // Check if this is a patient assessment (doctor viewing patient)
+                const currentPatientId = sessionStorage.getItem('currentPatientId');
+                const doctorId = sessionStorage.getItem('doctorId');
+                
+                if (currentPatientId && doctorId) {
+                    // This is a doctor testing a patient
+                    console.log(`Saving patient assessment results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/mirror/${timestamp}`;
+                } else {
+                    // Regular user assessment
+                    // Check if user is a doctor
+                    const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                    const role = roleSnapshot.val();
+                    
+                    if (role === 'doctor') {
+                        console.log(`Saving doctor's own assessment results: ${user.uid}`);
+                        path = `doctors/${user.uid}/quiz/mirror/${timestamp}`;
+                    } else {
+                        console.log(`Saving regular user assessment results: ${user.uid}`);
+                        path = `users/${user.uid}/quiz/mirror/${timestamp}`;
+                    }
+                }
+                
+                console.log(`Saving assessment results to path: ${path}`);
+                await database.ref(path).set(assessmentData);
+                
+                alert('Assessment results saved successfully!');
+                
+                // Reset form
+                document.getElementById('fixation').checked = false;
+                document.getElementById('leftField').checked = false;
+                document.getElementById('rightField').checked = false;
+                document.getElementById('centerField').checked = false;
+                document.getElementById('duration').value = 0;
+                document.getElementById('notes').value = '';
+                
+                // Reset variables
+                assessmentDuration = 0;
+                interactionCount = 0;
+                
+                // Reload previous assessments
+                loadPreviousAssessments();
+                
+            } catch (error) {
+                console.error('Error saving assessment results:', error);
+                alert('Failed to save assessment results: ' + error.message);
+            }
+        }
+        
+        // Load previous assessments
+        async function loadPreviousAssessments() {
+            const user = auth.currentUser;
+            if (!user) return;
+            
+            try {
+                let path;
+                
+                // Check if this is a patient assessment (doctor viewing patient)
+                const currentPatientId = sessionStorage.getItem('currentPatientId');
+                const doctorId = sessionStorage.getItem('doctorId');
+                
+                if (currentPatientId && doctorId) {
+                    // This is a doctor viewing a patient
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/mirror`;
+                } else {
+                    // Regular user
+                    // Check if user is a doctor
+                    const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                    const role = roleSnapshot.val();
+                    
+                    if (role === 'doctor') {
+                        path = `doctors/${user.uid}/quiz/mirror`;
+                    } else {
+                        path = `users/${user.uid}/quiz/mirror`;
+                    }
+                }
+                
+                console.log(`Loading previous assessments from path: ${path}`);
+                const assessmentsSnapshot = await database.ref(path).once('value');
+                const assessments = assessmentsSnapshot.val();
+                
+                const reportList = document.getElementById('report-list');
+                reportList.innerHTML = '';
+                
+                if (assessments) {
+                    const assessmentIds = Object.keys(assessments).sort((a, b) => b - a); // Sort by timestamp descending
+                    
+                    // Show the report container
+                    document.getElementById('report-container').style.display = 'flex';
+                    
+                    assessmentIds.forEach((id, index) => {
+                        const assessment = assessments[id];
+                        const date = new Date(parseInt(id));
+                        const formattedDate = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+                        
+                        const li = document.createElement('li');
+                        li.className = 'attempt-item';
+                        
+                        // Create summary
+                        const summary = document.createElement('div');
+                        summary.className = 'attempt-summary';
+                        summary.innerHTML = `
+                            <span><strong>Date:</strong> ${formattedDate}</span>
+                            <span><strong>Pattern:</strong> ${assessment.pattern}</span>
+                            <span><strong>Duration:</strong> ${assessment.assessmentDuration.toFixed(1)}s</span>
+                        `;
+                        
+                        // Create toggle button
+                        const toggleBtn = document.createElement('button');
+                        toggleBtn.className = 'toggle-details-btn';
+                        toggleBtn.textContent = 'Show Details';
+                        toggleBtn.dataset.expanded = 'false';
+                        
+                        // Create details container
+                        const details = document.createElement('div');
+                        details.className = 'attempt-details';
+                        details.style.display = 'none';
+                        
+                        // Add details
+                        const observations = assessment.observations || {};
+                        details.innerHTML = `
+                            <div class="detail-row">
+                                <span class="detail-label">Interactions:</span>
+                                <span>${assessment.interactionCount}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Speed Setting:</span>
+                                <span>${assessment.speed}/10</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Fixation Achieved:</span>
+                                <span>${observations.fixation ? 'Yes' : 'No'}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Field Response:</span>
+                                <span>
+                                    ${observations.leftField ? 'Left, ' : ''}
+                                    ${observations.centerField ? 'Center, ' : ''}
+                                    ${observations.rightField ? 'Right' : ''}
+                                </span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Eye Contact Duration:</span>
+                                <span>${observations.duration}s</span>
+                            </div>
+                            ${observations.notes ? `
+                            <div class="detail-row">
+                                <span class="detail-label">Notes:</span>
+                                <span>${observations.notes}</span>
+                            </div>` : ''}
+                        `;
+                        
+                        // Add toggle functionality
+                        toggleBtn.addEventListener('click', function() {
+                            const isExpanded = this.dataset.expanded === 'true';
+                            if (isExpanded) {
+                                details.style.display = 'none';
+                                this.textContent = 'Show Details';
+                                this.dataset.expanded = 'false';
+                            } else {
+                                details.style.display = 'block';
+                                this.textContent = 'Hide Details';
+                                this.dataset.expanded = 'true';
+                            }
+                        });
+                        
+                        // Append everything to the list item
+                        li.appendChild(summary);
+                        li.appendChild(toggleBtn);
+                        li.appendChild(details);
+                        
+                        // Add to report list
+                        reportList.appendChild(li);
+                    });
+                } else {
+                    reportList.innerHTML = '<p>No previous assessments found.</p>';
+                    document.getElementById('report-container').style.display = 'flex';
+                }
+                
+            } catch (error) {
+                console.error('Error loading previous assessments:', error);
+            }
+        }
+        
+        // Clear all assessment reports
+        async function clearReport() {
+            const user = auth.currentUser;
+            if (!user) {
+                alert('You need to be logged in to clear reports.');
+                return;
+            }
+            
+            if (!confirm('Are you sure you want to delete all assessment records? This action cannot be undone.')) {
+                return;
+            }
+            
+            try {
+                let path;
+                
+                // Check if this is a patient assessment (doctor viewing patient)
+                const currentPatientId = sessionStorage.getItem('currentPatientId');
+                const doctorId = sessionStorage.getItem('doctorId');
+                
+                if (currentPatientId && doctorId) {
+                    // This is a doctor viewing a patient
+                    console.log(`Clearing patient assessment results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/mirror`;
+                } else {
+                    // Regular user
+                    // Check if user is a doctor
+                    const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                    const role = roleSnapshot.val();
+                    
+                    if (role === 'doctor') {
+                        console.log(`Clearing doctor's own assessment results: ${user.uid}`);
+                        path = `doctors/${user.uid}/quiz/mirror`;
+                    } else {
+                        console.log(`Clearing regular user assessment results: ${user.uid}`);
+                        path = `users/${user.uid}/quiz/mirror`;
+                    }
+                }
+                
+                console.log(`Removing all assessment results from path: ${path}`);
+                
+                // Remove all data at the specified path
+                await database.ref(path).remove();
+                
+                // Reset the results display
+                document.getElementById('report-list').innerHTML = '<p>No previous assessments found.</p>';
+                
+                alert('All assessment reports have been cleared successfully.');
+                
+            } catch (error) {
+                console.error('Error clearing reports:', error);
+                alert('Failed to clear reports: ' + error.message);
+            }
+        }
+        
+        // Clean up on page unload
+        window.addEventListener('beforeunload', function() {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+            }
+        });
+    </script>
+</body>
+</html>
