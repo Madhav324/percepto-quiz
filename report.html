@@ -15,6 +15,11 @@
             margin: 0;
             padding: 20px;
         }
+        
+        .container {
+            width: 100%;
+            max-width: 1200px;
+        }
 
         #quiz-container {
             text-align: center;
@@ -123,12 +128,45 @@
 
         .medium-risk {
             background-color: #ffcc00;
-            color: white;
+            color: #333;
         }
 
         .low-risk {
             background-color: #66cc66;
             color: white;
+        }
+        
+        .button-group {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        #error-message {
+            color: #ff6666;
+            padding: 10px;
+            margin-bottom: 15px;
+            font-weight: bold;
+            text-align: center;
+            display: none;
+        }
+        
+        #loading {
+            padding: 10px;
+            margin-bottom: 15px;
+            text-align: center;
+            color: #555;
+        }
+        
+        .patient-indicator {
+            display: inline-block;
+            background-color: #e9f5e9;
+            color: #4CAF50;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-left: 8px;
         }
     </style>
 </head>
@@ -139,21 +177,18 @@
                 <span class="user-name" id="userName">Loading...</span>
                 <span class="user-email" id="userEmail"></span>
             </div>
-            <a href="index.html" class="back-btn">Back to Quiz</a>
         </div>
 
         <div id="error-message"></div>
         <div id="loading">Loading report...</div>
 
-        <div class="report-section">
-            <h2>Your Quiz Results</h2>
-            <div id="quizResults"></div>
-        </div>
-
         <div id="quiz-container">
-            <h1>Visual Perceptual Skills</h1>
-            <a href="index.html" style="text-decoration: none;"><button id="home-button">Return Home</button></a>
-            <button onclick="clearAllReports()">Clear All Reports</button>
+            <h1>Visual Perceptual Skills Report</h1>
+            <p>This report shows your latest performance on each quiz.</p>
+            <div class="button-group">
+                <a href="index.html" style="text-decoration: none;"><button id="home-button">Return Home</button></a>
+                <button onclick="clearAllReports()">Clear All Reports</button>
+            </div>
         </div>
 
         <div id="report-container">
@@ -244,15 +279,7 @@
         
         <!-- Firebase Config -->
         <script>
-            const firebaseConfig = {
-                apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
-                authDomain: "projeccvi.firebaseapp.com",
-                projectId: "projeccvi",
-                storageBucket: "projeccvi.appspot.com",
-                messagingSenderId: "279067566247",
-                appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
-            };
-            firebase.initializeApp(firebaseConfig);
+            // Firebase initialization is done in the module script
         </script>
 
         <!-- Auth Helper -->
@@ -307,6 +334,7 @@
         <script type="module">
             import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
             import { getDatabase, ref, get, remove } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-database.js";
+            import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
 
             const firebaseConfig = {
                 apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
@@ -319,77 +347,290 @@
 
             const app = initializeApp(firebaseConfig);
             const db = getDatabase(app);
+            const auth = getAuth(app);
 
-            const attemptKeys = [];
-            for (let i = 1; i <= 25; i++) {
-                attemptKeys.push(`quizAttempts${i}`);
-            }
+            // Quiz mapping object to store quiz names and their corresponding database paths
+            const quizMappings = {
+                'quizAttempts1': { name: 'VD-Shapes(Lv1)', path: 'VDT1' },
+                'quizAttempts2': { name: 'VD-Shapes(Lv2)', path: 'VDT2' },
+                'quizAttempts3': { name: 'VD-Sizes', path: 'VDTsizes' },
+                'quizAttempts4': { name: 'VD-Emotions', path: 'VDTemotions' },
+                'quizAttempts5': { name: 'VD-Colours', path: 'VDTcolors' },
+                'quizAttempts6': { name: 'VC-Shapes', path: 'VCshapes' },
+                'quizAttempts7': { name: 'VC-colours', path: 'VCcolors' },
+                'quizAttempts8': { name: 'VC-Animal', path: 'VCanimal' },
+                'quizAttempts9': { name: 'VFC-numbers(lvl1)', path: 'VFCnumbers1' },
+                'quizAttempts10': { name: 'VFC-letters(lvl1)', path: 'VFCletters1' },
+                'quizAttempts11': { name: 'VFC-size and shape(lvl1)', path: 'VFCsizeShape1' },
+                'quizAttempts12': { name: 'VFC-numbers(lvl2)', path: 'VFCnumbers2' },
+                'quizAttempts13': { name: 'VFC-letters(lvl2)', path: 'VFCletters2' },
+                'quizAttempts14': { name: 'VFC-size and shape(lvl2)', path: 'VFCsizeShape2' },
+                'quizAttempts15': { name: 'FG', path: 'FG' },
+                'quizAttempts16': { name: 'SR-Move top or bottom', path: 'SR1' },
+                'quizAttempts17': { name: 'SR-Move left or right', path: 'SR2' },
+                'quizAttempts18': { name: 'VN-LVL1', path: 'VN1' },
+                'quizAttempts19': { name: 'VN-LVL2', path: 'VN2' },
+                'quizAttempts20': { name: 'VSM-Beads', path: 'beads' },
+                'quizAttempts21': { name: 'VSM-CROW', path: 'crow' },
+                'quizAttempts22': { name: 'VSM-LION', path: 'lion' },
+                'quizAttempts23': { name: 'VSM-MORNING', path: 'morning' },
+                'quizAttempts24': { name: 'VSM-DRESSING', path: 'dressing' },
+                'quizAttempts25': { name: 'VM', path: 'VM' }
+            };
 
             let impairedCount = 0;
+            
+            // Show loading indicator function
+            function showLoading(show, message = 'Loading...') {
+                const loadingElement = document.getElementById('loading');
+                if (show) {
+                    loadingElement.style.display = 'block';
+                    loadingElement.textContent = message;
+                } else {
+                    loadingElement.style.display = 'none';
+                }
+            }
+            
+            // Show error message function
+            function showError(message) {
+                const errorElement = document.getElementById('error-message');
+                errorElement.style.display = 'block';
+                errorElement.textContent = message;
+            }
 
-            function fetchAllAttempts() {
-                impairedCount = 0; // Reset the impaired count
-
-                attemptKeys.forEach((attemptKey, index) => {
-                    const reportContainer = document.getElementById(`report-${attemptKey}`);
-                    reportContainer.innerHTML = ''; // Clear previous content
-
-                    const attemptsRef = ref(db, `${attemptKey}/`);
-                    get(attemptsRef).then((snapshot) => {
-                        if (snapshot.exists()) {
-                            const attempts = snapshot.val();
-                            const attemptDates = Object.keys(attempts);
-                            
-                            // Sort dates in descending order (latest first)
-                            attemptDates.sort((a, b) => new Date(b) - new Date(a));
-                            
-                            // Get the latest attempt
-                            if (attemptDates.length > 0) {
-                                const latestDate = attemptDates[0];
-                                const latestAttempt = attempts[latestDate];
+            async function fetchAllAttempts() {
+                try {
+                    showLoading(true, 'Loading quiz attempts...');
+                    impairedCount = 0; // Reset the impaired count
+                    
+                    // Get authentication status
+                    const user = auth.currentUser;
+                    
+                    if (!user) {
+                        showError('You need to be logged in to view reports');
+                        showLoading(false);
+                        return;
+                    }
+                    
+                    // Check if this is a patient quiz (doctor viewing patient)
+                    const currentPatientId = sessionStorage.getItem('currentPatientId');
+                    const doctorId = sessionStorage.getItem('doctorId');
+                    const isPatientQuiz = !!(currentPatientId && doctorId);
+                    
+                    console.log('Report context:', {
+                        isPatientQuiz,
+                        currentPatientId: currentPatientId || 'none',
+                        doctorId: doctorId || 'none',
+                        userId: user.uid
+                    });
+                    
+                    // Check user role
+                    const roleRef = ref(db, `roles/${user.uid}`);
+                    const roleSnapshot = await get(roleRef);
+                    const userRole = roleSnapshot.exists() ? roleSnapshot.val() : 'user';
+                    const isDoctor = userRole === 'doctor';
+                    
+                    // Update profile info
+                    if (isPatientQuiz) {
+                        // Doctor viewing patient quiz
+                        const patientProfileRef = ref(db, `doctors/${doctorId}/patients/${currentPatientId}/profile`);
+                        const patientProfileSnapshot = await get(patientProfileRef);
+                        if (patientProfileSnapshot.exists()) {
+                            const patientProfile = patientProfileSnapshot.val();
+                            document.getElementById('userName').textContent = `${patientProfile.name || 'Patient'}'s Report`;
+                            // Add patient indicator
+                            const patientIndicator = document.createElement('span');
+                            patientIndicator.className = 'patient-indicator';
+                            patientIndicator.textContent = 'Patient';
+                            document.getElementById('userName').appendChild(patientIndicator);
+                        }
+                    } else {
+                        // Regular user or doctor viewing own quiz
+                        let profileRef;
+                        if (isDoctor) {
+                            profileRef = ref(db, `doctors/${user.uid}/profile`);
+                        } else {
+                            profileRef = ref(db, `users/${user.uid}/profile`);
+                        }
+                        const profileSnapshot = await get(profileRef);
+                        if (profileSnapshot.exists()) {
+                            const profile = profileSnapshot.val();
+                            document.getElementById('userName').textContent = profile.name || user.displayName || 'User';
+                        } else {
+                            document.getElementById('userName').textContent = user.displayName || 'User';
+                        }
+                    }
+                    document.getElementById('userEmail').textContent = user.email;
+                    
+                    // Process each quiz attempt
+                    for (const attemptKey in quizMappings) {
+                        const quizInfo = quizMappings[attemptKey];
+                        const reportContainer = document.getElementById(`report-${attemptKey}`);
+                        reportContainer.innerHTML = ''; // Clear previous content
+                        
+                        let quizPath;
+                        if (isPatientQuiz) {
+                            // Doctor viewing patient's quiz results
+                            quizPath = `doctors/${doctorId}/patients/${currentPatientId}/quiz/${quizInfo.path}`;
+                        } else if (isDoctor) {
+                            // Doctor viewing their own quiz results
+                            quizPath = `doctors/${user.uid}/quiz/${quizInfo.path}`;
+                        } else {
+                            // Regular user viewing their quiz results
+                            quizPath = `users/${user.uid}/quiz/${quizInfo.path}`;
+                        }
+                        
+                        console.log(`Fetching quiz data from path: ${quizPath}`);
+                        const quizRef = ref(db, quizPath);
+                        
+                        try {
+                            const quizSnapshot = await get(quizRef);
+                            if (quizSnapshot.exists()) {
+                                const attempts = quizSnapshot.val();
+                                const attemptDates = Object.keys(attempts);
                                 
-                                // Create and display the report for the latest attempt
-                                const report = document.createElement('div');
-                                report.className = 'report-card';
+                                // Sort dates in descending order (latest first)
+                                attemptDates.sort((a, b) => new Date(b) - new Date(a));
                                 
-                                const metrics = [
-                                    ['Score', `${latestAttempt.score || '--'} points`],
-                                    ['Total Time', `${latestAttempt.totalTime || '--'} seconds`],
-                                    ['Average Time', `${latestAttempt.avgTime || '--'} seconds`],
-                                    ['First Tap Time', `${latestAttempt.firstTapTime || '--'} seconds`],
-                                    ['Total Taps', latestAttempt.totalTaps || '--'],
-                                    ['Total Correct Answers', latestAttempt.score || '--'],
-                                    ['Total Incorrect Answers', latestAttempt.totalIncorrectAnswers || '0'],
-                                    ['Attempt ID', latestDate]
-                                ];
-
-                                report.innerHTML = metrics
-                                    .map(([label, value]) => `<p><strong>${label}:</strong> ${value}</p>`)
-                                    .join('');
+                                // Get the latest attempt
+                                if (attemptDates.length > 0) {
+                                    const latestDate = attemptDates[0];
+                                    const latestAttempt = attempts[latestDate];
                                     
-                                reportContainer.appendChild(report);
-
-                                // After processing all attempts, calculate the CVI risk level
-                                displayCviRiskLevel();
+                                    // Create and display the report for the latest attempt
+                                    const report = document.createElement('div');
+                                    report.className = 'report-card';
+                                    
+                                    // Calculate additional metrics if not present
+                                    const totalIncorrectAnswers = latestAttempt.incorrectAnswers || 
+                                                               (latestAttempt.totalTaps - latestAttempt.score) || 0;
+                                    
+                                    const averageTime = latestAttempt.averageTime || latestAttempt.avgTime || 
+                                                      (latestAttempt.totalTime && latestAttempt.totalTaps ? 
+                                                      (latestAttempt.totalTime / latestAttempt.totalTaps).toFixed(2) : '--');
+                                    
+                                    const metrics = [
+                                        ['Score', `${latestAttempt.score || latestAttempt.correctAnswers || '--'} points`],
+                                        ['Total Time', `${latestAttempt.totalTime || '--'} seconds`],
+                                        ['Average Time', `${averageTime} seconds`],
+                                        ['First Tap Time', `${latestAttempt.firstTapTime || '--'} seconds`],
+                                        ['Total Taps', latestAttempt.totalTaps || '--'],
+                                        ['Total Correct Answers', latestAttempt.score || latestAttempt.correctAnswers || '--'],
+                                        ['Total Incorrect Answers', totalIncorrectAnswers],
+                                        ['Attempt Date', new Date(parseInt(latestDate)).toLocaleString()]
+                                    ];
+                                    
+                                    report.innerHTML = metrics
+                                        .map(([label, value]) => `<p><strong>${label}:</strong> ${value}</p>`)
+                                        .join('');
+                                    
+                                    reportContainer.appendChild(report);
+                                    
+                                    // Check impairment for risk calculation
+                                    const score = latestAttempt.score || latestAttempt.correctAnswers || 0;
+                                    if (score < 5) { // Threshold for impairment - adjust as needed
+                                        impairedCount++;
+                                    }
+                                } else {
+                                    reportContainer.innerHTML = '<p>No attempts found</p>';
+                                }
                             } else {
                                 reportContainer.innerHTML = '<p>No attempts found</p>';
                             }
-                        } else {
-                            reportContainer.innerHTML = '<p>No attempts found</p>';
+                        } catch (error) {
+                            console.error(`Error fetching ${quizInfo.name} attempts:`, error);
+                            reportContainer.innerHTML = '<p>Error loading attempts</p>';
                         }
-                    }).catch((error) => {
-                        console.error("Error fetching attempts:", error);
-                        reportContainer.innerHTML = '<p>Error loading attempts</p>';
-                    });
-                });
+                    }
+                    
+                    // Calculate overall CVI risk level
+                    displayCviRiskLevel();
+                    
+                } catch (error) {
+                    console.error('Error in fetchAllAttempts:', error);
+                    showError('Failed to load quiz attempts. Please try again.');
+                } finally {
+                    showLoading(false);
+                }
             }
 
+            // displayCviRiskLevel function is defined later
+
+            async function clearAllReports() {
+                try {
+                    showLoading(true, 'Clearing reports...');
+                    
+                    const user = auth.currentUser;
+                    if (!user) {
+                        alert('You need to be logged in to clear reports.');
+                        showLoading(false);
+                        return;
+                    }
+
+                    // Check if this is a patient quiz (doctor viewing patient)
+                    const currentPatientId = sessionStorage.getItem('currentPatientId');
+                    const doctorId = sessionStorage.getItem('doctorId');
+                    const isPatientQuiz = !!(currentPatientId && doctorId);
+                    
+                    // Check user role
+                    const roleRef = ref(db, `roles/${user.uid}`);
+                    const roleSnapshot = await get(roleRef);
+                    const userRole = roleSnapshot.exists() ? roleSnapshot.val() : 'user';
+                    const isDoctor = userRole === 'doctor';
+                    
+                    // Confirm before clearing
+                    if (!confirm('Are you sure you want to clear all quiz reports? This action cannot be undone.')) {
+                        showLoading(false);
+                        return;
+                    }
+                    
+                    for (const attemptKey in quizMappings) {
+                        const quizInfo = quizMappings[attemptKey];
+                        
+                        let quizPath;
+                        if (isPatientQuiz) {
+                            // Doctor clearing patient's quiz results
+                            quizPath = `doctors/${doctorId}/patients/${currentPatientId}/quiz/${quizInfo.path}`;
+                        } else if (isDoctor) {
+                            // Doctor clearing their own quiz results
+                            quizPath = `doctors/${user.uid}/quiz/${quizInfo.path}`;
+                        } else {
+                            // Regular user clearing their quiz results
+                            quizPath = `users/${user.uid}/quiz/${quizInfo.path}`;
+                        }
+                        
+                        console.log(`Clearing quiz data from path: ${quizPath}`);
+                        const quizRef = ref(db, quizPath);
+                        
+                        try {
+                            const quizSnapshot = await get(quizRef);
+                            if (quizSnapshot.exists()) {
+                                await remove(quizRef);
+                                console.log(`Cleared reports for ${quizInfo.name}`);
+                            }
+                        } catch (error) {
+                            console.error(`Error clearing ${quizInfo.name} reports:`, error);
+                        }
+                    }
+                    
+                    alert('All reports cleared successfully!');
+                    fetchAllAttempts(); // Refresh the reports
+                    
+                } catch (error) {
+                    console.error('Error in clearAllReports:', error);
+                    alert('Failed to clear reports: ' + error.message);
+                } finally {
+                    showLoading(false);
+                }
+            }
+
+            // Display CVI risk level based on impaired performance
             function displayCviRiskLevel() {
                 const riskContainer = document.getElementById("cvi-risk-result");
-
+                
                 // Remove all risk-related classes first
                 riskContainer.classList.remove('high-risk', 'medium-risk', 'low-risk');
-
+                
                 let riskLevel = '';
                 if (impairedCount >= 4) {
                     riskLevel = 'High Risk of CVI';
@@ -401,35 +642,22 @@
                     riskLevel = 'Low Risk of CVI';
                     riskContainer.classList.add('low-risk'); // Apply green color for low risk
                 }
-
-                riskContainer.textContent = `Overall CVI Risk Level: ${riskLevel}`;
+                
+                riskContainer.textContent = `Overall CVI Risk Level: ${riskLevel} (${impairedCount} impaired quiz performances)`;
+                riskContainer.style.display = 'block';
             }
 
-            function clearAllReports() {
-                attemptKeys.forEach(attemptKey => {
-                    const attemptsRef = ref(db, `${attemptKey}/`);
-                    get(attemptsRef)
-                        .then(snapshot => {
-                            if (snapshot.exists()) {
-                                remove(attemptsRef)
-                                    .then(() => {
-                                        console.log(`Cleared reports for ${attemptKey}`);
-                                    })
-                                    .catch(error => {
-                                        console.error(`Error clearing reports for ${attemptKey}: `, error);
-                                    });
-                            }
-                        })
-                        .catch(error => {
-                            console.error(`Error fetching data for clearing ${attemptKey}: `, error);
-                        });
-                });
-                alert('All reports cleared successfully!');
-                fetchAllAttempts(); // Refresh the reports
-            }
-
-            // Automatically fetch attempts on page load
-            window.onload = fetchAllAttempts;
+            // Initialize on auth state change
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    console.log('User authenticated in report page:', user.uid);
+                    fetchAllAttempts();
+                } else {
+                    console.log('User not authenticated');
+                    showError('Please log in to view your quiz reports');
+                    showLoading(false);
+                }
+            });
         </script>
     </body>
 </html>
