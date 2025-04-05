@@ -300,10 +300,12 @@
             }
             
             button {
-                padding: 12px; /* Larger touch targets */
-                margin: 5px;
-                font-size: 16px;
-                min-width: 90px; /* Ensure buttons are large enough to tap */
+                padding: 15px; /* Even larger touch targets */
+                margin: 8px;
+                font-size: 18px;
+                min-width: 110px; /* Larger buttons for easier tapping */
+                -webkit-tap-highlight-color: rgba(0,0,0,0.2); /* Visual feedback on tap */
+                border: none;
             }
             
             .profile-icon {
@@ -324,7 +326,24 @@
             .controls {
                 display: flex;
                 justify-content: space-around;
-                margin-top: 15px;
+                margin: 20px 0;
+                position: relative;
+                z-index: 100; /* Ensure buttons are above other elements */
+            }
+            
+            /* Reset and submit buttons */
+            .reset-btn {
+                background-color: #f1f1f1;
+                color: #333;
+                font-weight: bold;
+                box-shadow: 0 3px 5px rgba(0,0,0,0.1);
+            }
+            
+            .submit-btn {
+                background-color: var(--primary-color);
+                color: white;
+                font-weight: bold;
+                box-shadow: 0 3px 5px rgba(0,0,0,0.1);
             }
         }
     </style>
@@ -341,15 +360,6 @@
         </header>
         
         <div class="quiz-container">
-            <div class="instructions">
-                Rotate and position both lines to match the reference angles shown in the guide below. 
-                Try to match the angles as closely as possible for maximum points.
-            </div>
-            
-            <div class="mobile-instructions" id="mobile-instructions">
-                Touch near the ENDS of each line to ROTATE, or the CENTER to MOVE. 
-                Use the colored handles for easier rotation on mobile devices.
-            </div>
             
             <div id="angle-display" style="text-align: center; font-size: 0.9rem; margin-bottom: 10px;">Angles: 0° | 0°</div>
             
@@ -361,8 +371,8 @@
             </div>
             
             <div class="controls">
-                <button class="reset-btn" id="reset-btn">Reset</button>
-                <button class="submit-btn" id="submit-btn">Submit</button>
+                <button class="reset-btn" id="reset-btn" type="button" onclick="resetQuiz()">Reset</button>
+                <button class="submit-btn" id="submit-btn" type="button" onclick="submitAnswer()">Submit</button>
             </div>
             
             <div class="result-message" id="result-message"></div>
@@ -442,9 +452,27 @@
             setupDragAndRotate(line1, 1);
             setupDragAndRotate(line2, 2);
             
-            // Button event listeners
-            resetBtn.addEventListener('click', resetQuiz);
-            submitBtn.addEventListener('click', submitAnswer);
+            // Ensure angle display is updated initially
+            updateAnglesDisplay();
+            
+            // Make sure mobile instructions are visible on mobile devices
+            if (window.innerWidth <= 600) {
+                const mobileInstructions = document.getElementById('mobile-instructions');
+                if (mobileInstructions) {
+                    mobileInstructions.style.display = 'block';
+                }
+            }
+            
+            // Additional button event listeners (redundant with onclick but ensures coverage)
+            document.getElementById('reset-btn').addEventListener('click', function(e) {
+                e.stopPropagation(); // Prevent event bubbling
+                resetQuiz();
+            });
+            
+            document.getElementById('submit-btn').addEventListener('click', function(e) {
+                e.stopPropagation(); // Prevent event bubbling
+                submitAnswer();
+            });
         }
         
         // Create reference lines in the guide
@@ -646,7 +674,11 @@
             }
             
             function onEnd(e) {
-                if (e) e.preventDefault();
+                // Only prevent default if this is a touch event on a game element
+                if (e && e.type && e.type.startsWith('touch') && !e.target.closest('button')) {
+                    e.preventDefault();
+                }
+                
                 isDragging = false;
                 isRotating = false;
                 
@@ -654,15 +686,34 @@
                 element.style.opacity = '1';
                 element.style.boxShadow = '';
                 indicator.style.display = 'none';
+                
+                // Make sure buttons work after touch ends
+                setTimeout(() => {
+                    const resetBtn = document.getElementById('reset-btn');
+                    const submitBtn = document.getElementById('submit-btn');
+                    if (resetBtn) resetBtn.style.pointerEvents = 'auto';
+                    if (submitBtn) submitBtn.style.pointerEvents = 'auto';
+                }, 10);
             }
             
             function handleTouch(callback) {
                 return function(event) {
                     if (event.touches && event.touches[0]) {
-                        event.preventDefault();
+                        // Only prevent default for game elements, not buttons
+                        if (!event.target.closest('button')) {
+                            event.preventDefault();
+                        }
+                        
+                        // Map touch coordinates to mouse-like coordinates
                         event.clientX = event.touches[0].clientX;
                         event.clientY = event.touches[0].clientY;
-                        event.target = document.elementFromPoint(event.clientX, event.clientY) || event.target;
+                        
+                        // Get the element at the touch point for more accurate target detection
+                        const touchTarget = document.elementFromPoint(event.clientX, event.clientY);
+                        if (touchTarget) {
+                            event.target = touchTarget;
+                        }
+                        
                         callback(event);
                     }
                 };
@@ -678,12 +729,21 @@
             document.addEventListener('mousemove', onMove);
             document.addEventListener('mouseup', onEnd);
             
-            // Touch events - added to handles
+            // Touch events with improved handling
             element.addEventListener('touchstart', handleTouch(onStart), {passive: false});
             leftHandle.addEventListener('touchstart', handleTouch(onStart), {passive: false});
             rightHandle.addEventListener('touchstart', handleTouch(onStart), {passive: false});
-            document.addEventListener('touchmove', handleTouch(onMove), {passive: false});
-            document.addEventListener('touchend', onEnd, {passive: false});
+            
+            // Use capture phase for move events to ensure they're handled before other events
+            document.addEventListener('touchmove', handleTouch(onMove), {passive: false, capture: true});
+            
+            // Make sure touch end is handled properly
+            document.addEventListener('touchend', function(e) {
+                // Don't prevent default on buttons
+                if (!e.target.closest('button')) {
+                    onEnd(e);
+                }
+            }, {passive: false});
             document.addEventListener('touchcancel', onEnd, {passive: false});
         }
         
@@ -1001,9 +1061,10 @@
             }
         });
         
-        // Disable unwanted mobile behaviors during interaction
+        // Only disable pinch zoom gestures, but allow scrolling
         document.addEventListener('touchmove', function(e) {
-            if (e.touches.length > 1 || document.querySelector('.angles-container:active')) {
+            // Only prevent default if it's a multi-touch gesture inside the game area
+            if (e.touches.length > 1 && e.target.closest('.angles-container, .draggable-line')) {
                 e.preventDefault();
             }
         }, { passive: false });
