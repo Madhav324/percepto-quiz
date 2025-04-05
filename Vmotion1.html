@@ -1168,8 +1168,17 @@
                         }
                         
                         attempts.forEach(attempt => {
-                            const date = new Date(attempt.timestamp);
-                            const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+                            // Format date using timestamp - ensure it's a number
+                            let dateStr = 'Unknown Date';
+                            try {
+                                const timestamp = parseInt(attempt.timestamp);
+                                if (!isNaN(timestamp)) {
+                                    const date = new Date(timestamp);
+                                    dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+                                }
+                            } catch (e) {
+                                console.error('Error formatting date:', e);
+                            }
                             
                             const attemptItem = document.createElement('li');
                             attemptItem.className = 'attempt-item';
@@ -1252,8 +1261,8 @@
                         totalInteractions: totalInteractions,
                         consistencyScore: Math.floor(consistencyScore),
                         handSteadiness: (10 - handTremorScore).toFixed(1),
-                        timestamp: timestamp,
-                        date: new Date().toISOString()
+                        timestamp: timestamp
+                        // Removed date field as timestamp is sufficient
                     };
                     
                     database.ref(refPath).set(resultData).then(() => {
