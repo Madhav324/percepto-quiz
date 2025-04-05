@@ -439,24 +439,24 @@
                     currentPath[currentPath.length - 1].y
                 );
                 
-                if (distToGoal < 30) {
-                    // Check if at least 90% of path points were visited
+                if (distToGoal < 35) { // Slightly more forgiving distance
+                    // Check if at least 80% of path points were visited - more forgiving completion threshold
                     const visitedCount = visitedPathPoints.filter(visited => visited).length;
                     const completionPercent = (visitedCount / visitedPathPoints.length) * 100;
                     
-                    if (completionPercent >= 90) {
+                    if (completionPercent >= 80) {
                         goalReached = true;
                         completeLevel();
                     } else {
-                        // Alert user that they need to follow the entire path
+                        // Highlight how much is left to complete
                         const feedback = document.createElement('div');
-                        feedback.textContent = 'You must follow the entire path! Only ' + 
+                        feedback.textContent = 'Almost there! Path ' + 
                                               Math.floor(completionPercent) + '% completed.';
                         feedback.style.position = 'absolute';
                         feedback.style.top = '50%';
                         feedback.style.left = '50%';
                         feedback.style.transform = 'translate(-50%, -50%)';
-                        feedback.style.backgroundColor = 'rgba(255, 0, 0, 0.7)';
+                        feedback.style.backgroundColor = 'rgba(33, 150, 243, 0.8)';
                         feedback.style.color = 'white';
                         feedback.style.padding = '10px 20px';
                         feedback.style.borderRadius = '5px';
@@ -467,6 +467,12 @@
                         setTimeout(() => {
                             feedback.remove();
                         }, 2000);
+                        
+                        // Move character slightly closer to goal to encourage completion
+                        const goalX = currentPath[currentPath.length - 1].x;
+                        const goalY = currentPath[currentPath.length - 1].y;
+                        characterPosition.x = characterPosition.x + (goalX - characterPosition.x) * 0.05;
+                        characterPosition.y = characterPosition.y + (goalY - characterPosition.y) * 0.05;
                     }
                 }
             }
@@ -590,7 +596,7 @@
             let minDist = Infinity;
             let nearestIndex = 0;
             
-            // Allow searching both forward and backward along the entire path
+            // Search the entire path for the closest point - allows back and forth movement
             for (let i = 0; i < pathPoints.length; i++) {
                 const dist = distanceToPoint(x, y, pathPoints[i].x, pathPoints[i].y);
                 if (dist < minDist) {
@@ -599,8 +605,18 @@
                 }
             }
             
-            // Mark points as visited - mark this point and all previous points
+            // Calculate where we are relative to path completion
+            const pathCompletePercentage = (nearestIndex / (pathPoints.length - 1)) * 100;
+            
+            // Mark visited points based on new nearest index
+            // This is more forgiving - we mark all points up to the nearest one
             for (let i = 0; i <= nearestIndex; i++) {
+                visitedPathPoints[i] = true;
+            }
+            
+            // Also mark a few nearby points as visited to make level completion easier
+            const lookAhead = Math.min(5, Math.floor(pathPoints.length * 0.05)); // Look ahead 5% of path
+            for (let i = nearestIndex + 1; i < nearestIndex + lookAhead && i < pathPoints.length; i++) {
                 visitedPathPoints[i] = true;
             }
             
@@ -610,7 +626,8 @@
             return {
                 point: pathPoints[nearestIndex],
                 index: nearestIndex,
-                distance: minDist
+                distance: minDist,
+                completion: pathCompletePercentage
             };
         }
 
@@ -699,11 +716,23 @@
 
         // Complete the current level
         function completeLevel() {
-            gameRunning = false;
+            // Stop timer
             clearInterval(timerInterval);
+            gameRunning = false;
             
-            // Calculate final metrics for the level
-            calculateFinalMetrics();
+            // Play success sound (if available)
+            const successSound = document.getElementById('success-sound');
+            if (successSound) successSound.play();
+            
+            // Calculate elapsed time
+            const endTime = Date.now();
+            elapsedTime = (endTime - startTime) / 1000; // in seconds
+            
+            // Calculate accuracy based on path deviations
+            if (interactions > 0) {
+                const deviationRatio = pathDeviation / totalInteractions;
+                accuracy = Math.max(0, 100 - (deviationRatio * 100));
+            }
             
             // Update score based on level, time, accuracy, consistency and tremor
             const levelBonus = currentLevel * 50;
@@ -717,6 +746,27 @@
             
             // Update UI
             document.getElementById('score').textContent = score;
+            
+            // Show level completion message
+            const feedback = document.createElement('div');
+            feedback.textContent = 'Level ' + currentLevel + ' Complete! Score: +' + levelScore;
+            feedback.style.position = 'absolute';
+            feedback.style.top = '50%';
+            feedback.style.left = '50%';
+            feedback.style.transform = 'translate(-50%, -50%)';
+            feedback.style.backgroundColor = 'rgba(76, 175, 80, 0.9)';
+            feedback.style.color = 'white';
+            feedback.style.padding = '15px 25px';
+            feedback.style.borderRadius = '5px';
+            feedback.style.zIndex = '100';
+            feedback.style.fontWeight = 'bold';
+            feedback.style.fontSize = '1.2rem';
+            document.getElementById('game-container').appendChild(feedback);
+            
+            // Remove feedback after 2 seconds
+            setTimeout(() => {
+                feedback.remove();
+            }, 2000);
             
             // Check if there are more levels
             if (currentLevel < 3) {
@@ -1002,59 +1052,78 @@
                 return;
             }
             
-            // Find nearest point on the path
-            const pathInfo = findNearestPointOnPath(x, y);
-            
-            // Calculate motion metrics regardless of path following
-            calculateMotionMetrics(x, y);
-            
-            // Track the total interactions
-            totalInteractions++;
-            
             // Record first interaction time if not already set
             if (firstInteractionTime === null && gameRunning) {
                 firstInteractionTime = Date.now() - startTime;
             }
             
+            // Track the total interactions
+            totalInteractions++;
+            
+            // Calculate motion metrics for hand steadiness analysis
+            calculateMotionMetrics(x, y);
+            
+            // Let the player directly control the character with some constraints
+            // This makes it feel more responsive while still keeping gameplay intact
+            let targetX = x;
+            let targetY = y;
+            
+            // Find nearest point on the path
+            const pathInfo = findNearestPointOnPath(x, y);
+            
             if (pathInfo && pathInfo.distance <= pathWidth / 2) {
-                // User is on the path - enforce strict path following
-                // The closer to the center of the path, the better
+                // User is on the path
                 const pathFidelity = 1 - (pathInfo.distance / (pathWidth / 2)); // 1 = perfect center, 0 = edge
                 
-                // Move character to the path point with reduced speed (smooth movement)
-                const moveSpeed = 0.6; // Reduced from 1.0 for slower movement
-                characterPosition.x = characterPosition.x + (pathInfo.point.x - characterPosition.x) * moveSpeed;
-                characterPosition.y = characterPosition.y + (pathInfo.point.y - characterPosition.y) * moveSpeed;
+                // Allow some direct control but keep close to path
+                const pathWeight = 0.4; // How much to favor the path (lower = more direct control)
+                targetX = x * (1 - pathWeight) + pathInfo.point.x * pathWeight;
+                targetY = y * (1 - pathWeight) + pathInfo.point.y * pathWeight;
+                
+                // Move character with smooth movement
+                const moveSpeed = 0.7; // Slightly faster when on path for better response
+                characterPosition.x = characterPosition.x + (targetX - characterPosition.x) * moveSpeed;
+                characterPosition.y = characterPosition.y + (targetY - characterPosition.y) * moveSpeed;
                 
                 isOnPath = true;
                 
                 // Reward for staying on path
-                const accuracyBonus = pathFidelity * 0.1; // Reduced bonus for smoother experience
+                const accuracyBonus = pathFidelity * 0.15; 
                 accuracy = Math.min(100, accuracy + accuracyBonus);
-                score += Math.floor(pathFidelity * 1); // Reduced score bonus
+                score += Math.floor(pathFidelity * 1.5);
                 document.getElementById('score').textContent = score;
+                
             } else {
-                // User is off the path - penalty
+                // User is off the path
                 isOnPath = false;
                 pathDeviation++;
                 totalDeviations++;
                 
-                // Force character back to path if too far off
-                if (pathInfo && pathInfo.distance > pathWidth * 2) {
-                    // Snap back to path with smooth movement
-                    const moveSpeed = 0.5; // Slower than on-path movement
-                    characterPosition.x = characterPosition.x + (pathInfo.point.x - characterPosition.x) * moveSpeed;
-                    characterPosition.y = characterPosition.y + (pathInfo.point.y - characterPosition.y) * moveSpeed;
+                if (pathInfo && pathInfo.distance > pathWidth * 3) {
+                    // Very far off path - gradually guide back with more path influence
+                    const pathWeight = 0.5; // Stronger pull back to path when far away
+                    targetX = x * (1 - pathWeight) + pathInfo.point.x * pathWeight;
+                    targetY = y * (1 - pathWeight) + pathInfo.point.y * pathWeight;
                     
-                    // Penalty for going far off path
-                    const penalty = Math.floor(pathInfo.distance / 5); // Reduced penalty
+                    // Move with smooth movement
+                    const moveSpeed = 0.5;
+                    characterPosition.x = characterPosition.x + (targetX - characterPosition.x) * moveSpeed;
+                    characterPosition.y = characterPosition.y + (targetY - characterPosition.y) * moveSpeed;
+                    
+                    // Penalty for being far off path
+                    const penalty = Math.floor(pathInfo.distance / 6); // Reduced penalty
                     score = Math.max(0, score - penalty);
                     document.getElementById('score').textContent = score;
                 } else {
-                    // Allow slight deviation but with penalty
-                    const moveSpeed = 0.6; // Controlled movement
-                    characterPosition.x = characterPosition.x + (x - characterPosition.x) * moveSpeed;
-                    characterPosition.y = characterPosition.y + (y - characterPosition.y) * moveSpeed;
+                    // Slightly off path - allow more freedom but still with some path influence
+                    const pathWeight = 0.25; // Lighter pull to path when close
+                    targetX = x * (1 - pathWeight) + pathInfo.point.x * pathWeight;
+                    targetY = y * (1 - pathWeight) + pathInfo.point.y * pathWeight;
+                    
+                    // Move with responsive movement
+                    const moveSpeed = 0.6;
+                    characterPosition.x = characterPosition.x + (targetX - characterPosition.x) * moveSpeed;
+                    characterPosition.y = characterPosition.y + (targetY - characterPosition.y) * moveSpeed;
                     
                     // Smaller penalty for minor deviation
                     score = Math.max(0, score - 1);
@@ -1062,7 +1131,7 @@
                 }
                 
                 // Update accuracy with penalty for being off path
-                const accuracyPenalty = Math.min(3, pathInfo ? pathInfo.distance / 15 : 3); // Reduced penalty
+                const accuracyPenalty = Math.min(2.5, pathInfo ? pathInfo.distance / 20 : 2.5); // Gentler penalty
                 accuracy = Math.max(0, accuracy - accuracyPenalty);
             }
             
