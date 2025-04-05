@@ -37,6 +37,24 @@
             max-width: 650px;
             margin: 0 auto;
             padding: 20px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        
+        /* Mobile responsive adjustments */
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+                max-width: 100%;
+            }
+            
+            h1 {
+                font-size: 1.6rem;
+            }
+            
+            h2, h3 {
+                font-size: 1.3rem;
+            }
         }
         
         header {
@@ -93,6 +111,14 @@
             background-color: #e9f5ff;
             border-radius: 5px;
             font-size: 0.9rem;
+        }
+        
+        @media (max-width: 768px) {
+            .instructions {
+                margin-bottom: 10px;
+                padding: 8px;
+                font-size: 0.85rem;
+            }
         }
         
         .angles-container {
@@ -178,6 +204,14 @@
             display: none;
         }
         
+        @media (max-width: 768px) {
+            .result-message {
+                margin-top: 10px;
+                padding: 8px;
+                font-size: 0.9rem;
+            }
+        }
+        
         .correct {
             background-color: #d4edda;
             color: #155724;
@@ -192,20 +226,38 @@
             margin-top: 20px;
         }
         
-                .attempt-item {
+        .attempt-item {
             background-color: #f9f9f9;
             padding: 15px;
             margin-bottom: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
+            border-radius: 5px;
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        @media (max-width: 768px) {
+            .attempt-item {
+                padding: 8px;
+                margin-bottom: 8px;
+                border-left-width: 3px;
+            }
         }
         
         .attempt-header {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            margin-bottom: 5px;
+            margin-bottom: 10px;
+        }
+        
+        @media (max-width: 768px) {
+            .attempt-header {
+                flex-direction: column;
+                margin-bottom: 5px;
+            }
+            
+            .attempt-date, .attempt-score {
+                font-size: 0.9rem;
+                margin-bottom: 3px;
+            }
         }
         
         .attempt-date {
@@ -219,13 +271,19 @@
         }
         
         .attempt-details {
-            display: none;
+            font-size: 0.9rem;
             grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
             gap: 10px;
             margin-top: 15px;
             background-color: #f0f0f0;
             padding: 15px;
             border-radius: 5px;
+        }
+        
+        @media (max-width: 768px) {
+            .attempt-details {
+                font-size: 0.85rem;
+            }
         }
         
         .attempt-detail-item {
@@ -242,14 +300,15 @@
         
         .toggle-details-btn {
             margin-top: 10px;
-            background-color: #4CAF50;
+            background-color: var(--primary-color);
             color: white;
             border: none;
-            padding: 6px 12px;
+            padding: 10px 15px;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 14px;
-            transition: background-color 0.2s;
+            font-weight: 500;
+            transition: background-color 0.3s;
+            font-size: 0.9rem;
         }
         
         .toggle-details-btn:hover {
@@ -300,9 +359,10 @@
             }
             
             button {
-                padding: 15px; /* Even larger touch targets */
+                padding: 10px 15px;
                 margin: 8px;
-                font-size: 18px;
+                font-size: 0.9rem;
+                min-height: 26px;
                 min-width: 110px; /* Larger buttons for easier tapping */
                 -webkit-tap-highlight-color: rgba(0,0,0,0.2); /* Visual feedback on tap */
                 border: none;
@@ -550,6 +610,12 @@
                 handle.style.position = 'absolute';
                 handle.style.width = '24px';
                 handle.style.height = '24px';
+                
+                // Smaller handles on mobile for better precision
+                if (window.innerWidth <= 768) {
+                    handle.style.width = '20px';
+                    handle.style.height = '20px';
+                }
                 handle.style.backgroundColor = lineId === 1 ? 'rgba(66, 133, 244, 0.7)' : 'rgba(52, 168, 83, 0.7)';
                 handle.style.borderRadius = '50%';
                 handle.style.transform = 'translate(-50%, -50%)';
@@ -710,7 +776,7 @@
             document.addEventListener('mousemove', onMove);
             document.addEventListener('mouseup', onEnd);
             
-            // Touch events with improved handling
+            // Touch events with improved handling for better mobile responsiveness
             element.addEventListener('touchstart', handleTouch(onStart), {passive: false});
             leftHandle.addEventListener('touchstart', handleTouch(onStart), {passive: false});
             rightHandle.addEventListener('touchstart', handleTouch(onStart), {passive: false});
@@ -723,6 +789,7 @@
                 // Don't prevent default on buttons
                 if (!e.target.closest('button')) {
                     onEnd(e);
+                    e.preventDefault(); // Prevent zoom/scroll on mobile
                 }
             }, {passive: false});
             document.addEventListener('touchcancel', onEnd, {passive: false});
@@ -731,11 +798,27 @@
         // Reset quiz
         function resetQuiz() {
             resetLinePositions();
-            startTime = new Date();
+            startTime = Date.now(); // Use timestamp instead of Date object for consistency
             interactions = 0;
             isSubmitting = false; // Reset submission flag
             resultMessage.style.display = 'none';
         }
+        
+        // Add event listener for window resize to adjust handle sizes
+        window.addEventListener('resize', function() {
+            const handles = document.querySelectorAll('#angles-container > div');
+            handles.forEach(handle => {
+                if (handle !== line1 && handle !== line2) {
+                    if (window.innerWidth <= 768) {
+                        handle.style.width = '20px';
+                        handle.style.height = '20px';
+                    } else {
+                        handle.style.width = '24px';
+                        handle.style.height = '24px';
+                    }
+                }
+            });
+        });
         
         // Submit answer
         let isSubmitting = false; // Flag to prevent multiple submissions
@@ -745,7 +828,7 @@
             if (isSubmitting) return;
             isSubmitting = true;
             
-            const endTime = new Date();
+            const endTime = Date.now();
             const timeSpent = (endTime - startTime) / 1000; // in seconds
             
             // Check if angles match the target with tolerance
@@ -766,6 +849,9 @@
             resultMessage.style.display = 'block';
             
             // Save result to database (just once)
+            // Create a timestamp for the quiz result
+            const timestamp = Date.now();
+            
             saveQuizResult({
                 score: score,
                 timeSpent: timeSpent,
@@ -774,7 +860,7 @@
                 line2Angle: normalizeAngle(line2Position.angle),
                 targetAngles: quizData.targetAngles,
                 isCorrect: isCorrect,
-                timestamp: firebase.database.ServerValue.TIMESTAMP
+                timestamp: timestamp
             }).then(() => {
                 // Reset submission flag after saving is complete
                 setTimeout(() => {
@@ -798,7 +884,7 @@
             if (!user) return Promise.reject('No user logged in');
             
             try {
-                // Using server value timestamp to ensure uniqueness
+                // Using a local timestamp that gets stored directly in Firebase
                 let path;
 
                 // Check if this is a patient quiz (doctor viewing patient)
@@ -822,11 +908,12 @@
                 }
                 
                 // Generate a unique key for this result
-                const newResultRef = database.ref(path).push();
-                console.log(`Saving quiz results to path: ${path}/${newResultRef.key}`);
+                // Generate a result key based on timestamp for better organization
+                const resultKey = `result_${result.timestamp}`;
+                console.log(`Saving quiz results to path: ${path}/${resultKey}`);
             
-                // Save the result using the unique key
-                await newResultRef.set(result);
+                // Save the result using the timestamped key
+                await database.ref(`${path}/${resultKey}`).set(result);
                 console.log('Quiz results saved successfully');
                 loadPreviousAttempts();
                 return Promise.resolve();
@@ -869,26 +956,27 @@
                 reportList.innerHTML = '<h3>Previous Attempts</h3>';
                 
                 if (snapshot.exists()) {
-                    const attempts = {};
+                    const attempts = [];
                     
-                    // Convert the snapshot to an array of entries with timestamps as keys
+                    // Convert the snapshot to an array of entries
                     snapshot.forEach(childSnapshot => {
-                        const timestamp = childSnapshot.key;
                         const data = childSnapshot.val();
-                        attempts[timestamp] = data;
+                        // Ensure timestamp is properly included
+                        if (data.timestamp) {
+                            attempts.push(data);
+                        }
                     });
                     
-                    const attemptEntries = Object.entries(attempts);
-                    
-                    if (attemptEntries.length > 0) {
+                    if (attempts.length > 0) {
                         // Sort by timestamp, newest first
-                        attemptEntries.sort((a, b) => b[0] - a[0]);
+                        attempts.sort((a, b) => b.timestamp - a.timestamp);
                         
-                        attemptEntries.forEach(([timestamp, result]) => {
+                        attempts.forEach(result => {
                             const attemptItem = document.createElement('div');
                             attemptItem.className = 'attempt-item';
                             
-                            const date = new Date(parseInt(timestamp));
+                            // Properly create date object from timestamp
+                            const date = new Date(result.timestamp);
                             const formattedDate = date.toLocaleString();
                             
                             // Create the date and score section
