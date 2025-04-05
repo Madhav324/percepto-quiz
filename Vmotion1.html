@@ -255,7 +255,8 @@
         <div id="level-indicator">Level: <span id="current-level">1</span></div>
         
         <div id="instruction">
-            Follow the highlighted path with your finger or mouse to guide the character to the goal
+            Follow the highlighted path with your finger or mouse to guide the character to the goal. 
+            For higher scores, stay precisely on the path and maintain a steady, consistent movement.
         </div>
         
         <div id="timer">Time: 0s</div>
@@ -279,6 +280,9 @@
                 <li><strong>Score:</strong> <span id="final-score">0</span></li>
                 <li><strong>Accuracy:</strong> <span id="accuracy">0</span>%</li>
                 <li><strong>Path Deviations:</strong> <span id="deviations">0</span></li>
+                <li><strong>Movement Consistency:</strong> <span id="consistency-score">0</span>%</li>
+                <li><strong>Hand Steadiness:</strong> <span id="hand-steadiness">0</span>/10 <small>(higher is better)</small></li>
+                <li><strong>Reaction Time:</strong> <span id="reaction-time">0</span>ms</li>
             </ul>
             <a href="index.html" style="text-decoration: none;"><button>Return Home</button></a>
         </div>
@@ -339,6 +343,13 @@
         let firstInteractionTime = null;
         let totalInteractions = 0;
         
+        // Motion analysis metrics
+        let consistencyScore = 100; // Tracks steadiness of motion
+        let handTremorScore = 0;    // Measures micro deviations
+        let velocityData = [];      // For tracking motion velocity
+        let previousPositions = []; // Last 10 positions for tremor analysis
+        let positionTimestamps = []; // Timestamps of positions for velocity calculation
+        
         // Character position tracking
         let characterPosition = { x: 0, y: 0 };
         let characterSpeed = 3;
@@ -346,11 +357,11 @@
         let isDragging = false;
         let isOnPath = true;
         let pathDeviation = 0;
+        let goalReached = false;
         
         // Path variables
         let currentPath = [];
         let pathWidth = 20; // Width of acceptable path area
-        let goalReached = false;
         
         // Touch tracking
         let lastTouchX = 0;
@@ -587,12 +598,17 @@
             gameRunning = false;
             clearInterval(timerInterval);
             
-            // Update score based on level, time, and accuracy
+            // Calculate final metrics for the level
+            calculateFinalMetrics();
+            
+            // Update score based on level, time, accuracy, consistency and tremor
             const levelBonus = currentLevel * 50;
             const timeBonus = Math.max(0, 300 - elapsedTime);
             const accuracyBonus = Math.floor(accuracy);
+            const consistencyBonus = Math.floor(consistencyScore / 2);
+            const tremorPenalty = Math.min(50, handTremorScore * 5); // Higher tremor = lower score
             
-            const levelScore = levelBonus + timeBonus + accuracyBonus;
+            const levelScore = levelBonus + timeBonus + accuracyBonus + consistencyBonus - tremorPenalty;
             score += levelScore;
             
             // Update UI
@@ -608,6 +624,63 @@
             }
         }
         
+        // Save results to Firebase
+        function saveResults() {
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    const uid = user.uid;
+                    const timestamp = Date.now();
+                    let refPath;
+                    
+                    if (isPatientQuiz) {
+                        // This is a doctor administering a quiz to a patient
+                        refPath = `doctors/${doctorId}/patients/${currentPatientId}/quiz/motion/${timestamp}`;
+                    } else {
+                        // Regular user taking the quiz
+                        refPath = `users/${uid}/quiz/motion/${timestamp}`;
+                    }
+                    
+                    const resultData = {
+                        score: score,
+                        totalTime: elapsedTime,
+                        accuracy: Math.floor(accuracy),
+                        deviations: totalDeviations,
+                        totalLevels: currentLevel,
+                        firstInteractionTime: firstInteractionTime || 0,
+                        totalInteractions: totalInteractions,
+                        consistencyScore: Math.floor(consistencyScore),
+                        handSteadiness: (10 - handTremorScore).toFixed(1),
+                        timestamp: timestamp,
+                        date: new Date().toISOString()
+                    };
+                    
+                    database.ref(refPath).set(resultData).then(() => {
+                        console.log('Results saved to Firebase');
+                    }).catch(error => {
+                        console.error('Error saving results:', error);
+                    });
+                }
+            });
+        }
+
+        // Show final results
+        function showResults() {
+            document.getElementById('final-score').textContent = score;
+            document.getElementById('total-time').textContent = elapsedTime;
+            document.getElementById('accuracy').textContent = Math.floor(accuracy);
+            document.getElementById('deviations').textContent = totalDeviations;
+            document.getElementById('consistency-score').textContent = Math.floor(consistencyScore);
+            document.getElementById('hand-steadiness').textContent = (10 - handTremorScore).toFixed(1);
+            document.getElementById('reaction-time').textContent = firstInteractionTime || 0;
+            
+            document.getElementById('result-container').style.display = 'block';
+            document.getElementById('next-level-btn').style.display = 'none';
+            document.getElementById('reset-btn').style.display = 'none';
+            
+            // Save results to Firebase
+            saveResults();
+        }
+
         // Event listeners for game controls
         document.getElementById('start-btn').addEventListener('click', function() {
             startLevel(currentLevel);
@@ -702,6 +775,90 @@
             isDragging = false;
         });
         
+        // Calculate consistency score and hand tremor based on recent movements
+        function calculateMotionMetrics(x, y) {
+            const currentTime = Date.now();
+            
+            // Store current position with timestamp
+            previousPositions.push({x, y, time: currentTime});
+            positionTimestamps.push(currentTime);
+            
+            // Keep only last 10 positions for analysis
+            if (previousPositions.length > 10) {
+                previousPositions.shift();
+                positionTimestamps.shift();
+            }
+            
+            // Need at least 3 positions for analysis
+            if (previousPositions.length >= 3) {
+                // Calculate velocity variation (consistency)
+                const velocities = [];
+                for (let i = 1; i < previousPositions.length; i++) {
+                    const prev = previousPositions[i-1];
+                    const curr = previousPositions[i];
+                    const dx = curr.x - prev.x;
+                    const dy = curr.y - prev.y;
+                    const dt = curr.time - prev.time;
+                    if (dt > 0) { // Avoid division by zero
+                        const velocity = Math.sqrt(dx*dx + dy*dy) / dt;
+                        velocities.push(velocity);
+                    }
+                }
+                
+                // Calculate velocity variance for consistency
+                if (velocities.length > 0) {
+                    const avgVelocity = velocities.reduce((sum, v) => sum + v, 0) / velocities.length;
+                    const velocityVariance = velocities.reduce((sum, v) => sum + Math.pow(v - avgVelocity, 2), 0) / velocities.length;
+                    
+                    // Update consistency score (lower variance = higher consistency)
+                    const newConsistency = 100 - Math.min(100, velocityVariance * 5000);
+                    consistencyScore = (consistencyScore * 0.9) + (newConsistency * 0.1); // Smooth changes
+                    
+                    // Store for later analysis
+                    velocityData.push(avgVelocity);
+                }
+                
+                // Calculate micro-deviations for tremor detection
+                let totalDeviation = 0;
+                for (let i = 2; i < previousPositions.length; i++) {
+                    const p1 = previousPositions[i-2];
+                    const p2 = previousPositions[i];
+                    const mid = previousPositions[i-1];
+                    
+                    // Calculate expected midpoint between p1 and p2
+                    const expectedX = (p1.x + p2.x) / 2;
+                    const expectedY = (p1.y + p2.y) / 2;
+                    
+                    // Calculate deviation of actual midpoint from expected
+                    const deviationX = mid.x - expectedX;
+                    const deviationY = mid.y - expectedY;
+                    const microDeviation = Math.sqrt(deviationX*deviationX + deviationY*deviationY);
+                    
+                    totalDeviation += microDeviation;
+                }
+                
+                // Average micro-deviation (higher = more tremor)
+                const avgMicroDeviation = totalDeviation / (previousPositions.length - 2);
+                const newTremorScore = Math.min(10, avgMicroDeviation);
+                
+                // Update tremor score with smoothing
+                handTremorScore = (handTremorScore * 0.9) + (newTremorScore * 0.1);
+            }
+        }
+        
+        // Calculate final metrics at the end of a level
+        function calculateFinalMetrics() {
+            // Calculate final consistency based on all velocity data
+            if (velocityData.length > 0) {
+                const avgVelocity = velocityData.reduce((sum, v) => sum + v, 0) / velocityData.length;
+                const velocityVariance = velocityData.reduce((sum, v) => sum + Math.pow(v - avgVelocity, 2), 0) / velocityData.length;
+                consistencyScore = Math.max(0, 100 - Math.min(100, velocityVariance * 5000));
+            }
+            
+            // Normalize and scale tremor score for final results
+            handTremorScore = Math.min(10, handTremorScore);
+        }
+        
         // Handle user interaction (mouse or touch)
         function handleInteraction(x, y) {
             if (goalReached) return;
@@ -709,21 +866,38 @@
             // Find nearest point on the path
             const pathInfo = findNearestPointOnPath(x, y, currentPath);
             
+            // Calculate motion metrics regardless of path following
+            calculateMotionMetrics(x, y);
+            
             if (pathInfo && pathInfo.distance <= pathWidth / 2) {
-                // User is on the path
+                // User is on the path - stricter path following for higher scores
+                // The closer to the center of the path, the better
+                const pathFidelity = 1 - (pathInfo.distance / (pathWidth / 2)); // 1 = perfect center, 0 = edge
+                
+                // Move character to nearest point on path with slight adjustment based on input
+                // This keeps user on path but allows some freedom of movement
                 characterPosition.x = pathInfo.point.x;
                 characterPosition.y = pathInfo.point.y;
+                
                 isOnPath = true;
+                
+                // Adjust accuracy based on path fidelity
+                const accuracyBonus = pathFidelity * 0.1; // Small bonus for perfect path following
+                accuracy = Math.min(100, accuracy + accuracyBonus);
             } else {
-                // User is off the path
+                // User is off the path - stricter penalty
                 characterPosition.x = x;
                 characterPosition.y = y;
                 isOnPath = false;
                 pathDeviation++;
                 totalDeviations++;
                 
-                // Update accuracy
-                accuracy = Math.max(0, 100 - (totalDeviations / totalInteractions * 100));
+                // Calculate how far off path (for severity of penalty)
+                const deviationSeverity = Math.min(1, (pathInfo ? pathInfo.distance / pathWidth : 1));
+                
+                // Update accuracy with more significant penalty for being far off path
+                const accuracyPenalty = 1 + deviationSeverity;
+                accuracy = Math.max(0, accuracy - accuracyPenalty);
             }
             
             render();
