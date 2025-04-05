@@ -541,32 +541,22 @@
             let startAngle = 0;
             let currentPosition = lineId === 1 ? line1Position : line2Position;
             
-            // Add a visual indicator for drag/rotate
-            const indicator = document.createElement('div');
-            indicator.style.position = 'absolute';
-            indicator.style.width = '30px'; // Larger for mobile touch
-            indicator.style.height = '30px'; // Larger for mobile touch
-            indicator.style.backgroundColor = lineId === 1 ? 'rgba(66, 133, 244, 0.5)' : 'rgba(52, 168, 83, 0.5)';
-            indicator.style.borderRadius = '50%';
-            indicator.style.transform = 'translate(-50%, -50%)';
-            indicator.style.display = 'none';
-            indicator.style.zIndex = '10';
-            anglesContainer.appendChild(indicator);
-            
-            // Add rotation handles (left and right ends of line)
+            // Add only two rotation handles (left and right ends of line) - no central indicator
             const leftHandle = document.createElement('div');
             const rightHandle = document.createElement('div');
             
-            // Style for rotation handles
+            // Style for rotation handles - made slightly larger for better touch targets
             [leftHandle, rightHandle].forEach(handle => {
                 handle.style.position = 'absolute';
-                handle.style.width = '22px';
-                handle.style.height = '22px';
+                handle.style.width = '24px';
+                handle.style.height = '24px';
                 handle.style.backgroundColor = lineId === 1 ? 'rgba(66, 133, 244, 0.7)' : 'rgba(52, 168, 83, 0.7)';
                 handle.style.borderRadius = '50%';
                 handle.style.transform = 'translate(-50%, -50%)';
                 handle.style.zIndex = '20';
                 handle.style.cursor = 'move';
+                handle.style.border = '2px solid white';
+                handle.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
                 anglesContainer.appendChild(handle);
             });
             
@@ -619,11 +609,6 @@
                         e.clientY - centerY,
                         e.clientX - centerX
                     ) * 180 / Math.PI - currentPosition.angle;
-                    
-                    // Show rotation indicator
-                    indicator.style.display = 'block';
-                    indicator.style.left = (e.clientX - anglesContainer.getBoundingClientRect().left) + 'px';
-                    indicator.style.top = (e.clientY - anglesContainer.getBoundingClientRect().top) + 'px';
                 } else if (isDragging) {
                     startX = e.clientX - currentPosition.x;
                     startY = e.clientY - currentPosition.y;
@@ -665,11 +650,8 @@
                     element.style.transform = `translate(-50%, -50%) rotate(${angle}deg)`;
                     updateHandlePositions(); // Update rotation handles
                     
-                    // Update rotation indicator
-                    if (indicator.style.display === 'block') {
-                        indicator.style.left = (e.clientX - anglesContainer.getBoundingClientRect().left) + 'px';
-                        indicator.style.top = (e.clientY - anglesContainer.getBoundingClientRect().top) + 'px';
-                    }
+                    // Update angles display immediately for better feedback
+                    updateAnglesDisplay();
                 }
             }
             
@@ -685,7 +667,6 @@
                 // Reset visual indicators
                 element.style.opacity = '1';
                 element.style.boxShadow = '';
-                indicator.style.display = 'none';
                 
                 // Make sure buttons work after touch ends
                 setTimeout(() => {
@@ -693,7 +674,7 @@
                     const submitBtn = document.getElementById('submit-btn');
                     if (resetBtn) resetBtn.style.pointerEvents = 'auto';
                     if (submitBtn) submitBtn.style.pointerEvents = 'auto';
-                }, 10);
+                }, 50); // Increased delay for better touch response
             }
             
             function handleTouch(callback) {
@@ -752,11 +733,18 @@
             resetLinePositions();
             startTime = new Date();
             interactions = 0;
+            isSubmitting = false; // Reset submission flag
             resultMessage.style.display = 'none';
         }
         
         // Submit answer
+        let isSubmitting = false; // Flag to prevent multiple submissions
+
         function submitAnswer() {
+            // Prevent multiple submissions
+            if (isSubmitting) return;
+            isSubmitting = true;
+            
             const endTime = new Date();
             const timeSpent = (endTime - startTime) / 1000; // in seconds
             
@@ -777,7 +765,7 @@
             resultMessage.className = `result-message ${isCorrect ? 'correct' : 'incorrect'}`;
             resultMessage.style.display = 'block';
             
-            // Save result to database
+            // Save result to database (just once)
             saveQuizResult({
                 score: score,
                 timeSpent: timeSpent,
@@ -787,6 +775,13 @@
                 targetAngles: quizData.targetAngles,
                 isCorrect: isCorrect,
                 timestamp: firebase.database.ServerValue.TIMESTAMP
+            }).then(() => {
+                // Reset submission flag after saving is complete
+                setTimeout(() => {
+                    isSubmitting = false;
+                }, 1000); // 1 second cooldown to prevent rapid multiple submissions
+            }).catch(() => {
+                isSubmitting = false;
             });
         }
         
@@ -800,17 +795,17 @@
         // Save quiz result to Firebase
         async function saveQuizResult(result) {
             const user = auth.currentUser;
-            if (!user) return;
+            if (!user) return Promise.reject('No user logged in');
             
             try {
-                const timestamp = Date.now();
+                // Using server value timestamp to ensure uniqueness
                 let path;
 
                 // Check if this is a patient quiz (doctor viewing patient)
                 if (isPatientQuiz) {
                     // This is a doctor testing a patient
                     console.log(`Saving patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
-                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/FG/${timestamp}`;
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/FG`;
                 } else {
                     // Regular user quiz
                     // Check if user is a doctor
@@ -819,21 +814,25 @@
                     
                     if (role === 'doctor') {
                         console.log(`Saving doctor's own quiz results: ${user.uid}`);
-                        path = `doctors/${user.uid}/quiz/FG/${timestamp}`;
+                        path = `doctors/${user.uid}/quiz/FG`;
                     } else {
                         console.log(`Saving regular user quiz results: ${user.uid}`);
-                        path = `users/${user.uid}/quiz/FG/${timestamp}`;
+                        path = `users/${user.uid}/quiz/FG`;
                     }
                 }
                 
-                console.log(`Saving quiz results to path: ${path}`);
+                // Generate a unique key for this result
+                const newResultRef = database.ref(path).push();
+                console.log(`Saving quiz results to path: ${path}/${newResultRef.key}`);
             
-                // Save the result directly to the timestamp-based path
-                await database.ref(path).set(result);
+                // Save the result using the unique key
+                await newResultRef.set(result);
                 console.log('Quiz results saved successfully');
                 loadPreviousAttempts();
+                return Promise.resolve();
             } catch (error) {
                 console.error('Error saving quiz result:', error);
+                return Promise.reject(error);
             }
         }
         
