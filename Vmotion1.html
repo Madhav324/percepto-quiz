@@ -248,6 +248,7 @@
     <div id="game-container">
         <div class="header">
             <h1>Motion Perception</h1>
+            <span id="user-name">User</span>
             <div class="profile-icon" id="profileIcon" title="Back to Home" onclick="window.location.href='index.html'"></div>
             <div class="patient-indicator" id="patient-indicator" style="display: none;">Patient</div>
         </div>
@@ -255,9 +256,7 @@
         <div id="level-indicator">Level: <span id="current-level">1</span>/3</div>
         
         <div id="instruction">
-            Follow the highlighted path with your finger or mouse to guide the character to the goal. 
-            IMPORTANT: You MUST cross the ENTIRE path to complete the level. Skipping any part of the path 
-            is not allowed and will prevent level completion. Stay on the path for higher scores!
+            Follow the highlighted path to guide the character to the goal. Stay on the path for higher scores!
         </div>
         
         <div id="timer">Time: 0s</div>
@@ -294,6 +293,39 @@
         <ul id="report-list"></ul>
         <button id="clear-report" onclick="clearReport()">Clear Report</button>
     </div>
+    
+    <script>
+        // Add the missing clearReport function
+        async function clearReport() {
+            const user = auth.currentUser;
+            if (!user) return;
+            
+            try {
+                // Determine the correct path based on user context
+                let path;
+                if (isPatientQuiz) {
+                    // This is a doctor testing a patient
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/quizzes/motion`;
+                } else {
+                    // Regular user path
+                    path = `users/${user.uid}/quizzes/motion`;
+                }
+                
+                console.log(`Removing all quiz results from path: ${path}`);
+                
+                // Remove all data at the specified path
+                await database.ref(path).remove();
+                
+                // Reset the results display
+                document.getElementById('report-list').innerHTML = '<p>No previous attempts found.</p>';
+                
+                alert('All quiz reports have been cleared successfully.');
+                
+            } catch (error) {
+                console.error('Error clearing report:', error);
+                alert('Failed to clear the report: ' + error.message);
+            }
+        }</script>
 
     <!-- Firebase Scripts -->  
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
@@ -478,20 +510,41 @@
         function initProfileIcon() {
             const profileIcon = document.getElementById('profileIcon');
             const patientIndicator = document.getElementById('patient-indicator');
+            const userName = document.getElementById('user-name');
             
-            auth.onAuthStateChanged(user => {
+            auth.onAuthStateChanged(async function(user) {
                 if (user) {
-                    const uid = user.uid;
-                    const userEmail = user.email || '';
-                    const initials = userEmail.split('@')[0].substring(0, 2).toUpperCase();
-                    profileIcon.innerText = initials;
+                    // Check URL parameters for doctor-patient context
+                    const urlParams = new URLSearchParams(window.location.search);
+                    doctorId = urlParams.get('doctorId');
+                    currentPatientId = urlParams.get('patientId');
+                    isPatientQuiz = doctorId && currentPatientId;
                     
-                    if (isPatientQuiz) {
-                        patientIndicator.style.display = 'inline-block';
+                    try {
+                        if (!isPatientQuiz) {
+                            // Regular user flow
+                            const profile = await getUserProfile(user.uid);
+                            const name = profile.name || user.displayName || user.email || 'User';
+                            const initial = name.charAt(0).toUpperCase();
+                            profileIcon.textContent = initial;
+                            if (userName) userName.textContent = name;
+                            patientIndicator.style.display = 'none';
+                        } else {
+                            // Doctor viewing patient case
+                            const patientProfile = await getPatientProfile(doctorId, currentPatientId);
+                            const name = patientProfile.name || 'Patient';
+                            const initial = name.charAt(0).toUpperCase();
+                            profileIcon.textContent = initial;
+                            if (userName) userName.textContent = name;
+                            patientIndicator.style.display = 'inline-block';
+                        }
+                    } catch (error) {
+                        console.error('Error loading profile:', error);
+                        profileIcon.textContent = 'U';
+                        if (userName) userName.textContent = 'User';
                     }
                 } else {
-                    console.log('No user is signed in');
-                    profileIcon.innerText = 'GU'; // Guest User
+                    window.location.href = 'index.html';
                 }
             });
         }
@@ -698,7 +751,7 @@
                 document.getElementById('reset-btn').style.display = 'none';
             } else {
                 // Game complete after 3 levels (like VDT1.html)
-                showResults();
+                displayResults();
             }
         }
         
@@ -720,13 +773,13 @@
                     
                     const resultData = {
                         score: score,
-                        totalTime: elapsedTime,
-                        accuracy: Math.floor(accuracy),
+                        totalTime: elapsedTime.toFixed(1),
+                        accuracy: accuracy.toFixed(1),
                         deviations: totalDeviations,
                         totalLevels: currentLevel,
                         firstInteractionTime: firstInteractionTime || 0,
                         totalInteractions: totalInteractions,
-                        consistencyScore: Math.floor(consistencyScore),
+                        consistencyScore: consistencyScore.toFixed(1),
                         handSteadiness: (10 - handTremorScore).toFixed(1),
                         timestamp: timestamp,
                         date: new Date().toISOString()
@@ -741,21 +794,19 @@
             });
         }
 
-        // Show final results
-        function showResults() {
-            document.getElementById('final-score').textContent = score;
-            document.getElementById('total-time').textContent = elapsedTime;
-            document.getElementById('accuracy').textContent = Math.floor(accuracy);
-            document.getElementById('deviations').textContent = totalDeviations;
-            document.getElementById('consistency-score').textContent = Math.floor(consistencyScore);
-            document.getElementById('hand-steadiness').textContent = (10 - handTremorScore).toFixed(1);
-            document.getElementById('reaction-time').textContent = firstInteractionTime || 0;
+        // Display final results
+        function displayResults() {
+            // Calculate final metrics before display
+            calculateFinalMetrics();
             
             document.getElementById('result-container').style.display = 'block';
-            document.getElementById('next-level-btn').style.display = 'none';
-            document.getElementById('reset-btn').style.display = 'none';
+            document.getElementById('total-time').textContent = elapsedTime.toFixed(1);
+            document.getElementById('accuracy').textContent = accuracy.toFixed(1);
+            document.getElementById('consistency').textContent = consistencyScore.toFixed(1);
+            document.getElementById('hand-tremor').textContent = handTremorScore.toFixed(2);
+            document.getElementById('reaction-time').textContent = (firstInteractionTime || 0).toFixed(0);
             
-            // Save results to Firebase
+            // Save results to database
             saveResults();
         }
 
@@ -888,8 +939,9 @@
                     const avgVelocity = velocities.reduce((sum, v) => sum + v, 0) / velocities.length;
                     const velocityVariance = velocities.reduce((sum, v) => sum + Math.pow(v - avgVelocity, 2), 0) / velocities.length;
                     
-                    // Update consistency score (lower variance = higher consistency)
-                    const newConsistency = 100 - Math.min(100, velocityVariance * 5000);
+                    // Update velocity variance for consistency score (lower variance = higher consistency)
+                    // Reduced multiplier for slower movement and smoother calculation
+                    const newConsistency = 100 - Math.min(100, velocityVariance * 3000);
                     consistencyScore = (consistencyScore * 0.9) + (newConsistency * 0.1); // Smooth changes
                     
                     // Store for later analysis
@@ -924,7 +976,7 @@
             }
         }
         
-        // Calculate final metrics at the end of a level
+        // Calculate final metrics based on all collected data
         function calculateFinalMetrics() {
             // Calculate final consistency based on all velocity data
             if (velocityData.length > 0) {
@@ -935,11 +987,26 @@
             
             // Normalize and scale tremor score for final results
             handTremorScore = Math.min(10, handTremorScore);
+            
+            // Finalize accuracy considering total deviations
+            if (totalDeviations > 0) {
+                accuracy = Math.max(0, accuracy - (totalDeviations * 0.5));
+            }
+            
+            // Update DOM elements directly in case they're already displayed
+            document.getElementById('accuracy').textContent = accuracy.toFixed(1);
+            document.getElementById('consistency').textContent = consistencyScore.toFixed(1);
         }
         
         // Handle user interaction (mouse or touch)
         function handleInteraction(x, y) {
             if (goalReached) return;
+            
+            // Always force to start at the beginning for first interaction
+            if (totalInteractions === 0) {
+                characterPosition.x = currentPath[0].x;
+                characterPosition.y = currentPath[0].y;
+            }
             
             // Find nearest point on the path
             const pathInfo = findNearestPointOnPath(x, y);
@@ -967,9 +1034,9 @@
                 isOnPath = true;
                 
                 // Reward for staying on path
-                const accuracyBonus = pathFidelity * 0.2; // Increased bonus for perfect path following
+                const accuracyBonus = pathFidelity * 0.1; // Smaller bonus for slower movement
                 accuracy = Math.min(100, accuracy + accuracyBonus);
-                score += Math.floor(pathFidelity * 2); // Score bonus for path fidelity
+                score += Math.floor(pathFidelity); // Reduced score bonus for slower movement
                 document.getElementById('score').textContent = score;
             } else {
                 // User is off the path - strict penalty
@@ -977,28 +1044,19 @@
                 pathDeviation++;
                 totalDeviations++;
                 
-                // Force character back to path if too far off
-                if (pathInfo && pathInfo.distance > pathWidth * 2) {
-                    // Snap back to path
+                // Force character back to path - always snap back to nearest point
+                if (pathInfo) {
                     characterPosition.x = pathInfo.point.x;
                     characterPosition.y = pathInfo.point.y;
                     
-                    // Heavy penalty for going far off path
-                    const penalty = Math.floor(pathInfo.distance / 3);
+                    // Smaller penalty for going off path
+                    const penalty = Math.floor(pathInfo.distance / 5);
                     score = Math.max(0, score - penalty);
-                    document.getElementById('score').textContent = score;
-                } else {
-                    // Allow slight deviation but with penalty
-                    characterPosition.x = x;
-                    characterPosition.y = y;
-                    
-                    // Smaller penalty for minor deviation
-                    score = Math.max(0, score - 1);
                     document.getElementById('score').textContent = score;
                 }
                 
-                // Update accuracy with significant penalty for being off path
-                const accuracyPenalty = Math.min(5, pathInfo ? pathInfo.distance / 10 : 5);
+                // Update accuracy with penalty for being off path
+                const accuracyPenalty = Math.min(3, pathInfo ? pathInfo.distance / 15 : 3);
                 accuracy = Math.max(0, accuracy - accuracyPenalty);
             }
             
