@@ -256,7 +256,8 @@
         
         <div id="instruction">
             Follow the highlighted path with your finger or mouse to guide the character to the goal. 
-            For higher scores, stay precisely on the path and maintain a steady, consistent movement.
+            IMPORTANT: You MUST cross the ENTIRE path to complete the level. Skipping any part of the path 
+            is not allowed and will prevent level completion. Stay on the path for higher scores!
         </div>
         
         <div id="timer">Time: 0s</div>
@@ -441,8 +442,34 @@
                 );
                 
                 if (distToGoal < 30) {
-                    goalReached = true;
-                    completeLevel();
+                    // Check if at least 90% of path points were visited
+                    const visitedCount = visitedPathPoints.filter(visited => visited).length;
+                    const completionPercent = (visitedCount / visitedPathPoints.length) * 100;
+                    
+                    if (completionPercent >= 90) {
+                        goalReached = true;
+                        completeLevel();
+                    } else {
+                        // Alert user that they need to follow the entire path
+                        const feedback = document.createElement('div');
+                        feedback.textContent = 'You must follow the entire path! Only ' + 
+                                              Math.floor(completionPercent) + '% completed.';
+                        feedback.style.position = 'absolute';
+                        feedback.style.top = '50%';
+                        feedback.style.left = '50%';
+                        feedback.style.transform = 'translate(-50%, -50%)';
+                        feedback.style.backgroundColor = 'rgba(255, 0, 0, 0.7)';
+                        feedback.style.color = 'white';
+                        feedback.style.padding = '10px 20px';
+                        feedback.style.borderRadius = '5px';
+                        feedback.style.zIndex = '100';
+                        document.getElementById('game-container').appendChild(feedback);
+                        
+                        // Remove feedback after 2 seconds
+                        setTimeout(() => {
+                            feedback.remove();
+                        }, 2000);
+                    }
                 }
             }
         }
@@ -494,34 +521,87 @@
             return Math.sqrt(dx * dx + dy * dy);
         }
 
-        // Find the nearest point on the path to the given coordinates
-        function findNearestPointOnPath(x, y, path) {
-            if (!path || path.length < 2) return null;
+        // Array to track visited path points
+        let visitedPathPoints = [];
+        let pathPoints = [];
+        let nearestPointIndex = 0;
+        
+        // Generate interpolated points along the path for more precise tracking
+        function generatePathPoints(path) {
+            if (!path || path.length < 2) return [];
             
-            let minDist = Infinity;
-            let nearestPoint = null;
-            let nearestSegment = null;
+            pathPoints = [];
+            visitedPathPoints = [];
+            nearestPointIndex = 0;
             
-            // Check each segment of the path
+            // For each segment, generate points along it
             for (let i = 0; i < path.length - 1; i++) {
                 const p1 = path[i];
                 const p2 = path[i + 1];
                 
-                // Calculate the nearest point on this segment
-                const point = nearestPointOnSegment(x, y, p1.x, p1.y, p2.x, p2.y);
-                const dist = distanceToPoint(x, y, point.x, point.y);
+                // Add the starting point
+                pathPoints.push(p1);
+                visitedPathPoints.push(false);
                 
-                if (dist < minDist) {
-                    minDist = dist;
-                    nearestPoint = point;
-                    nearestSegment = i;
+                // Number of interpolation points based on segment length
+                const distance = distanceToPoint(p1.x, p1.y, p2.x, p2.y);
+                const numPoints = Math.max(5, Math.floor(distance / 10));
+                
+                // Add interpolated points
+                for (let j = 1; j < numPoints; j++) {
+                    const ratio = j / numPoints;
+                    const x = p1.x + (p2.x - p1.x) * ratio;
+                    const y = p1.y + (p2.y - p1.y) * ratio;
+                    pathPoints.push({x, y});
+                    visitedPathPoints.push(false);
                 }
             }
             
-            return { 
-                point: nearestPoint, 
-                distance: minDist,
-                segment: nearestSegment
+            // Add the final point
+            pathPoints.push(path[path.length - 1]);
+            visitedPathPoints.push(false);
+            
+            return pathPoints;
+        }
+        
+        // Find the nearest point on the path to the given coordinates
+        function findNearestPointOnPath(x, y) {
+            if (pathPoints.length < 2) return {point: null, index: 0, distance: Infinity};
+            
+            let minDist = Infinity;
+            let nearestIndex = nearestPointIndex;
+            let searchRange = 10; // Look ahead but not too far
+            
+            // Only search forward from current position (prevent skipping backward)
+            const startIndex = nearestPointIndex;
+            const endIndex = Math.min(pathPoints.length, startIndex + searchRange);
+            
+            // Find closest point within the search range
+            for (let i = startIndex; i < endIndex; i++) {
+                const dist = distanceToPoint(x, y, pathPoints[i].x, pathPoints[i].y);
+                if (dist < minDist) {
+                    minDist = dist;
+                    nearestIndex = i;
+                }
+            }
+            
+            // Mark points as visited (all points up to this one)
+            for (let i = 0; i <= nearestIndex; i++) {
+                visitedPathPoints[i] = true;
+            }
+            
+            // Don't allow skipping more than 3 points at once
+            if (nearestIndex > nearestPointIndex + 3) {
+                nearestIndex = nearestPointIndex + 3;
+            }
+            
+            // Update the global nearest point index
+            nearestPointIndex = nearestIndex;
+            
+            return {
+                point: pathPoints[nearestIndex],
+                index: nearestIndex,
+                distance: minDist
             };
         }
 
@@ -567,6 +647,10 @@
             
             // Generate new path for this level
             currentPath = generateRandomPath(level);
+            
+            // Generate detailed path points and reset tracking
+            pathPoints = generatePathPoints(currentPath);
+            nearestPointIndex = 0;
             
             // Set character at start of path
             characterPosition = { x: currentPath[0].x, y: currentPath[0].y };
@@ -858,39 +942,63 @@
             if (goalReached) return;
             
             // Find nearest point on the path
-            const pathInfo = findNearestPointOnPath(x, y, currentPath);
+            const pathInfo = findNearestPointOnPath(x, y);
             
             // Calculate motion metrics regardless of path following
             calculateMotionMetrics(x, y);
             
+            // Track the total interactions
+            totalInteractions++;
+            
+            // Record first interaction time if not already set
+            if (firstInteractionTime === null && gameRunning) {
+                firstInteractionTime = Date.now() - startTime;
+            }
+            
             if (pathInfo && pathInfo.distance <= pathWidth / 2) {
-                // User is on the path - stricter path following for higher scores
+                // User is on the path - enforce strict path following
                 // The closer to the center of the path, the better
                 const pathFidelity = 1 - (pathInfo.distance / (pathWidth / 2)); // 1 = perfect center, 0 = edge
                 
-                // Move character to nearest point on path with slight adjustment based on input
-                // This keeps user on path but allows some freedom of movement
+                // Move character to the path point (strict path adherence)
                 characterPosition.x = pathInfo.point.x;
                 characterPosition.y = pathInfo.point.y;
                 
                 isOnPath = true;
                 
-                // Adjust accuracy based on path fidelity
-                const accuracyBonus = pathFidelity * 0.1; // Small bonus for perfect path following
+                // Reward for staying on path
+                const accuracyBonus = pathFidelity * 0.2; // Increased bonus for perfect path following
                 accuracy = Math.min(100, accuracy + accuracyBonus);
+                score += Math.floor(pathFidelity * 2); // Score bonus for path fidelity
+                document.getElementById('score').textContent = score;
             } else {
-                // User is off the path - stricter penalty
-                characterPosition.x = x;
-                characterPosition.y = y;
+                // User is off the path - strict penalty
                 isOnPath = false;
                 pathDeviation++;
                 totalDeviations++;
                 
-                // Calculate how far off path (for severity of penalty)
-                const deviationSeverity = Math.min(1, (pathInfo ? pathInfo.distance / pathWidth : 1));
+                // Force character back to path if too far off
+                if (pathInfo && pathInfo.distance > pathWidth * 2) {
+                    // Snap back to path
+                    characterPosition.x = pathInfo.point.x;
+                    characterPosition.y = pathInfo.point.y;
+                    
+                    // Heavy penalty for going far off path
+                    const penalty = Math.floor(pathInfo.distance / 3);
+                    score = Math.max(0, score - penalty);
+                    document.getElementById('score').textContent = score;
+                } else {
+                    // Allow slight deviation but with penalty
+                    characterPosition.x = x;
+                    characterPosition.y = y;
+                    
+                    // Smaller penalty for minor deviation
+                    score = Math.max(0, score - 1);
+                    document.getElementById('score').textContent = score;
+                }
                 
-                // Update accuracy with more significant penalty for being far off path
-                const accuracyPenalty = 1 + deviationSeverity;
+                // Update accuracy with significant penalty for being off path
+                const accuracyPenalty = Math.min(5, pathInfo ? pathInfo.distance / 10 : 5);
                 accuracy = Math.max(0, accuracy - accuracyPenalty);
             }
             
