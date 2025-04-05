@@ -277,7 +277,6 @@
             <ul>
                 <li><strong>Total Time:</strong> <span id="total-time">0</span> seconds</li>
                 <li><strong>Score:</strong> <span id="final-score">0</span></li>
-                <li><strong>Accuracy:</strong> <span id="accuracy">0</span>%</li>
                 <li><strong>Path Deviations:</strong> <span id="deviations">0</span></li>
                 <li><strong>Movement Consistency:</strong> <span id="consistency-score">0</span>%</li>
                 <li><strong>Hand Steadiness:</strong> <span id="hand-steadiness">0</span>/10 <small>(higher is better)</small></li>
@@ -336,8 +335,10 @@
         let score = 0;
         let totalDeviations = 0;
         let accuracy = 100;
-        let startTime = null;
+        let startTime = null;         // Level-specific start time
+        let gameStartTime = null;     // Global game start time (for total time across all levels)
         let elapsedTime = 0;
+        let totalGameTime = 0;        // Total time across all levels
         let timerInterval = null;
         let firstInteractionTime = null;
         let totalInteractions = 0;
@@ -671,6 +672,12 @@
             elapsedTime = 0;
             startTime = Date.now();
             
+            // Set global game start time if this is the first level
+            if (level === 1 || gameStartTime === null) {
+                gameStartTime = Date.now();
+                totalGameTime = 0;
+            }
+            
             // Generate new path for this level
             currentPath = generateRandomPath(level);
             
@@ -713,23 +720,42 @@
             
             render();
         }
+        
+        // Reset the game completely
+        function resetGame() {
+            gameRunning = false;
+            gameStarted = false;
+            currentLevel = 1;
+            score = 0;
+            totalDeviations = 0;
+            elapsedTime = 0;
+            totalGameTime = 0;
+            gameStartTime = null; // Reset global game start time
+            startTime = null;     // Reset level start time
+            accuracy = 100;
+            totalInteractions = 0;
+            firstInteractionTime = null;     // Global game start time (for total time across all levels)
+        }
 
         // Complete the current level
         function completeLevel() {
-            // Stop timer
-            clearInterval(timerInterval);
+            // Stop the game
             gameRunning = false;
+            clearInterval(timerInterval);
+            
+            // Calculate level elapsed time
+            const endTime = Date.now();
+            elapsedTime = (endTime - startTime) / 1000; // in seconds
+            
+            // Update total game time from start to finish
+            totalGameTime = (endTime - gameStartTime) / 1000;
             
             // Play success sound (if available)
             const successSound = document.getElementById('success-sound');
             if (successSound) successSound.play();
             
-            // Calculate elapsed time
-            const endTime = Date.now();
-            elapsedTime = (endTime - startTime) / 1000; // in seconds
-            
             // Calculate accuracy based on path deviations
-            if (interactions > 0) {
+            if (totalInteractions > 0) {
                 const deviationRatio = pathDeviation / totalInteractions;
                 accuracy = Math.max(0, 100 - (deviationRatio * 100));
             }
@@ -774,47 +800,23 @@
                 document.getElementById('reset-btn').style.display = 'none';
             } else {
                 // Game complete after 3 levels (like VDT1.html)
-                showResults();
+                showFinalResults();
             }
         }
-        
-        // Save results to Firebase
-        function saveResults() {
-            auth.onAuthStateChanged(user => {
-                if (user) {
-                    const uid = user.uid;
-                    const timestamp = Date.now();
-                    let refPath;
-                    
-                    if (isPatientQuiz) {
-                        // This is a doctor administering a quiz to a patient
-                        refPath = `doctors/${doctorId}/patients/${currentPatientId}/quiz/motion/${timestamp}`;
-                    } else {
-                        // Regular user taking the quiz
-                        refPath = `users/${uid}/quiz/motion/${timestamp}`;
-                    }
-                    
-                    const resultData = {
-                        score: score,
-                        totalTime: elapsedTime,
-                        accuracy: Math.floor(accuracy),
-                        deviations: totalDeviations,
-                        totalLevels: currentLevel,
-                        firstInteractionTime: firstInteractionTime || 0,
-                        totalInteractions: totalInteractions,
-                        consistencyScore: Math.floor(consistencyScore),
-                        handSteadiness: (10 - handTremorScore).toFixed(1),
-                        timestamp: timestamp,
-                        date: new Date().toISOString()
-                    };
-                    
-                    database.ref(refPath).set(resultData).then(() => {
-                        console.log('Results saved to Firebase');
-                    }).catch(error => {
-                        console.error('Error saving results:', error);
-                    });
-                }
-            });
+
+        // Update timer display
+        function updateTimer() {
+            if (gameRunning) {
+                const now = Date.now();
+                // Update level time
+                elapsedTime = (now - startTime) / 1000; // Convert to seconds
+                
+                // Update total game time from game start
+                totalGameTime = (now - gameStartTime) / 1000; // Convert to seconds
+                
+                // Display current level time
+                document.getElementById('timer').textContent = Math.floor(elapsedTime);
+            }
         }
 
         // Calculate final metrics for the report
@@ -824,41 +826,15 @@
                 elapsedTime = (Date.now() - startTime) / 1000; // Convert to seconds
             }
             
-            // Normalize accuracy to ensure it's within 0-100%
-            accuracy = Math.max(0, Math.min(100, accuracy));
+            // Calculate final consistency based on all velocity data
+            if (velocityData.length > 0) {
+                const avgVelocity = velocityData.reduce((sum, v) => sum + v, 0) / velocityData.length;
+                const velocityVariance = velocityData.reduce((sum, v) => sum + Math.pow(v - avgVelocity, 2), 0) / velocityData.length;
+                consistencyScore = Math.max(0, 100 - Math.min(100, velocityVariance * 5000));
+            }
             
-            // Ensure consistency score is within 0-100%
-            consistencyScore = Math.max(0, Math.min(100, consistencyScore));
-            
-            // Normalize hand tremor score to 0-10 scale
-            handTremorScore = Math.max(0, Math.min(10, handTremorScore));
-        }
-        
-        // Show final results
-        function showResults() {
-            // Ensure metrics are properly calculated one last time
-            calculateFinalMetrics();
-            
-            document.getElementById('final-score').textContent = score;
-            document.getElementById('total-time').textContent = Math.round(elapsedTime);
-            document.getElementById('accuracy').textContent = Math.floor(accuracy) + '%';
-            document.getElementById('deviations').textContent = totalDeviations;
-            document.getElementById('consistency-score').textContent = Math.floor(consistencyScore) + '%';
-            document.getElementById('hand-steadiness').textContent = (10 - handTremorScore).toFixed(1) + '/10';
-            document.getElementById('reaction-time').textContent = firstInteractionTime || 0;
-            
-            document.getElementById('result-container').style.display = 'block';
-            document.getElementById('next-level-btn').style.display = 'none';
-            document.getElementById('reset-btn').style.display = 'none';
-            
-            // Show report container after game completion
-            document.getElementById('report-container').style.display = 'flex';
-            
-            // Save results to Firebase
-            saveResults();
-            
-            // Load previous attempts
-            loadPreviousAttempts();
+            // Normalize and scale tremor score for final results
+            handTremorScore = Math.min(10, handTremorScore);
         }
 
         // Event listeners for game controls
@@ -872,8 +848,7 @@
         });
         
         document.getElementById('reset-btn').addEventListener('click', function() {
-            gameRunning = false;
-            clearInterval(timerInterval);
+            resetGame();
             startLevel(currentLevel);
         });
         
@@ -1024,19 +999,6 @@
                 // Update tremor score with smoothing
                 handTremorScore = (handTremorScore * 0.9) + (newTremorScore * 0.1);
             }
-        }
-        
-        // Calculate final metrics at the end of a level
-        function calculateFinalMetrics() {
-            // Calculate final consistency based on all velocity data
-            if (velocityData.length > 0) {
-                const avgVelocity = velocityData.reduce((sum, v) => sum + v, 0) / velocityData.length;
-                const velocityVariance = velocityData.reduce((sum, v) => sum + Math.pow(v - avgVelocity, 2), 0) / velocityData.length;
-                consistencyScore = Math.max(0, 100 - Math.min(100, velocityVariance * 5000));
-            }
-            
-            // Normalize and scale tremor score for final results
-            handTremorScore = Math.min(10, handTremorScore);
         }
         
         // Handle user interaction (mouse or touch)
@@ -1262,6 +1224,80 @@
                     document.getElementById('report-container').style.display = 'flex';
                 }
             });
+        }
+        
+        // Save results to Firebase
+        function saveResults() {
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    const uid = user.uid;
+                    const timestamp = Date.now();
+                    let refPath;
+                    
+                    if (isPatientQuiz) {
+                        // This is a doctor administering a quiz to a patient
+                        refPath = `doctors/${doctorId}/patients/${currentPatientId}/quiz/motion/${timestamp}`;
+                    } else {
+                        // Regular user taking the quiz
+                        refPath = `users/${uid}/quiz/motion/${timestamp}`;
+                    }
+                    
+                    const resultData = {
+                        score: score,
+                        totalTime: totalGameTime, // Use total game time instead of level time
+                        accuracy: Math.floor(accuracy),
+                        deviations: totalDeviations,
+                        totalLevels: currentLevel,
+                        firstInteractionTime: firstInteractionTime || 0,
+                        totalInteractions: totalInteractions,
+                        consistencyScore: Math.floor(consistencyScore),
+                        handSteadiness: (10 - handTremorScore).toFixed(1),
+                        timestamp: timestamp,
+                        date: new Date().toISOString()
+                    };
+                    
+                    database.ref(refPath).set(resultData).then(() => {
+                        console.log('Results saved to Firebase');
+                    }).catch(error => {
+                        console.error('Error saving results:', error);
+                    });
+                }
+            });
+        }
+        
+        // Show final results after completing all levels
+        function showFinalResults() {
+            // Ensure metrics are properly calculated one last time
+            calculateFinalMetrics();
+            
+            // Make sure total game time is accurate
+            const gameEndTime = Date.now();
+            totalGameTime = (gameEndTime - gameStartTime) / 1000; // in seconds
+            
+            // Update UI with final results
+            document.getElementById('final-score').textContent = score;
+            document.getElementById('total-time').textContent = Math.round(totalGameTime); // Use total game time
+            document.getElementById('deviations').textContent = totalDeviations;
+            document.getElementById('consistency-score').textContent = Math.floor(consistencyScore) + '%';
+            document.getElementById('hand-steadiness').textContent = (10 - handTremorScore).toFixed(1) + '/10';
+            document.getElementById('reaction-time').textContent = firstInteractionTime ? Math.round(firstInteractionTime) : 0;
+            
+            // Show result container
+            document.getElementById('level-indicator').style.display = 'none';
+            document.getElementById('instruction').style.display = 'none';
+            document.getElementById('result-container').style.display = 'block';
+            document.getElementById('start-btn').style.display = 'none';
+            document.getElementById('next-level-btn').style.display = 'none';
+            document.getElementById('reset-btn').style.display = 'none';
+            
+            // Show report container after game completion
+            document.getElementById('report-container').style.display = 'flex';
+            
+            // Save results to Firebase
+            saveResults();
+            
+            // Load previous attempts
+            loadPreviousAttempts();
         }
         
         // Initialize the game
