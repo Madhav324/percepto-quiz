@@ -248,15 +248,14 @@
     <div id="game-container">
         <div class="header">
             <h1>Motion Perception</h1>
-            <span id="user-name">User</span>
-            <div class="profile-icon" id="profileIcon" title="Back to Home" onclick="window.location.href='index.html'"></div>
+            <div class="profile-icon" id="profile-icon" title="Back to Home" onclick="window.location.href='index.html'"></div>
             <div class="patient-indicator" id="patient-indicator" style="display: none;">Patient</div>
         </div>
         
         <div id="level-indicator">Level: <span id="current-level">1</span>/3</div>
         
         <div id="instruction">
-            Follow the highlighted path to guide the character to the goal. Stay on the path for higher scores!
+            Guide the character along the path to reach the goal. Stay on the highlighted path for the best score.
         </div>
         
         <div id="timer">Time: 0s</div>
@@ -293,39 +292,6 @@
         <ul id="report-list"></ul>
         <button id="clear-report" onclick="clearReport()">Clear Report</button>
     </div>
-    
-    <script>
-        // Add the missing clearReport function
-        async function clearReport() {
-            const user = auth.currentUser;
-            if (!user) return;
-            
-            try {
-                // Determine the correct path based on user context
-                let path;
-                if (isPatientQuiz) {
-                    // This is a doctor testing a patient
-                    path = `doctors/${doctorId}/patients/${currentPatientId}/quizzes/motion`;
-                } else {
-                    // Regular user path
-                    path = `users/${user.uid}/quizzes/motion`;
-                }
-                
-                console.log(`Removing all quiz results from path: ${path}`);
-                
-                // Remove all data at the specified path
-                await database.ref(path).remove();
-                
-                // Reset the results display
-                document.getElementById('report-list').innerHTML = '<p>No previous attempts found.</p>';
-                
-                alert('All quiz reports have been cleared successfully.');
-                
-            } catch (error) {
-                console.error('Error clearing report:', error);
-                alert('Failed to clear the report: ' + error.message);
-            }
-        }</script>
 
     <!-- Firebase Scripts -->  
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
@@ -385,7 +351,7 @@
         
         // Character position tracking
         let characterPosition = { x: 0, y: 0 };
-        let characterSpeed = 3;
+        let characterSpeed = 2; // Reduced movement speed
         let targetPosition = { x: 0, y: 0 };
         let isDragging = false;
         let isOnPath = true;
@@ -508,43 +474,43 @@
 
         // Profile icon initialization
         function initProfileIcon() {
-            const profileIcon = document.getElementById('profileIcon');
+            const profileIcon = document.getElementById('profile-icon');
             const patientIndicator = document.getElementById('patient-indicator');
-            const userName = document.getElementById('user-name');
+            const userNameElement = document.getElementById('user-name');
             
-            auth.onAuthStateChanged(async function(user) {
+            auth.onAuthStateChanged(async (user) => {
                 if (user) {
-                    // Check URL parameters for doctor-patient context
-                    const urlParams = new URLSearchParams(window.location.search);
-                    doctorId = urlParams.get('doctorId');
-                    currentPatientId = urlParams.get('patientId');
-                    isPatientQuiz = doctorId && currentPatientId;
-                    
                     try {
-                        if (!isPatientQuiz) {
-                            // Regular user flow
-                            const profile = await getUserProfile(user.uid);
-                            const name = profile.name || user.displayName || user.email || 'User';
-                            const initial = name.charAt(0).toUpperCase();
+                        // Check if this is a patient quiz
+                        if (isPatientQuiz) {
+                            console.log('Doctor viewing patient quiz');
+                            // Get patient profile from doctor's patients list
+                            const patientSnapshot = await database.ref(`doctors/${doctorId}/patients/${currentPatientId}/profile`).once('value');
+                            const profile = patientSnapshot.val() || {};
+                            
+                            if (userNameElement) userNameElement.textContent = profile.name || 'Patient';
+                            const initial = (profile.name || 'P').charAt(0).toUpperCase();
                             profileIcon.textContent = initial;
-                            if (userName) userName.textContent = name;
-                            patientIndicator.style.display = 'none';
-                        } else {
-                            // Doctor viewing patient case
-                            const patientProfile = await getPatientProfile(doctorId, currentPatientId);
-                            const name = patientProfile.name || 'Patient';
-                            const initial = name.charAt(0).toUpperCase();
-                            profileIcon.textContent = initial;
-                            if (userName) userName.textContent = name;
                             patientIndicator.style.display = 'inline-block';
+                        } else {
+                            // Regular user
+                            // Get user profile data
+                            const userSnap = await database.ref(`users/${user.uid}/profile`).once('value');
+                            const profile = userSnap.val() || {};
+                            
+                            if (userNameElement) userNameElement.textContent = profile.name || user.displayName || user.email || 'User';
+                            const initial = (profile.name || user.displayName || user.email || 'U').charAt(0).toUpperCase();
+                            profileIcon.textContent = initial;
+                            patientIndicator.style.display = 'none';
                         }
                     } catch (error) {
-                        console.error('Error loading profile:', error);
+                        console.error('Error in profile initialization:', error);
                         profileIcon.textContent = 'U';
-                        if (userName) userName.textContent = 'User';
                     }
                 } else {
-                    window.location.href = 'index.html';
+                    console.log('No user is signed in');
+                    profileIcon.textContent = 'G'; // Guest User
+                    if (userNameElement) userNameElement.textContent = 'Guest';
                 }
             });
         }
@@ -580,7 +546,7 @@
         let nearestPointIndex = 0;
         
         // Generate interpolated points along the path for more precise tracking
-        function generatePathPoints(path) {
+        function createDetailedPath(path) {
             if (!path || path.length < 2) return [];
             
             pathPoints = [];
@@ -622,15 +588,10 @@
             if (pathPoints.length < 2) return {point: null, index: 0, distance: Infinity};
             
             let minDist = Infinity;
-            let nearestIndex = nearestPointIndex;
-            let searchRange = 10; // Look ahead but not too far
+            let nearestIndex = 0;
             
-            // Only search forward from current position (prevent skipping backward)
-            const startIndex = nearestPointIndex;
-            const endIndex = Math.min(pathPoints.length, startIndex + searchRange);
-            
-            // Find closest point within the search range
-            for (let i = startIndex; i < endIndex; i++) {
+            // Allow searching both forward and backward along the entire path
+            for (let i = 0; i < pathPoints.length; i++) {
                 const dist = distanceToPoint(x, y, pathPoints[i].x, pathPoints[i].y);
                 if (dist < minDist) {
                     minDist = dist;
@@ -638,14 +599,9 @@
                 }
             }
             
-            // Mark points as visited (all points up to this one)
+            // Mark points as visited - mark this point and all previous points
             for (let i = 0; i <= nearestIndex; i++) {
                 visitedPathPoints[i] = true;
-            }
-            
-            // Don't allow skipping more than 3 points at once
-            if (nearestIndex > nearestPointIndex + 3) {
-                nearestIndex = nearestPointIndex + 3;
             }
             
             // Update the global nearest point index
@@ -702,25 +658,42 @@
             currentPath = generateRandomPath(level);
             
             // Generate detailed path points and reset tracking
-            pathPoints = generatePathPoints(currentPath);
-            nearestPointIndex = 0;
+            pathPoints = createDetailedPath(currentPath);
+            visitedPathPoints = Array(pathPoints.length).fill(false);
+            nearestPointIndex = 0; // Start at the beginning
             
-            // Set character at start of path
-            characterPosition = { x: currentPath[0].x, y: currentPath[0].y };
+            // Init character at the start of the path
+            characterPosition = { x: pathPoints[0].x, y: pathPoints[0].y };
             
             // Update UI
+            document.getElementById('score').textContent = score;
+            document.getElementById('level-indicator').style.display = 'block';
+            document.getElementById('instruction').style.display = 'block';
             document.getElementById('start-btn').style.display = 'none';
             document.getElementById('next-level-btn').style.display = 'none';
             document.getElementById('reset-btn').style.display = 'inline-block';
+            document.getElementById('result-container').style.display = 'none';
             
-            // Start the game
+            // Hide report container during gameplay
+            document.getElementById('report-container').style.display = 'none';
+            
+            // Reset motion analysis metrics
+            previousPositions = [];
+            positionTimestamps = [];
+            velocityData = [];
+            handTremorScore = 0;
+            consistencyScore = 100;
+            totalInteractions = 0;
+            firstInteractionTime = null;
+            accuracy = 100;
+            
+            // Start game
             gameRunning = true;
-            if (!gameStarted) gameStarted = true;
             
             // Start timer
-            timerInterval = setInterval(updateTimer, 1000);
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(updateTimer, 100);
             
-            // Render initial state
             render();
         }
 
@@ -751,7 +724,7 @@
                 document.getElementById('reset-btn').style.display = 'none';
             } else {
                 // Game complete after 3 levels (like VDT1.html)
-                displayResults();
+                showResults();
             }
         }
         
@@ -773,13 +746,13 @@
                     
                     const resultData = {
                         score: score,
-                        totalTime: elapsedTime.toFixed(1),
-                        accuracy: accuracy.toFixed(1),
+                        totalTime: elapsedTime,
+                        accuracy: Math.floor(accuracy),
                         deviations: totalDeviations,
                         totalLevels: currentLevel,
                         firstInteractionTime: firstInteractionTime || 0,
                         totalInteractions: totalInteractions,
-                        consistencyScore: consistencyScore.toFixed(1),
+                        consistencyScore: Math.floor(consistencyScore),
                         handSteadiness: (10 - handTremorScore).toFixed(1),
                         timestamp: timestamp,
                         date: new Date().toISOString()
@@ -794,20 +767,48 @@
             });
         }
 
-        // Display final results
-        function displayResults() {
-            // Calculate final metrics before display
+        // Calculate final metrics for the report
+        function calculateFinalMetrics() {
+            // Make sure elapsed time is properly calculated
+            if (startTime && gameRunning) {
+                elapsedTime = (Date.now() - startTime) / 1000; // Convert to seconds
+            }
+            
+            // Normalize accuracy to ensure it's within 0-100%
+            accuracy = Math.max(0, Math.min(100, accuracy));
+            
+            // Ensure consistency score is within 0-100%
+            consistencyScore = Math.max(0, Math.min(100, consistencyScore));
+            
+            // Normalize hand tremor score to 0-10 scale
+            handTremorScore = Math.max(0, Math.min(10, handTremorScore));
+        }
+        
+        // Show final results
+        function showResults() {
+            // Ensure metrics are properly calculated one last time
             calculateFinalMetrics();
             
-            document.getElementById('result-container').style.display = 'block';
-            document.getElementById('total-time').textContent = elapsedTime.toFixed(1);
-            document.getElementById('accuracy').textContent = accuracy.toFixed(1);
-            document.getElementById('consistency').textContent = consistencyScore.toFixed(1);
-            document.getElementById('hand-tremor').textContent = handTremorScore.toFixed(2);
-            document.getElementById('reaction-time').textContent = (firstInteractionTime || 0).toFixed(0);
+            document.getElementById('final-score').textContent = score;
+            document.getElementById('total-time').textContent = Math.round(elapsedTime);
+            document.getElementById('accuracy').textContent = Math.floor(accuracy) + '%';
+            document.getElementById('deviations').textContent = totalDeviations;
+            document.getElementById('consistency-score').textContent = Math.floor(consistencyScore) + '%';
+            document.getElementById('hand-steadiness').textContent = (10 - handTremorScore).toFixed(1) + '/10';
+            document.getElementById('reaction-time').textContent = firstInteractionTime || 0;
             
-            // Save results to database
+            document.getElementById('result-container').style.display = 'block';
+            document.getElementById('next-level-btn').style.display = 'none';
+            document.getElementById('reset-btn').style.display = 'none';
+            
+            // Show report container after game completion
+            document.getElementById('report-container').style.display = 'flex';
+            
+            // Save results to Firebase
             saveResults();
+            
+            // Load previous attempts
+            loadPreviousAttempts();
         }
 
         // Event listeners for game controls
@@ -939,9 +940,8 @@
                     const avgVelocity = velocities.reduce((sum, v) => sum + v, 0) / velocities.length;
                     const velocityVariance = velocities.reduce((sum, v) => sum + Math.pow(v - avgVelocity, 2), 0) / velocities.length;
                     
-                    // Update velocity variance for consistency score (lower variance = higher consistency)
-                    // Reduced multiplier for slower movement and smoother calculation
-                    const newConsistency = 100 - Math.min(100, velocityVariance * 3000);
+                    // Update consistency score (lower variance = higher consistency)
+                    const newConsistency = 100 - Math.min(100, velocityVariance * 5000);
                     consistencyScore = (consistencyScore * 0.9) + (newConsistency * 0.1); // Smooth changes
                     
                     // Store for later analysis
@@ -976,7 +976,7 @@
             }
         }
         
-        // Calculate final metrics based on all collected data
+        // Calculate final metrics at the end of a level
         function calculateFinalMetrics() {
             // Calculate final consistency based on all velocity data
             if (velocityData.length > 0) {
@@ -987,25 +987,19 @@
             
             // Normalize and scale tremor score for final results
             handTremorScore = Math.min(10, handTremorScore);
-            
-            // Finalize accuracy considering total deviations
-            if (totalDeviations > 0) {
-                accuracy = Math.max(0, accuracy - (totalDeviations * 0.5));
-            }
-            
-            // Update DOM elements directly in case they're already displayed
-            document.getElementById('accuracy').textContent = accuracy.toFixed(1);
-            document.getElementById('consistency').textContent = consistencyScore.toFixed(1);
         }
         
         // Handle user interaction (mouse or touch)
         function handleInteraction(x, y) {
             if (goalReached) return;
             
-            // Always force to start at the beginning for first interaction
-            if (totalInteractions === 0) {
-                characterPosition.x = currentPath[0].x;
-                characterPosition.y = currentPath[0].y;
+            // Always start from the starting point if this is the first interaction
+            if (totalInteractions === 0 && gameRunning) {
+                characterPosition.x = pathPoints[0].x;
+                characterPosition.y = pathPoints[0].y;
+                render();
+                totalInteractions++;
+                return;
             }
             
             // Find nearest point on the path
@@ -1027,46 +1021,183 @@
                 // The closer to the center of the path, the better
                 const pathFidelity = 1 - (pathInfo.distance / (pathWidth / 2)); // 1 = perfect center, 0 = edge
                 
-                // Move character to the path point (strict path adherence)
-                characterPosition.x = pathInfo.point.x;
-                characterPosition.y = pathInfo.point.y;
+                // Move character to the path point with reduced speed (smooth movement)
+                const moveSpeed = 0.6; // Reduced from 1.0 for slower movement
+                characterPosition.x = characterPosition.x + (pathInfo.point.x - characterPosition.x) * moveSpeed;
+                characterPosition.y = characterPosition.y + (pathInfo.point.y - characterPosition.y) * moveSpeed;
                 
                 isOnPath = true;
                 
                 // Reward for staying on path
-                const accuracyBonus = pathFidelity * 0.1; // Smaller bonus for slower movement
+                const accuracyBonus = pathFidelity * 0.1; // Reduced bonus for smoother experience
                 accuracy = Math.min(100, accuracy + accuracyBonus);
-                score += Math.floor(pathFidelity); // Reduced score bonus for slower movement
+                score += Math.floor(pathFidelity * 1); // Reduced score bonus
                 document.getElementById('score').textContent = score;
             } else {
-                // User is off the path - strict penalty
+                // User is off the path - penalty
                 isOnPath = false;
                 pathDeviation++;
                 totalDeviations++;
                 
-                // Force character back to path - always snap back to nearest point
-                if (pathInfo) {
-                    characterPosition.x = pathInfo.point.x;
-                    characterPosition.y = pathInfo.point.y;
+                // Force character back to path if too far off
+                if (pathInfo && pathInfo.distance > pathWidth * 2) {
+                    // Snap back to path with smooth movement
+                    const moveSpeed = 0.5; // Slower than on-path movement
+                    characterPosition.x = characterPosition.x + (pathInfo.point.x - characterPosition.x) * moveSpeed;
+                    characterPosition.y = characterPosition.y + (pathInfo.point.y - characterPosition.y) * moveSpeed;
                     
-                    // Smaller penalty for going off path
-                    const penalty = Math.floor(pathInfo.distance / 5);
+                    // Penalty for going far off path
+                    const penalty = Math.floor(pathInfo.distance / 5); // Reduced penalty
                     score = Math.max(0, score - penalty);
+                    document.getElementById('score').textContent = score;
+                } else {
+                    // Allow slight deviation but with penalty
+                    const moveSpeed = 0.6; // Controlled movement
+                    characterPosition.x = characterPosition.x + (x - characterPosition.x) * moveSpeed;
+                    characterPosition.y = characterPosition.y + (y - characterPosition.y) * moveSpeed;
+                    
+                    // Smaller penalty for minor deviation
+                    score = Math.max(0, score - 1);
                     document.getElementById('score').textContent = score;
                 }
                 
                 // Update accuracy with penalty for being off path
-                const accuracyPenalty = Math.min(3, pathInfo ? pathInfo.distance / 15 : 3);
+                const accuracyPenalty = Math.min(3, pathInfo ? pathInfo.distance / 15 : 3); // Reduced penalty
                 accuracy = Math.max(0, accuracy - accuracyPenalty);
             }
             
             render();
         }
         
+        // Clear report function
+        async function clearReport() {
+            try {
+                // Get current user
+                const user = auth.currentUser;
+                if (!user) {
+                    alert('You must be signed in to clear reports');
+                    return;
+                }
+                
+                // Determine the correct path
+                let path;
+                if (isPatientQuiz) {
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/motion`;
+                } else {
+                    path = `users/${user.uid}/quiz/motion`;
+                }
+                
+                console.log(`Removing all quiz results from path: ${path}`);
+                
+                // Remove all data at the specified path
+                await database.ref(path).remove();
+                
+                // Clear the list in the UI
+                document.getElementById('report-list').innerHTML = '';
+                
+                alert('All quiz reports have been cleared successfully.');
+                
+            } catch (error) {
+                console.error('Error clearing report:', error);
+                alert('Failed to clear the report: ' + error.message);
+            }
+        }
+        
+        // Load previous attempts
+        function loadPreviousAttempts() {
+            const reportList = document.getElementById('report-list');
+            reportList.innerHTML = '';
+            
+            auth.onAuthStateChanged(async user => {
+                if (user) {
+                    const uid = user.uid;
+                    let refPath;
+                    
+                    if (isPatientQuiz) {
+                        refPath = `doctors/${doctorId}/patients/${currentPatientId}/quiz/motion`;
+                    } else {
+                        refPath = `users/${uid}/quiz/motion`;
+                    }
+                    
+                    database.ref(refPath).orderByChild('timestamp').limitToLast(10).once('value', snapshot => {
+                        const attempts = [];
+                        snapshot.forEach(childSnapshot => {
+                            attempts.push({
+                                key: childSnapshot.key,
+                                ...childSnapshot.val()
+                            });
+                        });
+                        
+                        // Sort by timestamp descending (newest first)
+                        attempts.sort((a, b) => b.timestamp - a.timestamp);
+                        
+                        if (attempts.length === 0) {
+                            reportList.innerHTML = '<p>No previous attempts found.</p>';
+                            return;
+                        }
+                        
+                        attempts.forEach(attempt => {
+                            const date = new Date(attempt.timestamp);
+                            const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+                            
+                            const attemptItem = document.createElement('li');
+                            attemptItem.className = 'attempt-item';
+                            
+                            const header = document.createElement('div');
+                            header.className = 'attempt-header';
+                            
+                            const dateSpan = document.createElement('span');
+                            dateSpan.className = 'attempt-date';
+                            dateSpan.textContent = dateStr;
+                            
+                            const scoreSpan = document.createElement('span');
+                            scoreSpan.className = 'attempt-score';
+                            scoreSpan.textContent = `Score: ${attempt.score}`;
+                            
+                            header.appendChild(dateSpan);
+                            header.appendChild(scoreSpan);
+                            
+                            const toggleBtn = document.createElement('button');
+                            toggleBtn.className = 'toggle-details-btn';
+                            toggleBtn.textContent = 'Show Details';
+                            
+                            const details = document.createElement('div');
+                            details.className = 'attempt-details';
+                            details.innerHTML = `
+                                <div>Time: ${attempt.totalTime ? Math.round(attempt.totalTime) : '0'} seconds</div>
+                                <div>Accuracy: ${attempt.accuracy ? Math.floor(attempt.accuracy) : '0'}%</div>
+                                <div>Path Deviations: ${attempt.deviations || 0}</div>
+                                <div>Consistency: ${attempt.consistencyScore ? Math.floor(attempt.consistencyScore) : '0'}%</div>
+                                <div>Hand Steadiness: ${attempt.handSteadiness || '0'}/10</div>
+                                <div>Reaction Time: ${attempt.firstInteractionTime || 0}ms</div>
+                            `;
+                            
+                            toggleBtn.addEventListener('click', function() {
+                                if (details.style.display === 'grid') {
+                                    details.style.display = 'none';
+                                    toggleBtn.textContent = 'Show Details';
+                                } else {
+                                    details.style.display = 'grid';
+                                    toggleBtn.textContent = 'Hide Details';
+                                }
+                            });
+                            
+                            attemptItem.appendChild(header);
+                            attemptItem.appendChild(toggleBtn);
+                            attemptItem.appendChild(details);
+                            reportList.appendChild(attemptItem);
+                        });
+                    });
+                    
+                    // Show report container
+                    document.getElementById('report-container').style.display = 'flex';
+                }
+            });
+        }
+        
         // Initialize the game
         function init() {
             initProfileIcon();
-            loadPreviousAttempts();
             render();
         }
         
