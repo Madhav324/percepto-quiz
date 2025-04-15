@@ -122,22 +122,22 @@
         
         .reference-line {
             position: absolute;
-            width: 80px;
-            height: 4px;
+            width: 100px;
+            height: 6px;
             background-color: #333;
-            border-radius: 2px;
+            border-radius: 3px;
         }
         
         .draggable-line {
             position: absolute;
-            width: 80px;
-            height: 6px;
+            width: 100px;
+            height: 12px;
             background-color: var(--primary-color);
             cursor: move;
             transform-origin: center;
             top: 50px;
-            border-radius: 3px;
-            box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+            border-radius: 6px;
+            box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
         }
         
         .line1 {
@@ -268,25 +268,26 @@
             }
             
             .angles-container {
-                height: 250px;
+                height: 280px; /* Slightly taller to give more space for manipulation */
                 touch-action: none;
             }
             
             .draggable-line {
-                width: 70px;
-                height: 8px;
-                border-radius: 4px;
+                width: 90px; /* Wider for better touch targets */
+                height: 14px; /* Taller for easier touch */
+                border-radius: 7px;
             }
             
             .reference-line {
-                width: 70px;
-                height: 6px;
+                width: 90px;
+                height: 8px;
             }
             
             button {
-                padding: 10px;
+                padding: 12px; /* Larger touch target */
                 margin: 5px;
                 font-size: 14px;
+                min-height: 44px; /* iOS recommended minimum touch target */
             }
             
             .profile-icon {
@@ -467,12 +468,13 @@
             // Add a visual indicator for drag/rotate
             const indicator = document.createElement('div');
             indicator.style.position = 'absolute';
-            indicator.style.width = '20px';
-            indicator.style.height = '20px';
-            indicator.style.backgroundColor = lineId === 1 ? 'rgba(66, 133, 244, 0.5)' : 'rgba(52, 168, 83, 0.5)';
+            indicator.style.width = '28px'; /* Larger touch indicator */
+            indicator.style.height = '28px'; /* Larger touch indicator */
+            indicator.style.backgroundColor = lineId === 1 ? 'rgba(66, 133, 244, 0.7)' : 'rgba(52, 168, 83, 0.7)';
             indicator.style.borderRadius = '50%';
             indicator.style.display = 'none';
             indicator.style.pointerEvents = 'none';
+            indicator.style.boxShadow = '0 0 8px rgba(0,0,0,0.3)';
             anglesContainer.appendChild(indicator);
             
             // Mouse events
@@ -484,6 +486,8 @@
             element.addEventListener('touchstart', handleTouch(onStart), { passive: false });
             document.addEventListener('touchmove', handleTouch(onMove), { passive: false });
             document.addEventListener('touchend', handleTouch(onEnd));
+            // Add touch cancel to handle cases when touch is interrupted
+            document.addEventListener('touchcancel', handleTouch(onEnd));
             
             function handleTouch(callback) {
                 return function(event) {
@@ -491,7 +495,10 @@
                         event.preventDefault();
                         event.clientX = event.touches[0].clientX;
                         event.clientY = event.touches[0].clientY;
-                        callback(event);
+                        // Add a small delay to prevent jumpy behavior on touch devices
+                        setTimeout(() => {
+                            callback(event);
+                        }, 5);
                     }
                 };
             }
@@ -509,8 +516,11 @@
                     Math.pow(e.clientY - centerY, 2)
                 );
                 
-                // Increased the rotation threshold for easier handling
-                const isNearEnd = distFromCenter > rect.width / 4;
+                // Further increased rotation threshold for improved mobile handling
+                // On mobile, make it easier to rotate by expanding the rotation area
+                const isMobile = window.innerWidth <= 600;
+                const rotationThreshold = isMobile ? rect.width / 3.5 : rect.width / 4;
+                const isNearEnd = distFromCenter > rotationThreshold;
                 
                 if (isNearEnd) {
                     isRotating = true;
@@ -896,9 +906,17 @@
             }
         });
         
-        // Disable page zooming on mobile to prevent issues with drag/rotate
+        // Disable page zooming and improve touch handling on mobile
         document.addEventListener('touchmove', function(e) {
-            if (e.touches.length > 1) {
+            // Prevent zooming with two fingers to avoid interfering with the quiz
+            if (e.touches.length > 1 || e.target.closest('.angles-container')) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+        
+        // Prevent double-tap zoom
+        document.addEventListener('touchend', function(e) {
+            if (e.target.closest('.angles-container, .controls')) {
                 e.preventDefault();
             }
         }, { passive: false });
