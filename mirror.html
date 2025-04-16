@@ -463,12 +463,18 @@
         let detectionInterval;
         let eyeMovementData = [];
         let lastEyePosition = { x: 0, y: 0 };
+        let lastEyeballVector = { x: 0, y: 0 };
+        let lastFacePosition = { x: 0, y: 0 };
         let eyeMovementCount = 0;
+        let eyeballMovementCount = 0;
         let eyeFixationCount = 0;
         let eyeFixationDuration = 0;
         let lastDetectionTime = 0;
         let detectionFrameCount = 0;
         let frameRate = 0;
+        let isFollowingLight = false;
+        let followingScore = 0;
+        let followingHistory = [];
 
         // Auth state observer
         auth.onAuthStateChanged(async (user) => {
@@ -822,8 +828,10 @@
                     },
                     eyeTracking: {
                         enabled: enableEyeTracking,
-                        movementCount: eyeMovementCount,
+                        faceMovementCount: eyeMovementCount,
+                        eyeballMovementCount: eyeballMovementCount,
                         fixationDuration: eyeFixationDuration,
+                        followingLightScore: followingScore,
                         // Only save the last 100 eye movement data points to prevent huge data
                         movements: eyeMovementData.slice(-100)
                     }
@@ -875,8 +883,11 @@
                 // Reset eye tracking data
                 eyeMovementData = [];
                 eyeMovementCount = 0;
+                eyeballMovementCount = 0;
                 eyeFixationCount = 0;
                 eyeFixationDuration = 0;
+                followingScore = 0;
+                followingHistory = [];
                 
                 // Reload previous assessments
                 loadPreviousAssessments();
@@ -986,7 +997,9 @@
                             ${assessment.eyeTracking ? `
                             <div class="detail-row">
                                 <span class="detail-label">Auto Detected:</span>
-                                <span>Eye Movements: ${assessment.eyeTracking.movementCount}, Fixation: ${assessment.eyeTracking.fixationDuration.toFixed(1)}s</span>
+                                <span>Eyeball Movements: ${assessment.eyeTracking.eyeballMovementCount}, 
+                                Following Light: ${assessment.eyeTracking.followingLightScore ? (assessment.eyeTracking.followingLightScore * 100).toFixed(0) + '%' : 'N/A'}, 
+                                Fixation: ${assessment.eyeTracking.fixationDuration.toFixed(1)}s</span>
                             </div>` : ''}
                             ${observations.notes ? `
                             <div class="detail-row">
@@ -1099,11 +1112,17 @@
             // Reset tracking data
             eyeMovementData = [];
             lastEyePosition = { x: 0, y: 0 };
+            lastEyeballVector = { x: 0, y: 0 };
+            lastFacePosition = { x: 0, y: 0 };
             eyeMovementCount = 0;
+            eyeballMovementCount = 0;
             eyeFixationCount = 0;
             eyeFixationDuration = 0;
             lastDetectionTime = Date.now();
             detectionFrameCount = 0;
+            isFollowingLight = false;
+            followingScore = 0;
+            followingHistory = [];
             
             // Start detection loop
             detectionInterval = setInterval(async () => {
@@ -1127,6 +1146,13 @@
                         ctx.clearRect(0, 0, canvas.width, canvas.height);
                         
                         if (detections) {
+                            // Get face position to isolate eyeball movements from face movements
+                            const faceBox = detections.detection.box;
+                            const currentFacePosition = {
+                                x: faceBox.x + faceBox.width/2,
+                                y: faceBox.y + faceBox.height/2
+                            };
+                            
                             // Extract eye landmarks
                             const leftEye = detections.landmarks.getLeftEye();
                             const rightEye = detections.landmarks.getRightEye();
@@ -1135,17 +1161,75 @@
                             const leftEyeCenter = calculateEyeCenter(leftEye);
                             const rightEyeCenter = calculateEyeCenter(rightEye);
                             
+                            // Extract iris/pupil positions (approximate based on landmarks)
+                            const leftIris = calculateIrisPosition(leftEye);
+                            const rightIris = calculateIrisPosition(rightEye);
+                            
+                            // Calculate eyeball vectors (direction iris is looking relative to eye center)
+                            const leftEyeballVector = {
+                                x: leftIris.x - leftEyeCenter.x,
+                                y: leftIris.y - leftEyeCenter.y
+                            };
+                            
+                            const rightEyeballVector = {
+                                x: rightIris.x - rightEyeCenter.x,
+                                y: rightIris.y - rightEyeCenter.y
+                            };
+                            
+                            // Average eyeball vector
+                            const avgEyeballVector = {
+                                x: (leftEyeballVector.x + rightEyeballVector.x) / 2,
+                                y: (leftEyeballVector.y + rightEyeballVector.y) / 2
+                            };
+                            
                             // Draw face landmarks if visual tracking is enabled
                             if (showTrackingVisuals) {
-                                // Draw face landmarks
-                                faceapi.draw.drawFaceLandmarks(canvas, detections);
+                                // Draw face box with lower opacity to show we're tracking it but it's not the focus
+                                ctx.strokeStyle = 'rgba(0, 0, 255, 0.3)';
+                                ctx.lineWidth = 1;
+                                ctx.strokeRect(faceBox.x, faceBox.y, faceBox.width, faceBox.height);
+                                
+                                // Draw eye landmarks
+                                ctx.strokeStyle = 'rgba(0, 255, 0, 0.5)';
+                                ctx.beginPath();
+                                leftEye.forEach((point, i) => {
+                                    if (i === 0) ctx.moveTo(point.x, point.y);
+                                    else ctx.lineTo(point.x, point.y);
+                                });
+                                ctx.closePath();
+                                ctx.stroke();
+                                
+                                ctx.beginPath();
+                                rightEye.forEach((point, i) => {
+                                    if (i === 0) ctx.moveTo(point.x, point.y);
+                                    else ctx.lineTo(point.x, point.y);
+                                });
+                                ctx.closePath();
+                                ctx.stroke();
                                 
                                 // Highlight eye centers
                                 ctx.fillStyle = '#00ff00';
                                 ctx.beginPath();
-                                ctx.arc(leftEyeCenter.x, leftEyeCenter.y, 3, 0, 2 * Math.PI);
-                                ctx.arc(rightEyeCenter.x, rightEyeCenter.y, 3, 0, 2 * Math.PI);
+                                ctx.arc(leftEyeCenter.x, leftEyeCenter.y, 2, 0, 2 * Math.PI);
+                                ctx.arc(rightEyeCenter.x, rightEyeCenter.y, 2, 0, 2 * Math.PI);
                                 ctx.fill();
+                                
+                                // Highlight iris/pupils
+                                ctx.fillStyle = '#ff0000';
+                                ctx.beginPath();
+                                ctx.arc(leftIris.x, leftIris.y, 3, 0, 2 * Math.PI);
+                                ctx.arc(rightIris.x, rightIris.y, 3, 0, 2 * Math.PI);
+                                ctx.fill();
+                                
+                                // Draw eyeball direction vectors
+                                ctx.strokeStyle = '#ff00ff';
+                                ctx.lineWidth = 2;
+                                ctx.beginPath();
+                                ctx.moveTo(leftEyeCenter.x, leftEyeCenter.y);
+                                ctx.lineTo(leftEyeCenter.x + leftEyeballVector.x * 3, leftEyeCenter.y + leftEyeballVector.y * 3);
+                                ctx.moveTo(rightEyeCenter.x, rightEyeCenter.y);
+                                ctx.lineTo(rightEyeCenter.x + rightEyeballVector.x * 3, rightEyeCenter.y + rightEyeballVector.y * 3);
+                                ctx.stroke();
                             }
                             
                             // Calculate average eye position
@@ -1154,34 +1238,97 @@
                                 y: (leftEyeCenter.y + rightEyeCenter.y) / 2
                             };
                             
-                            // Check for eye movement
-                            const movementThreshold = 3; // pixels
-                            const distance = Math.sqrt(
-                                Math.pow(avgEyePos.x - lastEyePosition.x, 2) + 
-                                Math.pow(avgEyePos.y - lastEyePosition.y, 2)
+                            // Check for overall face movement
+                            const faceMovementThreshold = 5; // pixels
+                            const faceMovement = Math.sqrt(
+                                Math.pow(currentFacePosition.x - lastFacePosition.x, 2) + 
+                                Math.pow(currentFacePosition.y - lastFacePosition.y, 2)
                             );
                             
-                            if (distance > movementThreshold) {
-                                // Eye movement detected
-                                eyeMovementCount++;
+                            // Check for eyeball movement (independent of face movement)
+                            const eyeballMovementThreshold = 0.5; // smaller threshold for subtle eyeball movement
+                            const eyeballMovement = Math.sqrt(
+                                Math.pow(avgEyeballVector.x - lastEyeballVector.x, 2) + 
+                                Math.pow(avgEyeballVector.y - lastEyeballVector.y, 2)
+                            );
+                            
+                            // Get light stimulus position
+                            const lightStimulus = document.getElementById('lightStimulus');
+                            const lightRect = lightStimulus.getBoundingClientRect();
+                            const videoRect = videoEl.getBoundingClientRect();
+                            
+                            // Convert to canvas coordinates
+                            const canvasLightPos = {
+                                x: ((lightRect.left + lightRect.width/2) - videoRect.left) * (canvas.width / videoRect.width),
+                                y: ((lightRect.top + lightRect.height/2) - videoRect.top) * (canvas.height / videoRect.height)
+                            };
+                            
+                            // Check if eyes are looking toward light stimulus
+                            const eyesToLightVector = {
+                                x: canvasLightPos.x - avgEyePos.x,
+                                y: canvasLightPos.y - avgEyePos.y
+                            };
+                            
+                            // Normalize vectors
+                            const normalizeVector = (vector) => {
+                                const magnitude = Math.sqrt(vector.x * vector.x + vector.y * vector.y);
+                                return magnitude === 0 ? vector : { 
+                                    x: vector.x / magnitude, 
+                                    y: vector.y / magnitude 
+                                };
+                            };
+                            
+                            const normEyeballVector = normalizeVector(avgEyeballVector);
+                            const normLightVector = normalizeVector(eyesToLightVector);
+                            
+                            // Dot product to calculate similarity of direction (1 = same direction, -1 = opposite)
+                            const dotProduct = normEyeballVector.x * normLightVector.x + normEyeballVector.y * normLightVector.y;
+                            
+                            // Update following score (sliding window of last 10 frames)
+                            followingHistory.push(dotProduct > 0.7 ? 1 : 0); // Consider following if dot product > 0.7
+                            if (followingHistory.length > 10) followingHistory.shift();
+                            followingScore = followingHistory.reduce((sum, val) => sum + val, 0) / followingHistory.length;
+                            isFollowingLight = followingScore > 0.6; // Consider following if > 60% of recent frames show following
+                            
+                            // Draw line from eye to light if following
+                            if (showTrackingVisuals && isFollowingLight) {
+                                ctx.strokeStyle = 'rgba(0, 255, 0, 0.5)';
+                                ctx.lineWidth = 1;
+                                ctx.setLineDash([5, 3]);
+                                ctx.beginPath();
+                                ctx.moveTo(avgEyePos.x, avgEyePos.y);
+                                ctx.lineTo(canvasLightPos.x, canvasLightPos.y);
+                                ctx.stroke();
+                                ctx.setLineDash([]);
+                            }
+                            
+                            // Only count as eye movement if face is relatively still but eyeballs moved
+                            if (faceMovement < faceMovementThreshold && eyeballMovement > eyeballMovementThreshold) {
+                                // Eyeball movement detected (independent of face)
+                                eyeballMovementCount++;
                                 eyeFixationCount = 0; // Reset fixation counter
                                 
-                                // Draw movement line if visual tracking is enabled
-                                if (showTrackingVisuals && lastEyePosition.x !== 0) {
+                                // Draw eyeball movement path if visual tracking is enabled
+                                if (showTrackingVisuals && lastEyeballVector.x !== 0) {
                                     ctx.strokeStyle = '#ff0000';
                                     ctx.lineWidth = 2;
                                     ctx.beginPath();
-                                    ctx.moveTo(lastEyePosition.x, lastEyePosition.y);
-                                    ctx.lineTo(avgEyePos.x, avgEyePos.y);
+                                    ctx.moveTo(avgEyePos.x, avgEyePos.y);
+                                    ctx.lineTo(avgEyePos.x + avgEyeballVector.x * 5, avgEyePos.y + avgEyeballVector.y * 5);
                                     ctx.stroke();
                                 }
                                 
-                                // Record eye movement data
+                                // Record eyeball movement data
                                 eyeMovementData.push({
                                     timestamp: Date.now(),
                                     position: { ...avgEyePos },
-                                    isMovement: true
+                                    eyeballVector: { ...avgEyeballVector },
+                                    isMovement: true,
+                                    followingLight: isFollowingLight
                                 });
+                            } else if (faceMovement >= faceMovementThreshold) {
+                                // Face movement detected, but not counting as eyeball movement
+                                eyeMovementCount++;
                             } else {
                                 // Eye fixation detected
                                 eyeFixationCount++;
@@ -1200,18 +1347,24 @@
                                     eyeMovementData.push({
                                         timestamp: Date.now(),
                                         position: { ...avgEyePos },
+                                        eyeballVector: { ...avgEyeballVector },
                                         isMovement: false,
-                                        fixationDuration: eyeFixationDuration
+                                        fixationDuration: eyeFixationDuration,
+                                        followingLight: isFollowingLight
                                     });
                                 }
                             }
                             
-                            // Update last position
+                            // Update last positions
                             lastEyePosition = { ...avgEyePos };
+                            lastEyeballVector = { ...avgEyeballVector };
+                            lastFacePosition = { ...currentFacePosition };
                             
                             // Update detection data display
                             document.getElementById('detectionData').innerHTML = `
-                                Eye movements: ${eyeMovementCount}<br>
+                                Face movements: ${eyeMovementCount}<br>
+                                <b>Eyeball movements: ${eyeballMovementCount}</b><br>
+                                Following light: ${isFollowingLight ? 'Yes' : 'No'} (${(followingScore * 100).toFixed(0)}%)<br>
                                 Fixation duration: ${eyeFixationDuration.toFixed(1)}s<br>
                                 Frame rate: ${frameRate} fps
                             `;
@@ -1219,6 +1372,17 @@
                             // Automatically check the observation checkboxes based on detection
                             if (eyeFixationDuration > 2) {
                                 document.getElementById('fixation').checked = true;
+                            }
+                            
+                            // Automatically check field response boxes based on light tracking
+                            if (isFollowingLight && canvasLightPos.x < canvas.width / 3) {
+                                document.getElementById('leftField').checked = true;
+                            }
+                            if (isFollowingLight && canvasLightPos.x > canvas.width * 2 / 3) {
+                                document.getElementById('rightField').checked = true;
+                            }
+                            if (isFollowingLight && canvasLightPos.x >= canvas.width / 3 && canvasLightPos.x <= canvas.width * 2 / 3) {
+                                document.getElementById('centerField').checked = true;
                             }
                             
                             // Set eye contact duration field
@@ -1260,6 +1424,27 @@
             return {
                 x: sumX / eyePoints.length,
                 y: sumY / eyePoints.length
+            };
+        }
+        
+        // Calculate approximate iris position based on eye landmarks
+        // This uses the inner points of the eye to estimate where the iris/pupil is
+        function calculateIrisPosition(eyePoints) {
+            // For better iris detection we'll use the inner eye points which are
+            // typically index 1-3 for left eye and 2-4 for right eye in landmarks
+            const innerPoints = eyePoints.slice(1, 5); // Adjust based on face-api.js landmark indexing
+            
+            let sumX = 0;
+            let sumY = 0;
+            
+            for (let i = 0; i < innerPoints.length; i++) {
+                sumX += innerPoints[i].x;
+                sumY += innerPoints[i].y;
+            }
+            
+            return {
+                x: sumX / innerPoints.length,
+                y: sumY / innerPoints.length
             };
         }
 
