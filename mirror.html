@@ -469,11 +469,31 @@
         let eyeballVectorHistory = [];
         const EYEBALL_HISTORY_SIZE = 5; // Store recent history for smoothing
         
+        // Eyebrow and eyelash tracking variables
+        let leftEyebrowPositions = [];
+        let rightEyebrowPositions = [];
+        let lastLeftEyebrowPosition = { x: 0, y: 0 };
+        let lastRightEyebrowPosition = { x: 0, y: 0 };
+        let lastUpperEyelidPositions = { left: 0, right: 0 };
+        let eyebrowMovementCount = 0;
+        let eyelashMovementCount = 0; // Approximated by upper eyelid movement
+        
         let lastFacePosition = { x: 0, y: 0 };
         let eyeMovementCount = 0;
         let eyeballMovementCount = 0;
         let eyeFixationCount = 0;
         let eyeFixationDuration = 0;
+        
+        // Enhanced fixation tracking
+        let currentFixationStartTime = 0;
+        let longestFixationDuration = 0;
+        let isCurrentlyFixating = false;
+        let fixationBreakCount = 0;
+        
+        // Total time tracking
+        let totalAssessmentStartTime = 0;
+        let totalAssessmentTime = 0;
+        
         let lastDetectionTime = 0;
         let detectionFrameCount = 0;
         let frameRate = 0;
@@ -590,10 +610,9 @@
                 document.getElementById('detectionData').textContent = 'Loading face detection models...';
                 
                 // Load required models for face and landmark detection
-                await faceapi.nets.tinyFaceDetector.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights');
+                // Load SSD MobileNet for better eyebrow detection
+                await faceapi.nets.ssdMobilenetv1.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights');
                 await faceapi.nets.faceLandmark68Net.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights');
-                
-                // Add face expression model for better landmark fitting
                 await faceapi.nets.faceExpressionNet.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights');
                 
                 console.log('Face detection models loaded successfully');
@@ -849,8 +868,13 @@
                         enabled: enableEyeTracking,
                         faceMovementCount: eyeMovementCount,
                         eyeballMovementCount: eyeballMovementCount,
-                        fixationDuration: eyeFixationDuration,
+                        eyebrowMovementCount: eyebrowMovementCount,
+                        eyelashMovementCount: eyelashMovementCount,
+                        totalFixationDuration: eyeFixationDuration,
+                        longestFixationDuration: longestFixationDuration,
+                        fixationBreakCount: fixationBreakCount,
                         followingLightScore: followingScore,
+                        totalAssessmentTime: totalAssessmentTime,
                         // Only save the last 100 eye movement data points to prevent huge data
                         movements: eyeMovementData.slice(-100)
                     }
@@ -903,9 +927,19 @@
                 eyeMovementData = [];
                 eyeMovementCount = 0;
                 eyeballMovementCount = 0;
+                eyebrowMovementCount = 0;
+                eyelashMovementCount = 0;
                 eyeballVectorHistory = [];
+                leftEyebrowPositions = [];
+                rightEyebrowPositions = [];
                 eyeFixationCount = 0;
                 eyeFixationDuration = 0;
+                currentFixationStartTime = 0;
+                longestFixationDuration = 0;
+                isCurrentlyFixating = false;
+                fixationBreakCount = 0;
+                totalAssessmentStartTime = Date.now();
+                totalAssessmentTime = 0;
                 followingScore = 0;
                 followingHistory = [];
                 lightPosition = { x: 0, y: 0 };
@@ -1016,12 +1050,20 @@
                                 <span class="detail-label">Eye Contact Duration:</span>
                                 <span>${observations.duration}s</span>
                             </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Assessment Duration:</span>
+                                <span>${assessment.eyeTracking && assessment.eyeTracking.totalAssessmentTime ? assessment.eyeTracking.totalAssessmentTime.toFixed(0) + 's' : 'Unknown'}</span>
+                            </div>
                             ${assessment.eyeTracking ? `
                             <div class="detail-row">
                                 <span class="detail-label">Auto Detected:</span>
-                                <span>Eyeball Movements: ${assessment.eyeTracking.eyeballMovementCount}, 
-                                Following Light: ${assessment.eyeTracking.followingLightScore ? (assessment.eyeTracking.followingLightScore * 100).toFixed(0) + '%' : 'N/A'}, 
-                                Fixation: ${assessment.eyeTracking.fixationDuration.toFixed(1)}s</span>
+                                <span>Eyeball: ${assessment.eyeTracking.eyeballMovementCount}, 
+                                Eyebrow: ${assessment.eyeTracking.eyebrowMovementCount || 0},
+                                Eyelash: ${assessment.eyeTracking.eyelashMovementCount || 0},
+                                Follow: ${assessment.eyeTracking.followingLightScore ? (assessment.eyeTracking.followingLightScore * 100).toFixed(0) + '%' : 'N/A'}, 
+                                <b>Longest Fixation: ${assessment.eyeTracking.longestFixationDuration ? assessment.eyeTracking.longestFixationDuration.toFixed(1) + 's' : '0s'}</b>,
+                                Total Fixation: ${assessment.eyeTracking.totalFixationDuration ? assessment.eyeTracking.totalFixationDuration.toFixed(1) + 's' : '0s'},
+                                Total Time: ${assessment.eyeTracking.totalAssessmentTime ? assessment.eyeTracking.totalAssessmentTime.toFixed(0) + 's' : 'N/A'}</span>
                             </div>` : ''}
                             ${observations.notes ? `
                             <div class="detail-row">
@@ -1139,8 +1181,21 @@
             lastFacePosition = { x: 0, y: 0 };
             eyeMovementCount = 0;
             eyeballMovementCount = 0;
+            eyebrowMovementCount = 0;
+            eyelashMovementCount = 0;
+            leftEyebrowPositions = [];
+            rightEyebrowPositions = [];
+            lastLeftEyebrowPosition = { x: 0, y: 0 };
+            lastRightEyebrowPosition = { x: 0, y: 0 };
+            lastUpperEyelidPositions = { left: 0, right: 0 };
             eyeFixationCount = 0;
             eyeFixationDuration = 0;
+            currentFixationStartTime = 0;
+            longestFixationDuration = 0;
+            isCurrentlyFixating = false;
+            fixationBreakCount = 0;
+            totalAssessmentStartTime = Date.now();
+            totalAssessmentTime = 0;
             lastDetectionTime = Date.now();
             detectionFrameCount = 0;
             isFollowingLight = false;
@@ -1150,8 +1205,8 @@
             lastLightPosition = { x: 0, y: 0 };
             isCalibrated = false;
             calibrationPoints = [];
-            maxEyeballMovement = 1.0;
-            eyeballNoiseThreshold = 0.3;
+            maxEyeballMovement = 2.0;
+            eyeballNoiseThreshold = 0.1;
             
             // Start detection loop
             detectionInterval = setInterval(async () => {
@@ -1167,9 +1222,9 @@
                         }
                         
                         // Detect faces with landmarks and expressions for better face fitting
-                        const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
-                        const detections = await faceapi.detectSingleFace(videoEl, options)
-                            .withFaceLandmarks()
+                        // Using SSD MobileNet for better eyebrow tracking (already loaded in initFaceDetection)
+                        const detections = await faceapi.detectSingleFace(videoEl, new faceapi.SsdMobilenetv1Options())
+                            .withFaceLandmarks(true) // Use detailed landmarks
                             .withFaceExpressions();
                         
                         // Clear canvas
@@ -1187,6 +1242,10 @@
                             // Extract eye landmarks
                             const leftEye = detections.landmarks.getLeftEye();
                             const rightEye = detections.landmarks.getRightEye();
+                            
+                            // Extract eyebrow landmarks
+                            const leftEyebrow = detections.landmarks.getLeftEyeBrow();
+                            const rightEyebrow = detections.landmarks.getRightEyeBrow();
                             
                             // Calculate eye centers
                             const leftEyeCenter = calculateEyeCenter(leftEye);
@@ -1231,6 +1290,22 @@
                             // Apply smoothing to reduce noise and improve accuracy
                             const avgEyeballVector = smoothEyeballVector(eyeballVectorHistory);
                             
+                            // Calculate eyebrow positions and movement
+                            const leftEyebrowCenter = calculateEyebrowCenter(leftEyebrow);
+                            const rightEyebrowCenter = calculateEyebrowCenter(rightEyebrow);
+                            
+                            // Track eyebrow positions
+                            leftEyebrowPositions.push(leftEyebrowCenter);
+                            rightEyebrowPositions.push(rightEyebrowCenter);
+                            
+                            // Limit history size
+                            if (leftEyebrowPositions.length > 10) leftEyebrowPositions.shift();
+                            if (rightEyebrowPositions.length > 10) rightEyebrowPositions.shift();
+                            
+                            // Calculate upper eyelid positions for eyelash approximation
+                            const leftUpperEyelid = leftEye[1].y; // Top point of left eye
+                            const rightUpperEyelid = rightEye[1].y; // Top point of right eye
+                            
                             // Draw face landmarks if visual tracking is enabled
                             if (showTrackingVisuals) {
                                 // Draw face box with lower opacity to show we're tracking it but it's not the focus
@@ -1255,6 +1330,78 @@
                                 });
                                 ctx.closePath();
                                 ctx.stroke();
+                                
+                                // Draw eyebrow landmarks with different color
+                                ctx.strokeStyle = 'rgba(255, 165, 0, 0.7)'; // Orange for eyebrows
+                                ctx.beginPath();
+                                leftEyebrow.forEach((point, i) => {
+                                    if (i === 0) ctx.moveTo(point.x, point.y);
+                                    else ctx.lineTo(point.x, point.y);
+                                });
+                                ctx.stroke();
+                                
+                                ctx.beginPath();
+                                rightEyebrow.forEach((point, i) => {
+                                    if (i === 0) ctx.moveTo(point.x, point.y);
+                                    else ctx.lineTo(point.x, point.y);
+                                });
+                                ctx.stroke();
+                                
+                                // Detect eyebrow movement
+                                if (lastLeftEyebrowPosition.y !== 0) {
+                                    const leftEyebrowMovement = Math.abs(leftEyebrowCenter.y - lastLeftEyebrowPosition.y);
+                                    const rightEyebrowMovement = Math.abs(rightEyebrowCenter.y - lastRightEyebrowPosition.y);
+                                    
+                                    // If significant eyebrow movement detected
+                                    if (leftEyebrowMovement > 1.0 || rightEyebrowMovement > 1.0) {
+                                        eyebrowMovementCount++;
+                                        
+                                        // Visualize eyebrow movement
+                                        ctx.strokeStyle = 'rgba(255, 165, 0, 0.9)';
+                                        ctx.lineWidth = 2;
+                                        ctx.beginPath();
+                                        
+                                        // Draw arrow for eyebrow movement direction
+                                        if (leftEyebrowMovement > rightEyebrowMovement) {
+                                            const dir = Math.sign(lastLeftEyebrowPosition.y - leftEyebrowCenter.y);
+                                            drawArrow(ctx, leftEyebrowCenter.x, leftEyebrowCenter.y, 
+                                                    leftEyebrowCenter.x, leftEyebrowCenter.y - dir * 15);
+                                        } else {
+                                            const dir = Math.sign(lastRightEyebrowPosition.y - rightEyebrowCenter.y);
+                                            drawArrow(ctx, rightEyebrowCenter.x, rightEyebrowCenter.y, 
+                                                    rightEyebrowCenter.x, rightEyebrowCenter.y - dir * 15);
+                                        }
+                                        ctx.stroke();
+                                    }
+                                }
+                                
+                                // Detect eyelash movement (approximated by upper eyelid movement)
+                                if (lastUpperEyelidPositions.left !== 0) {
+                                    const leftEyelidChange = Math.abs(leftUpperEyelid - lastUpperEyelidPositions.left);
+                                    const rightEyelidChange = Math.abs(rightUpperEyelid - lastUpperEyelidPositions.right);
+                                    
+                                    // If significant upper eyelid movement detected (likely means eyelashes moved)
+                                    if (leftEyelidChange > 0.8 || rightEyelidChange > 0.8) {
+                                        eyelashMovementCount++;
+                                        
+                                        // Visualize eyelash/eyelid movement
+                                        ctx.strokeStyle = 'rgba(255, 105, 180, 0.8)'; // Pink for eyelashes
+                                        ctx.lineWidth = 1;
+                                        
+                                        // Draw highlighting line along upper eyelid to represent eyelashes
+                                        ctx.beginPath();
+                                        ctx.moveTo(leftEye[0].x, leftEye[0].y);
+                                        ctx.lineTo(leftEye[1].x, leftEye[1].y);
+                                        ctx.lineTo(leftEye[2].x, leftEye[2].y);
+                                        ctx.stroke();
+                                        
+                                        ctx.beginPath();
+                                        ctx.moveTo(rightEye[0].x, rightEye[0].y);
+                                        ctx.lineTo(rightEye[1].x, rightEye[1].y);
+                                        ctx.lineTo(rightEye[2].x, rightEye[2].y);
+                                        ctx.stroke();
+                                    }
+                                }
                                 
                                 // Highlight eye centers
                                 ctx.fillStyle = '#00ff00';
@@ -1441,6 +1588,12 @@
                                     ctx.stroke();
                                 }
                                 
+                                // Handle fixation break
+                                if (isCurrentlyFixating) {
+                                    isCurrentlyFixating = false;
+                                    fixationBreakCount++;
+                                }
+                                
                                 // Record eyeball movement data
                                 eyeMovementData.push({
                                     timestamp: Date.now(),
@@ -1456,7 +1609,22 @@
                                 // Eye fixation detected
                                 eyeFixationCount++;
                                 if (eyeFixationCount >= 5) { // About 0.25 seconds at 20fps
+                                    // Track current fixation period
+                                    if (!isCurrentlyFixating) {
+                                        currentFixationStartTime = Date.now();
+                                        isCurrentlyFixating = true;
+                                    }
+                                    
+                                    // Update total fixation duration
                                     eyeFixationDuration += 1/frameRate;
+                                    
+                                    // Calculate current fixation duration
+                                    const currentFixationDuration = (Date.now() - currentFixationStartTime) / 1000;
+                                    
+                                    // Update longest fixation if current is longer
+                                    if (currentFixationDuration > longestFixationDuration) {
+                                        longestFixationDuration = currentFixationDuration;
+                                    }
                                     
                                     // Mark fixation point if visual tracking is enabled
                                     if (showTrackingVisuals) {
@@ -1464,6 +1632,11 @@
                                         ctx.beginPath();
                                         ctx.arc(avgEyePos.x, avgEyePos.y, 5, 0, 2 * Math.PI);
                                         ctx.fill();
+                                        
+                                        // Show current fixation duration
+                                        ctx.fillStyle = 'rgba(0, 255, 255, 1)';
+                                        ctx.font = '12px Arial';
+                                        ctx.fillText(`${currentFixationDuration.toFixed(1)}s`, avgEyePos.x + 10, avgEyePos.y);
                                     }
                                     
                                     // Record eye fixation data
@@ -1473,6 +1646,7 @@
                                         eyeballVector: { ...avgEyeballVector },
                                         isMovement: false,
                                         fixationDuration: eyeFixationDuration,
+                                        currentFixationDuration: currentFixationDuration,
                                         followingLight: isFollowingLight
                                     });
                                 }
@@ -1482,13 +1656,27 @@
                             lastEyePosition = { ...avgEyePos };
                             lastEyeballVector = { ...avgEyeballVector };
                             lastFacePosition = { ...currentFacePosition };
+                            lastLeftEyebrowPosition = { ...leftEyebrowCenter };
+                            lastRightEyebrowPosition = { ...rightEyebrowCenter };
+                            lastUpperEyelidPositions = { 
+                                left: leftUpperEyelid,
+                                right: rightUpperEyelid
+                            };
+                            
+                            // Calculate total assessment time
+                            totalAssessmentTime = (Date.now() - totalAssessmentStartTime) / 1000;
                             
                             // Enhanced detection data display with calibration info
                             document.getElementById('detectionData').innerHTML = `
                                 Face movements: ${eyeMovementCount}<br>
                                 <b>Eyeball movements: ${eyeballMovementCount}</b><br>
+                                <b>Eyebrow movements: ${eyebrowMovementCount}</b><br>
+                                <b>Eyelash movements: ${eyelashMovementCount}</b><br>
                                 Following light: ${isFollowingLight ? '<span style="color:green">Yes</span>' : 'No'} (${(followingScore * 100).toFixed(0)}%)<br>
-                                Fixation: ${eyeFixationDuration.toFixed(1)}s<br>
+                                <b>Current fixation: ${isCurrentlyFixating ? `<span style="color:green">${((Date.now() - currentFixationStartTime)/1000).toFixed(1)}s</span>` : '0s'}</b><br>
+                                <b>Longest fixation: ${longestFixationDuration.toFixed(1)}s</b><br>
+                                Total fixation: ${eyeFixationDuration.toFixed(1)}s<br>
+                                Total time: ${totalAssessmentTime.toFixed(0)}s<br>
                                 ${eyesOpen ? '<span style="color:green">Eyes open</span>' : '<span style="color:red">Eyes closed</span>'}<br>
                                 Threshold: ${eyeballNoiseThreshold.toFixed(2)}<br>
                                 FPS: ${frameRate}
@@ -1667,6 +1855,33 @@
             if (vector.x >= 0 && vector.y >= 0) return 2; // bottom-right
             if (vector.x < 0 && vector.y >= 0) return 3; // bottom-left
             return 4; // top-left
+        }
+        
+        // Helper function to calculate eyebrow center
+        function calculateEyebrowCenter(eyebrowPoints) {
+            return {
+                x: eyebrowPoints.reduce((sum, p) => sum + p.x, 0) / eyebrowPoints.length,
+                y: eyebrowPoints.reduce((sum, p) => sum + p.y, 0) / eyebrowPoints.length
+            };
+        }
+        
+        // Helper function to draw arrows for movement visualization
+        function drawArrow(ctx, fromX, fromY, toX, toY, arrowSize = 5) {
+            const angle = Math.atan2(toY - fromY, toX - fromX);
+            
+            // Draw line
+            ctx.beginPath();
+            ctx.moveTo(fromX, fromY);
+            ctx.lineTo(toX, toY);
+            ctx.stroke();
+            
+            // Draw arrowhead
+            ctx.beginPath();
+            ctx.moveTo(toX, toY);
+            ctx.lineTo(toX - arrowSize * Math.cos(angle - Math.PI/6), toY - arrowSize * Math.sin(angle - Math.PI/6));
+            ctx.lineTo(toX - arrowSize * Math.cos(angle + Math.PI/6), toY - arrowSize * Math.sin(angle + Math.PI/6));
+            ctx.closePath();
+            ctx.fill();
         }
         
         // Check if quadrants are adjacent
