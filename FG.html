@@ -224,8 +224,26 @@
             box-shadow: 0 4px 8px rgba(0,0,0,0.15);
         }
         
-        .reset-btn:active, .hint-btn:active, .submit-btn:active {
+        .reset-btn:active, .hint-btn:active, .submit-btn:active,
+        .button-active, .button-touching {
             transform: translateY(0);
+            opacity: 0.9;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        /* Specific mobile button states */
+        .touch-device .reset-btn:active, 
+        .touch-device .hint-btn:active, 
+        .touch-device .submit-btn:active,
+        .touch-device .toggle-details-btn:active {
+            background-color: rgba(0,0,0,0.05);
+        }
+        
+        /* Ensure buttons have high z-index to capture touch events */
+        button {
+            position: relative;
+            z-index: 20;
+            -webkit-tap-highlight-color: transparent; /* Remove default highlight on iOS */
         }
         
         .icon {
@@ -332,6 +350,13 @@
         
         .toggle-details-btn:hover {
             background-color: #45a049;
+        }
+        
+        .toggle-details-btn:active,
+        .toggle-details-btn.button-active,
+        .toggle-details-btn.button-touching {
+            background-color: #3d8b3d;
+            transform: translateY(1px);
         }
         
         /* Touch-specific styles */
@@ -587,7 +612,7 @@
         <div class="report-container" id="report-container">
             <h2>All Quiz Attempts</h2>
             <ul id="attempts-list"></ul>
-            <button id="clear-report" onclick="clearReport()">Clear Report</button>
+            <button id="clear-report" class="reset-btn">Clear Report</button>
         </div>
     </div>
     
@@ -664,10 +689,34 @@
             setupDrag(line3, 3);
             setupDrag(line4, 4);
             
-            // Button event listeners
+            // Improved button event listeners with better mobile support
+            // Use both click and touchend events to ensure reliability on all devices
             resetBtn.addEventListener('click', resetQuiz);
+            resetBtn.addEventListener('touchend', function(e) {
+                e.preventDefault(); // Prevent double triggering
+                resetQuiz();
+            });
+            
             submitBtn.addEventListener('click', submitAnswer);
-            document.getElementById('hint-btn').addEventListener('click', showHint);
+            submitBtn.addEventListener('touchend', function(e) {
+                e.preventDefault();
+                submitAnswer();
+            });
+            
+            const hintBtn = document.getElementById('hint-btn');
+            hintBtn.addEventListener('click', showHint);
+            hintBtn.addEventListener('touchend', function(e) {
+                e.preventDefault();
+                showHint();
+            });
+            
+            // Set up Clear Report button with both mouse and touch handling
+            const clearReportBtn = document.getElementById('clear-report');
+            clearReportBtn.addEventListener('click', clearReport);
+            clearReportBtn.addEventListener('touchend', function(e) {
+                e.preventDefault();
+                clearReport();
+            });
             
             // Add touch-specific adjustments when running on mobile
             if (isTouchDevice()) {
@@ -675,6 +724,17 @@
                 // Prevent zooming when double tapping
                 document.addEventListener('dblclick', function(e) {
                     e.preventDefault();
+                });
+                
+                // Add active state for touch feedback
+                const allButtons = document.querySelectorAll('button');
+                allButtons.forEach(button => {
+                    button.addEventListener('touchstart', function() {
+                        this.classList.add('button-active');
+                    });
+                    button.addEventListener('touchend touchcancel', function() {
+                        this.classList.remove('button-active');
+                    });
                 });
             }
         }
@@ -1561,16 +1621,45 @@
         
         // Add double-tap prevention for iOS
         document.addEventListener('touchend', function(e) {
-            // Prevent double-tap zoom on iOS, but only for our quiz elements
-            if (e.target.classList.contains('draggable-line') ||
-                e.target.closest('.angles-container')) {
+            // Check if our target is a button or inside a button
+            const isButton = e.target.tagName === 'BUTTON' || e.target.closest('button');
+            
+            // Handle differently for buttons vs other interactive elements
+            if (isButton) {
+                // For buttons, just let the event propagate normally
+                // The specific button event handlers will take care of it
+                return;
+            } else if (e.target.classList.contains('draggable-line') ||
+                       e.target.closest('.angles-container')) {
+                // For draggable elements and the container, prevent default behavior
                 e.preventDefault();
-                // Trigger a fake click for better UX
-                if (e.target.click && !e.target.classList.contains('draggable-line')) {
-                    setTimeout(function() {
-                        e.target.click();
-                    }, 100);
-                }
+            }
+        }, { passive: false });
+        
+        // Fix for mobile buttons - intercept touch events on control buttons
+        document.querySelector('.controls').addEventListener('touchstart', function(e) {
+            // Mark the element as being touched
+            if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+                e.target.closest('button').classList.add('button-touching');
+            }
+        }, { passive: true });
+        
+        document.querySelector('.controls').addEventListener('touchend', function(e) {
+            // Find all touched buttons and remove their touching state
+            document.querySelectorAll('.button-touching').forEach(btn => {
+                btn.classList.remove('button-touching');
+            });
+            
+            // If this is a button or inside a button, handle the tap
+            const button = e.target.tagName === 'BUTTON' ? e.target : e.target.closest('button');
+            if (button) {
+                e.preventDefault(); // Prevent any default handling
+                e.stopPropagation(); // Stop event from bubbling
+                
+                // Simulate a click after a slight delay
+                setTimeout(() => {
+                    button.click();
+                }, 10);
             }
         }, { passive: false });
         
