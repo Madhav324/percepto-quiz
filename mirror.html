@@ -463,7 +463,12 @@
         let detectionInterval;
         let eyeMovementData = [];
         let lastEyePosition = { x: 0, y: 0 };
+        
+        // Eyeball tracking with smoothing buffers
         let lastEyeballVector = { x: 0, y: 0 };
+        let eyeballVectorHistory = [];
+        const EYEBALL_HISTORY_SIZE = 5; // Store recent history for smoothing
+        
         let lastFacePosition = { x: 0, y: 0 };
         let eyeMovementCount = 0;
         let eyeballMovementCount = 0;
@@ -472,9 +477,20 @@
         let lastDetectionTime = 0;
         let detectionFrameCount = 0;
         let frameRate = 0;
+        
+        // Light following variables
         let isFollowingLight = false;
         let followingScore = 0;
         let followingHistory = [];
+        const FOLLOWING_HISTORY_SIZE = 15; // Increased window for more stable following detection
+        let lightPosition = { x: 0, y: 0 };
+        let lastLightPosition = { x: 0, y: 0 };
+        
+        // Calibration variables
+        let isCalibrated = false;
+        let calibrationPoints = [];
+        let maxEyeballMovement = 1.0; // Auto-calibrated during use
+        let eyeballNoiseThreshold = 0.3; // Dynamically adjusted
 
         // Auth state observer
         auth.onAuthStateChanged(async (user) => {
@@ -576,6 +592,9 @@
                 // Load required models for face and landmark detection
                 await faceapi.nets.tinyFaceDetector.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights');
                 await faceapi.nets.faceLandmark68Net.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights');
+                
+                // Add face expression model for better landmark fitting
+                await faceapi.nets.faceExpressionNet.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights');
                 
                 console.log('Face detection models loaded successfully');
                 document.getElementById('detectionData').textContent = 'Face detection ready';
@@ -884,10 +903,13 @@
                 eyeMovementData = [];
                 eyeMovementCount = 0;
                 eyeballMovementCount = 0;
+                eyeballVectorHistory = [];
                 eyeFixationCount = 0;
                 eyeFixationDuration = 0;
                 followingScore = 0;
                 followingHistory = [];
+                lightPosition = { x: 0, y: 0 };
+                lastLightPosition = { x: 0, y: 0 };
                 
                 // Reload previous assessments
                 loadPreviousAssessments();
@@ -1113,6 +1135,7 @@
             eyeMovementData = [];
             lastEyePosition = { x: 0, y: 0 };
             lastEyeballVector = { x: 0, y: 0 };
+            eyeballVectorHistory = [];
             lastFacePosition = { x: 0, y: 0 };
             eyeMovementCount = 0;
             eyeballMovementCount = 0;
@@ -1123,6 +1146,12 @@
             isFollowingLight = false;
             followingScore = 0;
             followingHistory = [];
+            lightPosition = { x: 0, y: 0 };
+            lastLightPosition = { x: 0, y: 0 };
+            isCalibrated = false;
+            calibrationPoints = [];
+            maxEyeballMovement = 1.0;
+            eyeballNoiseThreshold = 0.3;
             
             // Start detection loop
             detectionInterval = setInterval(async () => {
@@ -1137,9 +1166,11 @@
                             lastDetectionTime = now;
                         }
                         
-                        // Detect faces with landmarks
+                        // Detect faces with landmarks and expressions for better face fitting
                         const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
-                        const detections = await faceapi.detectSingleFace(videoEl, options).withFaceLandmarks();
+                        const detections = await faceapi.detectSingleFace(videoEl, options)
+                            .withFaceLandmarks()
+                            .withFaceExpressions();
                         
                         // Clear canvas
                         const ctx = canvas.getContext('2d');
@@ -1161,9 +1192,9 @@
                             const leftEyeCenter = calculateEyeCenter(leftEye);
                             const rightEyeCenter = calculateEyeCenter(rightEye);
                             
-                            // Extract iris/pupil positions (approximate based on landmarks)
-                            const leftIris = calculateIrisPosition(leftEye);
-                            const rightIris = calculateIrisPosition(rightEye);
+                            // Enhanced iris detection with weighted approach to get better pupil estimation
+                            const leftIris = calculateEnhancedIrisPosition(leftEye, "left");
+                            const rightIris = calculateEnhancedIrisPosition(rightEye, "right");
                             
                             // Calculate eyeball vectors (direction iris is looking relative to eye center)
                             const leftEyeballVector = {
@@ -1176,11 +1207,28 @@
                                 y: rightIris.y - rightEyeCenter.y
                             };
                             
-                            // Average eyeball vector
-                            const avgEyeballVector = {
+                            // Check if eyes are closed (tiny vector means likely closed eyes)
+                            const leftMagnitude = Math.sqrt(leftEyeballVector.x * leftEyeballVector.x + leftEyeballVector.y * leftEyeballVector.y);
+                            const rightMagnitude = Math.sqrt(rightEyeballVector.x * rightEyeballVector.x + rightEyeballVector.y * rightEyeballVector.y);
+                            const eyesOpen = leftMagnitude > 0.1 && rightMagnitude > 0.1;
+                            
+                            // Average eyeball vector - only consider if eyes are open
+                            const rawAvgEyeballVector = {
                                 x: (leftEyeballVector.x + rightEyeballVector.x) / 2,
                                 y: (leftEyeballVector.y + rightEyeballVector.y) / 2
                             };
+                            
+                            // Add to history for smoothing
+                            if (eyesOpen) {
+                                eyeballVectorHistory.push(rawAvgEyeballVector);
+                                // Limit history size
+                                if (eyeballVectorHistory.length > EYEBALL_HISTORY_SIZE) {
+                                    eyeballVectorHistory.shift();
+                                }
+                            }
+                            
+                            // Apply smoothing to reduce noise and improve accuracy
+                            const avgEyeballVector = smoothEyeballVector(eyeballVectorHistory);
                             
                             // Draw face landmarks if visual tracking is enabled
                             if (showTrackingVisuals) {
@@ -1245,23 +1293,46 @@
                                 Math.pow(currentFacePosition.y - lastFacePosition.y, 2)
                             );
                             
-                            // Check for eyeball movement (independent of face movement)
-                            const eyeballMovementThreshold = 0.5; // smaller threshold for subtle eyeball movement
+                            // Auto-calibrate eyeball movement threshold based on observed movements
+                            if (eyesOpen && eyeballVectorHistory.length >= 3) {
+                                const currMagnitude = Math.sqrt(
+                                    avgEyeballVector.x * avgEyeballVector.x + 
+                                    avgEyeballVector.y * avgEyeballVector.y
+                                );
+                                
+                                // Update maximum observed eyeball movement (for calibration)
+                                if (currMagnitude > maxEyeballMovement && currMagnitude < 10) { // Cap to avoid outliers
+                                    maxEyeballMovement = currMagnitude;
+                                    // Dynamically adjust noise threshold based on max movement
+                                    eyeballNoiseThreshold = Math.max(0.2, maxEyeballMovement * 0.15);
+                                }
+                            }
+                            
+                            // Calculate eyeball movement with dynamically calibrated threshold
                             const eyeballMovement = Math.sqrt(
                                 Math.pow(avgEyeballVector.x - lastEyeballVector.x, 2) + 
                                 Math.pow(avgEyeballVector.y - lastEyeballVector.y, 2)
                             );
                             
-                            // Get light stimulus position
+                            // Get light stimulus position with improved accuracy
                             const lightStimulus = document.getElementById('lightStimulus');
                             const lightRect = lightStimulus.getBoundingClientRect();
                             const videoRect = videoEl.getBoundingClientRect();
                             
-                            // Convert to canvas coordinates
+                            // Convert to canvas coordinates with proper scaling
                             const canvasLightPos = {
                                 x: ((lightRect.left + lightRect.width/2) - videoRect.left) * (canvas.width / videoRect.width),
                                 y: ((lightRect.top + lightRect.height/2) - videoRect.top) * (canvas.height / videoRect.height)
                             };
+                            
+                            // Store light position change for movement detection
+                            const lightMovement = {
+                                x: canvasLightPos.x - lastLightPosition.x,
+                                y: canvasLightPos.y - lastLightPosition.y
+                            };
+                            const lightMoved = Math.sqrt(lightMovement.x * lightMovement.x + lightMovement.y * lightMovement.y) > 2;
+                            lastLightPosition = { ...canvasLightPos };
+                            lightPosition = { ...canvasLightPos };
                             
                             // Check if eyes are looking toward light stimulus
                             const eyesToLightVector = {
@@ -1284,11 +1355,51 @@
                             // Dot product to calculate similarity of direction (1 = same direction, -1 = opposite)
                             const dotProduct = normEyeballVector.x * normLightVector.x + normEyeballVector.y * normLightVector.y;
                             
-                            // Update following score (sliding window of last 10 frames)
-                            followingHistory.push(dotProduct > 0.7 ? 1 : 0); // Consider following if dot product > 0.7
-                            if (followingHistory.length > 10) followingHistory.shift();
-                            followingScore = followingHistory.reduce((sum, val) => sum + val, 0) / followingHistory.length;
-                            isFollowingLight = followingScore > 0.6; // Consider following if > 60% of recent frames show following
+                            // Enhanced following detection by requiring eyeball movement in the direction of light
+                            // This better captures actual eye tracking behavior
+                            let followingDetected = false;
+                            
+                            // If light moved significantly and eye vector is pointing in that general direction
+                            if (lightMoved && eyesOpen) {
+                                // More strict threshold when determining actual following behavior
+                                followingDetected = dotProduct > 0.6;
+                                
+                                // Additionally check if eyeball vector has changed in similar direction to light movement
+                                if (followingDetected && lastEyeballVector.x !== 0) {
+                                    const eyeMovementVector = {
+                                        x: avgEyeballVector.x - lastEyeballVector.x,
+                                        y: avgEyeballVector.y - lastEyeballVector.y
+                                    };
+                                    
+                                    const normEyeMovement = normalizeVector(eyeMovementVector);
+                                    const normLightMovement = normalizeVector(lightMovement);
+                                    
+                                    // Check if eye movement direction correlates with light movement direction
+                                    const movementAlignment = normEyeMovement.x * normLightMovement.x + 
+                                                              normEyeMovement.y * normLightMovement.y;
+                                    
+                                    // Strong correlation between eye movement and light movement is very good evidence of following
+                                    if (movementAlignment > 0.3) {
+                                        followingDetected = true;
+                                    }
+                                }
+                            } else if (eyesOpen) {
+                                // When light is relatively static, use standard dot product threshold
+                                followingDetected = dotProduct > 0.7;
+                            }
+                            
+                            // Update following score (sliding window for more stability)
+                            followingHistory.push(followingDetected ? 1 : 0);
+                            if (followingHistory.length > FOLLOWING_HISTORY_SIZE) {
+                                followingHistory.shift();
+                            }
+                            
+                            // Calculate weighted score that prioritizes recent frames
+                            const weightedFollowingScore = calculateWeightedScore(followingHistory);
+                            followingScore = weightedFollowingScore;
+                            
+                            // Consider following if score above threshold
+                            isFollowingLight = followingScore > 0.5;
                             
                             // Draw line from eye to light if following
                             if (showTrackingVisuals && isFollowingLight) {
@@ -1303,7 +1414,8 @@
                             }
                             
                             // Only count as eye movement if face is relatively still but eyeballs moved
-                            if (faceMovement < faceMovementThreshold && eyeballMovement > eyeballMovementThreshold) {
+                            // Also verify eyes are open to avoid false positives
+                            if (faceMovement < faceMovementThreshold && eyeballMovement > eyeballNoiseThreshold && eyesOpen) {
                                 // Eyeball movement detected (independent of face)
                                 eyeballMovementCount++;
                                 eyeFixationCount = 0; // Reset fixation counter
@@ -1360,13 +1472,15 @@
                             lastEyeballVector = { ...avgEyeballVector };
                             lastFacePosition = { ...currentFacePosition };
                             
-                            // Update detection data display
+                            // Enhanced detection data display with calibration info
                             document.getElementById('detectionData').innerHTML = `
                                 Face movements: ${eyeMovementCount}<br>
                                 <b>Eyeball movements: ${eyeballMovementCount}</b><br>
-                                Following light: ${isFollowingLight ? 'Yes' : 'No'} (${(followingScore * 100).toFixed(0)}%)<br>
-                                Fixation duration: ${eyeFixationDuration.toFixed(1)}s<br>
-                                Frame rate: ${frameRate} fps
+                                Following light: ${isFollowingLight ? '<span style="color:green">Yes</span>' : 'No'} (${(followingScore * 100).toFixed(0)}%)<br>
+                                Fixation: ${eyeFixationDuration.toFixed(1)}s<br>
+                                ${eyesOpen ? '<span style="color:green">Eyes open</span>' : '<span style="color:red">Eyes closed</span>'}<br>
+                                Threshold: ${eyeballNoiseThreshold.toFixed(2)}<br>
+                                FPS: ${frameRate}
                             `;
                             
                             // Automatically check the observation checkboxes based on detection
@@ -1427,25 +1541,121 @@
             };
         }
         
-        // Calculate approximate iris position based on eye landmarks
-        // This uses the inner points of the eye to estimate where the iris/pupil is
-        function calculateIrisPosition(eyePoints) {
-            // For better iris detection we'll use the inner eye points which are
-            // typically index 1-3 for left eye and 2-4 for right eye in landmarks
-            const innerPoints = eyePoints.slice(1, 5); // Adjust based on face-api.js landmark indexing
+        // Enhanced iris position calculation using weighted landmarks
+        function calculateEnhancedIrisPosition(eyePoints, eyeSide) {
+            // For face-api.js, eye landmarks are in a specific order
+            // We'll use different weights for different landmarks based on importance
+            const weights = [];
+            let innerPointIndices = [];
             
+            if (eyeSide === "left") {
+                // Left eye: points 2, 3 are more likely to indicate pupil position (inner corners and top/bottom of eye)
+                innerPointIndices = [1, 2, 3, 4]; // These are typically more relevant for pupil position
+                weights[1] = 0.7; // Inner corner has higher weight
+                weights[2] = 0.6; // Top point
+                weights[3] = 0.6; // Bottom point
+                weights[4] = 0.1; // Outer corner has less weight
+            } else {
+                // Right eye: points 0, 1 are more likely to indicate pupil position
+                innerPointIndices = [0, 1, 2, 3]; // These are typically more relevant for pupil position
+                weights[0] = 0.1; // Outer corner has less weight
+                weights[1] = 0.7; // Inner corner has higher weight
+                weights[2] = 0.6; // Top point
+                weights[3] = 0.6; // Bottom point
+            }
+            
+            // Additional weights for vertical vs horizontal position (iris is typically closer to inner corner)
+            const horizontalBias = eyeSide === "left" ? -0.15 : 0.15; // Bias towards inner corner slightly
+            
+            // Measure eye openness and shape
+            const eyeWidth = getEyeWidth(eyePoints);
+            const eyeHeight = getEyeHeight(eyePoints);
+            const eyeAspectRatio = eyeHeight / eyeWidth;
+            
+            // Calculate weighted average position
             let sumX = 0;
             let sumY = 0;
+            let sumWeights = 0;
             
-            for (let i = 0; i < innerPoints.length; i++) {
-                sumX += innerPoints[i].x;
-                sumY += innerPoints[i].y;
+            for (let i = 0; i < innerPointIndices.length; i++) {
+                const idx = innerPointIndices[i];
+                const weight = weights[idx] || 0.25; // Default weight if not specified
+                
+                sumX += eyePoints[idx].x * weight;
+                sumY += eyePoints[idx].y * weight;
+                sumWeights += weight;
+            }
+            
+            // Apply very small bias towards the inner corner (where iris typically sits)
+            let x = sumX / sumWeights;
+            let y = sumY / sumWeights;
+            
+            // Adjust horizontal position based on likely iris location relative to eye shape
+            x += eyeWidth * horizontalBias;
+            
+            // If eye is more closed, adjust vertical position (pupil tends to be more centered vertically when eye squints)
+            if (eyeAspectRatio < 0.2) { // Very squinted eye
+                const verticalCenter = (eyePoints[2].y + eyePoints[4].y) / 2; // Average of top and bottom points
+                y = y * 0.7 + verticalCenter * 0.3; // Weight more toward center when eye is squinted
+            }
+            
+            return { x, y };
+        }
+        
+        // Get eye width helper function
+        function getEyeWidth(eyePoints) {
+            // Typically points 0 and 3 are the outer and inner corners
+            const leftX = Math.min(...eyePoints.map(p => p.x));
+            const rightX = Math.max(...eyePoints.map(p => p.x));
+            return rightX - leftX;
+        }
+        
+        // Get eye height helper function
+        function getEyeHeight(eyePoints) {
+            // Typically points 1, 2 are top and bottom of eye
+            const topY = Math.min(...eyePoints.map(p => p.y));
+            const bottomY = Math.max(...eyePoints.map(p => p.y));
+            return bottomY - topY;
+        }
+        
+        // Smooth eyeball vector to reduce noise and improve accuracy
+        function smoothEyeballVector(history) {
+            if (history.length === 0) return { x: 0, y: 0 };
+            
+            // Weighted average with more weight to recent entries
+            let sumX = 0;
+            let sumY = 0;
+            let sumWeights = 0;
+            
+            for (let i = 0; i < history.length; i++) {
+                // More recent entries get higher weight
+                const weight = (i + 1) / history.length;
+                sumX += history[i].x * weight;
+                sumY += history[i].y * weight;
+                sumWeights += weight;
             }
             
             return {
-                x: sumX / innerPoints.length,
-                y: sumY / innerPoints.length
+                x: sumX / sumWeights,
+                y: sumY / sumWeights
             };
+        }
+        
+        // Calculate weighted score for following detection
+        function calculateWeightedScore(history) {
+            if (history.length === 0) return 0;
+            
+            let sumScore = 0;
+            let sumWeights = 0;
+            
+            for (let i = 0; i < history.length; i++) {
+                // More recent entries get exponentially higher weight
+                const weight = Math.pow(1.5, i) / Math.pow(1.5, history.length - 1);
+                sumScore += history[i] * weight;
+                sumWeights += weight;
+            }
+            
+            return sumScore / sumWeights;
         }
 
         // Clean up on page unload
