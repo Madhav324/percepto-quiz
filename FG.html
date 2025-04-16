@@ -420,58 +420,67 @@
         /* Mobile optimizations */
         @media (max-width: 600px) {
             .container {
-                padding: 10px;
+                padding: 8px;
                 width: 100%;
                 max-width: 100%;
             }
             
             h1 {
-                font-size: 1.4rem;
+                font-size: 1.3rem;
+                margin-bottom: 5px;
             }
             
             .angles-container {
-                height: 280px;
+                height: 260px;
                 touch-action: none;
+                margin-bottom: 10px;
             }
             
             .draggable-line {
-                width: 70px;
-                height: 10px; /* Thicker for easier touch */
-                border-radius: 5px;
+                width: 65px;
+                height: 8px; /* Balanced size for touch while keeping compact */
+                border-radius: 4px;
             }
             
             .draggable-line::after {
-                width: 18px;
-                height: 18px;
-                right: -10px;
+                width: 16px;
+                height: 16px;
+                right: -8px;
             }
             
             .reference-guide {
-                width: 95%;
-                padding: 8px;
+                width: 98%;
+                padding: 5px;
                 grid-template-columns: repeat(2, 1fr);
+                grid-gap: 5px;
+                bottom: 5px;
             }
             
             .angle-label {
                 font-size: 0.8rem;
-                padding: 3px;
+                padding: 2px 3px;
+                margin: 0;
             }
             
             .controls {
                 flex-wrap: wrap;
                 justify-content: space-around;
+                margin-bottom: 10px;
+                gap: 5px;
             }
             
             .reset-btn, .hint-btn, .submit-btn {
-                padding: 8px 12px;
-                min-width: 80px;
+                padding: 6px 10px;
+                min-width: 70px;
                 font-size: 0.9rem;
-                margin: 5px;
+                margin: 0;
+                min-height: 32px;
             }
             
             .instructions {
-                font-size: 0.9rem;
-                padding: 8px;
+                font-size: 0.85rem;
+                padding: 6px;
+                margin-bottom: 10px;
             }
             
             .instruction-targets {
@@ -480,9 +489,9 @@
             }
             
             .instruction-targets span {
-                font-size: 0.8rem;
-                padding: 3px 6px;
-                margin-bottom: 5px;
+                font-size: 0.75rem;
+                padding: 2px 4px;
+                margin-bottom: 3px;
             }
             
             .profile-icon {
@@ -519,17 +528,28 @@
             /* Target smaller device height */
             @media (max-height: 700px) {
                 .angles-container {
-                    height: 240px;
+                    height: 230px;
                 }
                 
                 .instructions {
-                    padding: 5px;
-                    margin-bottom: 10px;
+                    padding: 3px;
+                    margin-bottom: 5px;
                 }
                 
                 .draggable-line {
-                    width: 60px;
-                    height: 10px;
+                    width: 55px;
+                    height: 7px;
+                }
+                
+                /* More compact results/attempts area */
+                .attempt-item {
+                    padding: 8px;
+                    margin-bottom: 8px;
+                }
+                
+                #report-container h2 {
+                    font-size: 1.1rem;
+                    margin: 5px 0;
                 }
             }
             
@@ -960,41 +980,20 @@
                     const deltaX = e.clientX - startX;
                     const deltaY = e.clientY - startY;
                     const sensitivity = 0.5;
-                    
-                    // Calculate new angle
-                    let newAngle = lastAngle + (deltaX - deltaY) * sensitivity;
-                    
-                    // Normalize immediately to keep consistent with other angle calculations
-                    newAngle = normalizeAngle(newAngle);
-                    currentPosition.angle = newAngle;
-                    
-                    // Log for debugging
-                    console.log(`Line ${lineId} delta rotation: ${newAngle}°`);
+                    currentPosition.angle = lastAngle + (deltaX - deltaY) * sensitivity;
                 } else {
-                        // Calculate the angle with atan2 for more accurate rotation
-                    let angle = Math.atan2(currentY, currentX) * (180 / Math.PI);
+                    // Calculate the angle with atan2 for more accurate rotation
+                    const angle = Math.atan2(currentY, currentX) * (180 / Math.PI);
                     
-                    // Normalize angle immediately to ensure consistent display/recording
-                    angle = normalizeAngle(angle);
-                    
-                    // Update the position with the normalized angle
+                    // Update the position with the new angle
                     currentPosition.angle = angle;
-                    
-                    // Log for debugging
-                    console.log(`Line ${lineId} set to angle: ${angle}°`);
                 }
                 
                 // Update line position
                 updateLinePosition(element, currentPosition);
                 
-                // Update the angle indicator with precise value (not rounded)
-                // Use the same normalization as when recording to ensure consistency
-                const displayAngle = normalizeAngle(currentPosition.angle);
-                angleIndicator.textContent = displayAngle + '°';
-                
-                // Store this as a data attribute for debugging
-                angleIndicator.dataset.rawAngle = currentPosition.angle;
-                angleIndicator.dataset.normalizedAngle = displayAngle;
+                // Update the angle indicator
+                angleIndicator.textContent = Math.round(normalizeAngle(currentPosition.angle)) + '°';
                 
                 // Change color based on how close to target angle
                 const diff = Math.abs(normalizeAngle(currentPosition.angle) - targetAngle);
@@ -1149,13 +1148,7 @@
                 const line3Angle = normalizeAngle(line3Position.angle);
                 const line4Angle = normalizeAngle(line4Position.angle);
                 
-                console.log('Current angles (raw):', [
-                    line1Position.angle, 
-                    line2Position.angle, 
-                    line3Position.angle, 
-                    line4Position.angle
-                ]);
-                console.log('Current angles (normalized):', [line1Angle, line2Angle, line3Angle, line4Angle]);
+                console.log('Current angles:', [line1Angle, line2Angle, line3Angle, line4Angle]);
                 console.log('Target angles:', quizData.targetAngles);
                 
                 // Calculate the minimum angle difference (accounting for 360 degree wrapping)
@@ -1234,22 +1227,11 @@
             }
         }
         
-        // Normalize angle to 0-360 range with floating point precision handling
+        // Normalize angle to 0-360 range
         function normalizeAngle(angle) {
-            // First ensure we're dealing with a number
-            angle = parseFloat(angle);
-            if (isNaN(angle)) {
-                console.warn('Invalid angle value encountered:', angle);
-                return 0; // Safe default
-            }
-            
-            // Standard modulo operation for range 0-360
             angle = angle % 360;
             if (angle < 0) angle += 360;
-            
-            // Maintain precision but avoid floating point errors by rounding to 1 decimal place
-            // This prevents small discrepancies between displayed and recorded angles
-            return parseFloat(angle.toFixed(1));
+            return angle;
         }
         
         // Save quiz result to Firebase with improved reliability
