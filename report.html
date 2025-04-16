@@ -205,12 +205,50 @@
             color: #555;
         }
         
+        /* Profile icon styles */
+        .profile-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background-color: #4a90e2;
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+        
+        .doctor-profile {
+            background-color: #5c6bc0;
+        }
+        
+        .patient-profile {
+            background-color: #4caf50;
+        }
+        
+        .user-profile {
+            background-color: #4a90e2;
+        }
+        
+        /* Adjust header to display icon with user info */
+        .header {
+            display: flex;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+            margin-bottom: 15px;
+        }
+        
 
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
+            <div class="profile-icon" id="profileIcon">UU</div>
             <div class="user-info">
                 <span class="user-name" id="userName">Loading...</span>
                 <span class="user-email" id="userEmail"></span>
@@ -221,14 +259,12 @@
         <div id="loading">Loading report...</div>
 
         <div id="quiz-container">
-            <h1>Visual Perceptual Skills Report</h1>
+            <h1>CVI Report</h1>
             <p>This report shows your latest performance on each quiz.</p>
             <div class="button-group">
                 <a href="index.html" style="text-decoration: none;"><button id="home-button">Return Home</button></a>
             </div>
         </div>
-
-
 
         <div id="report-container">
             <div class="quiz-name">VD-Shapes(Lv1)</div>
@@ -310,7 +346,7 @@
         <div id="final-risk">
             <div class="final-result" id="cvi-risk-result"></div>
         </div>
-
+        
         <!-- Firebase -->
         <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
         <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
@@ -617,6 +653,13 @@
                     if (patientProfileSnapshot.exists()) {
                         const patientProfile = patientProfileSnapshot.val();
                         document.getElementById('userName').textContent = `${patientProfile.name || 'Patient'}'s Report`;
+                        
+                        // Set profile icon with patient's initials
+                        const patientName = patientProfile.name || 'Patient';
+                        const initials = getInitials(patientName);
+                        document.getElementById('profileIcon').textContent = initials;
+                        document.getElementById('profileIcon').classList.add('patient-profile');
+                        
                         // Add patient indicator
                         const patientIndicator = document.createElement('span');
                         patientIndicator.className = 'patient-indicator';
@@ -634,16 +677,27 @@
                     let profileRef;
                     if (isDoctor) {
                         profileRef = ref(dbRef, `doctors/${user.uid}/profile`);
+                        document.getElementById('profileIcon').classList.add('doctor-profile');
                     } else {
                         profileRef = ref(dbRef, `users/${user.uid}/profile`);
+                        document.getElementById('profileIcon').classList.add('user-profile');
                     }
+                    
                     const profileSnapshot = await get(profileRef);
+                    let userName = '';
+                    
                     if (profileSnapshot.exists()) {
                         const profile = profileSnapshot.val();
-                        document.getElementById('userName').textContent = profile.name || user.displayName || 'User';
+                        userName = profile.name || user.displayName || 'User';
+                        document.getElementById('userName').textContent = userName;
                     } else {
-                        document.getElementById('userName').textContent = user.displayName || 'User';
+                        userName = user.displayName || 'User';
+                        document.getElementById('userName').textContent = userName;
                     }
+                    
+                    // Set profile icon with user's initials
+                    const initials = getInitials(userName);
+                    document.getElementById('profileIcon').textContent = initials;
                 }
                 document.getElementById('userEmail').textContent = user.email;
             }
@@ -658,6 +712,17 @@
                     container.innerHTML = '';
                     container.appendChild(messageEl);
                 }
+            }
+            
+            // Helper function to get initials from a name
+            function getInitials(name) {
+                if (!name || typeof name !== 'string') return 'UU';
+                return name
+                    .split(' ')
+                    .map(part => part.charAt(0))
+                    .join('')
+                    .toUpperCase()
+                    .substring(0, 2) || 'UU';
             }
             
             // CVI risk level calculation function
