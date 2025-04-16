@@ -304,6 +304,7 @@
             max-height: 70vh;
             overflow-y: auto;
             padding-bottom: 20px;
+            display: none; /* Initially hidden, will be shown when results are available */
         }
         
         .result-message {
@@ -333,6 +334,7 @@
             padding: 0;
             margin: 0;
             overflow-y: visible;
+            padding-bottom: 30px; /* Extra space at bottom for scrolling */
         }
         
         .attempt-item {
@@ -366,12 +368,15 @@
         
         .attempt-details {
             display: none;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 10px;
-            margin-top: 15px;
-            background-color: #f0f0f0;
-            padding: 15px;
-            border-radius: 5px;
+            grid-template-columns: 1fr;
+            gap: 8px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed #e0e0e0;
+            animation: fadeIn 0.3s ease;
+            overflow: visible;
+            height: auto;
+            transition: all 0.3s ease;
         }
         
         .attempt-detail-item {
@@ -456,8 +461,9 @@
             /* Ensure attempts are visible and scrollable on mobile */
             .report-container {
                 max-height: 60vh;
-                overflow-y: auto;
+                overflow-y: auto !important; /* Force scrolling to work on mobile */
                 -webkit-overflow-scrolling: touch;
+                padding-bottom: 50px; /* Extra padding at bottom for scrolling */
             }
         }
         
@@ -1573,7 +1579,10 @@
                                 if (detailsDiv.style.display === 'none' || !detailsDiv.style.display) {
                                     detailsDiv.style.display = 'grid';
                                     this.textContent = 'Hide Details';
-                                    // Removed auto-scrolling behavior to allow manual scrolling
+                                    // Make sure details are visible without forcing scroll
+                                    detailsDiv.style.opacity = '1';
+                                    detailsDiv.style.height = 'auto';
+                                    detailsDiv.style.maxHeight = '500px';
                                 } else {
                                     detailsDiv.style.display = 'none';
                                     this.textContent = 'Show Details';
@@ -1593,8 +1602,11 @@
                     reportList.innerHTML += '<p>No previous attempts found.</p>';
                 }
                 
-                // Removed auto-scrolling code to allow manual scrolling
-                document.getElementById('report-container').style.display = 'block';
+                // Make sure the report container is visible and properly styled for scrolling
+                const reportContainer = document.getElementById('report-container');
+                reportContainer.style.display = 'block';
+                reportContainer.style.maxHeight = '70vh';
+                reportContainer.style.overflowY = 'auto';
                 
             } catch (error) {
                 console.error('Error fetching previous attempts:', error);
