@@ -864,7 +864,7 @@
                 const duration = document.getElementById('duration').value;
                 const notes = document.getElementById('notes').value;
                 
-                // Prepare data object
+                // Prepare data object with a flat structure
                 const timestamp = Date.now();
                 const assessmentData = {
                     timestamp,
@@ -872,24 +872,21 @@
                     interactionCount,
                     pattern,
                     speed,
-                    observations: {
-                        fixation,
-                        leftField,
-                        rightField,
-                        centerField,
-                        duration,
-                        notes
-                    },
-                    eyeTracking: {
-                        enabled: enableEyeTracking,
-                        faceMovementCount: eyeMovementCount,
-                        eyeballMovementCount: eyeballMovementCount,
-                        // Prevent Infinity values from being saved to Firebase
-                        fixationDuration: !isFinite(eyeFixationDuration) ? null : eyeFixationDuration,
-                        followingLightScore: !isFinite(followingScore) ? null : followingScore,
-                        // Only save the last 100 eye movement data points to prevent huge data
-                        movements: eyeMovementData.slice(-100)
-                    }
+                    // Observation data (flattened)
+                    fixation,
+                    leftField,
+                    rightField,
+                    centerField,
+                    duration,
+                    notes,
+                    // Eye tracking data (flattened)
+                    eyeTrackingEnabled: enableEyeTracking,
+                    faceMovementCount: eyeMovementCount,
+                    eyeballMovementCount: eyeballMovementCount,
+                    fixationDuration: eyeFixationDuration,
+                    followingLightScore: followingScore,
+                    // Only save the last 100 eye movement data points to prevent huge data
+                    eyeMovements: eyeMovementData.slice(-100)
                 };
                 
                 // Determine the correct path based on user role
@@ -1012,7 +1009,7 @@
                             <span><strong>Date:</strong> ${formattedDate}</span>
                             <span><strong>Pattern:</strong> ${assessment.pattern}</span>
                             <span><strong>Duration:</strong> ${assessment.assessmentDuration.toFixed(1)}s</span>
-                            ${assessment.eyeTracking ? `<span><strong>Eye Track:</strong> ${assessment.eyeTracking.enabled ? 'On' : 'Off'}</span>` : ''}
+                            <span><strong>Eye Track:</strong> ${assessment.eyeTrackingEnabled ? 'On' : 'Off'}</span>
                         `;
                         
                         // Create toggle button
@@ -1026,8 +1023,7 @@
                         details.className = 'attempt-details';
                         details.style.display = 'none';
                         
-                        // Add details
-                        const observations = assessment.observations || {};
+                        // Add all details in a single flat list
                         details.innerHTML = `
                             <div class="detail-row">
                                 <span class="detail-label">Interactions:</span>
@@ -1039,43 +1035,46 @@
                             </div>
                             <div class="detail-row">
                                 <span class="detail-label">Fixation Achieved:</span>
-                                <span>${observations.fixation ? 'Yes' : 'No'}</span>
+                                <span>${assessment.fixation ? 'Yes' : 'No'}</span>
                             </div>
                             <div class="detail-row">
                                 <span class="detail-label">Field Response:</span>
                                 <span>
-                                    ${observations.leftField ? 'Left, ' : ''}
-                                    ${observations.centerField ? 'Center, ' : ''}
-                                    ${observations.rightField ? 'Right' : ''}
+                                    ${assessment.leftField ? 'Left, ' : ''}
+                                    ${assessment.centerField ? 'Center, ' : ''}
+                                    ${assessment.rightField ? 'Right' : ''}
                                 </span>
                             </div>
                             <div class="detail-row">
                                 <span class="detail-label">Eye Contact Duration:</span>
-                                <span>${observations.duration}s</span>
+                                <span>${assessment.duration}s</span>
                             </div>
-                            ${assessment.eyeTracking ? `
+                            <div class="detail-row">
+                                <span class="detail-label">Eye Tracking:</span>
+                                <span>${assessment.eyeTrackingEnabled ? 'Enabled' : 'Disabled'}</span>
+                            </div>
                             <div class="detail-row">
                                 <span class="detail-label">Face Movements:</span>
-                                <span>${assessment.eyeTracking.faceMovementCount || 0}</span>
+                                <span>${assessment.faceMovementCount || 0}</span>
                             </div>
-                            <div class="detail-row">
+                            <div class="detail-row highlight-row">
                                 <span class="detail-label">Eyeball Movements:</span>
-                                <span>${assessment.eyeTracking.eyeballMovementCount || 0}</span>
+                                <span>${assessment.eyeballMovementCount || 0}</span>
                             </div>
-                            <div class="detail-row">
+                            <div class="detail-row highlight-row">
                                 <span class="detail-label">Following Light:</span>
-                                <span>${assessment.eyeTracking.followingLightScore ? 
-                                `<span style="color:${(assessment.eyeTracking.followingLightScore > 0.5) ? 'green' : 'orange'}">` + 
-                                (assessment.eyeTracking.followingLightScore * 100).toFixed(0) + '%</span>' : 'N/A'}</span>
+                                <span>${assessment.followingLightScore ? 
+                                `<span style="color:${(assessment.followingLightScore > 0.5) ? 'green' : 'orange'}">` + 
+                                (assessment.followingLightScore * 100).toFixed(0) + '%</span>' : 'N/A'}</span>
                             </div>
                             <div class="detail-row">
                                 <span class="detail-label">Auto Fixation Duration:</span>
-                                <span>${assessment.eyeTracking.fixationDuration ? assessment.eyeTracking.fixationDuration.toFixed(1) + 's' : 'N/A'}</span>
-                            </div>` : ''}
-                            ${observations.notes ? `
+                                <span>${assessment.fixationDuration ? assessment.fixationDuration.toFixed(1) + 's' : 'N/A'}</span>
+                            </div>
+                            ${assessment.notes ? `
                             <div class="detail-row">
                                 <span class="detail-label">Notes:</span>
-                                <span>${observations.notes}</span>
+                                <span>${assessment.notes}</span>
                             </div>` : ''}
                         `;
                         
