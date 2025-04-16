@@ -161,6 +161,13 @@
             transition: transform 0.2s;
         }
         
+        .quiz-report-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+        
         .quiz-report:hover {
             transform: translateY(-2px);
             box-shadow: 0 3px 6px rgba(0,0,0,0.15);
@@ -178,6 +185,60 @@
         .quiz-date {
             font-size: 12px;
             color: #777;
+        }
+        
+        .toggle-details {
+            font-size: 11px;
+            color: #4CAF50;
+            cursor: pointer;
+            text-decoration: underline;
+            margin-top: 5px;
+            display: inline-block;
+        }
+        
+        .quiz-details {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed #ddd;
+            display: none;
+        }
+        
+        .quiz-details.active {
+            display: block;
+        }
+        
+        .additional-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+        
+        .additional-stat {
+            font-size: 12px;
+            color: #555;
+            background-color: #f1f1f1;
+            padding: 5px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        
+        .progress-container {
+            height: 4px;
+            background-color: #e0e0e0;
+            border-radius: 2px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background-color: #4CAF50;
+        }
+        
+        .attempt-history {
+            font-size: 12px;
+            margin-top: 10px;
         }
         
         .quiz-stats {
@@ -392,6 +453,20 @@
                 });
             }
             
+            // Toggle quiz details visibility
+            function toggleQuizDetails(quizType) {
+                const detailsElement = document.getElementById(`quiz-details-${quizType}`);
+                const toggleIcon = document.getElementById(`toggle-icon-${quizType}`);
+                
+                if (detailsElement.classList.contains('active')) {
+                    detailsElement.classList.remove('active');
+                    toggleIcon.textContent = '+';
+                } else {
+                    detailsElement.classList.add('active');
+                    toggleIcon.textContent = '−';
+                }
+            }
+            
             // Get score class based on value
             function getScoreClass(score) {
                 if (score >= 80) return 'score-high';
@@ -550,27 +625,93 @@
                         const score = attempt.score || 0;
                         const scoreClass = getScoreClass(score);
                         
-                        // Create quiz report card
+                        // Calculate additional metrics 
+                        const timeSpent = Math.round((attempt.timeSpent || 0) / 1000); // in seconds
+                        const totalQuestions = attempt.totalQuestions || 0;
+                        const correctAnswers = attempt.correctAnswers || 0;
+                        const incorrectAnswers = totalQuestions > 0 ? totalQuestions - correctAnswers : 0;
+                        const avgTimePerQuestion = totalQuestions > 0 ? Math.round(timeSpent / totalQuestions * 10) / 10 : 0;
+                        const interactionsPerQuestion = totalQuestions > 0 ? Math.round((attempt.interactions || 0) / totalQuestions * 10) / 10 : 0;
+                        const accuracy = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
+                        
+                        // Create quiz report card with expandable details
                         reportsHTML += `
-                            <div class="quiz-report">
-                                <div class="quiz-title">
-                                    ${displayName}
-                                    <span class="score-pill ${scoreClass}">${score}%</span>
+                            <div class="quiz-report" data-quiz-type="${quizType}">
+                                <div class="quiz-report-header" onclick="toggleQuizDetails('${quizType}')">
+                                    <div>
+                                        <div class="quiz-title">
+                                            ${displayName}
+                                            <span class="score-pill ${scoreClass}">${score}%</span>
+                                        </div>
+                                        <div class="quiz-date">Latest attempt: ${date}</div>
+                                    </div>
+                                    <div id="toggle-icon-${quizType}">+</div>
                                 </div>
-                                <div class="quiz-date">Latest attempt: ${date}</div>
+                                
                                 <div class="quiz-stats">
                                     <div class="stat">
                                         <div class="stat-value">${attempt.score || 0}%</div>
                                         <div class="stat-label">Score</div>
                                     </div>
                                     <div class="stat">
-                                        <div class="stat-value">${Math.round((attempt.timeSpent || 0) / 1000)}s</div>
+                                        <div class="stat-value">${timeSpent}s</div>
                                         <div class="stat-label">Time</div>
                                     </div>
                                     <div class="stat">
                                         <div class="stat-value">${attempt.interactions || 0}</div>
                                         <div class="stat-label">Interactions</div>
                                     </div>
+                                </div>
+                                
+                                <div id="quiz-details-${quizType}" class="quiz-details">
+                                    <div class="progress-container">
+                                        <div class="progress-bar" style="width: ${score}%"></div>
+                                    </div>
+                                    
+                                    <div class="additional-stats">
+                                        <div class="additional-stat">
+                                            <div>Questions</div>
+                                            <strong>${totalQuestions}</strong>
+                                        </div>
+                                        <div class="additional-stat">
+                                            <div>Correct</div>
+                                            <strong>${correctAnswers}</strong>
+                                        </div>
+                                        <div class="additional-stat">
+                                            <div>Incorrect</div>
+                                            <strong>${incorrectAnswers}</strong>
+                                        </div>
+                                        <div class="additional-stat">
+                                            <div>Accuracy</div>
+                                            <strong>${accuracy}%</strong>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="additional-stats">
+                                        <div class="additional-stat">
+                                            <div>Avg. Time</div>
+                                            <strong>${avgTimePerQuestion}s</strong>
+                                        </div>
+                                        <div class="additional-stat">
+                                            <div>Interactions/Q</div>
+                                            <strong>${interactionsPerQuestion}</strong>
+                                        </div>
+                                        ${attempt.errors ? `
+                                        <div class="additional-stat">
+                                            <div>Errors</div>
+                                            <strong>${attempt.errors}</strong>
+                                        </div>` : ''}
+                                        ${attempt.hints ? `
+                                        <div class="additional-stat">
+                                            <div>Hints Used</div>
+                                            <strong>${attempt.hints}</strong>
+                                        </div>` : ''}
+                                    </div>
+                                    
+                                    ${attempt.notes ? `
+                                    <div class="attempt-notes">
+                                        <small><strong>Notes:</strong> ${attempt.notes}</small>
+                                    </div>` : ''}
                                 </div>
                             </div>
                         `;
