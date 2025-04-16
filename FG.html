@@ -149,6 +149,7 @@
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
             transition: box-shadow 0.2s, opacity 0.2s;
             z-index: 10;
+            touch-action: none; /* Critical for proper touch handling */
         }
         
         .draggable-line::after {
@@ -324,6 +325,30 @@
             background-color: #45a049;
         }
         
+        /* Touch-specific styles */
+        .touch-device .draggable-line::after {
+            width: 22px;
+            height: 22px;
+            right: -11px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+        }
+        
+        .touch-device .angle-indicator {
+            opacity: 1;
+            background-color: rgba(255, 255, 255, 0.9);
+            font-weight: bold;
+        }
+        
+        .touch-device .draggable-line:active {
+            box-shadow: 0 0 12px rgba(0, 0, 0, 0.6);
+            opacity: 0.9;
+        }
+        
+        .touch-active {
+            /* For elements being touched */
+            transform: scale(1.05);
+        }
+        
         /* Add animations */
         @keyframes pulse {
             0% { transform: rotate(var(--current-angle)) scale(1); opacity: 1; }
@@ -372,8 +397,14 @@
             
             .draggable-line {
                 width: 70px;
-                height: 8px;
-                border-radius: 4px;
+                height: 10px; /* Thicker for easier touch */
+                border-radius: 5px;
+            }
+            
+            .draggable-line::after {
+                width: 18px;
+                height: 18px;
+                right: -10px;
             }
             
             .reference-guide {
@@ -448,7 +479,37 @@
                 
                 .draggable-line {
                     width: 60px;
-                    height: 6px;
+                    height: 10px;
+                }
+            }
+            
+            /* iPhone SE and other tiny screens */
+            @media (max-width: 375px) {
+                .instruction-targets span {
+                    font-size: 0.7rem;
+                    padding: 2px 4px;
+                }
+                
+                .angles-container {
+                    height: 220px;
+                }
+                
+                .angle-indicator {
+                    transform: translate(35px, -16px);
+                    font-size: 9px;
+                    padding: 1px 3px;
+                }
+                
+                .controls {
+                    flex-direction: row;
+                    flex-wrap: wrap;
+                }
+                
+                .reset-btn, .hint-btn, .submit-btn {
+                    flex: 1;
+                    min-width: 70px;
+                    padding: 8px 5px;
+                    font-size: 0.8rem;
                 }
             }
         }
@@ -582,6 +643,22 @@
             resetBtn.addEventListener('click', resetQuiz);
             submitBtn.addEventListener('click', submitAnswer);
             document.getElementById('hint-btn').addEventListener('click', showHint);
+            
+            // Add touch-specific adjustments when running on mobile
+            if (isTouchDevice()) {
+                document.body.classList.add('touch-device');
+                // Prevent zooming when double tapping
+                document.addEventListener('dblclick', function(e) {
+                    e.preventDefault();
+                });
+            }
+        }
+        
+        // Helper function to detect touch devices
+        function isTouchDevice() {
+            return (('ontouchstart' in window) ||
+                   (navigator.maxTouchPoints > 0) ||
+                   (navigator.msMaxTouchPoints > 0));
         }
         
         // Create angle references
@@ -683,10 +760,11 @@
             document.addEventListener('mousemove', onMove);
             document.addEventListener('mouseup', onEnd);
             
-            // Touch events for mobile
+            // Enhanced touch events for mobile
             element.addEventListener('touchstart', handleTouch(onStart), { passive: false });
             document.addEventListener('touchmove', handleTouch(onMove), { passive: false });
             document.addEventListener('touchend', handleTouch(onEnd));
+            document.addEventListener('touchcancel', handleTouch(onEnd));
             
             // Show angle on hover
             element.addEventListener('mouseover', () => showAngleIndicator(true));
@@ -717,7 +795,19 @@
             
             function handleTouch(callback) {
                 return function(event) {
-                    if (event.touches && event.touches[0]) {
+                    if (event.type === 'touchend' || event.type === 'touchcancel') {
+                        // For touchend we use changedTouches instead of touches
+                        if (event.changedTouches && event.changedTouches[0]) {
+                            event.preventDefault();
+                            event.clientX = event.changedTouches[0].clientX;
+                            event.clientY = event.changedTouches[0].clientY;
+                            callback(event);
+                        } else {
+                            // If we somehow lose touch, just call the callback without coords
+                            callback(event);
+                        }
+                    } else if (event.touches && event.touches[0]) {
+                        // For touchstart and touchmove
                         event.preventDefault();
                         event.clientX = event.touches[0].clientX;
                         event.clientY = event.touches[0].clientY;
@@ -1284,10 +1374,28 @@
             }
         });
         
-        // Disable page zooming on mobile to prevent issues with drag/rotate
+        // Optimize touch handling on mobile devices
         document.addEventListener('touchmove', function(e) {
-            if (e.touches.length > 1) {
+            // Prevent page zooming only when interacting with our quiz elements
+            if (e.touches.length > 1 || 
+                e.target.classList.contains('draggable-line') ||
+                e.target.closest('.angles-container')) {
                 e.preventDefault();
+            }
+        }, { passive: false });
+        
+        // Add double-tap prevention for iOS
+        document.addEventListener('touchend', function(e) {
+            // Prevent double-tap zoom on iOS, but only for our quiz elements
+            if (e.target.classList.contains('draggable-line') ||
+                e.target.closest('.angles-container')) {
+                e.preventDefault();
+                // Trigger a fake click for better UX
+                if (e.target.click && !e.target.classList.contains('draggable-line')) {
+                    setTimeout(function() {
+                        e.target.click();
+                    }, 100);
+                }
             }
         }, { passive: false });
         
