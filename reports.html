@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Reports - Percepto</title>
+    <style>
+        /* Reset and base styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 15px;
+        }
+
+        .container {
+            text-align: center;
+            border-radius: 8px;
+            background-color: #fff;
+            box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 650px;
+            padding: 20px;
+            position: relative;
+        }
+
+        /* Header and profile styles */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        
+        h1 {
+            font-size: 22px;
+            color: #333;
+            margin: 0;
+        }
+        
+        h2 {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        /* Profile Navigation Styles */
+        .profile-dropdown {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            z-index: 100;
+        }
+        
+        .profile-icon {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background-color: #4CAF50;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: bold;
+            text-decoration: none;
+            transition: all 0.3s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            z-index: 101;
+            font-size: 14px;
+        }
+        
+        .profile-icon:hover {
+            background-color: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
+        /* Profile Menu */
+        .profile-menu {
+            position: absolute;
+            top: 45px;
+            right: 0;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            min-width: 160px;
+            z-index: 102;
+            display: none;
+            overflow: hidden;
+        }
+        
+        .profile-menu.active {
+            display: block;
+        }
+        
+        .profile-menu a {
+            padding: 10px 12px;
+            display: block;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            color: #333;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        
+        .profile-menu a:hover {
+            background-color: #f5f5f5;
+        }
+        
+        /* Report styles */
+        .report-container {
+            text-align: left;
+            padding: 5px 0;
+        }
+        
+        .report-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .home-btn {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            padding: 6px 12px;
+            text-decoration: none;
+            display: inline-block;
+            transition: background-color 0.3s;
+        }
+        
+        .home-btn:hover {
+            background-color: #45a049;
+        }
+        
+        .quiz-report {
+            background-color: #f9f9f9;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+        
+        .quiz-report:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+        }
+        
+        .quiz-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .quiz-date {
+            font-size: 12px;
+            color: #777;
+        }
+        
+        .quiz-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 5px;
+            margin-top: 10px;
+        }
+        
+        .stat {
+            background-color: #fff;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 13px;
+            text-align: center;
+            border: 1px solid #eee;
+        }
+        
+        .stat-value {
+            font-weight: bold;
+            color: #4CAF50;
+            font-size: 15px;
+            margin-bottom: 3px;
+        }
+        
+        .stat-label {
+            color: #777;
+            font-size: 11px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 30px;
+            color: #777;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 30px;
+            color: #777;
+            background-color: #f9f9f9;
+            border-radius: 6px;
+            margin-top: 15px;
+        }
+        
+        .user-name {
+            font-size: 15px;
+            color: #333;
+            margin-right: 8px;
+        }
+        
+        .patient-indicator {
+            display: inline-block;
+            background-color: #e9f5e9;
+            color: #4CAF50;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+        
+        /* Score pills */
+        .score-pill {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        
+        .score-high {
+            background-color: #e6f7e6;
+            color: #2e7d32;
+        }
+        
+        .score-medium {
+            background-color: #fff8e1;
+            color: #ff8f00;
+        }
+        
+        .score-low {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+        
+        /* Responsive design */
+        @media (max-width: 576px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .header {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .quiz-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .stat {
+                padding: 5px;
+                min-height: 60px;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Quiz Reports</h1>
+            <div class="profile-dropdown">
+                <span id="userName" class="user-name">User</span>
+                <div class="profile-icon" id="profileIcon" onclick="toggleProfileMenu()">U</div>
+                <div class="profile-menu" id="profileMenu">
+                    <a href="index.html">Home</a>
+                    <a href="#" onclick="editProfile()">Edit Profile</a>
+                    <a href="#" onclick="logout()">Logout</a>
+                </div>
+            </div>
+        </div>
+        
+        <div id="patient-indicator-container" style="text-align: right; margin-bottom: 10px; display: none;">
+            <span id="patient-indicator" class="patient-indicator">Patient</span>
+        </div>
+
+        <div id="report-container" class="report-container">
+            <div class="loading" id="loading-message">
+                Loading your quiz reports...
+            </div>
+        </div>
+        
+        <!-- Firebase Scripts -->
+        <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+        
+        <script>
+            // Firebase configuration
+            const firebaseConfig = {
+                apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
+                authDomain: "projeccvi.firebaseapp.com",
+                projectId: "projeccvi",
+                storageBucket: "projeccvi.appspot.com",
+                messagingSenderId: "279067566247",
+                appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
+            };
+
+            // Initialize Firebase
+            firebase.initializeApp(firebaseConfig);
+            const auth = firebase.auth();
+            const database = firebase.database();
+            
+            // Get quiz context from session storage
+            const currentPatientId = sessionStorage.getItem('currentPatientId');
+            const doctorId = sessionStorage.getItem('doctorId');
+            const isPatientQuiz = !!currentPatientId;
+            
+            // Quiz type mapping
+            const quizNames = {
+                'VDT': 'Visual Discrimination - Shapes',
+                'VDTS1': 'Visual Discrimination - Size',
+                'VDTSE1': 'Visual Discrimination - Emotions',
+                'VDTCC1': 'Visual Discrimination - Colors',
+                'VC1': 'Visual Closure',
+                'VFC': 'Visual Figure-Ground',
+                'VSpac': 'Visual Spatial',
+                'VSpac2': 'Visual Spatial - Advanced',
+                'VN': 'Visual Sequential Memory',
+                'VSM': 'Visual Sequential Memory - Advanced',
+                'mirror': 'CVI Fixation Mirror Assessment',
+                'morning': 'Morning Routine Assessment'
+            };
+            
+            // Toggle profile menu
+            function toggleProfileMenu() {
+                const menu = document.getElementById('profileMenu');
+                menu.classList.toggle('active');
+            }
+            
+            // Handle click outside profile menu
+            document.addEventListener('click', function(event) {
+                const profileIcon = document.getElementById('profileIcon');
+                const profileMenu = document.getElementById('profileMenu');
+                
+                if (!profileIcon.contains(event.target) && !profileMenu.contains(event.target)) {
+                    profileMenu.classList.remove('active');
+                }
+            });
+            
+            // Format date
+            function formatDate(timestamp) {
+                if (!timestamp) return 'Unknown date';
+                
+                const date = new Date(timestamp);
+                return date.toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            }
+            
+            // Get score class based on value
+            function getScoreClass(score) {
+                if (score >= 80) return 'score-high';
+                if (score >= 60) return 'score-medium';
+                return 'score-low';
+            }
+            
+            // Load quiz reports
+            async function loadQuizReports() {
+                try {
+                    const user = auth.currentUser;
+                    if (!user && !isPatientQuiz) return;
+                    
+                    const reportContainer = document.getElementById('report-container');
+                    reportContainer.innerHTML = '<div class="loading" id="loading-message">Loading your quiz reports...</div>';
+                    
+                    let path;
+                    if (isPatientQuiz) {
+                        // Doctor viewing patient reports
+                        path = `doctors/${doctorId}/patients/${currentPatientId}/quizzes`;
+                    } else {
+                        // Regular user viewing their own reports
+                        path = `users/${user.uid}/quizzes`;
+                    }
+                    
+                    // Get all quiz results
+                    const quizResultsSnapshot = await database.ref(path).once('value');
+                    const quizResults = quizResultsSnapshot.val();
+                    
+                    if (!quizResults) {
+                        reportContainer.innerHTML = '<div class="no-data">No quiz results found.</div>';
+                        return;
+                    }
+                    
+                    // Process quiz results to get latest attempt for each quiz type
+                    const latestAttempts = {};
+                    
+                    Object.keys(quizResults).forEach(quizType => {
+                        if (!quizResults[quizType].attempts) return;
+                        
+                        // Get attempts and sort by timestamp (descending)
+                        const attempts = Object.values(quizResults[quizType].attempts);
+                        if (attempts.length === 0) return;
+                        
+                        attempts.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                        
+                        // Store latest attempt for this quiz type
+                        latestAttempts[quizType] = attempts[0];
+                    });
+                    
+                    // Generate HTML for quiz reports
+                    if (Object.keys(latestAttempts).length === 0) {
+                        reportContainer.innerHTML = '<div class="no-data">No quiz results found.</div>';
+                        return;
+                    }
+                    
+                    let reportsHTML = '';
+                    
+                    // Sort quiz types alphabetically by display name
+                    const sortedQuizTypes = Object.keys(latestAttempts).sort((a, b) => {
+                        const nameA = quizNames[a] || a;
+                        const nameB = quizNames[b] || b;
+                        return nameA.localeCompare(nameB);
+                    });
+                    
+                    sortedQuizTypes.forEach(quizType => {
+                        const attempt = latestAttempts[quizType];
+                        const displayName = quizNames[quizType] || quizType;
+                        const date = formatDate(attempt.timestamp);
+                        const score = attempt.score || 0;
+                        const scoreClass = getScoreClass(score);
+                        
+                        // Create quiz report card
+                        reportsHTML += `
+                            <div class="quiz-report">
+                                <div class="quiz-title">
+                                    ${displayName}
+                                    <span class="score-pill ${scoreClass}">${score}%</span>
+                                </div>
+                                <div class="quiz-date">Latest attempt: ${date}</div>
+                                <div class="quiz-stats">
+                                    <div class="stat">
+                                        <div class="stat-value">${attempt.score || 0}%</div>
+                                        <div class="stat-label">Score</div>
+                                    </div>
+                                    <div class="stat">
+                                        <div class="stat-value">${Math.round((attempt.timeSpent || 0) / 1000)}s</div>
+                                        <div class="stat-label">Time</div>
+                                    </div>
+                                    <div class="stat">
+                                        <div class="stat-value">${attempt.interactions || 0}</div>
+                                        <div class="stat-label">Interactions</div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    reportContainer.innerHTML = reportsHTML;
+                    
+                } catch (error) {
+                    console.error('Error loading quiz reports:', error);
+                    const reportContainer = document.getElementById('report-container');
+                    reportContainer.innerHTML = '<div class="no-data">Error loading quiz reports. Please try again later.</div>';
+                }
+            }
+            
+            // Initialize profile icon
+            async function initializeProfileIcon() {
+                const user = auth.currentUser;
+                if (!user && !isPatientQuiz) return;
+                
+                try {
+                    let userDisplayName = 'User';
+                    let initial = 'U';
+                    let profile;
+                    
+                    if (isPatientQuiz) {
+                        // Doctor viewing patient
+                        const patientSnapshot = await database.ref(`doctors/${doctorId}/patients/${currentPatientId}/profile`).once('value');
+                        profile = patientSnapshot.val();
+                        
+                        if (profile && profile.name) {
+                            userDisplayName = profile.name;
+                            initial = profile.name.charAt(0).toUpperCase();
+                        }
+                        
+                        // Show patient indicator
+                        document.getElementById('patient-indicator-container').style.display = 'block';
+                    } else {
+                        // Regular user
+                        const userSnapshot = await database.ref(`users/${user.uid}/profile`).once('value');
+                        profile = userSnapshot.val();
+                        
+                        if (profile && profile.name) {
+                            userDisplayName = profile.name;
+                            initial = profile.name.charAt(0).toUpperCase();
+                        } else if (user.email) {
+                            userDisplayName = user.email.split('@')[0];
+                            initial = user.email.charAt(0).toUpperCase();
+                        }
+                    }
+                    
+                    // Set profile icon and user name
+                    const profileIcon = document.getElementById('profileIcon');
+                    if (profileIcon) {
+                        profileIcon.textContent = initial;
+                    }
+                    
+                    const userName = document.getElementById('userName');
+                    if (userName) {
+                        userName.textContent = userDisplayName;
+                    }
+                } catch (error) {
+                    console.error('Error in profile initialization:', error);
+                    
+                    const profileIcon = document.getElementById('profileIcon');
+                    if (profileIcon) {
+                        profileIcon.textContent = user ? (user.email ? user.email.charAt(0).toUpperCase() : 'U') : 'U';
+                    }
+                    
+                    const userName = document.getElementById('userName');
+                    if (userName) {
+                        userName.textContent = user ? (user.email ? user.email.split('@')[0] : 'User') : 'User';
+                    }
+                }
+            }
+            
+            function editProfile() {
+                const currentPatientId = sessionStorage.getItem('currentPatientId');
+                if (currentPatientId) {
+                    // If accessing as a patient, go to patient profile page
+                    window.location.href = 'patient_profile.html';
+                } else {
+                    // Regular user/doctor profile
+                    window.location.href = 'profile.html';
+                }
+            }
+            
+            function logout() {
+                const currentPatientId = sessionStorage.getItem('currentPatientId');
+                if (currentPatientId) {
+                    // If accessing as a patient, clear session and return to patients.html
+                    sessionStorage.removeItem('currentPatientId');
+                    sessionStorage.removeItem('doctorId');
+                    window.location.href = 'patients.html';
+                } else {
+                    // Regular logout
+                    auth.signOut()
+                        .then(() => {
+                            sessionStorage.clear();
+                            window.location.href = 'login.html';
+                        })
+                        .catch(error => console.error('Error logging out:', error));
+                }
+            }
+            
+            // Auth state observer
+            auth.onAuthStateChanged(user => {
+                if (user || isPatientQuiz) {
+                    initializeProfileIcon();
+                    loadQuizReports();
+                } else {
+                    window.location.href = 'login.html';
+                }
+            });
+        </script>
+    </div>
+</body>
+</html>
