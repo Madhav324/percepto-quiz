@@ -478,22 +478,17 @@
         let eyebrowMovementCount = 0;
         let eyelashMovementCount = 0; // Approximated by upper eyelid movement
         
+        // Time tracking variables
+        let totalSessionTime = 0; // Total time spent in the assessment
+        let sessionStartTime = 0; // When the session started
+        let currentFixationStartTime = 0; // When the current fixation started
+        let maxContinuousFixationTime = 0; // Longest continuous fixation time
+        
         let lastFacePosition = { x: 0, y: 0 };
         let eyeMovementCount = 0;
         let eyeballMovementCount = 0;
         let eyeFixationCount = 0;
         let eyeFixationDuration = 0;
-        
-        // Enhanced fixation tracking
-        let currentFixationStartTime = 0;
-        let longestFixationDuration = 0;
-        let isCurrentlyFixating = false;
-        let fixationBreakCount = 0;
-        
-        // Total time tracking
-        let totalAssessmentStartTime = 0;
-        let totalAssessmentTime = 0;
-        
         let lastDetectionTime = 0;
         let detectionFrameCount = 0;
         let frameRate = 0;
@@ -698,6 +693,7 @@
         function startAssessment() {
             if (!isRunning) {
                 startTime = Date.now();
+                sessionStartTime = Date.now();
                 startAnimation();
                 isRunning = true;
                 isPaused = false;
@@ -711,6 +707,7 @@
                 isRunning = false;
                 isPaused = false;
                 assessmentDuration = (Date.now() - startTime) / 1000; // in seconds
+                totalSessionTime = (Date.now() - sessionStartTime) / 1000; // Total session time in seconds
             }
         }
         
@@ -853,6 +850,7 @@
                 const assessmentData = {
                     timestamp,
                     assessmentDuration,
+                    totalSessionTime,
                     interactionCount,
                     pattern,
                     speed,
@@ -870,11 +868,9 @@
                         eyeballMovementCount: eyeballMovementCount,
                         eyebrowMovementCount: eyebrowMovementCount,
                         eyelashMovementCount: eyelashMovementCount,
-                        totalFixationDuration: eyeFixationDuration,
-                        longestFixationDuration: longestFixationDuration,
-                        fixationBreakCount: fixationBreakCount,
+                        fixationDuration: eyeFixationDuration,
+                        maxContinuousFixationTime: maxContinuousFixationTime,
                         followingLightScore: followingScore,
-                        totalAssessmentTime: totalAssessmentTime,
                         // Only save the last 100 eye movement data points to prevent huge data
                         movements: eyeMovementData.slice(-100)
                     }
@@ -921,6 +917,7 @@
                 
                 // Reset variables
                 assessmentDuration = 0;
+                totalSessionTime = 0;
                 interactionCount = 0;
                 
                 // Reset eye tracking data
@@ -934,12 +931,8 @@
                 rightEyebrowPositions = [];
                 eyeFixationCount = 0;
                 eyeFixationDuration = 0;
+                maxContinuousFixationTime = 0;
                 currentFixationStartTime = 0;
-                longestFixationDuration = 0;
-                isCurrentlyFixating = false;
-                fixationBreakCount = 0;
-                totalAssessmentStartTime = Date.now();
-                totalAssessmentTime = 0;
                 followingScore = 0;
                 followingHistory = [];
                 lightPosition = { x: 0, y: 0 };
@@ -1035,6 +1028,10 @@
                                 <span>${assessment.speed}/10</span>
                             </div>
                             <div class="detail-row">
+                                <span class="detail-label">Duration:</span>
+                                <span>${assessment.totalSessionTime ? assessment.totalSessionTime.toFixed(1) : assessment.assessmentDuration.toFixed(1)}s</span>
+                            </div>
+                            <div class="detail-row">
                                 <span class="detail-label">Fixation Achieved:</span>
                                 <span>${observations.fixation ? 'Yes' : 'No'}</span>
                             </div>
@@ -1050,20 +1047,18 @@
                                 <span class="detail-label">Eye Contact Duration:</span>
                                 <span>${observations.duration}s</span>
                             </div>
-                            <div class="detail-row">
-                                <span class="detail-label">Assessment Duration:</span>
-                                <span>${assessment.eyeTracking && assessment.eyeTracking.totalAssessmentTime ? assessment.eyeTracking.totalAssessmentTime.toFixed(0) + 's' : 'Unknown'}</span>
-                            </div>
                             ${assessment.eyeTracking ? `
                             <div class="detail-row">
                                 <span class="detail-label">Auto Detected:</span>
-                                <span>Eyeball: ${assessment.eyeTracking.eyeballMovementCount}, 
-                                Eyebrow: ${assessment.eyeTracking.eyebrowMovementCount || 0},
-                                Eyelash: ${assessment.eyeTracking.eyelashMovementCount || 0},
-                                Follow: ${assessment.eyeTracking.followingLightScore ? (assessment.eyeTracking.followingLightScore * 100).toFixed(0) + '%' : 'N/A'}, 
-                                <b>Longest Fixation: ${assessment.eyeTracking.longestFixationDuration ? assessment.eyeTracking.longestFixationDuration.toFixed(1) + 's' : '0s'}</b>,
-                                Total Fixation: ${assessment.eyeTracking.totalFixationDuration ? assessment.eyeTracking.totalFixationDuration.toFixed(1) + 's' : '0s'},
-                                Total Time: ${assessment.eyeTracking.totalAssessmentTime ? assessment.eyeTracking.totalAssessmentTime.toFixed(0) + 's' : 'N/A'}</span>
+                                <span>
+                                    <div>Session Time: ${assessment.totalSessionTime ? assessment.totalSessionTime.toFixed(1) : assessment.assessmentDuration.toFixed(1)}s</div>
+                                    <div>Eyeball Movements: ${assessment.eyeTracking.eyeballMovementCount}</div>
+                                    <div>Eyebrow Movements: ${assessment.eyeTracking.eyebrowMovementCount || 0}</div>
+                                    <div>Eyelash Movements: ${assessment.eyeTracking.eyelashMovementCount || 0}</div>
+                                    <div>Following Light: ${assessment.eyeTracking.followingLightScore ? (assessment.eyeTracking.followingLightScore * 100).toFixed(0) + '%' : 'N/A'}</div>
+                                    <div>Total Fixation: ${assessment.eyeTracking.fixationDuration.toFixed(1)}s</div>
+                                    <div>Max Continuous Fixation: ${assessment.eyeTracking.maxContinuousFixationTime ? assessment.eyeTracking.maxContinuousFixationTime.toFixed(1) : '0.0'}s</div>
+                                </span>
                             </div>` : ''}
                             ${observations.notes ? `
                             <div class="detail-row">
@@ -1190,12 +1185,10 @@
             lastUpperEyelidPositions = { left: 0, right: 0 };
             eyeFixationCount = 0;
             eyeFixationDuration = 0;
+            totalSessionTime = 0;
+            sessionStartTime = 0;
             currentFixationStartTime = 0;
-            longestFixationDuration = 0;
-            isCurrentlyFixating = false;
-            fixationBreakCount = 0;
-            totalAssessmentStartTime = Date.now();
-            totalAssessmentTime = 0;
+            maxContinuousFixationTime = 0;
             lastDetectionTime = Date.now();
             detectionFrameCount = 0;
             isFollowingLight = false;
@@ -1576,7 +1569,9 @@
                             if (faceMovement < faceMovementThreshold * 2 && eyeballMovement > eyeballNoiseThreshold * 0.5) { // Double face threshold, halve eyeball threshold
                                 // Eyeball movement detected (independent of face)
                                 eyeballMovementCount++;
-                                eyeFixationCount = 0; // Reset fixation counter
+                                // Reset fixation counter and continuous fixation tracking
+                                eyeFixationCount = 0;
+                                currentFixationStartTime = 0; // Reset continuous fixation time
                                 
                                 // Draw eyeball movement path if visual tracking is enabled
                                 if (showTrackingVisuals && lastEyeballVector.x !== 0) {
@@ -1586,12 +1581,6 @@
                                     ctx.moveTo(avgEyePos.x, avgEyePos.y);
                                     ctx.lineTo(avgEyePos.x + avgEyeballVector.x * 5, avgEyePos.y + avgEyeballVector.y * 5);
                                     ctx.stroke();
-                                }
-                                
-                                // Handle fixation break
-                                if (isCurrentlyFixating) {
-                                    isCurrentlyFixating = false;
-                                    fixationBreakCount++;
                                 }
                                 
                                 // Record eyeball movement data
@@ -1608,22 +1597,21 @@
                             } else {
                                 // Eye fixation detected
                                 eyeFixationCount++;
+                                
+                                // Start tracking continuous fixation if this is a new fixation
+                                if (eyeFixationCount === 5) { // Just reached fixation threshold
+                                    currentFixationStartTime = Date.now();
+                                }
+                                
                                 if (eyeFixationCount >= 5) { // About 0.25 seconds at 20fps
-                                    // Track current fixation period
-                                    if (!isCurrentlyFixating) {
-                                        currentFixationStartTime = Date.now();
-                                        isCurrentlyFixating = true;
-                                    }
-                                    
-                                    // Update total fixation duration
                                     eyeFixationDuration += 1/frameRate;
                                     
-                                    // Calculate current fixation duration
-                                    const currentFixationDuration = (Date.now() - currentFixationStartTime) / 1000;
+                                    // Calculate continuous fixation time
+                                    const currentContinuousFixation = (Date.now() - currentFixationStartTime) / 1000;
                                     
-                                    // Update longest fixation if current is longer
-                                    if (currentFixationDuration > longestFixationDuration) {
-                                        longestFixationDuration = currentFixationDuration;
+                                    // Update max continuous fixation if current is longer
+                                    if (currentContinuousFixation > maxContinuousFixationTime) {
+                                        maxContinuousFixationTime = currentContinuousFixation;
                                     }
                                     
                                     // Mark fixation point if visual tracking is enabled
@@ -1633,10 +1621,10 @@
                                         ctx.arc(avgEyePos.x, avgEyePos.y, 5, 0, 2 * Math.PI);
                                         ctx.fill();
                                         
-                                        // Show current fixation duration
-                                        ctx.fillStyle = 'rgba(0, 255, 255, 1)';
-                                        ctx.font = '12px Arial';
-                                        ctx.fillText(`${currentFixationDuration.toFixed(1)}s`, avgEyePos.x + 10, avgEyePos.y);
+                                        // Show continuous fixation time near the fixation point
+                                        ctx.fillStyle = 'white';
+                                        ctx.font = '10px Arial';
+                                        ctx.fillText(`${currentContinuousFixation.toFixed(1)}s`, avgEyePos.x + 10, avgEyePos.y);
                                     }
                                     
                                     // Record eye fixation data
@@ -1646,8 +1634,8 @@
                                         eyeballVector: { ...avgEyeballVector },
                                         isMovement: false,
                                         fixationDuration: eyeFixationDuration,
-                                        currentFixationDuration: currentFixationDuration,
-                                        followingLight: isFollowingLight
+                                        followingLight: isFollowingLight,
+                                        continuousFixation: currentContinuousFixation
                                     });
                                 }
                             }
@@ -1663,20 +1651,19 @@
                                 right: rightUpperEyelid
                             };
                             
-                            // Calculate total assessment time
-                            totalAssessmentTime = (Date.now() - totalAssessmentStartTime) / 1000;
+                            // Calculate total time for display
+                            const currentTotalTime = isRunning ? (Date.now() - sessionStartTime) / 1000 : 0;
                             
                             // Enhanced detection data display with calibration info
                             document.getElementById('detectionData').innerHTML = `
+                                <b>Time: ${currentTotalTime.toFixed(1)}s</b><br>
                                 Face movements: ${eyeMovementCount}<br>
                                 <b>Eyeball movements: ${eyeballMovementCount}</b><br>
                                 <b>Eyebrow movements: ${eyebrowMovementCount}</b><br>
                                 <b>Eyelash movements: ${eyelashMovementCount}</b><br>
                                 Following light: ${isFollowingLight ? '<span style="color:green">Yes</span>' : 'No'} (${(followingScore * 100).toFixed(0)}%)<br>
-                                <b>Current fixation: ${isCurrentlyFixating ? `<span style="color:green">${((Date.now() - currentFixationStartTime)/1000).toFixed(1)}s</span>` : '0s'}</b><br>
-                                <b>Longest fixation: ${longestFixationDuration.toFixed(1)}s</b><br>
-                                Total fixation: ${eyeFixationDuration.toFixed(1)}s<br>
-                                Total time: ${totalAssessmentTime.toFixed(0)}s<br>
+                                <b>Fixation:</b> ${eyeFixationDuration.toFixed(1)}s total<br>
+                                <b>Max continuous fixation:</b> ${maxContinuousFixationTime.toFixed(1)}s<br>
                                 ${eyesOpen ? '<span style="color:green">Eyes open</span>' : '<span style="color:red">Eyes closed</span>'}<br>
                                 Threshold: ${eyeballNoiseThreshold.toFixed(2)}<br>
                                 FPS: ${frameRate}
