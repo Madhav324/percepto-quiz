@@ -498,6 +498,10 @@
                 doctorId: doctorId || 'none'
             });
 
+            // Set totalStartTime immediately when script loads
+            totalStartTime = Date.now();
+            console.log("Setting initial totalStartTime:", totalStartTime);
+            
             // Auth state observer
             auth.onAuthStateChanged(async (user) => {
                 if (user) {
@@ -566,7 +570,7 @@
             const submitButton = document.getElementById('submitBtn');
 
             let startTime = null;
-            let totalStartTime = null;
+            let totalStartTime = Date.now(); // Initialize immediately to ensure it's never null
             let firstTapTime = null;
             let totalTaps = 0;
             let totalIncorrectAttempts = 0;
@@ -671,7 +675,15 @@
             // Touch event handlers
             function touchStart(e) {
                 e.preventDefault();
+                
+                // Ensure we have a start time
                 if (!startTime) startTime = Date.now();
+                
+                // Ensure totalStartTime is set if somehow it wasn't
+                if (!totalStartTime) {
+                    console.warn("totalStartTime was not set, setting it now");
+                    totalStartTime = Date.now() - 500; // Set it to 500ms ago to acknowledge some time has passed
+                }
                 
                 // Record interaction
                 totalTaps++;
@@ -679,7 +691,7 @@
                 document.getElementById('total-taps').textContent = totalTaps;
                 
                 // Record first interaction time
-                if (!firstInteractionRecorded && totalStartTime) {
+                if (!firstInteractionRecorded) {
                     firstInteractionRecorded = true;
                     firstTapTime = (Date.now() - totalStartTime) / 1000;
                     document.getElementById('first-tap').textContent = firstTapTime.toFixed(2);
@@ -1199,11 +1211,12 @@
                     profileIcon.textContent = initials;
                 }
                 
-                // Set start time
+                // Reset tracking variables
                 startTime = null; // Will be set on first interaction
-                totalStartTime = Date.now();
+                // Keep the totalStartTime that was set earlier to ensure it covers the entire session
+                // This avoids the risk of missing early interactions
                 firstInteractionRecorded = false;
-                console.log("Quiz started at:", totalStartTime);
+                console.log("Quiz using start time:", totalStartTime);
                 
                 // Fetch previous attempts
                 fetchPreviousAttempts();
