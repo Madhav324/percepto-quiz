@@ -218,9 +218,23 @@
             font-size: 12px;
             color: #555;
             background-color: #f1f1f1;
-            padding: 5px;
+            padding: 8px 5px;
             border-radius: 4px;
             text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 50px;
+        }
+        
+        .additional-stat div {
+            margin-bottom: 3px;
+            font-size: 11px;
+        }
+        
+        .additional-stat strong {
+            font-size: 13px;
+            color: #333;
         }
         
         .progress-container {
@@ -625,14 +639,8 @@
                         const score = attempt.score || 0;
                         const scoreClass = getScoreClass(score);
                         
-                        // Calculate additional metrics 
+                        // Calculate time in seconds for display
                         const timeSpent = Math.round((attempt.timeSpent || 0) / 1000); // in seconds
-                        const totalQuestions = attempt.totalQuestions || 0;
-                        const correctAnswers = attempt.correctAnswers || 0;
-                        const incorrectAnswers = totalQuestions > 0 ? totalQuestions - correctAnswers : 0;
-                        const avgTimePerQuestion = totalQuestions > 0 ? Math.round(timeSpent / totalQuestions * 10) / 10 : 0;
-                        const interactionsPerQuestion = totalQuestions > 0 ? Math.round((attempt.interactions || 0) / totalQuestions * 10) / 10 : 0;
-                        const accuracy = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
                         
                         // Create quiz report card with expandable details
                         reportsHTML += `
@@ -669,42 +677,52 @@
                                     </div>
                                     
                                     <div class="additional-stats">
+                                        ${attempt.totalQuestions ? `
                                         <div class="additional-stat">
-                                            <div>Questions</div>
-                                            <strong>${totalQuestions}</strong>
-                                        </div>
+                                            <div>Total Questions</div>
+                                            <strong>${attempt.totalQuestions}</strong>
+                                        </div>` : ''}
+                                        
+                                        ${attempt.correctAnswers ? `
                                         <div class="additional-stat">
-                                            <div>Correct</div>
-                                            <strong>${correctAnswers}</strong>
-                                        </div>
+                                            <div>Correct Answers</div>
+                                            <strong>${attempt.correctAnswers}</strong>
+                                        </div>` : ''}
+                                        
+                                        ${attempt.timeSpent ? `
                                         <div class="additional-stat">
-                                            <div>Incorrect</div>
-                                            <strong>${incorrectAnswers}</strong>
-                                        </div>
+                                            <div>Total Time</div>
+                                            <strong>${Math.round((attempt.timeSpent || 0) / 1000)}s</strong>
+                                        </div>` : ''}
+                                        
+                                        ${attempt.interactions !== undefined ? `
                                         <div class="additional-stat">
-                                            <div>Accuracy</div>
-                                            <strong>${accuracy}%</strong>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="additional-stats">
-                                        <div class="additional-stat">
-                                            <div>Avg. Time</div>
-                                            <strong>${avgTimePerQuestion}s</strong>
-                                        </div>
-                                        <div class="additional-stat">
-                                            <div>Interactions/Q</div>
-                                            <strong>${interactionsPerQuestion}</strong>
-                                        </div>
-                                        ${attempt.errors ? `
+                                            <div>Interactions</div>
+                                            <strong>${attempt.interactions}</strong>
+                                        </div>` : ''}
+                                        
+                                        ${attempt.errors !== undefined ? `
                                         <div class="additional-stat">
                                             <div>Errors</div>
                                             <strong>${attempt.errors}</strong>
                                         </div>` : ''}
-                                        ${attempt.hints ? `
+                                        
+                                        ${attempt.hints !== undefined ? `
                                         <div class="additional-stat">
                                             <div>Hints Used</div>
                                             <strong>${attempt.hints}</strong>
+                                        </div>` : ''}
+                                        
+                                        ${attempt.attempts !== undefined ? `
+                                        <div class="additional-stat">
+                                            <div>Attempts</div>
+                                            <strong>${attempt.attempts}</strong>
+                                        </div>` : ''}
+                                        
+                                        ${attempt.level !== undefined ? `
+                                        <div class="additional-stat">
+                                            <div>Level</div>
+                                            <strong>${attempt.level}</strong>
                                         </div>` : ''}
                                     </div>
                                     
