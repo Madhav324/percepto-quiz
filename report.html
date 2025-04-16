@@ -210,15 +210,21 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 35px;
-            height: 35px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
-            background-color: #4a90e2;
+            background-color: #2196F3;
             color: white;
-            font-size: 14px;
+            font-size: 18px;
             font-weight: bold;
             margin-right: 10px;
             flex-shrink: 0;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .profile-icon:hover {
+            background-color: #1976D2;
         }
         
         .doctor-profile {
@@ -248,10 +254,11 @@
 <body>
     <div class="container">
         <div class="header">
-            <div class="profile-icon" id="profileIcon">UU</div>
+            <div class="profile-icon" id="profileIcon" title="Profile">UU</div>
             <div class="user-info">
                 <span class="user-name" id="userName">Loading...</span>
                 <span class="user-email" id="userEmail"></span>
+                <span id="patient-indicator" class="patient-indicator" style="display: none;">Patient</span>
             </div>
         </div>
 
@@ -351,6 +358,7 @@
         <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
         <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
         <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
         
         <!-- Firebase Config -->
         <script>
@@ -359,7 +367,7 @@
                 apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
                 authDomain: "projeccvi.firebaseapp.com",
                 projectId: "projeccvi",
-                storageBucket: "projeccvi.firebasestorage.app",
+                storageBucket: "projeccvi.appspot.com",
                 messagingSenderId: "279067566247",
                 appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
             };
@@ -367,132 +375,58 @@
             // Initialize Firebase
             firebase.initializeApp(firebaseConfig);
             const auth = firebase.auth();
-            const db = firebase.firestore();
-            const database = firebase.database();
+            const db = firebase.database();
+            const dbRef = firebase.database();
+            const firestore = firebase.firestore();
             
-            // Handle relative paths for both local and GitHub Pages
-            function getPath(page) {
-                const baseUrl = window.location.href.split('/').slice(0, -1).join('/');
-                return `${baseUrl}/${page}`;
-            }
-
-            // Profile dropdown
-            const profileIcon = document.getElementById('profileIcon');
-            const profileMenu = document.getElementById('profileMenu');
+            // Get quiz context from session storage
+            const currentPatientId = sessionStorage.getItem('currentPatientId');
+            const doctorId = sessionStorage.getItem('doctorId');
+            const isPatientQuiz = !!(currentPatientId && doctorId);
             
-            profileIcon.addEventListener('click', (e) => {
-                e.stopPropagation();
-                profileMenu.classList.toggle('active');
+            console.log('Report context:', { 
+                isPatientQuiz, 
+                currentPatientId: currentPatientId || 'none',
+                doctorId: doctorId || 'none'
             });
-
-            // Close dropdown when clicking outside
-            document.addEventListener('click', (e) => {
-                if (!profileMenu.contains(e.target) && !profileIcon.contains(e.target)) {
-                    profileMenu.classList.remove('active');
-                }
-            });
-
-            // Profile navigation
-            function goToProfile() {
-                sessionStorage.setItem('editingProfile', 'true');
-                window.location.href = getPath('profile.html');
-            }
-
-            // Check if user is a doctor and show patients button
-            async function checkIfDoctor(userId) {
-                try {
-                    const doctorSnapshot = await db.collection('doctorProfiles').doc(userId).get();
-                    const patientsButton = document.getElementById('patientsButton');
-                    patientsButton.style.display = doctorSnapshot.exists() ? 'inline-flex' : 'none';
-                } catch (error) {
-                    console.error('Error checking doctor status:', error);
-                }
-            }
-        </script>
-
-        <script>
-            document.addEventListener('DOMContentLoaded', async () => {
-                try {
-                    showLoading(true, 'Loading report...');
-                    const authData = await checkAuth();
-                    const { user, isDoctor, currentPatientId, isPatientQuiz } = authData;
-
-                    // Update user info
-                    document.getElementById('userName').textContent = authData.profile?.name || user.displayName || 'User';
-                    document.getElementById('userEmail').textContent = user.email;
-
-                    // Get quiz results
-                    let resultsRef;
-                    if (isPatientQuiz && currentPatientId) {
-                        resultsRef = database.ref(`doctors/${user.uid}/patients/${currentPatientId}/quizResults`);
-                    } else {
-                        resultsRef = database.ref(`userProfiles/${user.uid}/quizResults`);
-                    }
-
-                    const resultsSnap = await resultsRef.once('value');
-                    const results = resultsSnap.val();
-
-                    if (!results) {
-                        document.getElementById('quizResults').innerHTML = '<p>No quiz results found. Take a quiz to see your progress!</p>';
-                        return;
-                    }
-
-                    // Display results
-                    const resultsHtml = Object.entries(results).map(([quizId, quiz]) => `
-                        <div class="quiz-result">
-                            <div class="quiz-type">${quiz.type}</div>
-                            <div class="quiz-score">Score: ${quiz.score}%</div>
-                            <div class="quiz-date">Taken on: ${new Date(quiz.timestamp).toLocaleString()}</div>
-                        </div>
-                    `).join('');
-
-                    document.getElementById('quizResults').innerHTML = resultsHtml;
-                } catch (error) {
-                    console.error('Error loading report:', error);
-                    showError('loaded report');
-                } finally {
-                    showLoading(false);
-                }
-            });
-        </script>
-
-        <script type="module">
-            import { getDatabase, ref, get, remove } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-database.js";
-            import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
             
-            // Use the already initialized Firebase from the previous script
-            const dbRef = getDatabase();
-            // Use ref and get functions from the module
+            const quizPaths = ['VDT1', 'VDT2', 'VDTsizes', 'VDTemotions', 'VDTcolors', 'VCshapes', 'VCcolors', 'VCanimal', 'VFCnumbers1', 'VFCletters1', 'VFCsizeShape1', 'VFCnumbers2', 'VFCletters2', 'VFCsizeShape2', 'FG', 'SR1', 'SR2', 'VN1', 'VN2', 'beads', 'crow', 'lion', 'morning', 'dressing', 'VM'];
 
-            // Array of quiz database paths to fetch directly
-            const quizPaths = [
-                'VDT1', 'VDT2', 'VDTsizes', 'VDTemotions', 'VDTcolors',
-                'VCshapes', 'VCcolors', 'VCanimal',
-                'VFCnumbers1', 'VFCletters1', 'VFCsizeShape1',
-                'VFCnumbers2', 'VFCletters2', 'VFCsizeShape2',
-                'FG', 'SR1', 'SR2', 'VN1', 'VN2',
-                'beads', 'crow', 'lion', 'morning', 'dressing', 'VM'
-            ];
-
-            let impairedCount = 0;
+            let impairedCount = 0; // Counter for impaired quiz results
             
-            // Show loading indicator function
+            // Show/hide loading indicator
             function showLoading(show, message = 'Loading...') {
                 const loadingElement = document.getElementById('loading');
                 if (show) {
-                    loadingElement.style.display = 'block';
                     loadingElement.textContent = message;
+                    loadingElement.style.display = 'block';
                 } else {
                     loadingElement.style.display = 'none';
                 }
             }
             
-            // Show error message function
+            // Show error message
             function showError(message) {
                 const errorElement = document.getElementById('error-message');
-                errorElement.style.display = 'block';
                 errorElement.textContent = message;
+                errorElement.style.display = 'block';
             }
+            
+            // Auth state observer - initialize everything when user is authenticated
+            firebase.auth().onAuthStateChanged(async (user) => {
+                if (user) {
+                    console.log('User authenticated in report page:', user.uid);
+                    try {
+                        await fetchAllAttempts();
+                    } catch (error) {
+                        console.error('Error loading report data:', error);
+                        showError('Error loading your quiz data. Please try again later.');
+                        showLoading(false);
+                    }
+                } else {
+                    window.location.href = 'login.html';
+                }
+            });
 
             async function fetchAllAttempts() {
                 try {
@@ -660,11 +594,9 @@
                         document.getElementById('profileIcon').textContent = initials;
                         document.getElementById('profileIcon').classList.add('patient-profile');
                         
-                        // Add patient indicator
-                        const patientIndicator = document.createElement('span');
-                        patientIndicator.className = 'patient-indicator';
-                        patientIndicator.textContent = 'Patient';
-                        document.getElementById('userName').appendChild(patientIndicator);
+                        // Show patient indicator
+                        const patientIndicator = document.getElementById('patient-indicator');
+                        patientIndicator.style.display = 'inline-block';
                     }
                 } else {
                     // Check user role
