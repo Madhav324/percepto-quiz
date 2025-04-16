@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CVI Fixation Mirror Assessment</title>
+    <!-- face-api.js for eye tracking -->
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <style>
         /* Reset and base styles */
         * {
@@ -235,6 +237,49 @@
             align-items: center;
             justify-content: center;
         }
+        
+        /* Eye tracking overlay */
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 15;
+            pointer-events: none;
+        }
+        
+        .detection-data {
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            z-index: 20;
+            max-width: 250px;
+        }
+        
+        .eye-track-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+            align-items: center;
+        }
+        
+        .toggle-switch {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .toggle-switch label {
+            font-size: 12px;
+            cursor: pointer;
+        }
 
         /* Responsive styles */
         @media (max-width: 600px) {
@@ -269,6 +314,8 @@
             <video id="camera" autoplay playsinline></video>
             <div id="mirrorFrame" class="mirror-frame classic-mirror"></div>
             <div id="lightStimulus" class="light-stimulus"></div>
+            <canvas id="overlay"></canvas>
+            <div class="detection-data" id="detectionData">Eye tracking initializing...</div>
         </div>
         
         <div class="controls">
@@ -301,6 +348,17 @@
                 <button id="stopBtn">Stop</button>
                 <button id="pauseBtn">Pause</button>
                 <button id="reverseBtn">Reverse</button>
+            </div>
+            
+            <div class="eye-track-controls">
+                <div class="toggle-switch">
+                    <input type="checkbox" id="enableEyeTracking" checked>
+                    <label for="enableEyeTracking">Enable Eye Tracking</label>
+                </div>
+                <div class="toggle-switch">
+                    <input type="checkbox" id="showTrackingVisuals" checked>
+                    <label for="showTrackingVisuals">Show Tracking Visuals</label>
+                </div>
             </div>
         </div>
         
@@ -397,6 +455,20 @@
         let startTime = 0;
         let assessmentDuration = 0;
         let interactionCount = 0;
+        
+        // Eye tracking variables
+        let isFaceDetectionInitialized = false;
+        let enableEyeTracking = true;
+        let showTrackingVisuals = true;
+        let detectionInterval;
+        let eyeMovementData = [];
+        let lastEyePosition = { x: 0, y: 0 };
+        let eyeMovementCount = 0;
+        let eyeFixationCount = 0;
+        let eyeFixationDuration = 0;
+        let lastDetectionTime = 0;
+        let detectionFrameCount = 0;
+        let frameRate = 0;
 
         // Auth state observer
         auth.onAuthStateChanged(async (user) => {
@@ -479,9 +551,38 @@
                 });
                 camera.srcObject = cameraStream;
                 console.log('Camera initialized successfully');
+                
+                // Initialize face detection after camera is ready
+                camera.addEventListener('loadeddata', initFaceDetection);
             } catch (error) {
                 console.error('Error accessing camera:', error);
                 alert('Could not access camera. Please check your camera permissions.');
+            }
+        }
+        
+        // Initialize face detection models
+        async function initFaceDetection() {
+            if (isFaceDetectionInitialized) return;
+            
+            try {
+                document.getElementById('detectionData').textContent = 'Loading face detection models...';
+                
+                // Load required models for face and landmark detection
+                await faceapi.nets.tinyFaceDetector.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights');
+                await faceapi.nets.faceLandmark68Net.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights');
+                
+                console.log('Face detection models loaded successfully');
+                document.getElementById('detectionData').textContent = 'Face detection ready';
+                
+                isFaceDetectionInitialized = true;
+                
+                // Start eye tracking if enabled
+                if (enableEyeTracking) {
+                    startEyeTracking();
+                }
+            } catch (error) {
+                console.error('Error initializing face detection:', error);
+                document.getElementById('detectionData').textContent = 'Error loading detection models';
             }
         }
         
@@ -507,6 +608,22 @@
             // Add selected class
             mirrorFrame.classList.add(this.value);
             interactionCount++;
+        });
+        
+        // Eye tracking toggle controls
+        document.getElementById('enableEyeTracking').addEventListener('change', function() {
+            enableEyeTracking = this.checked;
+            if (enableEyeTracking) {
+                startEyeTracking();
+            } else {
+                stopEyeTracking();
+            }
+        });
+        
+        document.getElementById('showTrackingVisuals').addEventListener('change', function() {
+            showTrackingVisuals = this.checked;
+            const overlay = document.getElementById('overlay');
+            overlay.style.display = showTrackingVisuals ? 'block' : 'none';
         });
         
         document.getElementById('startBtn').addEventListener('click', function() {
@@ -702,6 +819,13 @@
                         centerField,
                         duration,
                         notes
+                    },
+                    eyeTracking: {
+                        enabled: enableEyeTracking,
+                        movementCount: eyeMovementCount,
+                        fixationDuration: eyeFixationDuration,
+                        // Only save the last 100 eye movement data points to prevent huge data
+                        movements: eyeMovementData.slice(-100)
                     }
                 };
                 
@@ -747,6 +871,12 @@
                 // Reset variables
                 assessmentDuration = 0;
                 interactionCount = 0;
+                
+                // Reset eye tracking data
+                eyeMovementData = [];
+                eyeMovementCount = 0;
+                eyeFixationCount = 0;
+                eyeFixationDuration = 0;
                 
                 // Reload previous assessments
                 loadPreviousAssessments();
@@ -853,6 +983,11 @@
                                 <span class="detail-label">Eye Contact Duration:</span>
                                 <span>${observations.duration}s</span>
                             </div>
+                            ${assessment.eyeTracking ? `
+                            <div class="detail-row">
+                                <span class="detail-label">Auto Detected:</span>
+                                <span>Eye Movements: ${assessment.eyeTracking.movementCount}, Fixation: ${assessment.eyeTracking.fixationDuration.toFixed(1)}s</span>
+                            </div>` : ''}
                             ${observations.notes ? `
                             <div class="detail-row">
                                 <span class="detail-label">Notes:</span>
@@ -946,8 +1081,191 @@
             }
         }
         
+        // Start eye tracking
+        function startEyeTracking() {
+            if (!isFaceDetectionInitialized || !enableEyeTracking) return;
+            
+            // Clear any existing interval
+            if (detectionInterval) {
+                clearInterval(detectionInterval);
+            }
+            
+            // Setup canvas for drawing
+            const videoEl = document.getElementById('camera');
+            const canvas = document.getElementById('overlay');
+            const displaySize = { width: videoEl.width, height: videoEl.height };
+            faceapi.matchDimensions(canvas, displaySize);
+            
+            // Reset tracking data
+            eyeMovementData = [];
+            lastEyePosition = { x: 0, y: 0 };
+            eyeMovementCount = 0;
+            eyeFixationCount = 0;
+            eyeFixationDuration = 0;
+            lastDetectionTime = Date.now();
+            detectionFrameCount = 0;
+            
+            // Start detection loop
+            detectionInterval = setInterval(async () => {
+                try {
+                    if (!videoEl.paused && !videoEl.ended) {
+                        // Calculate framerate
+                        const now = Date.now();
+                        detectionFrameCount++;
+                        if (now - lastDetectionTime >= 1000) {
+                            frameRate = detectionFrameCount;
+                            detectionFrameCount = 0;
+                            lastDetectionTime = now;
+                        }
+                        
+                        // Detect faces with landmarks
+                        const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+                        const detections = await faceapi.detectSingleFace(videoEl, options).withFaceLandmarks();
+                        
+                        // Clear canvas
+                        const ctx = canvas.getContext('2d');
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        
+                        if (detections) {
+                            // Extract eye landmarks
+                            const leftEye = detections.landmarks.getLeftEye();
+                            const rightEye = detections.landmarks.getRightEye();
+                            
+                            // Calculate eye centers
+                            const leftEyeCenter = calculateEyeCenter(leftEye);
+                            const rightEyeCenter = calculateEyeCenter(rightEye);
+                            
+                            // Draw face landmarks if visual tracking is enabled
+                            if (showTrackingVisuals) {
+                                // Draw face landmarks
+                                faceapi.draw.drawFaceLandmarks(canvas, detections);
+                                
+                                // Highlight eye centers
+                                ctx.fillStyle = '#00ff00';
+                                ctx.beginPath();
+                                ctx.arc(leftEyeCenter.x, leftEyeCenter.y, 3, 0, 2 * Math.PI);
+                                ctx.arc(rightEyeCenter.x, rightEyeCenter.y, 3, 0, 2 * Math.PI);
+                                ctx.fill();
+                            }
+                            
+                            // Calculate average eye position
+                            const avgEyePos = {
+                                x: (leftEyeCenter.x + rightEyeCenter.x) / 2,
+                                y: (leftEyeCenter.y + rightEyeCenter.y) / 2
+                            };
+                            
+                            // Check for eye movement
+                            const movementThreshold = 3; // pixels
+                            const distance = Math.sqrt(
+                                Math.pow(avgEyePos.x - lastEyePosition.x, 2) + 
+                                Math.pow(avgEyePos.y - lastEyePosition.y, 2)
+                            );
+                            
+                            if (distance > movementThreshold) {
+                                // Eye movement detected
+                                eyeMovementCount++;
+                                eyeFixationCount = 0; // Reset fixation counter
+                                
+                                // Draw movement line if visual tracking is enabled
+                                if (showTrackingVisuals && lastEyePosition.x !== 0) {
+                                    ctx.strokeStyle = '#ff0000';
+                                    ctx.lineWidth = 2;
+                                    ctx.beginPath();
+                                    ctx.moveTo(lastEyePosition.x, lastEyePosition.y);
+                                    ctx.lineTo(avgEyePos.x, avgEyePos.y);
+                                    ctx.stroke();
+                                }
+                                
+                                // Record eye movement data
+                                eyeMovementData.push({
+                                    timestamp: Date.now(),
+                                    position: { ...avgEyePos },
+                                    isMovement: true
+                                });
+                            } else {
+                                // Eye fixation detected
+                                eyeFixationCount++;
+                                if (eyeFixationCount >= 5) { // About 0.25 seconds at 20fps
+                                    eyeFixationDuration += 1/frameRate;
+                                    
+                                    // Mark fixation point if visual tracking is enabled
+                                    if (showTrackingVisuals) {
+                                        ctx.fillStyle = 'rgba(0, 255, 255, 0.5)';
+                                        ctx.beginPath();
+                                        ctx.arc(avgEyePos.x, avgEyePos.y, 5, 0, 2 * Math.PI);
+                                        ctx.fill();
+                                    }
+                                    
+                                    // Record eye fixation data
+                                    eyeMovementData.push({
+                                        timestamp: Date.now(),
+                                        position: { ...avgEyePos },
+                                        isMovement: false,
+                                        fixationDuration: eyeFixationDuration
+                                    });
+                                }
+                            }
+                            
+                            // Update last position
+                            lastEyePosition = { ...avgEyePos };
+                            
+                            // Update detection data display
+                            document.getElementById('detectionData').innerHTML = `
+                                Eye movements: ${eyeMovementCount}<br>
+                                Fixation duration: ${eyeFixationDuration.toFixed(1)}s<br>
+                                Frame rate: ${frameRate} fps
+                            `;
+                            
+                            // Automatically check the observation checkboxes based on detection
+                            if (eyeFixationDuration > 2) {
+                                document.getElementById('fixation').checked = true;
+                            }
+                            
+                            // Set eye contact duration field
+                            document.getElementById('duration').value = Math.round(eyeFixationDuration);
+                        } else {
+                            document.getElementById('detectionData').textContent = 'No face detected';
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error in eye tracking:', error);
+                }
+            }, 50); // 20 fps
+        }
+        
+        // Stop eye tracking
+        function stopEyeTracking() {
+            if (detectionInterval) {
+                clearInterval(detectionInterval);
+                detectionInterval = null;
+            }
+            document.getElementById('detectionData').textContent = 'Eye tracking disabled';
+            
+            // Clear overlay canvas
+            const canvas = document.getElementById('overlay');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+        
+        // Calculate eye center from landmarks
+        function calculateEyeCenter(eyePoints) {
+            let sumX = 0;
+            let sumY = 0;
+            
+            for (let i = 0; i < eyePoints.length; i++) {
+                sumX += eyePoints[i].x;
+                sumY += eyePoints[i].y;
+            }
+            
+            return {
+                x: sumX / eyePoints.length,
+                y: sumY / eyePoints.length
+            };
+        }
+
         // Clean up on page unload
         window.addEventListener('beforeunload', function() {
+            stopEyeTracking();
             if (cameraStream) {
                 cameraStream.getTracks().forEach(track => track.stop());
             }
