@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Align the Angles - Percepto</title>
+    <title>Right Angle Positioning - Percepto</title>
     <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+    <script src="[https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>](https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>)
+    <script src="[https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>](https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>)
+    <script src="[https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>](https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>)
+    <link href="[https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap"](https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap") rel="stylesheet">
     <style>
         :root {
             --primary-color: #4285F4;
@@ -95,59 +95,97 @@
             font-size: 0.9rem;
         }
         
-        .angles-container {
+        .lines-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 5px;
+            margin-bottom: 15px;
+        }
+        
+        .line-challenge {
             position: relative;
             width: 100%;
-            height: 300px;
+            height: 150px;
             border: 1px solid var(--border-color);
-            margin-bottom: 15px;
             border-radius: 5px;
             background-color: #fafafa;
             overflow: hidden;
+            margin-bottom: 5px;
         }
         
-        .reference-guide {
+        @media (min-width: 600px) {
+            .line-challenge {
+                width: calc(50% - 5px);
+            }
+        }
+        
+        .target-area {
             position: absolute;
-            bottom: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 80%;
-            height: 60px;
-            background-color: #f0f0f0;
+            width: 100px;
+            height: 100px;
             border: 1px dashed #999;
             display: flex;
             justify-content: center;
             align-items: center;
+            z-index: 1;
         }
         
-        .reference-line {
+        .fixed-line {
             position: absolute;
-            width: 100px;
-            height: 6px;
+            width: 80px;
+            height: 4px;
             background-color: #333;
-            border-radius: 3px;
+            border-radius: 2px;
+            z-index: 2;
         }
         
         .draggable-line {
             position: absolute;
-            width: 100px;
-            height: 12px;
+            width: 80px;
+            height: 6px;
             background-color: var(--primary-color);
-            cursor: move;
-            transform-origin: center;
-            top: 50px;
-            border-radius: 6px;
-            box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
+            cursor: grab;
+            border-radius: 3px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+            z-index: 3;
+            touch-action: none;
         }
         
-        .line1 {
-            left: 30%;
-            background-color: var(--primary-color);
+        .draggable-line.dragging {
+            cursor: grabbing;
+            opacity: 0.8;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.4);
         }
         
-        .line2 {
-            left: 60%;
-            background-color: var(--secondary-color);
+        .angle-indicator {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background-color: transparent;
+            border-radius: 50%;
+            border: 1px dashed #999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 0.6rem;
+            color: #666;
+            z-index: 5;
+        }
+        
+        .correct-position {
+            background-color: rgba(52, 168, 83, 0.2);
+        }
+        
+        .correct-angle {
+            border-color: var(--secondary-color);
+            color: var(--secondary-color);
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
         }
         
         .reset-btn {
@@ -168,37 +206,40 @@
             border-radius: 4px;
             cursor: pointer;
             font-size: 0.9rem;
+            margin-left: auto;
         }
         
         .result-message {
-            margin-top: 15px;
             padding: 10px;
-            border-radius: 5px;
-            text-align: center;
+            border-radius: 4px;
+            font-weight: 500;
             display: none;
-        }
-        
-        .correct {
-            background-color: #d4edda;
-            color: #155724;
-        }
-        
-        .incorrect {
-            background-color: #f8d7da;
-            color: #721c24;
-        }
-        
-        .previous-attempts {
-            margin-top: 20px;
-        }
-        
-                .attempt-item {
-            background-color: #f9f9f9;
-            padding: 15px;
             margin-bottom: 15px;
+        }
+        
+        .result-message.correct {
+            background-color: rgba(52, 168, 83, 0.1);
+            color: var(--secondary-color);
+            border: 1px solid var(--secondary-color);
+        }
+        
+        .result-message.incorrect {
+            background-color: rgba(234, 67, 53, 0.1);
+            color: var(--error-color);
+            border: 1px solid var(--error-color);
+        }
+        
+        .report-container {
+            background-color: white;
             border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
+            padding: 15px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        
+        .attempt-item {
+            margin-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
         }
         
         .attempt-header {
@@ -225,27 +266,25 @@
             margin-top: 15px;
             background-color: #f0f0f0;
             padding: 15px;
-            border-radius: 5px;
+            border-radius: 4px;
         }
         
         .attempt-detail-item {
             display: flex;
-            justify-content: space-between;
-            padding: 5px 0;
-            border-bottom: 1px solid #e0e0e0;
+            flex-direction: column;
         }
         
         .detail-label {
-            font-weight: bold;
-            color: #555;
+            font-weight: 500;
+            font-size: 0.8rem;
+            color: #666;
         }
         
         .toggle-details-btn {
-            margin-top: 10px;
-            background-color: #4CAF50;
+            padding: 5px 10px;
+            background-color: var(--secondary-color);
             color: white;
             border: none;
-            padding: 6px 12px;
             border-radius: 4px;
             cursor: pointer;
             font-size: 14px;
@@ -267,32 +306,37 @@
                 font-size: 1.4rem;
             }
             
-            .angles-container {
-                height: 280px; /* Slightly taller to give more space for manipulation */
-                touch-action: none;
+            .quiz-container,
+            .report-container {
+                padding: 10px;
             }
             
-            .draggable-line {
-                width: 90px; /* Wider for better touch targets */
-                height: 14px; /* Taller for easier touch */
-                border-radius: 7px;
+            .instructions {
+                font-size: 0.8rem;
+                padding: 8px;
             }
             
-            .reference-line {
-                width: 90px;
-                height: 8px;
+            .line-challenge {
+                height: 120px;
+                margin-bottom: 5px;
             }
             
-            button {
-                padding: 12px; /* Larger touch target */
-                margin: 5px;
+            .controls {
+                flex-wrap: wrap;
+            }
+            
+            .reset-btn,
+            .submit-btn {
                 font-size: 14px;
-                min-height: 44px; /* iOS recommended minimum touch target */
+                padding: 6px 12px;
             }
             
             .profile-icon {
-                width: 35px;
-                height: 35px;
+                width: 30px;
+                height: 30px;
+            }
+            
+            .result-message {
                 font-size: 16px;
             }
             
@@ -309,7 +353,7 @@
 <body>
     <div class="container">
         <header>
-            <h1>Align the Angles</h1>
+            <h1>Right Angle Positioning</h1>
             <div class="user-profile">
                 <span id="user-name">User</span>
                 <div class="profile-icon" id="profileIcon" title="User" onclick="window.location.href='index.html'">U</div>
@@ -318,14 +362,12 @@
         </header>
         
         <div class="quiz-container">
-
+            <div class="instructions">
+                Drag the blue lines to create right angles (90°) with the black fixed lines.
+            </div>
             
-            <div class="angles-container" id="angles-container">
-                <div class="draggable-line line1" id="line1"></div>
-                <div class="draggable-line line2" id="line2"></div>
-                <div class="reference-guide" id="reference-guide">
-                    <!-- Reference lines will be added via JavaScript -->
-                </div>
+            <div class="lines-container" id="lines-container">
+                <!-- Line challenges will be added via JavaScript -->
             </div>
             
             <div class="controls">
@@ -373,109 +415,113 @@
         // Global variables
         let startTime = null;
         let interactions = 0;
+        let lineAttempts = [0, 0, 0, 0, 0]; // Track attempts for each line
+        
         let quizData = {
-            targetAngles: [30, 60], // Angles in degrees for each line
-            toleranceAngle: 5 // Acceptable deviation in degrees
+            challengeCount: 5, // Number of line challenges
+            toleranceAngle: 5 // Acceptable deviation in degrees for right angle (90°)
         };
         
         // HTML Elements
-        const line1 = document.getElementById('line1');
-        const line2 = document.getElementById('line2');
-        const anglesContainer = document.getElementById('angles-container');
-        const referenceGuide = document.getElementById('reference-guide');
+        const linesContainer = document.getElementById('lines-container');
         const resetBtn = document.getElementById('reset-btn');
         const submitBtn = document.getElementById('submit-btn');
         const resultMessage = document.getElementById('result-message');
         const attemptsListDiv = document.getElementById('attempts-list');
         const userNameSpan = document.getElementById('user-name');
-        const profileIcon = document.getElementById('profile-icon');
+        const profileIcon = document.getElementById('profileIcon');
         const patientIndicator = document.getElementById('patient-indicator');
         
-        // Track line positions and angles
-        let line1Position = { x: 0, y: 0, angle: 0 };
-        let line2Position = { x: 0, y: 0, angle: 0 };
+        // Track challenge elements and positions
+        let challenges = [];
         
         // Initialize quiz
         function initializeQuiz() {
-            // Create reference lines in the guide
-            createReferenceLines();
-            
-            // Set initial positions
-            resetLinePositions();
+            // Create line challenges
+            createLineChallenges();
             
             // Start timer
             startTime = new Date();
             
-            // Set up event listeners for draggable elements
-            setupDragAndRotate(line1, 1);
-            setupDragAndRotate(line2, 2);
+            // Reset attempts counter
+            lineAttempts = Array(quizData.challengeCount).fill(0);
+            interactions = 0;
             
             // Button event listeners
             resetBtn.addEventListener('click', resetQuiz);
             submitBtn.addEventListener('click', submitAnswer);
         }
         
-        // Create reference lines in the guide
-        function createReferenceLines() {
-            const refLine1 = document.createElement('div');
-            refLine1.className = 'reference-line';
-            refLine1.style.transform = `rotate(${quizData.targetAngles[0]}deg)`;
+        // Create line challenges
+        function createLineChallenges() {
+            // Clear container first
+            linesContainer.innerHTML = '';
+            challenges = [];
             
-            const refLine2 = document.createElement('div');
-            refLine2.className = 'reference-line';
-            refLine2.style.transform = `rotate(${quizData.targetAngles[1]}deg)`;
+            // Define fixed line angles (different for each challenge)
+            const fixedLineAngles = [0, 45, 90, 135, 180]; // Angles in degrees
             
-            referenceGuide.appendChild(refLine1);
-            referenceGuide.appendChild(refLine2);
+            // Create challenges
+            for (let i = 0; i < quizData.challengeCount; i++) {
+                const challengeDiv = document.createElement('div');
+                challengeDiv.className = 'line-challenge';
+                challengeDiv.id = `challenge-${i}`;
+                
+                // Create fixed line
+                const fixedLine = document.createElement('div');
+                fixedLine.className = 'fixed-line';
+                fixedLine.id = `fixed-line-${i}`;
+                
+                // Position fixed line at center
+                const centerX = 50; // % of container width
+                const centerY = 50; // % of container height
+                fixedLine.style.left = `calc(${centerX}% - 40px)`;
+                fixedLine.style.top = `${centerY}%`;
+                fixedLine.style.transform = `rotate(${fixedLineAngles[i]}deg)`;
+                
+                // Create draggable line
+                const draggableLine = document.createElement('div');
+                draggableLine.className = 'draggable-line';
+                draggableLine.id = `draggable-line-${i}`;
+                
+                // Start position - random but away from fixed line
+                const startX = 20 + Math.random() * 60; // 20-80% of container width
+                const startY = 20 + Math.random() * 60; // 20-80% of container height
+                draggableLine.style.left = `${startX}%`;
+                draggableLine.style.top = `${startY}%`;
+                
+                // Create angle indicator
+                const angleIndicator = document.createElement('div');
+                angleIndicator.className = 'angle-indicator';
+                angleIndicator.id = `angle-indicator-${i}`;
+                angleIndicator.innerHTML = '0°';
+                angleIndicator.style.left = `${centerX}%`;
+                angleIndicator.style.top = `${centerY}%`;
+                
+                // Add elements to challenge
+                challengeDiv.appendChild(fixedLine);
+                challengeDiv.appendChild(draggableLine);
+                challengeDiv.appendChild(angleIndicator);
+                linesContainer.appendChild(challengeDiv);
+                
+                // Setup drag functionality
+                setupDrag(draggableLine, i, challengeDiv, fixedLine, angleIndicator);
+                
+                // Store challenge data
+                challenges.push({
+                    index: i,
+                    fixedAngle: fixedLineAngles[i],
+                    draggablePos: { x: startX, y: startY },
+                    isCorrect: false
+                });
+            }
         }
         
-        // Reset line positions
-        function resetLinePositions() {
-            // Set line 1 position
-            line1Position = {
-                x: anglesContainer.offsetWidth * 0.3,
-                y: anglesContainer.offsetHeight * 0.3,
-                angle: 0
-            };
-            
-            // Set line 2 position
-            line2Position = {
-                x: anglesContainer.offsetWidth * 0.6,
-                y: anglesContainer.offsetHeight * 0.3,
-                angle: 0
-            };
-            
-            // Update visual positions
-            updateLinePosition(line1, line1Position);
-            updateLinePosition(line2, line2Position);
-        }
-        
-        // Update line position and rotation visually
-        function updateLinePosition(line, position) {
-            line.style.left = `${position.x}px`;
-            line.style.top = `${position.y}px`;
-            line.style.transform = `translate(-50%, -50%) rotate(${position.angle}deg)`;
-        }
-        
-        // Set up drag and rotate functionality
-        function setupDragAndRotate(element, lineId) {
+        // Setup drag functionality
+        function setupDrag(element, lineId, container, fixedLine, angleIndicator) {
             let isDragging = false;
-            let isRotating = false;
             let startX, startY;
-            let startAngle = 0;
-            let currentPosition = lineId === 1 ? line1Position : line2Position;
-            
-            // Add a visual indicator for drag/rotate
-            const indicator = document.createElement('div');
-            indicator.style.position = 'absolute';
-            indicator.style.width = '28px'; /* Larger touch indicator */
-            indicator.style.height = '28px'; /* Larger touch indicator */
-            indicator.style.backgroundColor = lineId === 1 ? 'rgba(66, 133, 244, 0.7)' : 'rgba(52, 168, 83, 0.7)';
-            indicator.style.borderRadius = '50%';
-            indicator.style.display = 'none';
-            indicator.style.pointerEvents = 'none';
-            indicator.style.boxShadow = '0 0 8px rgba(0,0,0,0.3)';
-            anglesContainer.appendChild(indicator);
+            let challenge = challenges[lineId];
             
             // Mouse events
             element.addEventListener('mousedown', onStart);
@@ -486,8 +532,6 @@
             element.addEventListener('touchstart', handleTouch(onStart), { passive: false });
             document.addEventListener('touchmove', handleTouch(onMove), { passive: false });
             document.addEventListener('touchend', handleTouch(onEnd));
-            // Add touch cancel to handle cases when touch is interrupted
-            document.addEventListener('touchcancel', handleTouch(onEnd));
             
             function handleTouch(callback) {
                 return function(event) {
@@ -495,108 +539,177 @@
                         event.preventDefault();
                         event.clientX = event.touches[0].clientX;
                         event.clientY = event.touches[0].clientY;
-                        // Add a small delay to prevent jumpy behavior on touch devices
-                        setTimeout(() => {
-                            callback(event);
-                        }, 5);
+                        callback(event);
                     }
                 };
             }
             
             function onStart(e) {
                 interactions++;
+                lineAttempts[lineId]++;
                 
-                const rect = element.getBoundingClientRect();
-                const centerX = rect.left + rect.width / 2;
-                const centerY = rect.top + rect.height / 2;
+                isDragging = true;
+                element.classList.add('dragging');
                 
-                // Determine if we're rotating (near the ends) or dragging (near the center)
-                const distFromCenter = Math.sqrt(
-                    Math.pow(e.clientX - centerX, 2) + 
-                    Math.pow(e.clientY - centerY, 2)
-                );
+                // Record start position (for dragging calculation)
+                const rect = container.getBoundingClientRect();
+                const containerX = e.clientX - rect.left;
+                const containerY = e.clientY - rect.top;
                 
-                // Further increased rotation threshold for improved mobile handling
-                // On mobile, make it easier to rotate by expanding the rotation area
-                const isMobile = window.innerWidth <= 600;
-                const rotationThreshold = isMobile ? rect.width / 3.5 : rect.width / 4;
-                const isNearEnd = distFromCenter > rotationThreshold;
-                
-                if (isNearEnd) {
-                    isRotating = true;
-                    // Calculate the initial angle between mouse and center
-                    startAngle = Math.atan2(
-                        e.clientY - centerY,
-                        e.clientX - centerX
-                    ) * 180 / Math.PI - currentPosition.angle;
-                    
-                    // Show rotation indicator
-                    indicator.style.display = 'block';
-                    indicator.style.left = (e.clientX - anglesContainer.getBoundingClientRect().left) + 'px';
-                    indicator.style.top = (e.clientY - anglesContainer.getBoundingClientRect().top) + 'px';
-                    indicator.style.transform = 'translate(-50%, -50%)';
-                } else {
-                    isDragging = true;
-                    startX = e.clientX - currentPosition.x;
-                    startY = e.clientY - currentPosition.y;
-                    
-                    // Change element appearance to indicate drag
-                    element.style.opacity = '0.8';
-                    element.style.boxShadow = '0 0 10px rgba(0,0,0,0.4)';
-                }
+                // Calculate start offsets
+                const elementRect = element.getBoundingClientRect();
+                startX = containerX - (elementRect.width / 2);
+                startY = containerY - (elementRect.height / 2);
                 
                 e.stopPropagation();
             }
             
             function onMove(e) {
-                if (isDragging) {
-                    // Update position
-                    currentPosition.x = e.clientX - startX;
-                    currentPosition.y = e.clientY - startY;
-                    
-                    // Constrain within container
-                    currentPosition.x = Math.max(element.offsetWidth/2, Math.min(currentPosition.x, anglesContainer.offsetWidth - element.offsetWidth/2));
-                    currentPosition.y = Math.max(element.offsetHeight/2, Math.min(currentPosition.y, anglesContainer.offsetHeight - 70)); // Keep above reference guide
-                    
-                    updateLinePosition(element, currentPosition);
-                } else if (isRotating) {
-                    const rect = element.getBoundingClientRect();
-                    const centerX = rect.left + rect.width / 2;
-                    const centerY = rect.top + rect.height / 2;
-                    
-                    // Calculate new angle
-                    const angle = Math.atan2(
-                        e.clientY - centerY,
-                        e.clientX - centerX
-                    ) * 180 / Math.PI - startAngle;
-                    
-                    currentPosition.angle = angle;
-                    element.style.transform = `translate(-50%, -50%) rotate(${angle}deg)`;
-                    
-                    // Update rotation indicator position
-                    if (indicator.style.display === 'block') {
-                        indicator.style.left = (e.clientX - anglesContainer.getBoundingClientRect().left) + 'px';
-                        indicator.style.top = (e.clientY - anglesContainer.getBoundingClientRect().top) + 'px';
-                    }
-                }
+                if (!isDragging) return;
+                
+                const rect = container.getBoundingClientRect();
+                const containerX = e.clientX - rect.left;
+                const containerY = e.clientY - rect.top;
+                
+                // Calculate new position in pixels
+                let newX = containerX - startX;
+                let newY = containerY - startY;
+                
+                // Constrain within container
+                const maxX = rect.width - element.offsetWidth;
+                const maxY = rect.height - element.offsetHeight;
+                newX = Math.max(0, Math.min(newX, maxX));
+                newY = Math.max(0, Math.min(newY, maxY));
+                
+                // Update element position
+                element.style.left = `${newX}px`;
+                element.style.top = `${newY}px`;
+                
+                // Update challenge data with position as percentage
+                challenge.draggablePos = {
+                    x: (newX / rect.width) * 100,
+                    y: (newY / rect.height) * 100
+                };
+                
+                // Calculate angle between lines and update indicator
+                updateAngleIndicator(container, fixedLine, element, angleIndicator, lineId);
             }
             
             function onEnd() {
-                isDragging = false;
-                isRotating = false;
+                if (!isDragging) return;
                 
-                // Reset visual indicators
-                element.style.opacity = '1';
-                element.style.boxShadow = '';
-                indicator.style.display = 'none';
+                isDragging = false;
+                element.classList.remove('dragging');
+                
+                // Check if angle is correct (close to 90 degrees)
+                const angle = calculateAngleBetweenLines(fixedLine, element);
+                const isRightAngle = Math.abs(angle - 90) <= quizData.toleranceAngle;
+                
+                // Update challenge status
+                challenge.isCorrect = isRightAngle;
+                
+                // Update visual feedback
+                if (isRightAngle) {
+                    container.classList.add('correct-position');
+                    angleIndicator.classList.add('correct-angle');
+                } else {
+                    container.classList.remove('correct-position');
+                    angleIndicator.classList.remove('correct-angle');
+                }
             }
+        }
+        
+        // Calculate angle between two lines
+        function calculateAngleBetweenLines(line1, line2) {
+            // Extract rotation angles from transform style
+            const getRotation = (el) => {
+                const style = window.getComputedStyle(el);
+                const matrix = new DOMMatrix(style.transform);
+                return Math.atan2(matrix.b, matrix.a) * (180 / Math.PI);
+            };
+            
+            const angle1 = getRotation(line1);
+            // Draggable lines don't have rotation, but their angle is determined by position
+            
+            // Get positions of the lines
+            const rect1 = line1.getBoundingClientRect();
+            const rect2 = line2.getBoundingClientRect();
+            
+            // Calculate centers
+            const center1 = {
+                x: rect1.left + rect1.width / 2,
+                y: rect1.top + rect1.height / 2
+            };
+            
+            const center2 = {
+                x: rect2.left + rect2.width / 2,
+                y: rect2.top + rect2.height / 2
+            };
+            
+            // Calculate angle between centers
+            const angle2 = Math.atan2(
+                center2.y - center1.y,
+                center2.x - center1.x
+            ) * (180 / Math.PI);
+            
+            // Calculate the difference between angles
+            let angleDiff = Math.abs(angle2 - angle1);
+            
+            // Normalize to 0-90 range (we only care about right angles)
+            angleDiff = angleDiff % 180;
+            if (angleDiff > 90) angleDiff = 180 - angleDiff;
+            
+            return angleDiff;
+        }
+        
+        // Update angle indicator
+        function updateAngleIndicator(container, fixedLine, draggableLine, indicator, lineId) {
+            const angle = calculateAngleBetweenLines(fixedLine, draggableLine);
+            indicator.innerHTML = `${Math.round(angle)}°`;
+            
+            // Check if it's close to a right angle and update class accordingly
+            const isRightAngle = Math.abs(angle - 90) <= quizData.toleranceAngle;
+            if (isRightAngle) {
+                indicator.classList.add('correct-angle');
+            } else {
+                indicator.classList.remove('correct-angle');
+            }
+            
+            challenges[lineId].currentAngle = angle;
         }
         
         // Reset quiz
         function resetQuiz() {
-            resetLinePositions();
+            // Reset timer
             startTime = new Date();
+            
+            // Reset interactions and attempts
             interactions = 0;
+            lineAttempts = Array(quizData.challengeCount).fill(0);
+            
+            // Reset challenge visuals
+            for (let i = 0; i < quizData.challengeCount; i++) {
+                const container = document.getElementById(`challenge-${i}`);
+                const draggableLine = document.getElementById(`draggable-line-${i}`);
+                const angleIndicator = document.getElementById(`angle-indicator-${i}`);
+                
+                // Reset position to random
+                const startX = 20 + Math.random() * 60; // 20-80% of container width
+                const startY = 20 + Math.random() * 60; // 20-80% of container height
+                draggableLine.style.left = `${startX}%`;
+                draggableLine.style.top = `${startY}%`;
+                
+                // Reset indicators
+                container.classList.remove('correct-position');
+                angleIndicator.classList.remove('correct-angle');
+                angleIndicator.innerHTML = '0°';
+                
+                // Update challenge data
+                challenges[i].draggablePos = { x: startX, y: startY };
+                challenges[i].isCorrect = false;
+            }
+            
+            // Hide result message
             resultMessage.style.display = 'none';
         }
         
@@ -605,41 +718,34 @@
             const endTime = new Date();
             const timeSpent = (endTime - startTime) / 1000; // in seconds
             
-            // Check if angles match the target with tolerance
-            const line1AngleDiff = Math.abs(normalizeAngle(line1Position.angle) - quizData.targetAngles[0]);
-            const line2AngleDiff = Math.abs(normalizeAngle(line2Position.angle) - quizData.targetAngles[1]);
+            // Count correct positions
+            const correctCount = challenges.filter(c => c.isCorrect).length;
             
-            const isLine1Correct = line1AngleDiff <= quizData.toleranceAngle || line1AngleDiff >= (360 - quizData.toleranceAngle);
-            const isLine2Correct = line2AngleDiff <= quizData.toleranceAngle || line2AngleDiff >= (360 - quizData.toleranceAngle);
-            
-            const isCorrect = isLine1Correct && isLine2Correct;
-            const score = isCorrect ? 100 : Math.max(0, 100 - Math.floor((line1AngleDiff + line2AngleDiff) / 2));
+            // Calculate score based on correct positions
+            const score = Math.round((correctCount / quizData.challengeCount) * 100);
             
             // Display result
-            resultMessage.textContent = isCorrect 
-                ? "Correct! The angles match perfectly." 
-                : "Not quite right. Try again and adjust the angles.";
-            resultMessage.className = `result-message ${isCorrect ? 'correct' : 'incorrect'}`;
+            resultMessage.textContent = correctCount === quizData.challengeCount 
+                ? "Perfect! All lines are at right angles." 
+                : `You got ${correctCount} out of ${quizData.challengeCount} correct. Try to make all angles 90°.`;
+            resultMessage.className = `result-message ${correctCount === quizData.challengeCount ? 'correct' : 'incorrect'}`;
             resultMessage.style.display = 'block';
             
-            // Save result to database
-            saveQuizResult({
+            // Prepare result data
+            const resultData = {
                 score: score,
                 timeSpent: timeSpent,
                 interactions: interactions,
-                line1Angle: normalizeAngle(line1Position.angle),
-                line2Angle: normalizeAngle(line2Position.angle),
-                targetAngles: quizData.targetAngles,
-                isCorrect: isCorrect,
+                lineAttempts: lineAttempts,
+                correctPositions: correctCount,
+                totalPositions: quizData.challengeCount,
+                lineAngles: challenges.map(c => c.currentAngle || 0),
+                isAllCorrect: correctCount === quizData.challengeCount,
                 timestamp: firebase.database.ServerValue.TIMESTAMP
-            });
-        }
-        
-        // Normalize angle to 0-360 range
-        function normalizeAngle(angle) {
-            angle = angle % 360;
-            if (angle < 0) angle += 360;
-            return angle;
+            };
+            
+            // Save result to database
+            saveQuizResult(resultData);
         }
         
         // Save quiz result to Firebase
@@ -714,7 +820,7 @@
                 const reportList = document.getElementById('attempts-list');
                 reportList.innerHTML = '<h3>Previous Attempts</h3>';
                 
-                if (snapshot.exists()) {
+                if (snapshot.exists) {
                     const attempts = {};
                     
                     // Convert the snapshot to an array of entries with timestamps as keys
@@ -756,21 +862,21 @@
                                     <span class="detail-label">Time spent:</span>
                                     <span>${result.timeSpent ? result.timeSpent.toFixed(2) + 's' : 'N/A'}</span>
                                 </div>
-                                <div class="attempt-detail-item">
+                                                                <div class="attempt-detail-item">
                                     <span class="detail-label">Interactions:</span>
                                     <span>${result.interactions || 'N/A'}</span>
                                 </div>
                                 <div class="attempt-detail-item">
-                                    <span class="detail-label">Line 1 Angle:</span>
-                                    <span>${result.line1Angle ? result.line1Angle.toFixed(1) + '°' : 'N/A'}</span>
+                                    <span class="detail-label">Correct positions:</span>
+                                    <span>${result.correctPositions || 0}/${result.totalPositions || quizData.challengeCount}</span>
                                 </div>
                                 <div class="attempt-detail-item">
-                                    <span class="detail-label">Line 2 Angle:</span>
-                                    <span>${result.line2Angle ? result.line2Angle.toFixed(1) + '°' : 'N/A'}</span>
+                                    <span class="detail-label">Line attempts:</span>
+                                    <span>${result.lineAttempts ? result.lineAttempts.join(', ') : 'N/A'}</span>
                                 </div>
                                 <div class="attempt-detail-item">
                                     <span class="detail-label">Result:</span>
-                                    <span>${result.isCorrect ? 'Correct' : 'Incorrect'}</span>
+                                    <span>${result.isAllCorrect ? 'All correct' : 'Not all correct'}</span>
                                 </div>
                             `;
                             detailsDiv.innerHTML = detailsHtml;
@@ -906,17 +1012,9 @@
             }
         });
         
-        // Disable page zooming and improve touch handling on mobile
+        // Disable page zooming on mobile to prevent issues with drag
         document.addEventListener('touchmove', function(e) {
-            // Prevent zooming with two fingers to avoid interfering with the quiz
-            if (e.touches.length > 1 || e.target.closest('.angles-container')) {
-                e.preventDefault();
-            }
-        }, { passive: false });
-        
-        // Prevent double-tap zoom
-        document.addEventListener('touchend', function(e) {
-            if (e.target.closest('.angles-container, .controls')) {
+            if (e.touches.length > 1) {
                 e.preventDefault();
             }
         }, { passive: false });
@@ -926,3 +1024,4 @@
     </script>
 </body>
 </html>
+                                
