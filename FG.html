@@ -268,6 +268,9 @@
             border-radius: 8px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             transition: all 0.3s ease;
+            /* Ensure content doesn't overflow on mobile */
+            word-break: break-word;
+            overflow-wrap: break-word;
         }
         
         .attempt-header {
@@ -314,11 +317,17 @@
             background-color: #4CAF50;
             color: white;
             border: none;
-            padding: 6px 12px;
+            padding: 8px 12px;
             border-radius: 4px;
             cursor: pointer;
             font-size: 14px;
-            transition: background-color 0.2s;
+            transition: all 0.2s;
+            /* Ensure touch targets are large enough */
+            min-width: 100px;
+            min-height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
         .toggle-details-btn:hover {
@@ -347,6 +356,11 @@
         .touch-active {
             /* For elements being touched */
             transform: scale(1.05);
+        }
+        
+        .currently-dragging {
+            z-index: 50;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
         }
         
         /* Add animations */
@@ -458,6 +472,17 @@
             
             .attempt-details {
                 grid-template-columns: 1fr;
+                padding: 10px;
+            }
+            
+            .attempt-detail-item {
+                padding: 8px 0;
+            }
+            
+            .toggle-details-btn {
+                min-width: 90px;
+                padding: 8px 10px;
+                font-size: 13px;
             }
             
             .angle-indicator {
@@ -760,11 +785,25 @@
             document.addEventListener('mousemove', onMove);
             document.addEventListener('mouseup', onEnd);
             
-            // Enhanced touch events for mobile
+            // Touch events for mobile with improved handling
             element.addEventListener('touchstart', handleTouch(onStart), { passive: false });
             document.addEventListener('touchmove', handleTouch(onMove), { passive: false });
             document.addEventListener('touchend', handleTouch(onEnd));
             document.addEventListener('touchcancel', handleTouch(onEnd));
+            
+            // Add special class to signal this is being dragged
+            element.addEventListener('touchstart', function() {
+                document.querySelectorAll('.draggable-line').forEach(line => {
+                    line.classList.remove('currently-dragging');
+                });
+                element.classList.add('currently-dragging');
+            });
+            
+            element.addEventListener('touchend', function() {
+                setTimeout(() => {
+                    element.classList.remove('currently-dragging');
+                }, 300);
+            });
             
             // Show angle on hover
             element.addEventListener('mouseover', () => showAngleIndicator(true));
@@ -1014,63 +1053,98 @@
             }, 3000);
         }
         
-        // Submit answer
+        // Submit answer with improved mobile compatibility
         function submitAnswer() {
-            const endTime = new Date();
-            const timeSpent = (endTime - startTime) / 1000; // in seconds
-            
-            // Check if angles match the target with tolerance for all lines
-            const line1Angle = normalizeAngle(line1Position.angle);
-            const line2Angle = normalizeAngle(line2Position.angle);
-            const line3Angle = normalizeAngle(line3Position.angle);
-            const line4Angle = normalizeAngle(line4Position.angle);
-            
-            const line1AngleDiff = Math.min(Math.abs(line1Angle - quizData.targetAngles[0]), Math.abs(line1Angle - (quizData.targetAngles[0] + 360)));
-            const line2AngleDiff = Math.min(Math.abs(line2Angle - quizData.targetAngles[1]), Math.abs(line2Angle - (quizData.targetAngles[1] + 360)));
-            const line3AngleDiff = Math.min(Math.abs(line3Angle - quizData.targetAngles[2]), Math.abs(line3Angle - (quizData.targetAngles[2] + 360)));
-            const line4AngleDiff = Math.min(Math.abs(line4Angle - quizData.targetAngles[3]), Math.abs(line4Angle - (quizData.targetAngles[3] + 360)));
-            
-            const isLine1Correct = line1AngleDiff <= quizData.toleranceAngle;
-            const isLine2Correct = line2AngleDiff <= quizData.toleranceAngle;
-            const isLine3Correct = line3AngleDiff <= quizData.toleranceAngle;
-            const isLine4Correct = line4AngleDiff <= quizData.toleranceAngle;
-            
-            // Count how many lines are correct
-            const correctCount = [isLine1Correct, isLine2Correct, isLine3Correct, isLine4Correct].filter(Boolean).length;
-            
-            // Calculate percentage score based on how many lines are correct
-            const score = Math.round((correctCount / 4) * 100);
-            const isAllCorrect = correctCount === 4;
-            
-            // Calculate average deviation for analytics
-            const avgAngleDiff = (line1AngleDiff + line2AngleDiff + line3AngleDiff + line4AngleDiff) / 4;
-            
-            // Display result
-            if (isAllCorrect) {
-                resultMessage.textContent = "Excellent! All angles match perfectly.";
-                resultMessage.className = "result-message correct";
-            } else if (correctCount > 0) {
-                resultMessage.textContent = `You got ${correctCount} out of 4 angles correct. Keep trying!`;
-                resultMessage.className = "result-message incorrect";
-            } else {
-                resultMessage.textContent = "None of the angles match. Try adjusting them more carefully.";
-                resultMessage.className = "result-message incorrect";
+            try {
+                // Ensure all dragging is complete
+                isDragging = false;
+                
+                const endTime = new Date();
+                const timeSpent = (endTime - startTime) / 1000; // in seconds
+                
+                // Check if angles match the target with tolerance for all lines
+                const line1Angle = normalizeAngle(line1Position.angle);
+                const line2Angle = normalizeAngle(line2Position.angle);
+                const line3Angle = normalizeAngle(line3Position.angle);
+                const line4Angle = normalizeAngle(line4Position.angle);
+                
+                console.log('Current angles:', [line1Angle, line2Angle, line3Angle, line4Angle]);
+                console.log('Target angles:', quizData.targetAngles);
+                
+                // Calculate the minimum angle difference (accounting for 360 degree wrapping)
+                const line1AngleDiff = Math.min(Math.abs(line1Angle - quizData.targetAngles[0]), Math.abs(line1Angle - (quizData.targetAngles[0] + 360)));
+                const line2AngleDiff = Math.min(Math.abs(line2Angle - quizData.targetAngles[1]), Math.abs(line2Angle - (quizData.targetAngles[1] + 360)));
+                const line3AngleDiff = Math.min(Math.abs(line3Angle - quizData.targetAngles[2]), Math.abs(line3Angle - (quizData.targetAngles[2] + 360)));
+                const line4AngleDiff = Math.min(Math.abs(line4Angle - quizData.targetAngles[3]), Math.abs(line4Angle - (quizData.targetAngles[3] + 360)));
+                
+                console.log('Angle differences:', [line1AngleDiff, line2AngleDiff, line3AngleDiff, line4AngleDiff]);
+                
+                const isLine1Correct = line1AngleDiff <= quizData.toleranceAngle;
+                const isLine2Correct = line2AngleDiff <= quizData.toleranceAngle;
+                const isLine3Correct = line3AngleDiff <= quizData.toleranceAngle;
+                const isLine4Correct = line4AngleDiff <= quizData.toleranceAngle;
+                
+                // Count how many lines are correct
+                const correctCount = [isLine1Correct, isLine2Correct, isLine3Correct, isLine4Correct].filter(Boolean).length;
+                
+                // Calculate percentage score based on how many lines are correct
+                const score = Math.round((correctCount / 4) * 100);
+                const isAllCorrect = correctCount === 4;
+                
+                // Calculate average deviation for analytics
+                const avgAngleDiff = (line1AngleDiff + line2AngleDiff + line3AngleDiff + line4AngleDiff) / 4;
+                
+                console.log('Score calculation:', { score, correctCount, isAllCorrect, avgAngleDiff });
+                
+                // Display result with improved mobile feedback
+                if (isAllCorrect) {
+                    resultMessage.textContent = "Excellent! All angles match perfectly.";
+                    resultMessage.className = "result-message correct";
+                    // Provide haptic feedback on mobile for success
+                    if (navigator.vibrate) {
+                        navigator.vibrate([100, 50, 100]); // Success pattern
+                    }
+                } else if (correctCount > 0) {
+                    resultMessage.textContent = `You got ${correctCount} out of 4 angles correct. Keep trying!`;
+                    resultMessage.className = "result-message incorrect";
+                    if (navigator.vibrate) {
+                        navigator.vibrate(50); // Light feedback
+                    }
+                } else {
+                    resultMessage.textContent = "None of the angles match. Try adjusting them more carefully.";
+                    resultMessage.className = "result-message incorrect";
+                }
+                
+                // Make sure result is visible on mobile
+                resultMessage.style.display = 'block';
+                // Scroll to ensure result is visible on mobile
+                setTimeout(() => {
+                    resultMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 100);
+                
+                // Create a result object with all data
+                const resultData = {
+                    score: score,
+                    timeSpent: timeSpent,
+                    interactions: interactions,
+                    lineAngles: [line1Angle, line2Angle, line3Angle, line4Angle],
+                    angleDifferences: [line1AngleDiff, line2AngleDiff, line3AngleDiff, line4AngleDiff],
+                    correctCount: correctCount,
+                    avgAngleDiff: avgAngleDiff,
+                    targetAngles: quizData.targetAngles,
+                    isCorrect: isAllCorrect,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                };
+                
+                console.log('Saving quiz result:', resultData);
+                
+                // Save result to database with detailed information
+                saveQuizResult(resultData);
+                
+            } catch (error) {
+                console.error('Error in submitAnswer:', error);
+                alert('There was an error submitting your answer. Please try again.');
             }
-            resultMessage.style.display = 'block';
-            
-            // Save result to database with detailed information
-            saveQuizResult({
-                score: score,
-                timeSpent: timeSpent,
-                interactions: interactions,
-                lineAngles: [line1Angle, line2Angle, line3Angle, line4Angle],
-                angleDifferences: [line1AngleDiff, line2AngleDiff, line3AngleDiff, line4AngleDiff],
-                correctCount: correctCount,
-                avgAngleDiff: avgAngleDiff,
-                targetAngles: quizData.targetAngles,
-                isCorrect: isAllCorrect,
-                timestamp: firebase.database.ServerValue.TIMESTAMP
-            });
         }
         
         // Normalize angle to 0-360 range
@@ -1080,10 +1154,13 @@
             return angle;
         }
         
-        // Save quiz result to Firebase
+        // Save quiz result to Firebase with improved reliability
         async function saveQuizResult(result) {
             const user = auth.currentUser;
-            if (!user) return;
+            if (!user) {
+                console.error('No user authenticated');
+                return;
+            }
             
             try {
                 const timestamp = Date.now();
@@ -1095,37 +1172,74 @@
                     console.log(`Saving patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
                     path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/FG/${timestamp}`;
                 } else {
-                    // Regular user quiz
-                    // Check if user is a doctor
-                    const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
-                    const role = roleSnapshot.val();
-                    
-                    if (role === 'doctor') {
-                        console.log(`Saving doctor's own quiz results: ${user.uid}`);
-                        path = `doctors/${user.uid}/quiz/FG/${timestamp}`;
-                    } else {
-                        console.log(`Saving regular user quiz results: ${user.uid}`);
+                    // Regular user quiz - Fetch role with error handling
+                    try {
+                        const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                        const role = roleSnapshot.val();
+                        
+                        if (role === 'doctor') {
+                            console.log(`Saving doctor's own quiz results: ${user.uid}`);
+                            path = `doctors/${user.uid}/quiz/FG/${timestamp}`;
+                        } else {
+                            console.log(`Saving regular user quiz results: ${user.uid}`);
+                            path = `users/${user.uid}/quiz/FG/${timestamp}`;
+                        }
+                    } catch (roleError) {
+                        console.error('Error determining user role, saving as regular user:', roleError);
+                        // Fallback to regular user path if role check fails
                         path = `users/${user.uid}/quiz/FG/${timestamp}`;
                     }
                 }
                 
                 console.log(`Saving quiz results to path: ${path}`);
             
-                // Save the result directly to the timestamp-based path
-                await database.ref(path).set(result);
-                console.log('Quiz results saved successfully');
-                loadPreviousAttempts();
+                // Save the result with retry logic
+                let saveAttempts = 0;
+                const maxAttempts = 3;
+                let saveSuccess = false;
+                
+                while (!saveSuccess && saveAttempts < maxAttempts) {
+                    try {
+                        saveAttempts++;
+                        await database.ref(path).set(result);
+                        console.log(`Quiz results saved successfully (attempt ${saveAttempts})`);
+                        saveSuccess = true;
+                    } catch (saveError) {
+                        console.error(`Error saving quiz result (attempt ${saveAttempts}):`, saveError);
+                        if (saveAttempts >= maxAttempts) {
+                            throw saveError; // Re-throw after max attempts
+                        }
+                        // Wait a bit before retrying
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    }
+                }
+                
+                // Only load previous attempts if save was successful
+                if (saveSuccess) {
+                    loadPreviousAttempts();
+                } else {
+                    alert('There was an issue saving your result. Previous attempts may not show your latest score.');
+                }
             } catch (error) {
-                console.error('Error saving quiz result:', error);
+                console.error('Error in saveQuizResult:', error);
+                // Display friendly error to user
+                alert('There was an issue saving your result. You can still continue using the app.');
             }
         }
         
-        // Load previous attempts
+        // Load previous attempts with better mobile compatibility
         async function loadPreviousAttempts() {
             const user = auth.currentUser;
-            if (!user) return;
+            if (!user) {
+                console.log('No user authenticated, cannot load attempts');
+                return;
+            }
             
             try {
+                // Show loading indicator
+                const reportList = document.getElementById('attempts-list');
+                reportList.innerHTML = '<h3>Previous Attempts</h3><p>Loading your previous attempts...</p>';
+                
                 let path;
                 
                 // Check if this is a patient quiz (doctor viewing patient)
@@ -1133,54 +1247,97 @@
                     console.log(`Loading patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
                     path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/FG`;
                 } else {
-                    // Regular user quiz
-                    // Check if user is a doctor
-                    const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
-                    const role = roleSnapshot.val();
-                    
-                    if (role === 'doctor') {
-                        console.log(`Loading doctor's own quiz results: ${user.uid}`);
-                        path = `doctors/${user.uid}/quiz/FG`;
-                    } else {
-                        console.log(`Loading regular user quiz results: ${user.uid}`);
+                    // Regular user quiz with better error handling
+                    try {
+                        const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                        const role = roleSnapshot.val();
+                        
+                        if (role === 'doctor') {
+                            console.log(`Loading doctor's own quiz results: ${user.uid}`);
+                            path = `doctors/${user.uid}/quiz/FG`;
+                        } else {
+                            console.log(`Loading regular user quiz results: ${user.uid}`);
+                            path = `users/${user.uid}/quiz/FG`;
+                        }
+                    } catch (roleError) {
+                        console.error('Error determining user role, loading as regular user:', roleError);
+                        // Fallback to regular user path if role check fails
                         path = `users/${user.uid}/quiz/FG`;
                     }
                 }
             
                 console.log(`Fetching quiz results from path: ${path}`);
-                const snapshot = await database.ref(path).once('value');
-                const reportList = document.getElementById('attempts-list');
+                
+                // Use a timeout to ensure database query doesn't hang
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Database query timeout')), 10000)
+                );
+                
+                // Race the database query against a timeout
+                const snapshot = await Promise.race([
+                    database.ref(path).once('value'),
+                    timeoutPromise
+                ]);
+                
+                // Clear loading indicator
                 reportList.innerHTML = '<h3>Previous Attempts</h3>';
                 
-                if (snapshot.exists()) {
+                if (snapshot && snapshot.exists && snapshot.exists()) {
                     const attempts = {};
                     
                     // Convert the snapshot to an array of entries with timestamps as keys
                     snapshot.forEach(childSnapshot => {
-                        const timestamp = childSnapshot.key;
-                        const data = childSnapshot.val();
-                        attempts[timestamp] = data;
+                        if (childSnapshot && childSnapshot.val) {
+                            const timestamp = childSnapshot.key;
+                            const data = childSnapshot.val();
+                            if (data) attempts[timestamp] = data;
+                        }
                     });
                     
                     const attemptEntries = Object.entries(attempts);
+                    console.log(`Found ${attemptEntries.length} previous attempts`);
                     
                     if (attemptEntries.length > 0) {
                         // Sort by timestamp, newest first
                         attemptEntries.sort((a, b) => b[0] - a[0]);
                         
-                        attemptEntries.forEach(([timestamp, result]) => {
+                        // Limit to 10 most recent attempts for mobile performance
+                        const recentAttempts = attemptEntries.slice(0, 10);
+                        
+                        // Add attempt count summary
+                        if (attemptEntries.length > 10) {
+                            reportList.innerHTML += `<p>Showing the 10 most recent of ${attemptEntries.length} total attempts</p>`;
+                        }
+                        
+                        recentAttempts.forEach(([timestamp, result]) => {
+                            if (!result) {
+                                console.log('Skipping invalid result entry');
+                                return;
+                            }
+                            
                             const attemptItem = document.createElement('div');
                             attemptItem.className = 'attempt-item';
                             
-                            const date = new Date(parseInt(timestamp));
-                            const formattedDate = date.toLocaleString();
+                            // Convert timestamp to readable date
+                            let formattedDate;
+                            try {
+                                const date = new Date(parseInt(timestamp));
+                                formattedDate = date.toLocaleString();
+                            } catch (dateError) {
+                                console.error('Error formatting date:', dateError);
+                                formattedDate = 'Unknown date';
+                            }
                             
                             // Create the date and score section
                             const dateScoreDiv = document.createElement('div');
                             dateScoreDiv.className = 'attempt-header';
+                            
+                            // Safely access score
+                            const score = result.score !== undefined ? result.score : 'N/A';
+                            
                             dateScoreDiv.innerHTML = `
                                 <div class="attempt-date">${formattedDate}</div>
-                                <div class="attempt-score">Score: ${result.score}%</div>
+                                <div class="attempt-score">Score: ${score}%</div>
                             `;
                             attemptItem.appendChild(dateScoreDiv);
                             
@@ -1207,30 +1364,32 @@
                             if (result.lineAngles && Array.isArray(result.lineAngles)) {
                                 // New format with multiple lines
                                 for (let i = 0; i < result.lineAngles.length; i++) {
-                                    detailsHtml += `
-                                    <div class="attempt-detail-item">
-                                        <span class="detail-label">Line ${i+1} Angle:</span>
-                                        <span>${result.lineAngles[i].toFixed(1)}° (Target: ${result.targetAngles[i]}°)</span>
-                                    </div>`;
+                                    if (result.lineAngles[i] !== undefined && result.targetAngles && result.targetAngles[i] !== undefined) {
+                                        detailsHtml += `
+                                        <div class="attempt-detail-item">
+                                            <span class="detail-label">Line ${i+1} Angle:</span>
+                                            <span>${parseFloat(result.lineAngles[i]).toFixed(1)}° (Target: ${result.targetAngles[i]}°)</span>
+                                        </div>`;
+                                    }
                                 }
                                 
-                                if (result.angleDifferences && Array.isArray(result.angleDifferences)) {
+                                if (result.avgAngleDiff !== undefined) {
                                     detailsHtml += `
                                     <div class="attempt-detail-item">
                                         <span class="detail-label">Avg Deviation:</span>
-                                        <span>${result.avgAngleDiff ? result.avgAngleDiff.toFixed(1) + '°' : 'N/A'}</span>
+                                        <span>${parseFloat(result.avgAngleDiff).toFixed(1)}°</span>
                                     </div>`;
                                 }
-                            } else {
+                            } else if (result.line1Angle !== undefined && result.line2Angle !== undefined) {
                                 // Old format with just two lines
                                 detailsHtml += `
                                 <div class="attempt-detail-item">
                                     <span class="detail-label">Line 1 Angle:</span>
-                                    <span>${result.line1Angle ? result.line1Angle.toFixed(1) + '°' : 'N/A'}</span>
+                                    <span>${parseFloat(result.line1Angle).toFixed(1)}°</span>
                                 </div>
                                 <div class="attempt-detail-item">
                                     <span class="detail-label">Line 2 Angle:</span>
-                                    <span>${result.line2Angle ? result.line2Angle.toFixed(1) + '°' : 'N/A'}</span>
+                                    <span>${parseFloat(result.line2Angle).toFixed(1)}°</span>
                                 </div>`;
                             }
                             
@@ -1239,19 +1398,25 @@
                                 <div class="attempt-detail-item">
                                     <span class="detail-label">Result:</span>
                                     <span>${result.isCorrect ? 'Correct' : 'Incorrect'}</span>
-                                </div>
-                            `;
+                                </div>`;
                             detailsDiv.innerHTML = detailsHtml;
                             attemptItem.appendChild(detailsDiv);
                             
-                            // Add a button to toggle details
+                            // Add a button to toggle details - with mobile-friendly tap area
                             const toggleBtn = document.createElement('button');
                             toggleBtn.className = 'toggle-details-btn';
                             toggleBtn.textContent = 'Show Details';
-                            toggleBtn.onclick = function() {
+                            toggleBtn.onclick = function(e) {
+                                e.preventDefault(); // Prevent double-click/tap issues
+                                
                                 if (detailsDiv.style.display === 'none' || !detailsDiv.style.display) {
                                     detailsDiv.style.display = 'grid';
                                     this.textContent = 'Hide Details';
+                                    
+                                    // Scroll into view for better mobile experience
+                                    setTimeout(() => {
+                                        detailsDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                                    }, 100);
                                 } else {
                                     detailsDiv.style.display = 'none';
                                     this.textContent = 'Show Details';
@@ -1270,9 +1435,19 @@
                 } else {
                     reportList.innerHTML += '<p>No previous attempts found.</p>';
                 }
+                
+                // Scroll to report container for visibility on mobile
+                // We do this after a slight delay to ensure DOM is updated
+                setTimeout(() => {
+                    const reportContainer = document.getElementById('report-container');
+                    if (reportContainer && reportContainer.getBoundingClientRect().top > window.innerHeight) {
+                        reportContainer.scrollIntoView({ behavior: 'smooth' });
+                    }
+                }, 300);
+                
             } catch (error) {
                 console.error('Error fetching previous attempts:', error);
-                document.getElementById('attempts-list').innerHTML += '<p>Error loading previous attempts: ' + error.message + '</p>';
+                document.getElementById('attempts-list').innerHTML = '<h3>Previous Attempts</h3><p>Error loading attempts: ' + (error.message || 'Unknown error') + '</p><p>Please try again later.</p>';
             }
         }
         
