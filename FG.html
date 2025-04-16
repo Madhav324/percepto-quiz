@@ -98,12 +98,16 @@
         .angles-container {
             position: relative;
             width: 100%;
-            height: 300px;
+            height: 350px;
             border: 1px solid var(--border-color);
             margin-bottom: 15px;
-            border-radius: 5px;
+            border-radius: 8px;
             background-color: #fafafa;
+            background-image: linear-gradient(rgba(200, 200, 200, 0.2) 1px, transparent 1px), 
+                            linear-gradient(90deg, rgba(200, 200, 200, 0.2) 1px, transparent 1px);
+            background-size: 20px 20px;
             overflow: hidden;
+            box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.05);
         }
         
         .reference-guide {
@@ -112,15 +116,17 @@
             left: 50%;
             transform: translateX(-50%);
             width: 90%;
-            padding: 10px;
-            background-color: #f0f0f0;
-            border: 1px dashed #999;
-            border-radius: 5px;
+            padding: 12px;
+            background-color: rgba(240, 240, 240, 0.9);
+            border: 1px solid #ccc;
+            border-radius: 8px;
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            grid-gap: 5px;
+            grid-gap: 8px;
             justify-content: center;
             align-items: center;
+            z-index: 5;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         }
         
         .angle-label {
@@ -134,13 +140,42 @@
         
         .draggable-line {
             position: absolute;
-            width: 80px;
-            height: 6px;
+            width: 100px;
+            height: 8px;
             background-color: var(--primary-color);
             cursor: move;
             transform-origin: left center;
-            border-radius: 3px;
-            box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            transition: box-shadow 0.2s, opacity 0.2s;
+            z-index: 10;
+        }
+        
+        .draggable-line::after {
+            content: '';
+            position: absolute;
+            right: -8px;
+            top: 50%;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background-color: inherit;
+            transform: translateY(-50%);
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .angle-indicator {
+            position: absolute;
+            font-size: 12px;
+            font-weight: bold;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 2px 6px;
+            border-radius: 10px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+            transform: translate(50px, -25px);
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
         }
         
         .line1 {
@@ -153,24 +188,54 @@
             background-color: var(--secondary-color);
         }
         
-        .reset-btn {
-            padding: 5px 10px;
-            background-color: #f0f0f0;
-            border: 1px solid #ccc;
-            border-radius: 4px;
+        .reset-btn, .hint-btn, .submit-btn {
+            padding: 10px 15px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 0.8rem;
+            font-size: 0.9rem;
             margin-right: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .reset-btn {
+            background-color: #f0f0f0;
+            color: #333;
+        }
+        
+        .hint-btn {
+            background-color: var(--accent-color);
+            color: white;
         }
         
         .submit-btn {
-            padding: 8px 15px;
             background-color: var(--primary-color);
             color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.9rem;
+            margin-right: 0;
+        }
+        
+        .reset-btn:hover, .hint-btn:hover, .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
+        .reset-btn:active, .hint-btn:active, .submit-btn:active {
+            transform: translateY(0);
+        }
+        
+        .icon {
+            margin-right: 5px;
+            font-style: normal;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 15px;
         }
         
         .result-message {
@@ -259,6 +324,36 @@
             background-color: #45a049;
         }
         
+        /* Add animations */
+        @keyframes pulse {
+            0% { transform: rotate(var(--current-angle)) scale(1); opacity: 1; }
+            50% { transform: rotate(var(--current-angle)) scale(1.1); opacity: 0.9; }
+            100% { transform: rotate(var(--current-angle)) scale(1); opacity: 1; }
+        }
+        
+        @keyframes reset-pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+        
+        .pulse-animation {
+            animation: pulse 0.5s ease-in-out infinite;
+            --current-angle: attr(style transform);
+            z-index: 20;
+        }
+        
+        .reset-animation {
+            animation: reset-pulse 0.3s ease-in-out;
+        }
+        
+        .result-message.hint {
+            background-color: #e6f7ff;
+            color: #0366d6;
+            border-left: 4px solid #0366d6;
+        }
+        
+        /* Mobile optimizations */
         @media (max-width: 600px) {
             .container {
                 padding: 10px;
@@ -271,7 +366,7 @@
             }
             
             .angles-container {
-                height: 250px;
+                height: 280px;
                 touch-action: none;
             }
             
@@ -281,15 +376,43 @@
                 border-radius: 4px;
             }
             
-            .reference-line {
-                width: 70px;
-                height: 6px;
+            .reference-guide {
+                width: 95%;
+                padding: 8px;
+                grid-template-columns: repeat(2, 1fr);
             }
             
-            button {
-                padding: 10px;
+            .angle-label {
+                font-size: 0.8rem;
+                padding: 3px;
+            }
+            
+            .controls {
+                flex-wrap: wrap;
+                justify-content: space-around;
+            }
+            
+            .reset-btn, .hint-btn, .submit-btn {
+                padding: 8px 12px;
+                min-width: 80px;
+                font-size: 0.9rem;
                 margin: 5px;
-                font-size: 14px;
+            }
+            
+            .instructions {
+                font-size: 0.9rem;
+                padding: 8px;
+            }
+            
+            .instruction-targets {
+                flex-wrap: wrap;
+                gap: 5px;
+            }
+            
+            .instruction-targets span {
+                font-size: 0.8rem;
+                padding: 3px 6px;
+                margin-bottom: 5px;
             }
             
             .profile-icon {
@@ -304,6 +427,29 @@
             
             .attempt-details {
                 grid-template-columns: 1fr;
+            }
+            
+            .angle-indicator {
+                transform: translate(40px, -20px);
+                font-size: 10px;
+                padding: 1px 4px;
+            }
+            
+            /* Target smaller device height */
+            @media (max-height: 700px) {
+                .angles-container {
+                    height: 240px;
+                }
+                
+                .instructions {
+                    padding: 5px;
+                    margin-bottom: 10px;
+                }
+                
+                .draggable-line {
+                    width: 60px;
+                    height: 6px;
+                }
             }
         }
     </style>
@@ -323,7 +469,14 @@
 
             
             <div class="instructions">
-                <p>Drag each line to match the target angles shown below. Try to be as accurate as possible!</p>
+                <p>Drag the colored lines to match their target angles. Touch and drag <span style="color:var(--primary-color)">↔</span> or <span style="color:var(--primary-color)">↕</span> to rotate.</p>
+                <p>Each line has a specific target angle to match:</p>
+                <div class="instruction-targets">
+                    <span style="color:var(--primary-color)">Line 1: <b>30°</b></span>
+                    <span style="color:var(--secondary-color)">Line 2: <b>60°</b></span>
+                    <span style="color:var(--accent-color)">Line 3: <b>120°</b></span>
+                    <span style="color:var(--error-color)">Line 4: <b>150°</b></span>
+                </div>
             </div>
             
             <div class="angles-container" id="angles-container">
@@ -337,8 +490,9 @@
             </div>
             
             <div class="controls">
-                <button class="reset-btn" id="reset-btn">Reset</button>
-                <button class="submit-btn" id="submit-btn">Submit</button>
+                <button class="reset-btn" id="reset-btn"><i class="icon">↺</i> Reset</button>
+                <button class="submit-btn" id="submit-btn"><i class="icon">✓</i> Submit</button>
+                <button class="hint-btn" id="hint-btn"><i class="icon">?</i> Hint</button>
             </div>
             
             <div class="result-message" id="result-message"></div>
@@ -427,6 +581,7 @@
             // Button event listeners
             resetBtn.addEventListener('click', resetQuiz);
             submitBtn.addEventListener('click', submitAnswer);
+            document.getElementById('hint-btn').addEventListener('click', showHint);
         }
         
         // Create angle references
@@ -448,14 +603,22 @@
         
         // Reset line positions
         function resetLinePositions() {
-            const centerX = anglesContainer.offsetWidth / 2;
-            const centerY = anglesContainer.offsetHeight / 2 - 40; // Offset to leave room for reference guide
+            const containerWidth = anglesContainer.offsetWidth;
+            const containerHeight = anglesContainer.offsetHeight;
             
-            // Set line positions
-            line1Position = { x: centerX, y: centerY, angle: 0 };
-            line2Position = { x: centerX, y: centerY, angle: 0 };
-            line3Position = { x: centerX, y: centerY, angle: 0 };
-            line4Position = { x: centerX, y: centerY, angle: 0 };
+            // Calculate better positions for lines - arrange in a grid pattern
+            // for easier access on mobile
+            const centerX = containerWidth / 2;
+            const gridTop = containerHeight * 0.25;
+            const gridBottom = containerHeight * 0.6;
+            const gridLeft = containerWidth * 0.25;
+            const gridRight = containerWidth * 0.75;
+            
+            // Set line positions in a grid pattern
+            line1Position = { x: gridLeft, y: gridTop, angle: Math.floor(Math.random() * 180) };
+            line2Position = { x: gridRight, y: gridTop, angle: Math.floor(Math.random() * 180) };
+            line3Position = { x: gridLeft, y: gridBottom, angle: Math.floor(Math.random() * 180) };
+            line4Position = { x: gridRight, y: gridBottom, angle: Math.floor(Math.random() * 180) };
             
             // Update visual positions
             updateLinePosition(line1, line1Position, 'var(--primary-color)');
@@ -474,17 +637,38 @@
             }
         }
         
-        // Set up drag functionality
+        // Set up drag functionality with improved angle calculation
         function setupDrag(element, lineId) {
             let isDragging = false;
-            let startX, startY, startAngle;
+            let startX, startY;
+            let centerX, centerY;
             let currentPosition;
+            let lastAngle = 0;
+            let targetAngle;
             
+            // Create angle indicator
+            const angleIndicator = document.createElement('div');
+            angleIndicator.className = 'angle-indicator';
+            element.appendChild(angleIndicator);
+            
+            // Determine which position object to use and the target angle
             switch(lineId) {
-                case 1: currentPosition = line1Position; break;
-                case 2: currentPosition = line2Position; break;
-                case 3: currentPosition = line3Position; break;
-                case 4: currentPosition = line4Position; break;
+                case 1: 
+                    currentPosition = line1Position; 
+                    targetAngle = quizData.targetAngles[0];
+                    break;
+                case 2: 
+                    currentPosition = line2Position; 
+                    targetAngle = quizData.targetAngles[1];
+                    break;
+                case 3: 
+                    currentPosition = line3Position; 
+                    targetAngle = quizData.targetAngles[2];
+                    break;
+                case 4: 
+                    currentPosition = line4Position; 
+                    targetAngle = quizData.targetAngles[3];
+                    break;
             }
             
             // Set line color according to index
@@ -504,6 +688,33 @@
             document.addEventListener('touchmove', handleTouch(onMove), { passive: false });
             document.addEventListener('touchend', handleTouch(onEnd));
             
+            // Show angle on hover
+            element.addEventListener('mouseover', () => showAngleIndicator(true));
+            element.addEventListener('mouseout', () => {
+                if (!isDragging) showAngleIndicator(false);
+            });
+            
+            function showAngleIndicator(show) {
+                angleIndicator.style.opacity = show ? '1' : '0';
+                if (show) {
+                    angleIndicator.textContent = Math.round(normalizeAngle(currentPosition.angle)) + '°';
+                    // Change color based on how close to target angle
+                    const diff = Math.abs(normalizeAngle(currentPosition.angle) - targetAngle);
+                    const minDiff = Math.min(diff, 360 - diff);
+                    
+                    if (minDiff <= quizData.toleranceAngle) {
+                        angleIndicator.style.backgroundColor = '#d4edda';
+                        angleIndicator.style.color = '#155724';
+                    } else if (minDiff <= quizData.toleranceAngle * 2) {
+                        angleIndicator.style.backgroundColor = '#fff3cd';
+                        angleIndicator.style.color = '#856404';
+                    } else {
+                        angleIndicator.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
+                        angleIndicator.style.color = '#333';
+                    }
+                }
+            }
+            
             function handleTouch(callback) {
                 return function(event) {
                     if (event.touches && event.touches[0]) {
@@ -519,17 +730,24 @@
                 interactions++;
                 isDragging = true;
                 
-                // Calculate the distance from the rotation point (left end of line)
-                const rect = anglesContainer.getBoundingClientRect();
-                const lineRect = element.getBoundingClientRect();
+                // Get the container coordinates
+                const containerRect = anglesContainer.getBoundingClientRect();
                 
+                // Get the rotation origin (left side of line)
+                centerX = currentPosition.x + containerRect.left;
+                centerY = currentPosition.y + containerRect.top;
+                
+                // Starting mouse coordinates
                 startX = e.clientX;
                 startY = e.clientY;
-                startAngle = currentPosition.angle;
+                
+                // Save the current angle as the start angle
+                lastAngle = currentPosition.angle;
                 
                 // Visual feedback for dragging
                 element.style.opacity = '0.8';
                 element.style.boxShadow = '0 0 10px rgba(0,0,0,0.4)';
+                showAngleIndicator(true);
                 
                 e.stopPropagation();
             }
@@ -537,36 +755,74 @@
             function onMove(e) {
                 if (!isDragging) return;
                 
-                // Calculate the center of the angles container
-                const containerRect = anglesContainer.getBoundingClientRect();
-                const centerX = currentPosition.x;
-                const centerY = currentPosition.y;
+                // Calculate the angle between the initial vector and current vector
+                // Initial vector: from center to start point
+                // Current vector: from center to current point
                 
-                // Calculate the angle between the center point and the current mouse position
-                const deltaX = e.clientX - startX;
-                const deltaY = e.clientY - startY;
+                // Current mouse position relative to center
+                const currentX = e.clientX - centerX;
+                const currentY = e.clientY - centerY; 
                 
-                // Calculate new angle based on mouse movement
-                // We're converting the movement to angular change
-                const sensitivity = 0.3; // Adjust sensitivity as needed
-                const angleDelta = (deltaX - deltaY) * sensitivity;
+                // On mobile, if the distance is too small, use a more direct approach
+                const distanceFromCenter = Math.sqrt(currentX * currentX + currentY * currentY);
                 
-                // Update the angle
-                currentPosition.angle = startAngle + angleDelta;
+                if (distanceFromCenter < 20) {
+                    // For very close interactions, use a simpler approach with deltas
+                    const deltaX = e.clientX - startX;
+                    const deltaY = e.clientY - startY;
+                    const sensitivity = 0.5;
+                    currentPosition.angle = lastAngle + (deltaX - deltaY) * sensitivity;
+                } else {
+                    // Calculate the angle with atan2 for more accurate rotation
+                    const angle = Math.atan2(currentY, currentX) * (180 / Math.PI);
+                    
+                    // Update the position with the new angle
+                    currentPosition.angle = angle;
+                }
                 
-                // Update line position and rotation
+                // Update line position
                 updateLinePosition(element, currentPosition);
+                
+                // Update the angle indicator
+                angleIndicator.textContent = Math.round(normalizeAngle(currentPosition.angle)) + '°';
+                
+                // Change color based on how close to target angle
+                const diff = Math.abs(normalizeAngle(currentPosition.angle) - targetAngle);
+                const minDiff = Math.min(diff, 360 - diff);
+                
+                if (minDiff <= quizData.toleranceAngle) {
+                    angleIndicator.style.backgroundColor = '#d4edda';
+                    angleIndicator.style.color = '#155724';
+                } else if (minDiff <= quizData.toleranceAngle * 2) {
+                    angleIndicator.style.backgroundColor = '#fff3cd';
+                    angleIndicator.style.color = '#856404';
+                } else {
+                    angleIndicator.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
+                    angleIndicator.style.color = '#333';
+                }
             }
             
             function onEnd() {
+                if (!isDragging) return;
                 isDragging = false;
+                
+                // Provide haptic feedback on mobile when angle is close to target
+                const diff = Math.abs(normalizeAngle(currentPosition.angle) - targetAngle);
+                const minDiff = Math.min(diff, 360 - diff);
+                
+                if (minDiff <= quizData.toleranceAngle && navigator.vibrate) {
+                    navigator.vibrate(50); // Short vibration for feedback
+                }
                 
                 // Normalize angle to 0-360 range
                 currentPosition.angle = normalizeAngle(currentPosition.angle);
                 
-                // Reset visual indicators
-                element.style.opacity = '1';
-                element.style.boxShadow = '';
+                // Reset visual indicators after a short delay
+                setTimeout(() => {
+                    element.style.opacity = '1';
+                    element.style.boxShadow = '';
+                    showAngleIndicator(false);
+                }, 300);
             }
         }
         
@@ -576,6 +832,96 @@
             startTime = new Date();
             interactions = 0;
             resultMessage.style.display = 'none';
+            
+            // Add animation effect
+            anglesContainer.classList.add('reset-animation');
+            setTimeout(() => {
+                anglesContainer.classList.remove('reset-animation');
+            }, 300);
+        }
+        
+        // Show hint
+        function showHint() {
+            interactions++;
+            
+            // Get closest line to target
+            const line1Diff = Math.min(Math.abs(normalizeAngle(line1Position.angle) - quizData.targetAngles[0]), 
+                                    Math.abs(normalizeAngle(line1Position.angle) - (quizData.targetAngles[0] + 360)));
+            const line2Diff = Math.min(Math.abs(normalizeAngle(line2Position.angle) - quizData.targetAngles[1]), 
+                                     Math.abs(normalizeAngle(line2Position.angle) - (quizData.targetAngles[1] + 360)));
+            const line3Diff = Math.min(Math.abs(normalizeAngle(line3Position.angle) - quizData.targetAngles[2]), 
+                                     Math.abs(normalizeAngle(line3Position.angle) - (quizData.targetAngles[2] + 360)));
+            const line4Diff = Math.min(Math.abs(normalizeAngle(line4Position.angle) - quizData.targetAngles[3]), 
+                                     Math.abs(normalizeAngle(line4Position.angle) - (quizData.targetAngles[3] + 360)));
+            
+            // Create hint array [lineId, diff]
+            const hints = [
+                [1, line1Diff],
+                [2, line2Diff],
+                [3, line3Diff],
+                [4, line4Diff]
+            ];
+            
+            // Sort by difference (largest first)
+            hints.sort((a, b) => b[1] - a[1]);
+            
+            // Get the line that needs the most adjustment (index 0)
+            const lineToHint = hints[0][0];
+            const lineDiff = hints[0][1];
+            
+            // Only give hint if line is not already close
+            if (lineDiff <= quizData.toleranceAngle) {
+                resultMessage.textContent = "All lines are already close to their targets!";  
+            } else {
+                let lineElement, targetAngle, currentAngle;
+                
+                switch(lineToHint) {
+                    case 1: 
+                        lineElement = line1;
+                        targetAngle = quizData.targetAngles[0];
+                        currentAngle = normalizeAngle(line1Position.angle);
+                        break;
+                    case 2: 
+                        lineElement = line2;
+                        targetAngle = quizData.targetAngles[1];
+                        currentAngle = normalizeAngle(line2Position.angle);
+                        break;
+                    case 3: 
+                        lineElement = line3;
+                        targetAngle = quizData.targetAngles[2];
+                        currentAngle = normalizeAngle(line3Position.angle);
+                        break;
+                    case 4: 
+                        lineElement = line4;
+                        targetAngle = quizData.targetAngles[3];
+                        currentAngle = normalizeAngle(line4Position.angle);
+                        break;
+                }
+                
+                // Calculate direction to rotate
+                const direction = (targetAngle > currentAngle) ? 
+                    (targetAngle - currentAngle <= 180 ? 'clockwise' : 'counter-clockwise') :
+                    (currentAngle - targetAngle <= 180 ? 'counter-clockwise' : 'clockwise');
+                
+                // Apply pulsing animation to highlight the line
+                lineElement.classList.add('pulse-animation');
+                setTimeout(() => {
+                    lineElement.classList.remove('pulse-animation');
+                }, 2000);
+                
+                // Display hint message
+                resultMessage.textContent = `Try rotating Line ${lineToHint} ${direction} to get closer to ${targetAngle}°`;
+            }
+            
+            resultMessage.className = 'result-message hint';
+            resultMessage.style.display = 'block';
+            
+            // Hide hint after 3 seconds
+            setTimeout(() => {
+                if (resultMessage.className.includes('hint')) {
+                    resultMessage.style.display = 'none';
+                }
+            }, 3000);
         }
         
         // Submit answer
