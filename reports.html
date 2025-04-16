@@ -207,33 +207,35 @@
             display: block;
         }
         
-        .additional-stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
-            gap: 5px;
+        .raw-data {
+            margin: 10px 0;
+        }
+        
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
             margin-bottom: 10px;
         }
         
-        .additional-stat {
-            font-size: 12px;
-            color: #555;
-            background-color: #f1f1f1;
-            padding: 8px 5px;
-            border-radius: 4px;
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            min-height: 50px;
+        .stats-table td {
+            padding: 5px 8px;
+            border-bottom: 1px solid #eee;
         }
         
-        .additional-stat div {
-            margin-bottom: 3px;
-            font-size: 11px;
+        .stats-table tr:nth-child(even) {
+            background-color: #f5f5f5;
         }
         
-        .additional-stat strong {
-            font-size: 13px;
+        .stats-table td:first-child {
+            font-weight: 500;
+            text-transform: capitalize;
+            width: 50%;
+        }
+        
+        .stats-table td:last-child {
+            text-align: right;
+            font-weight: bold;
             color: #333;
         }
         
@@ -656,80 +658,36 @@
                                     <div id="toggle-icon-${quizType}">+</div>
                                 </div>
                                 
-                                <div class="quiz-stats">
-                                    <div class="stat">
-                                        <div class="stat-value">${attempt.score || 0}%</div>
-                                        <div class="stat-label">Score</div>
-                                    </div>
-                                    <div class="stat">
-                                        <div class="stat-value">${timeSpent}s</div>
-                                        <div class="stat-label">Time</div>
-                                    </div>
-                                    <div class="stat">
-                                        <div class="stat-value">${attempt.interactions || 0}</div>
-                                        <div class="stat-label">Interactions</div>
-                                    </div>
-                                </div>
-                                
                                 <div id="quiz-details-${quizType}" class="quiz-details">
                                     <div class="progress-container">
                                         <div class="progress-bar" style="width: ${score}%"></div>
                                     </div>
                                     
-                                    <div class="additional-stats">
-                                        ${attempt.totalQuestions ? `
-                                        <div class="additional-stat">
-                                            <div>Total Questions</div>
-                                            <strong>${attempt.totalQuestions}</strong>
-                                        </div>` : ''}
-                                        
-                                        ${attempt.correctAnswers ? `
-                                        <div class="additional-stat">
-                                            <div>Correct Answers</div>
-                                            <strong>${attempt.correctAnswers}</strong>
-                                        </div>` : ''}
-                                        
-                                        ${attempt.timeSpent ? `
-                                        <div class="additional-stat">
-                                            <div>Total Time</div>
-                                            <strong>${Math.round((attempt.timeSpent || 0) / 1000)}s</strong>
-                                        </div>` : ''}
-                                        
-                                        ${attempt.interactions !== undefined ? `
-                                        <div class="additional-stat">
-                                            <div>Interactions</div>
-                                            <strong>${attempt.interactions}</strong>
-                                        </div>` : ''}
-                                        
-                                        ${attempt.errors !== undefined ? `
-                                        <div class="additional-stat">
-                                            <div>Errors</div>
-                                            <strong>${attempt.errors}</strong>
-                                        </div>` : ''}
-                                        
-                                        ${attempt.hints !== undefined ? `
-                                        <div class="additional-stat">
-                                            <div>Hints Used</div>
-                                            <strong>${attempt.hints}</strong>
-                                        </div>` : ''}
-                                        
-                                        ${attempt.attempts !== undefined ? `
-                                        <div class="additional-stat">
-                                            <div>Attempts</div>
-                                            <strong>${attempt.attempts}</strong>
-                                        </div>` : ''}
-                                        
-                                        ${attempt.level !== undefined ? `
-                                        <div class="additional-stat">
-                                            <div>Level</div>
-                                            <strong>${attempt.level}</strong>
-                                        </div>` : ''}
+                                    <div class="raw-data">
+                                        <table class="stats-table">
+                                            <tbody>
+                                                ${Object.entries(attempt).map(([key, value]) => {
+                                                    // Skip timestamp as it's already shown in the date
+                                                    if (key === 'timestamp') return '';
+                                                    
+                                                    // Format timeSpent as seconds
+                                                    if (key === 'timeSpent') {
+                                                        value = Math.round(value / 1000) + 's';
+                                                    }
+                                                    
+                                                    // Add % to score if it's not already there
+                                                    if (key === 'score' && !String(value).includes('%')) {
+                                                        value = value + '%';
+                                                    }
+                                                    
+                                                    return `<tr>
+                                                        <td>${key}</td>
+                                                        <td>${value}</td>
+                                                    </tr>`;
+                                                }).join('')}
+                                            </tbody>
+                                        </table>
                                     </div>
-                                    
-                                    ${attempt.notes ? `
-                                    <div class="attempt-notes">
-                                        <small><strong>Notes:</strong> ${attempt.notes}</small>
-                                    </div>` : ''}
                                 </div>
                             </div>
                         `;
