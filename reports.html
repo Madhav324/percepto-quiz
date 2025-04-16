@@ -444,7 +444,8 @@
                 'FG': 'Visual Figure Ground',
                 'VSpac1': 'Visual Spatial - Level 1',
                 'VSpac2': 'Visual Spatial - Level 2',
-                'VN': 'Visual Neglect',
+                'VN1': 'Visual Neglect(lv1)',
+                'VN2': 'Visual Neglect(lv2)',
                 'morning': 'Visual Sequential Memory - Morning',
                 'dressing': 'Visual Sequential Memory - Dressing',
                 'lion': 'Visual Sequential Memory - Lion',
@@ -606,36 +607,54 @@
                                     }
                                 }
                             } 
-                            // Handle mirror assessment data with sub-branches
-                            else if (quizType === 'mirror' && quizData[quizType] && typeof quizData[quizType] === 'object') {
-                                console.log('Processing mirror data structure with sub-branches');
+                            // Handle mirror or other assessment data with sub-branches (broader pattern matching)
+                            else if ((quizType === 'mirror' || quizType === 'fixation' || quizType === 'fixation to mirror') && quizData[quizType] && typeof quizData[quizType] === 'object') {
+                                console.log(`Processing ${quizType} data structure with potential sub-branches:`, quizData[quizType]);
                                 const attempts = [];
                                 
-                                // Process mirror data that has sub-branches
+                                // More robust processing of data with sub-branches
                                 const processSubBranches = (branchData, prefix = '') => {
                                     if (!branchData || typeof branchData !== 'object') return;
                                     
+                                    // Debug the structure at each level
+                                    console.log(`Exploring branch ${prefix || 'root'} with keys:`, Object.keys(branchData));
+                                    
+                                    // First look for any direct timestamp entries
+                                    let foundDirectEntries = false;
                                     Object.entries(branchData).forEach(([key, value]) => {
-                                        // If it's a timestamp entry (numeric key with object value)
+                                        // Check for timestamp entries (numeric keys with object values containing score or data)
                                         if (!isNaN(parseInt(key)) && value && typeof value === 'object') {
-                                            attempts.push({
+                                            foundDirectEntries = true;
+                                            const timestamp = parseInt(key);
+                                            const formatted = {
                                                 ...value,
-                                                timestamp: parseInt(key),
+                                                timestamp: timestamp,
                                                 path: prefix ? `${prefix}.${key}` : key
-                                            });
-                                        } 
-                                        // If it's a sub-branch (non-numeric key with object value)
-                                        else if (isNaN(parseInt(key)) && value && typeof value === 'object') {
-                                            const newPrefix = prefix ? `${prefix}.${key}` : key;
-                                            processSubBranches(value, newPrefix);
+                                            };
+                                            
+                                            // Make sure it has essential data like a score
+                                            if (value.score !== undefined || value.timeSpent !== undefined || value.data !== undefined) {
+                                                attempts.push(formatted);
+                                                console.log(`Found assessment data at ${prefix || 'root'}.${key}:`, formatted);
+                                            }
                                         }
                                     });
+                                    
+                                    // If no direct timestamp entries found, explore sub-branches
+                                    if (!foundDirectEntries) {
+                                        Object.entries(branchData).forEach(([key, value]) => {
+                                            if (value && typeof value === 'object') {
+                                                const newPrefix = prefix ? `${prefix}.${key}` : key;
+                                                processSubBranches(value, newPrefix);
+                                            }
+                                        });
+                                    }
                                 };
                                 
                                 processSubBranches(quizData[quizType]);
                                 
                                 if (attempts.length > 0) {
-                                    console.log(`Found ${attempts.length} mirror attempts:`, attempts);
+                                    console.log(`Found ${attempts.length} ${quizType} attempts:`, attempts);
                                     // Sort attempts by timestamp (newest first)
                                     attempts.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
                                     
@@ -643,6 +662,8 @@
                                         (attempts[0].timestamp > latestAttemptsMap[quizType].timestamp)) {
                                         latestAttemptsMap[quizType] = attempts[0];
                                     }
+                                } else {
+                                    console.warn(`No assessment data found for ${quizType} despite processing sub-branches.`);
                                 }
                             }
                             // Some quiz types might store attempts directly
