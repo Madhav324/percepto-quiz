@@ -409,6 +409,29 @@
             opacity: 0.9;
         }
         
+        /* Detect touch devices */
+        @media (hover: none) and (pointer: coarse) {
+            body {
+                touch-action: auto;
+            }
+            
+            /* Apply touch-device class to body */
+            body:not(.touch-device) {
+                touch-action: auto;
+            }
+            
+            /* Only restrict touch actions on draggable elements */
+            .draggable-line, .draggable-handle {
+                touch-action: none; /* No scrolling/zooming on the lines themselves */
+            }
+            
+            /* Allow scrolling on the container */
+            .angles-container {
+                touch-action: pan-y; /* Allow vertical scrolling */
+                overflow-y: auto; /* Enable scrolling if content overflows */
+            }
+        }
+        
         /* Extra small devices */
         @media (max-width: 400px) {
             .container {
@@ -1661,10 +1684,11 @@
         
         // Optimize touch handling on mobile devices
         document.addEventListener('touchmove', function(e) {
-            // Prevent page zooming only when interacting with our quiz elements
+            // Only prevent default when directly manipulating a line or handle
+            // This allows scrolling on the rest of the page
             if (e.touches.length > 1 || 
                 e.target.classList.contains('draggable-line') ||
-                e.target.closest('.angles-container')) {
+                e.target.classList.contains('draggable-handle')) {
                 e.preventDefault();
             }
         }, { passive: false });
@@ -1680,8 +1704,9 @@
                 // The specific button event handlers will take care of it
                 return;
             } else if (e.target.classList.contains('draggable-line') ||
-                       e.target.closest('.angles-container')) {
-                // For draggable elements and the container, prevent default behavior
+                       e.target.classList.contains('draggable-handle')) {
+                // For draggable elements only, prevent default behavior
+                // Allow normal touch behavior everywhere else for scrolling
                 e.preventDefault();
             }
         }, { passive: false });
