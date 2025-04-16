@@ -307,7 +307,12 @@
             <span id="patient-indicator" class="patient-indicator">Patient</span>
         </div>
 
-        <div id="report-container" class="report-container">
+        <div class="report-header">
+            <h2>Your Quiz Results</h2>
+            <button id="refresh-btn" class="home-btn" onclick="loadQuizReports()">Refresh</button>
+        </div>
+
+        <div class="report-container" id="report-container">
             <div class="loading" id="loading-message">
                 Loading your quiz reports...
             </div>
@@ -317,6 +322,7 @@
         <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
         <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
         <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
         
         <script>
             // Firebase configuration
@@ -333,6 +339,7 @@
             firebase.initializeApp(firebaseConfig);
             const auth = firebase.auth();
             const database = firebase.database();
+            const firestore = firebase.firestore();
             
             // Get quiz context from session storage
             const currentPatientId = sessionStorage.getItem('currentPatientId');
@@ -401,45 +408,131 @@
                     const reportContainer = document.getElementById('report-container');
                     reportContainer.innerHTML = '<div class="loading" id="loading-message">Loading your quiz reports...</div>';
                     
-                    let path;
+                    // Comprehensive approach to get quiz data from all possible paths
+                    const latestAttempts = {};
+                    let dataFound = false;
+                    
+                    // Path 1: Check the 'quiz' path (most common pattern)
                     if (isPatientQuiz) {
-                        // Doctor viewing patient reports
-                        path = `doctors/${doctorId}/patients/${currentPatientId}/quizzes`;
+                        // Doctor viewing patient - check both potential paths for patient data
+                        try {
+                            // First try the doctor's patients path
+                            const quizSnapshot = await database.ref(`doctors/${doctorId}/patients/${currentPatientId}/quiz`).once('value');
+                            if (quizSnapshot.exists) {
+                                console.log('Found quiz data in doctor/patients path');
+                                await processQuizData(quizSnapshot.val(), latestAttempts);
+                                dataFound = true;
+                            }
+                        } catch (error) {
+                            console.warn('Error accessing quiz data in doctor/patients path:', error);
+                        }
+                        
+                        // Also check the users path for the patient (some patients have data here)
+                        try {
+                            const userQuizSnapshot = await database.ref(`users/${currentPatientId}/quiz`).once('value');
+                            if (userQuizSnapshot.exists) {
+                                console.log('Found quiz data in users path for patient');
+                                await processQuizData(userQuizSnapshot.val(), latestAttempts);
+                                dataFound = true;
+                            }
+                        } catch (error) {
+                            console.warn('Error accessing quiz data in users path for patient:', error);
+                        }
                     } else {
                         // Regular user viewing their own reports
-                        path = `users/${user.uid}/quizzes`;
+                        try {
+                            const quizSnapshot = await database.ref(`users/${user.uid}/quiz`).once('value');
+                            if (quizSnapshot.exists) {
+                                console.log('Found quiz data in users/quiz path');
+                                await processQuizData(quizSnapshot.val(), latestAttempts);
+                                dataFound = true;
+                            }
+                        } catch (error) {
+                            console.warn('Error accessing quiz data in users/quiz path:', error);
+                        }
                     }
                     
-                    // Get all quiz results
-                    const quizResultsSnapshot = await database.ref(path).once('value');
-                    const quizResults = quizResultsSnapshot.val();
-                    
-                    if (!quizResults) {
-                        reportContainer.innerHTML = '<div class="no-data">No quiz results found.</div>';
-                        return;
+                    // Path 2: Check the 'quizzes' path (alternate spelling used in some places)
+                    if (isPatientQuiz) {
+                        try {
+                            const quizzesSnapshot = await database.ref(`doctors/${doctorId}/patients/${currentPatientId}/quizzes`).once('value');
+                            if (quizzesSnapshot.exists) {
+                                console.log('Found quiz data in doctor/patients/quizzes path');
+                                await processQuizData(quizzesSnapshot.val(), latestAttempts);
+                                dataFound = true;
+                            }
+                        } catch (error) {
+                            console.warn('Error accessing quiz data in doctor/patients/quizzes path:', error);
+                        }
+                    } else {
+                        try {
+                            const quizzesSnapshot = await database.ref(`users/${user.uid}/quizzes`).once('value');
+                            if (quizzesSnapshot.exists) {
+                                console.log('Found quiz data in users/quizzes path');
+                                await processQuizData(quizzesSnapshot.val(), latestAttempts);
+                                dataFound = true;
+                            }
+                        } catch (error) {
+                            console.warn('Error accessing quiz data in users/quizzes path:', error);
+                        }
                     }
                     
-                    // Process quiz results to get latest attempt for each quiz type
-                    const latestAttempts = {};
-                    
-                    Object.keys(quizResults).forEach(quizType => {
-                        if (!quizResults[quizType].attempts) return;
+                    // Helper function to process quiz data and extract latest attempts
+                    async function processQuizData(quizData, latestAttemptsMap) {
+                        if (!quizData) return;
                         
-                        // Get attempts and sort by timestamp (descending)
-                        const attempts = Object.values(quizResults[quizType].attempts);
-                        if (attempts.length === 0) return;
-                        
-                        attempts.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-                        
-                        // Store latest attempt for this quiz type
-                        latestAttempts[quizType] = attempts[0];
-                    });
+                        Object.keys(quizData).forEach(quizType => {
+                            // Check if attempts exist directly under quiz type
+                            if (quizData[quizType] && quizData[quizType].attempts) {
+                                const attempts = Object.values(quizData[quizType].attempts);
+                                if (attempts.length > 0) {
+                                    // Sort attempts by timestamp (newest first)
+                                    attempts.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                                    
+                                    // If we already have a latest attempt for this quiz type,
+                                    // only update if this one is newer
+                                    if (!latestAttemptsMap[quizType] || 
+                                        (attempts[0].timestamp > latestAttemptsMap[quizType].timestamp)) {
+                                        latestAttemptsMap[quizType] = attempts[0];
+                                    }
+                                }
+                            } 
+                            // Some quiz types might store attempts directly
+                            else if (quizData[quizType] && typeof quizData[quizType] === 'object') {
+                                const attempts = [];
+                                
+                                // Check if the structure is timestamp -> attempt data
+                                Object.entries(quizData[quizType]).forEach(([key, value]) => {
+                                    if (!isNaN(parseInt(key)) && value && typeof value === 'object') {
+                                        // This appears to be a timestamp entry
+                                        attempts.push({
+                                            ...value,
+                                            timestamp: parseInt(key)
+                                        });
+                                    }
+                                });
+                                
+                                if (attempts.length > 0) {
+                                    // Sort attempts by timestamp (newest first)
+                                    attempts.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                                    
+                                    if (!latestAttemptsMap[quizType] || 
+                                        (attempts[0].timestamp > latestAttemptsMap[quizType].timestamp)) {
+                                        latestAttemptsMap[quizType] = attempts[0];
+                                    }
+                                }
+                            }
+                        });
+                    }
                     
                     // Generate HTML for quiz reports
                     if (Object.keys(latestAttempts).length === 0) {
-                        reportContainer.innerHTML = '<div class="no-data">No quiz results found.</div>';
+                        reportContainer.innerHTML = '<div class="no-data">No quiz results found. If you have taken quizzes recently, try refreshing the page.</div>';
                         return;
                     }
+                    
+                    // Log found data for debugging
+                    console.log(`Found ${Object.keys(latestAttempts).length} quiz types with data:`, Object.keys(latestAttempts));
                     
                     let reportsHTML = '';
                     
@@ -582,11 +675,31 @@
                 }
             }
             
+            // Try to load Firestore profiles to complement database data
+            async function loadFirestoreUserProfiles() {
+                try {
+                    const userProfiles = new Map();
+                    const profilesSnapshot = await firestore.collection('userProfiles').get();
+                    profilesSnapshot.docs.forEach(doc => {
+                        userProfiles.set(doc.id, doc.data());
+                    });
+                    console.log(`Loaded ${userProfiles.size} Firestore profiles`);
+                    return userProfiles;
+                } catch (error) {
+                    console.warn('Error loading Firestore profiles:', error);
+                    return new Map();
+                }
+            }
+
             // Auth state observer
-            auth.onAuthStateChanged(user => {
+            auth.onAuthStateChanged(async user => {
                 if (user || isPatientQuiz) {
-                    initializeProfileIcon();
-                    loadQuizReports();
+                    await initializeProfileIcon();
+                    // Load Firestore profiles in the background
+                    loadFirestoreUserProfiles().then(() => {
+                        // Once profiles are loaded, load quiz reports
+                        loadQuizReports();
+                    });
                 } else {
                     window.location.href = 'login.html';
                 }
