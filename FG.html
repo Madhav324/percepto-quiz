@@ -628,6 +628,7 @@
         
         <div class="quiz-container">
             <div class="instructions">
+                <p>Drag the colored lines to match their target angles. Touch and drag <span style="color:var(--primary-color)">↔</span> or <span style="color:var(--primary-color)">↕</span> to rotate.</p>
                 <p>Each line has a specific target angle to match:</p>
                 <div class="instruction-targets">
                     <span style="color:var(--primary-color)">Line 1: <b>30°</b></span>
@@ -643,19 +644,17 @@
             <div class="draggable-line line2" id="line2"></div>
             <div class="draggable-line line3" id="line3"></div>
             <div class="draggable-line line4" id="line4"></div>
-            <div class="reference-guide" id="reference-guide">
-                <!-- Target angles will be shown here -->
-            </div>
         </div>
         
         <div class="controls">
             <button class="reset-btn" id="reset-btn"><i class="icon">↺</i> Reset</button>
-            <button class="submit-btn" id="submit-btn"><i class="icon">✓</i> Submit</button>
-            <button class="hint-btn" id="hint-btn"><i class="icon">?</i> Hint</button>
-            <button class="reset-btn" id="home-btn" onclick="window.location.href='index.html'"><i class="icon">⌂</i> Home</button>
+                <button class="submit-btn" id="submit-btn"><i class="icon">✓</i> Submit</button>
+                <button class="hint-btn" id="hint-btn"><i class="icon">?</i> Hint</button>
+                <button class="reset-btn" id="home-btn" onclick="window.location.href='index.html'"><i class="icon">⌂</i> Home</button>
+            </div>
+            
+            <div class="result-message" id="result-message"></div>
         </div>
-        
-        <div class="result-message" id="result-message"></div>
         
         <div class="report-container" id="report-container">
             <h2>All Quiz Attempts</h2>
@@ -792,6 +791,23 @@
             return (('ontouchstart' in window) ||
                    (navigator.maxTouchPoints > 0) ||
                    (navigator.msMaxTouchPoints > 0));
+        }
+        
+        // Create angle references
+        function createAngleReferences() {
+            referenceGuide.innerHTML = '';
+            
+            // Create reference text labels
+            quizData.targetAngles.forEach((angle, index) => {
+                const angleLabel = document.createElement('div');
+                angleLabel.className = 'angle-label';
+                angleLabel.textContent = `Line ${index+1}: ${angle}°`;
+                angleLabel.style.color = index === 0 ? 'var(--primary-color)' : 
+                                       index === 1 ? 'var(--secondary-color)' : 
+                                       index === 2 ? 'var(--accent-color)' : 
+                                       'var(--error-color)';
+                referenceGuide.appendChild(angleLabel);
+            });
         }
         
         // Reset line positions
