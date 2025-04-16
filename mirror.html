@@ -864,7 +864,7 @@
                 const duration = document.getElementById('duration').value;
                 const notes = document.getElementById('notes').value;
                 
-                // Prepare data object with a flat structure
+                // Prepare data object
                 const timestamp = Date.now();
                 const assessmentData = {
                     timestamp,
@@ -872,21 +872,23 @@
                     interactionCount,
                     pattern,
                     speed,
-                    // Observation data (flattened)
-                    fixation,
-                    leftField,
-                    rightField,
-                    centerField,
-                    duration,
-                    notes,
-                    // Eye tracking data (flattened)
-                    eyeTrackingEnabled: enableEyeTracking,
-                    faceMovementCount: eyeMovementCount,
-                    eyeballMovementCount: eyeballMovementCount,
-                    fixationDuration: eyeFixationDuration,
-                    followingLightScore: followingScore,
-                    // Only save the last 100 eye movement data points to prevent huge data
-                    eyeMovements: eyeMovementData.slice(-100)
+                    observations: {
+                        fixation,
+                        leftField,
+                        rightField,
+                        centerField,
+                        duration,
+                        notes
+                    },
+                    eyeTracking: {
+                        enabled: enableEyeTracking,
+                        faceMovementCount: eyeMovementCount,
+                        eyeballMovementCount: eyeballMovementCount,
+                        fixationDuration: eyeFixationDuration,
+                        followingLightScore: followingScore,
+                        // Only save the last 100 eye movement data points to prevent huge data
+                        movements: eyeMovementData.slice(-100)
+                    }
                 };
                 
                 // Determine the correct path based on user role
@@ -1009,7 +1011,7 @@
                             <span><strong>Date:</strong> ${formattedDate}</span>
                             <span><strong>Pattern:</strong> ${assessment.pattern}</span>
                             <span><strong>Duration:</strong> ${assessment.assessmentDuration.toFixed(1)}s</span>
-                            <span><strong>Eye Track:</strong> ${assessment.eyeTrackingEnabled ? 'On' : 'Off'}</span>
+                            ${assessment.eyeTracking ? `<span><strong>Eye Track:</strong> ${assessment.eyeTracking.enabled ? 'On' : 'Off'}</span>` : ''}
                         `;
                         
                         // Create toggle button
@@ -1023,60 +1025,101 @@
                         details.className = 'attempt-details';
                         details.style.display = 'none';
                         
-                        // Add all details in a single flat list
-                        details.innerHTML = `
+                        // Add details in a single flat list
+                        const observations = assessment.observations || {};
+                        
+                        // Prepare a flat list of all detail items
+                        let detailRows = '';
+                        
+                        // Basic assessment details
+                        detailRows += `
                             <div class="detail-row">
                                 <span class="detail-label">Interactions:</span>
-                                <span>${assessment.interactionCount}</span>
+                                <span>${assessment.interactionCount || 0}</span>
                             </div>
                             <div class="detail-row">
                                 <span class="detail-label">Speed Setting:</span>
-                                <span>${assessment.speed}/10</span>
+                                <span>${assessment.speed || 0}/10</span>
                             </div>
                             <div class="detail-row">
                                 <span class="detail-label">Fixation Achieved:</span>
-                                <span>${assessment.fixation ? 'Yes' : 'No'}</span>
-                            </div>
+                                <span>${observations.fixation ? 'Yes' : 'No'}</span>
+                            </div>`;
+                        
+                        // Field response data
+                        const fieldResponses = [];
+                        if (observations.leftField) fieldResponses.push('Left');
+                        if (observations.centerField) fieldResponses.push('Center');
+                        if (observations.rightField) fieldResponses.push('Right');
+                        
+                        detailRows += `
                             <div class="detail-row">
                                 <span class="detail-label">Field Response:</span>
-                                <span>
-                                    ${assessment.leftField ? 'Left, ' : ''}
-                                    ${assessment.centerField ? 'Center, ' : ''}
-                                    ${assessment.rightField ? 'Right' : ''}
-                                </span>
+                                <span>${fieldResponses.length > 0 ? fieldResponses.join(', ') : 'None'}</span>
                             </div>
                             <div class="detail-row">
                                 <span class="detail-label">Eye Contact Duration:</span>
-                                <span>${assessment.duration}s</span>
-                            </div>
-                            <div class="detail-row">
-                                <span class="detail-label">Eye Tracking:</span>
-                                <span>${assessment.eyeTrackingEnabled ? 'Enabled' : 'Disabled'}</span>
-                            </div>
+                                <span>${observations.duration || 0}s</span>
+                            </div>`;
+                        
+                        // Eye tracking data (if available)
+                        if (assessment.eyeTracking) {
+                            detailRows += `
                             <div class="detail-row">
                                 <span class="detail-label">Face Movements:</span>
-                                <span>${assessment.faceMovementCount || 0}</span>
+                                <span>${assessment.eyeTracking.faceMovementCount || 0}</span>
                             </div>
                             <div class="detail-row highlight-row">
                                 <span class="detail-label">Eyeball Movements:</span>
-                                <span>${assessment.eyeballMovementCount || 0}</span>
-                            </div>
-                            <div class="detail-row highlight-row">
-                                <span class="detail-label">Following Light:</span>
-                                <span>${assessment.followingLightScore ? 
-                                `<span style="color:${(assessment.followingLightScore > 0.5) ? 'green' : 'orange'}">` + 
-                                (assessment.followingLightScore * 100).toFixed(0) + '%</span>' : 'N/A'}</span>
-                            </div>
-                            <div class="detail-row">
-                                <span class="detail-label">Auto Fixation Duration:</span>
-                                <span>${assessment.fixationDuration ? assessment.fixationDuration.toFixed(1) + 's' : 'N/A'}</span>
-                            </div>
-                            ${assessment.notes ? `
+                                <span>${assessment.eyeTracking.eyeballMovementCount || 0}</span>
+                            </div>`;
+                            
+                            // Only add following light score if it exists and is a number
+                            const followingScore = assessment.eyeTracking.followingLightScore;
+                            if (followingScore !== undefined && followingScore !== null && !isNaN(followingScore)) {
+                                const scorePercent = (followingScore * 100).toFixed(0);
+                                const scoreColor = (followingScore > 0.5) ? 'green' : 'orange';
+                                detailRows += `
+                                <div class="detail-row highlight-row">
+                                    <span class="detail-label">Following Light:</span>
+                                    <span><span style="color:${scoreColor}">${scorePercent}%</span></span>
+                                </div>`;
+                            } else {
+                                detailRows += `
+                                <div class="detail-row highlight-row">
+                                    <span class="detail-label">Following Light:</span>
+                                    <span>N/A</span>
+                                </div>`;
+                            }
+                            
+                            // Add fixation duration only if it exists and is a number
+                            const fixDuration = assessment.eyeTracking.fixationDuration;
+                            if (fixDuration !== undefined && fixDuration !== null && !isNaN(fixDuration)) {
+                                detailRows += `
+                                <div class="detail-row">
+                                    <span class="detail-label">Auto Fixation Duration:</span>
+                                    <span>${fixDuration.toFixed(1)}s</span>
+                                </div>`;
+                            } else {
+                                detailRows += `
+                                <div class="detail-row">
+                                    <span class="detail-label">Auto Fixation Duration:</span>
+                                    <span>N/A</span>
+                                </div>`;
+                            }
+                        }
+                        
+                        // Add notes if they exist
+                        if (observations.notes) {
+                            detailRows += `
                             <div class="detail-row">
                                 <span class="detail-label">Notes:</span>
-                                <span>${assessment.notes}</span>
-                            </div>` : ''}
-                        `;
+                                <span>${observations.notes}</span>
+                            </div>`;
+                        }
+                        
+                        // Set the HTML content
+                        details.innerHTML = detailRows;
                         
                         // Add toggle functionality
                         toggleBtn.addEventListener('click', function() {
