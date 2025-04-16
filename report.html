@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Visual Perceptual Skills</title>
+    
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -190,6 +193,75 @@
             font-size: 12px;
             margin-left: 8px;
         }
+        
+        /* Dashboard styles */
+        .dashboard-section {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+            width: 95%;
+            max-width: 1400px;
+            margin: 0 auto 20px auto;
+        }
+        
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .chart-card {
+            background-color: #f9f9f9;
+            border-radius: 5px;
+            padding: 15px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+        }
+        
+        .chart-container {
+            height: 250px;
+            position: relative;
+        }
+        
+        .stats-summary {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .stat-box {
+            background-color: #f9f9f9;
+            border-radius: 5px;
+            padding: 15px;
+            text-align: center;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4CAF50;
+            margin: 10px 0;
+        }
+        
+        /* Mobile responsive design for dashboard */
+        @media (max-width: 768px) {
+            .dashboard-grid,
+            .stats-summary {
+                grid-template-columns: 1fr;
+            }
+            
+            .chart-container {
+                height: 200px;
+            }
+            
+            .dashboard-section {
+                padding: 15px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -209,6 +281,55 @@
             <p>This report shows your latest performance on each quiz.</p>
             <div class="button-group">
                 <a href="index.html" style="text-decoration: none;"><button id="home-button">Return Home</button></a>
+            </div>
+        </div>
+
+        <!-- Dashboard visualization section -->
+        <div id="dashboard-overview" class="dashboard-section">
+            <h2>Your Performance Overview</h2>
+            <div class="dashboard-grid">
+                <div class="chart-card">
+                    <h3>Quiz Attempts Distribution</h3>
+                    <div class="chart-container">
+                        <canvas id="quizDistributionChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3>Score Trends</h3>
+                    <div class="chart-container">
+                        <canvas id="scoreTrendChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3>Recent Activity</h3>
+                    <div class="chart-container">
+                        <canvas id="recentActivityChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3>Performance by Category</h3>
+                    <div class="chart-container">
+                        <canvas id="categoryPerformanceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="stats-summary">
+                <div class="stat-box">
+                    <div class="stat-label">Total Quizzes Taken</div>
+                    <div class="stat-value" id="totalQuizzes">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Average Score</div>
+                    <div class="stat-value" id="averageScore">0%</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Quizzes Completed</div>
+                    <div class="stat-value" id="quizzesCompleted">0/25</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Last Quiz Date</div>
+                    <div class="stat-value" id="lastQuizDate">--</div>
+                </div>
             </div>
         </div>
 
@@ -300,11 +421,61 @@
         
         <!-- Firebase Config -->
         <script>
-            // Firebase initialization is done in the module script
-        </script>
+            // Firebase configuration
+            const firebaseConfig = {
+                apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
+                authDomain: "projeccvi.firebaseapp.com",
+                projectId: "projeccvi",
+                storageBucket: "projeccvi.firebasestorage.app",
+                messagingSenderId: "279067566247",
+                appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
+            };
 
-        <!-- Auth Helper -->
-        <script src="auth.js"></script>
+            // Initialize Firebase
+            firebase.initializeApp(firebaseConfig);
+            const auth = firebase.auth();
+            const db = firebase.firestore();
+            const database = firebase.database();
+            
+            // Handle relative paths for both local and GitHub Pages
+            function getPath(page) {
+                const baseUrl = window.location.href.split('/').slice(0, -1).join('/');
+                return `${baseUrl}/${page}`;
+            }
+
+            // Profile dropdown
+            const profileIcon = document.getElementById('profileIcon');
+            const profileMenu = document.getElementById('profileMenu');
+            
+            profileIcon.addEventListener('click', (e) => {
+                e.stopPropagation();
+                profileMenu.classList.toggle('active');
+            });
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!profileMenu.contains(e.target) && !profileIcon.contains(e.target)) {
+                    profileMenu.classList.remove('active');
+                }
+            });
+
+            // Profile navigation
+            function goToProfile() {
+                sessionStorage.setItem('editingProfile', 'true');
+                window.location.href = getPath('profile.html');
+            }
+
+            // Check if user is a doctor and show patients button
+            async function checkIfDoctor(userId) {
+                try {
+                    const doctorSnapshot = await db.collection('doctorProfiles').doc(userId).get();
+                    const patientsButton = document.getElementById('patientsButton');
+                    patientsButton.style.display = doctorSnapshot.exists() ? 'inline-flex' : 'none';
+                } catch (error) {
+                    console.error('Error checking doctor status:', error);
+                }
+            }
+        </script>
 
         <script>
             document.addEventListener('DOMContentLoaded', async () => {
@@ -353,22 +524,12 @@
         </script>
 
         <script type="module">
-            import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
             import { getDatabase, ref, get, remove } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-database.js";
-            import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
-
-            const firebaseConfig = {
-                apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
-                authDomain: "projeccvi.firebaseapp.com",
-                projectId: "projeccvi",
-                storageBucket: "projeccvi.app",
-                messagingSenderId: "279067566247",
-                appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
-            };
-
-            const app = initializeApp(firebaseConfig);
-            const db = getDatabase(app);
-            const auth = getAuth(app);
+            import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+            
+            // Use the already initialized Firebase from the previous script
+            const dbRef = getDatabase();
+            // Use ref and get functions from the module
 
             // Quiz mapping object to store quiz names and their corresponding database paths
             const quizMappings = {
@@ -425,7 +586,7 @@
                     impairedCount = 0; // Reset the impaired count
                     
                     // Get authentication status
-                    const user = auth.currentUser;
+                    const user = firebase.auth().currentUser;
                     
                     if (!user) {
                         showError('You need to be logged in to view reports');
@@ -445,8 +606,25 @@
                         userId: user.uid
                     });
                     
+                    // Collect data for dashboard visualizations
+                    const quizPerformanceData = [];
+                    const quizCategories = {
+                        'VD': [],
+                        'VC': [],
+                        'VFC': [],
+                        'VSM': [],
+                        'VN': [],
+                        'SR': [],
+                        'FG': [],
+                        'VM': []
+                    };
+                    let totalAttempts = 0;
+                    let totalScore = 0;
+                    let completedQuizzes = 0;
+                    let lastQuizDate = 0;
+                    
                     // Check user role
-                    const roleRef = ref(db, `roles/${user.uid}`);
+                    const roleRef = ref(dbRef, `roles/${user.uid}`);
                     const roleSnapshot = await get(roleRef);
                     const userRole = roleSnapshot.exists() ? roleSnapshot.val() : 'user';
                     const isDoctor = userRole === 'doctor';
@@ -454,7 +632,7 @@
                     // Update profile info
                     if (isPatientQuiz) {
                         // Doctor viewing patient quiz
-                        const patientProfileRef = ref(db, `doctors/${doctorId}/patients/${currentPatientId}/profile`);
+                        const patientProfileRef = ref(dbRef, `doctors/${doctorId}/patients/${currentPatientId}/profile`);
                         const patientProfileSnapshot = await get(patientProfileRef);
                         if (patientProfileSnapshot.exists()) {
                             const patientProfile = patientProfileSnapshot.val();
@@ -469,9 +647,9 @@
                         // Regular user or doctor viewing own quiz
                         let profileRef;
                         if (isDoctor) {
-                            profileRef = ref(db, `doctors/${user.uid}/profile`);
+                            profileRef = ref(dbRef, `doctors/${user.uid}/profile`);
                         } else {
-                            profileRef = ref(db, `users/${user.uid}/profile`);
+                            profileRef = ref(dbRef, `users/${user.uid}/profile`);
                         }
                         const profileSnapshot = await get(profileRef);
                         if (profileSnapshot.exists()) {
@@ -502,13 +680,57 @@
                         }
                         
                         console.log(`Fetching quiz data from path: ${quizPath}`);
-                        const quizRef = ref(db, quizPath);
+                        const quizRef = ref(dbRef, quizPath);
                         
                         try {
                             const quizSnapshot = await get(quizRef);
                             if (quizSnapshot.exists()) {
                                 const attempts = quizSnapshot.val();
                                 const attemptDates = Object.keys(attempts);
+                                
+                                // Data for visualizations
+                                if (attemptDates.length > 0) {
+                                    completedQuizzes++;
+                                    
+                                    // Get category from quiz name
+                                    let category = 'Other';
+                                    for (const cat in quizCategories) {
+                                        if (quizInfo.name.startsWith(cat)) {
+                                            category = cat;
+                                            break;
+                                        }
+                                    }
+                                    
+                                    // Process data from all attempts for this quiz
+                                    attemptDates.forEach(date => {
+                                        const attemptData = attempts[date];
+                                        const attemptDate = new Date(parseInt(date));
+                                        const score = attemptData.score || attemptData.correctAnswers || 0;
+                                        const totalTaps = attemptData.totalTaps || 0;
+                                        const totalTime = attemptData.totalTime || 0;
+                                        
+                                        totalAttempts++;
+                                        totalScore += score;
+                                        
+                                        if (parseInt(date) > lastQuizDate) {
+                                            lastQuizDate = parseInt(date);
+                                        }
+                                        
+                                        quizPerformanceData.push({
+                                            date: attemptDate,
+                                            score,
+                                            totalTaps,
+                                            totalTime,
+                                            quizName: quizInfo.name,
+                                            category
+                                        });
+                                        
+                                        if (!quizCategories[category]) {
+                                            quizCategories[category] = [];
+                                        }
+                                        quizCategories[category].push(score);
+                                    });
+                                }
                                 
                                 // Sort dates in descending order (latest first)
                                 attemptDates.sort((a, b) => new Date(b) - new Date(a));
@@ -567,6 +789,20 @@
                     // Calculate overall CVI risk level
                     displayCviRiskLevel();
                     
+                    // Update dashboard statistics
+                    document.getElementById('totalQuizzes').textContent = totalAttempts;
+                    document.getElementById('averageScore').textContent = 
+                        totalAttempts > 0 ? `${Math.round((totalScore / totalAttempts) * 100) / 100}` : '0';
+                    document.getElementById('quizzesCompleted').textContent = `${completedQuizzes}/25`;
+                    document.getElementById('lastQuizDate').textContent = 
+                        lastQuizDate > 0 ? new Date(lastQuizDate).toLocaleDateString() : '--';
+                    
+                    // Create visualizations
+                    createQuizDistributionChart(quizCategories);
+                    createScoreTrendChart(quizPerformanceData);
+                    createRecentActivityChart(quizPerformanceData);
+                    createCategoryPerformanceChart(quizCategories);
+                    
                 } catch (error) {
                     console.error('Error in fetchAllAttempts:', error);
                     showError('Failed to load quiz attempts. Please try again.');
@@ -575,10 +811,291 @@
                 }
             }
 
-            // displayCviRiskLevel function is defined later
-
-            // clearAllReports function removed as requested
-
+            // CVI risk level calculation function
+            function displayCviRiskLevel() {
+                const riskElement = document.getElementById('cvi-risk-result');
+                let riskLevel = 'Low Risk';
+                let riskClass = 'low-risk';
+                
+                if (impairedCount >= 10) { // High risk threshold
+                    riskLevel = 'High CVI Risk';
+                    riskClass = 'high-risk';
+                } else if (impairedCount >= 5) { // Medium risk threshold
+                    riskLevel = 'Medium CVI Risk';
+                    riskClass = 'medium-risk';
+                }
+                
+                riskElement.textContent = `${riskLevel} (${impairedCount} impaired areas)`;
+                riskElement.className = `final-result ${riskClass}`;
+            }
+            
+            // Chart creation functions
+            function createQuizDistributionChart(quizCategories) {
+                const ctx = document.getElementById('quizDistributionChart').getContext('2d');
+                
+                // First destroy any existing chart
+                if (window.quizDistributionChart instanceof Chart) {
+                    window.quizDistributionChart.destroy();
+                }
+                
+                // Process data for the chart
+                const categories = Object.keys(quizCategories);
+                const attemptCounts = categories.map(cat => quizCategories[cat].length || 0);
+                
+                // Define color palette
+                const backgroundColors = [
+                    'rgba(54, 162, 235, 0.6)',
+                    'rgba(75, 192, 192, 0.6)',
+                    'rgba(255, 159, 64, 0.6)',
+                    'rgba(153, 102, 255, 0.6)',
+                    'rgba(255, 99, 132, 0.6)',
+                    'rgba(255, 206, 86, 0.6)',
+                    'rgba(199, 199, 199, 0.6)',
+                    'rgba(83, 102, 255, 0.6)'
+                ];
+                
+                window.quizDistributionChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: categories,
+                        datasets: [{
+                            data: attemptCounts,
+                            backgroundColor: backgroundColors,
+                            borderColor: backgroundColors.map(color => color.replace('0.6', '1')),
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'right',
+                                labels: {
+                                    boxWidth: 12,
+                                    font: {
+                                        size: 11
+                                    }
+                                }
+                            },
+                            title: {
+                                display: false
+                            }
+                        }
+                    }
+                });
+            }
+            
+            function createScoreTrendChart(quizPerformanceData) {
+                const ctx = document.getElementById('scoreTrendChart').getContext('2d');
+                
+                // First destroy any existing chart
+                if (window.scoreTrendChart instanceof Chart) {
+                    window.scoreTrendChart.destroy();
+                }
+                
+                // Sort data by date
+                quizPerformanceData.sort((a, b) => a.date - b.date);
+                
+                // Keep only the last 10 attempts for better readability
+                const recentData = quizPerformanceData.slice(-10);
+                
+                // Process data for the chart
+                const labels = recentData.map(item => item.date.toLocaleDateString());
+                const scores = recentData.map(item => item.score);
+                const quizNames = recentData.map(item => item.quizName);
+                
+                window.scoreTrendChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Score',
+                            data: scores,
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 2,
+                            tension: 0.1,
+                            pointBackgroundColor: 'rgba(75, 192, 192, 1)',
+                            pointRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Score'
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Date'
+                                }
+                            }
+                        },
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    title: function(tooltipItems) {
+                                        // Display quiz name in tooltip
+                                        const index = tooltipItems[0].dataIndex;
+                                        return quizNames[index];
+                                    }
+                                }
+                            }
+                        },
+                        interaction: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    }
+                });
+            }
+            
+            function createRecentActivityChart(quizPerformanceData) {
+                const ctx = document.getElementById('recentActivityChart').getContext('2d');
+                
+                // First destroy any existing chart
+                if (window.recentActivityChart instanceof Chart) {
+                    window.recentActivityChart.destroy();
+                }
+                
+                // Group attempts by day for the last 30 days
+                const thirtyDaysAgo = new Date();
+                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                
+                // Filter data for last 30 days
+                const recentData = quizPerformanceData.filter(item => item.date >= thirtyDaysAgo);
+                
+                // Group by day
+                const attemptsByDay = {};
+                const days = [];
+                
+                for (let i = 0; i < 30; i++) {
+                    const day = new Date();
+                    day.setDate(day.getDate() - i);
+                    day.setHours(0, 0, 0, 0);
+                    const dateKey = day.toLocaleDateString();
+                    attemptsByDay[dateKey] = 0;
+                    days.unshift(dateKey); // Add to start of array to maintain chronological order
+                }
+                
+                // Count attempts per day
+                recentData.forEach(item => {
+                    const dateKey = item.date.toLocaleDateString();
+                    if (attemptsByDay[dateKey] !== undefined) {
+                        attemptsByDay[dateKey]++;
+                    }
+                });
+                
+                // Convert to arrays for chart data
+                const activityData = days.map(day => attemptsByDay[day] || 0);
+                
+                window.recentActivityChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: days,
+                        datasets: [{
+                            label: 'Quiz Attempts',
+                            data: activityData,
+                            backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    stepSize: 1
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Number of Attempts'
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Date'
+                                },
+                                ticks: {
+                                    // Show only some dates to avoid overcrowding
+                                    callback: function(value, index) {
+                                        return index % 5 === 0 ? days[index] : '';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            function createCategoryPerformanceChart(quizCategories) {
+                const ctx = document.getElementById('categoryPerformanceChart').getContext('2d');
+                
+                // First destroy any existing chart
+                if (window.categoryPerformanceChart instanceof Chart) {
+                    window.categoryPerformanceChart.destroy();
+                }
+                
+                // Process data for the chart
+                const categories = Object.keys(quizCategories).filter(cat => quizCategories[cat].length > 0);
+                
+                // Calculate average score for each category
+                const averageScores = categories.map(cat => {
+                    const scores = quizCategories[cat];
+                    return scores.length > 0 ? 
+                        scores.reduce((sum, score) => sum + score, 0) / scores.length : 0;
+                });
+                
+                window.categoryPerformanceChart = new Chart(ctx, {
+                    type: 'radar',
+                    data: {
+                        labels: categories,
+                        datasets: [{
+                            label: 'Average Score',
+                            data: averageScores,
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 2,
+                            pointBackgroundColor: 'rgba(75, 192, 192, 1)',
+                            pointRadius: 3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            r: {
+                                beginAtZero: true,
+                                ticks: {
+                                    display: false
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: {
+                                    font: {
+                                        size: 11
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            
             // Initialize on auth state change
             onAuthStateChanged(auth, (user) => {
                 if (user) {
