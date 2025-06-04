@@ -186,6 +186,69 @@
             background-color: #45a049;
         }
 
+        #instruction {
+            font-size: 1rem;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #f1f1f1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        
+        .direction-arrow {
+            display: inline-flex;
+            align-items: center;
+            margin: 0 3px;
+            font-weight: bold;
+        }
+        
+        .arrow-up {
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-bottom: 12px solid #0d6efd;
+            display: inline-block;
+            margin-right: 2px;
+        }
+        
+        .arrow-down {
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 12px solid #0d6efd;
+            display: inline-block;
+            margin-right: 2px;
+        }
+        
+        .arrow-left {
+            width: 0;
+            height: 0;
+            border-top: 8px solid transparent;
+            border-bottom: 8px solid transparent;
+            border-right: 12px solid #0d6efd;
+            display: inline-block;
+            margin-right: 2px;
+        }
+        
+        .arrow-right {
+            width: 0;
+            height: 0;
+            border-top: 8px solid transparent;
+            border-bottom: 8px solid transparent;
+            border-left: 12px solid #0d6efd;
+            display: inline-block;
+            margin-right: 2px;
+        }
+
         #result-container {
             display: none;
             margin-top: 20px;
@@ -694,7 +757,44 @@
             
             const level = levels[currentLevel];
             questionImage.src = level.backgroundImage;
-            instructionText.textContent = level.instruction;
+            
+            // Parse and replace direction words with arrows
+            let instruction = level.instruction;
+            instructionText.innerHTML = ''; // Clear previous content
+            
+            // Replace direction keywords with arrows
+            const words = instruction.split(' ');
+            words.forEach(word => {
+                if (word.includes('TOP')) {
+                    const span = document.createElement('span');
+                    span.className = 'direction-arrow';
+                    span.innerHTML = '<span class="arrow-up"></span>TOP';
+                    instructionText.appendChild(span);
+                } 
+                else if (word.includes('BOTTOM')) {
+                    const span = document.createElement('span');
+                    span.className = 'direction-arrow';
+                    span.innerHTML = '<span class="arrow-down"></span>BOTTOM';
+                    instructionText.appendChild(span);
+                }
+                else if (word.includes('LEFT')) {
+                    const span = document.createElement('span');
+                    span.className = 'direction-arrow';
+                    span.innerHTML = '<span class="arrow-left"></span>LEFT';
+                    instructionText.appendChild(span);
+                }
+                else if (word.includes('RIGHT')) {
+                    const span = document.createElement('span');
+                    span.className = 'direction-arrow';
+                    span.innerHTML = '<span class="arrow-right"></span>RIGHT';
+                    instructionText.appendChild(span);
+                }
+                else {
+                    // For regular words, create a text node
+                    const textNode = document.createTextNode(word + ' ');
+                    instructionText.appendChild(textNode);
+                }
+            });
             
             // Clear any existing elements
             upperArea.innerHTML = '';
