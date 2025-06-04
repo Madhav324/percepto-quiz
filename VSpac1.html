@@ -142,11 +142,10 @@
             position: absolute;
             width: 60px;
             height: 60px;
-            z-index: 3;
-            border-radius: 4px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            cursor: pointer;
+            z-index: 5;
             transition: all 0.3s ease;
-            cursor: grab;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
 
         .options-container {
@@ -1070,48 +1069,31 @@
             const placedImgs = Array.from(dropArea.querySelectorAll('.placed-image'));
             const imageSize = window.innerWidth <= 600 ? 45 : 60; // Responsive image size
             const gap = window.innerWidth <= 600 ? 6 : 10;  // Responsive gap
+            const totalWidth = placedImgs.length * (imageSize + gap) - gap;
+            const startX = (dropArea.offsetWidth - totalWidth) / 2;
             
-            // Calculate how many items can fit in a row
-            const maxItemsPerRow = Math.floor((dropArea.offsetWidth - gap) / (imageSize + gap));
-            // Use at most 3 items per row for better visibility
-            const itemsPerRow = Math.min(maxItemsPerRow, 3);
+            // Position Y - both areas align with their bottom border
+            let y;
+            if (dropArea.id === 'upper-area') {
+                y = dropArea.offsetHeight - imageSize - 10; // Position at bottom of upper area
+            } else {
+                y = dropArea.offsetHeight - imageSize - 10; // Position at bottom of lower area
+            }
             
-            // Calculate rows needed
-            const rows = Math.ceil(placedImgs.length / itemsPerRow);
-            
-            // Position items in a grid layout
+            // Set z-index in increasing order so newer items appear on top
             placedImgs.forEach((img, index) => {
-                // Calculate row and column position
-                const row = Math.floor(index / itemsPerRow);
-                const col = index % itemsPerRow;
-                
-                // Calculate total width of the current row
-                const itemsInThisRow = (row === rows - 1) ? 
-                    placedImgs.length - (row * itemsPerRow) : itemsPerRow;
-                const rowWidth = itemsInThisRow * (imageSize + gap) - gap;
-                
-                // Center the row horizontally
-                const startX = (dropArea.offsetWidth - rowWidth) / 2;
-                
-                // Position X with horizontal centering
-                const x = startX + col * (imageSize + gap);
-                
-                // Position Y with vertical spacing
-                // Start from top or bottom depending on drop area
-                let y;
-                if (dropArea.id === 'upper-area') {
-                    // Place from top with margin
-                    y = 10 + row * (imageSize + gap);
-                } else {
-                    // Place from top with margin
-                    y = 10 + row * (imageSize + gap);
-                }
-                
-                // Set positions with transition for smooth movement
+                const x = startX + index * (imageSize + gap);
                 img.style.left = `${x}px`;
                 img.style.top = `${y}px`;
-                img.style.transition = 'left 0.3s ease-out, top 0.3s ease-out';
-                img.style.zIndex = `${index + 3}`; // Ensure proper stacking order
+                img.style.zIndex = 5 + index; // Ensures newer images appear on top
+                
+                // Make sure the image is visible
+                img.style.opacity = '1';
+                img.style.visibility = 'visible';
+                
+                // Slight staggered effect for better visibility
+                const offsetY = index % 2 === 0 ? 0 : -5;
+                img.style.transform = `translateY(${offsetY}px)`;
             });
         }
         
