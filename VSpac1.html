@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spatial Awareness Exercise - Level 1</title>
+    <title>Spatial Awareness Exercise - Level 2</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -562,7 +562,7 @@
 <body>
     <div id="quiz-container">
         <div class="header">
-            <h1>Spatial Awareness Exercise - Level 1</h1>
+            <h1>Spatial Awareness Exercise - Level 2</h1>
             <div class="profile-icon" id="profileIcon" title="Back to Home" onclick="window.location.href='index.html'"></div>
             <div class="user-info">
                 <span id="patient-indicator" class="patient-indicator"></span>
@@ -1007,8 +1007,8 @@
                     placedImage.addEventListener('touchmove', touchMove, { passive: false });
                     placedImage.addEventListener('touchend', touchEnd, { passive: false });
                     
-                    // Hide the original draggable
-                    touchDragging.style.visibility = 'hidden';
+                    // Remove the original draggable instead of hiding it (prevents DOM confusion)
+                    touchDragging.style.display = 'none';
                     
                     // Add to the appropriate drop area
                     dropArea.appendChild(placedImage);
@@ -1066,10 +1066,32 @@
         
         // Function to rearrange images in a drop area
         function rearrangeImages(dropArea) {
+            // Get all placed images in the drop area and convert to Array for easier manipulation
             const placedImgs = Array.from(dropArea.querySelectorAll('.placed-image'));
             const imageSize = window.innerWidth <= 600 ? 45 : 60; // Responsive image size
             const gap = window.innerWidth <= 600 ? 6 : 10;  // Responsive gap
-            const totalWidth = placedImgs.length * (imageSize + gap) - gap;
+            
+            // Remove any duplicate images (same data-id) - keep only the last added one
+            const uniqueImgs = [];
+            const seenIds = new Set();
+            
+            // Process in reverse to keep the most recently added ones
+            for (let i = placedImgs.length - 1; i >= 0; i--) {
+                const img = placedImgs[i];
+                const dataId = img.getAttribute('data-id');
+                
+                if (!seenIds.has(dataId)) {
+                    // Keep this image - it's the first (most recent) one we've seen with this ID
+                    seenIds.add(dataId);
+                    uniqueImgs.unshift(img); // Add to front to restore original order
+                } else {
+                    // This is a duplicate, remove it from the DOM
+                    img.remove();
+                }
+            }
+            
+            // Calculate layout for the remaining unique images
+            const totalWidth = uniqueImgs.length * (imageSize + gap) - gap;
             const startX = (dropArea.offsetWidth - totalWidth) / 2;
             
             // Position Y - both areas align with their bottom border
@@ -1080,18 +1102,19 @@
                 y = dropArea.offsetHeight - imageSize - 10; // Position at bottom of lower area
             }
             
-            // Set z-index in increasing order so newer items appear on top
-            placedImgs.forEach((img, index) => {
+            // Position images with increasing z-index and apply staggered effect
+            uniqueImgs.forEach((img, index) => {
                 const x = startX + index * (imageSize + gap);
                 img.style.left = `${x}px`;
                 img.style.top = `${y}px`;
                 img.style.zIndex = 5 + index; // Ensures newer images appear on top
                 
-                // Make sure the image is visible
+                // Make sure the image is visible with proper opacity
                 img.style.opacity = '1';
                 img.style.visibility = 'visible';
+                img.style.display = 'block';
                 
-                // Slight staggered effect for better visibility
+                // Apply staggered effect alternating up/down for better visibility
                 const offsetY = index % 2 === 0 ? 0 : -5;
                 img.style.transform = `translateY(${offsetY}px)`;
             });
