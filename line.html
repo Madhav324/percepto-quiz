@@ -1,0 +1,1777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Find the Angles - Percepto</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #4285F4;
+            --secondary-color: #34A853;
+            --accent-color: #FBBC05;
+            --error-color: #EA4335;
+            --background-color: #f5f5f5;
+            --text-color: #333;
+            --border-color: #ddd;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            overflow-y: auto; /* Enable vertical scrolling */
+            height: 100%;
+        }
+        
+        html {
+            height: 100%;
+            overflow-y: auto;
+        }
+        
+        .container {
+            max-width: 650px;
+            margin: 0 auto;
+            padding: 15px 10px;
+        }
+        
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            position: relative;
+        }
+        
+        .return-button {
+            position: absolute;
+            left: 0;
+            top: 0;
+            padding: 8px 12px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background-color 0.3s;
+        }
+        
+        .return-button:hover {
+            background-color: #45a049;
+        }
+        
+        @media (max-width: 600px) {
+            .return-button {
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+        }
+        
+        @media (max-width: 400px) {
+            .return-button {
+                padding: 5px 8px;
+                font-size: 11px;
+            }
+        }
+        
+        h1 {
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+        }
+        
+        .user-profile {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        
+        .profile-icon {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background-color: var(--primary-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        
+        .patient-indicator {
+            background-color: var(--error-color);
+            color: white;
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            margin-left: 5px;
+        }
+        
+        .quiz-container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 12px 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            margin-bottom: 15px;
+        }
+        
+        .instructions {
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: #e9f5ff;
+            border-radius: 5px;
+            font-size: 0.9rem;
+        }
+        
+        .angles-container {
+            position: relative;
+            width: 100%;
+            height: 600px; /* Doubled from 300px to 600px */
+            border: 1px solid var(--border-color);
+            margin-bottom: 12px;
+            border-radius: 6px;
+            background-color: #fafafa;
+            background-image: linear-gradient(rgba(200, 200, 200, 0.2) 1px, transparent 1px), 
+                            linear-gradient(90deg, rgba(200, 200, 200, 0.2) 1px, transparent 1px);
+            background-size: 20px 20px;
+            overflow: hidden;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.05);
+        }
+        
+        .reference-guide {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            padding: 12px;
+            background-color: rgba(240, 240, 240, 0.9);
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            grid-gap: 8px;
+            justify-content: center;
+            align-items: center;
+            z-index: 5;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .angle-label {
+            font-size: 14px;
+            font-weight: bold;
+            text-align: center;
+            padding: 5px;
+            border-radius: 3px;
+            background-color: rgba(255, 255, 255, 0.7);
+        }
+        
+        .draggable-line {
+            position: absolute;
+            width: 100px;
+            height: 6px;
+            background-color: var(--primary-color);
+            cursor: move;
+            transform-origin: left center;
+            transform: rotate(45deg);
+            z-index: 10;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+            opacity: 0.8;
+            transition: opacity 0.2s, box-shadow 0.2s;
+            touch-action: none;
+        }
+        
+        .draggable-line::after {
+            content: '';
+            position: absolute;
+            right: -8px;
+            top: 50%;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background-color: inherit;
+            transform: translateY(-50%);
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .angle-indicator {
+            position: absolute;
+            font-size: 12px;
+            font-weight: bold;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 2px 6px;
+            border-radius: 10px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+            transform: translate(50px, -25px);
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        
+        .line1 {
+            left: 30%;
+            background-color: var(--primary-color);
+        }
+        
+        .line2 {
+            left: 60%;
+            background-color: var(--secondary-color);
+        }
+        
+        .reset-btn, .hint-btn, .submit-btn {
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 0 5px;
+            border: none;
+            font-weight: 500;
+            font-size: 14px;
+            letter-spacing: 0.5px;
+            min-height: 38px;
+        }
+        
+        .reset-btn {
+            background-color: rgba(0,0,0,0.05);
+            color: #333;
+        }
+        
+        .hint-btn {
+            background-color: var(--accent-color);
+            color: white;
+        }
+        
+        .submit-btn {
+            background-color: var(--primary-color);
+            color: white;
+            margin-right: 0;
+        }
+        
+        .reset-btn:hover, .hint-btn:hover, .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
+        .reset-btn:active, .hint-btn:active, .submit-btn:active,
+        .button-active, .button-touching {
+            transform: translateY(0);
+            opacity: 0.9;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        /* Specific mobile button states */
+        .touch-device .reset-btn:active, 
+        .touch-device .hint-btn:active, 
+        .touch-device .submit-btn:active,
+        .touch-device .toggle-details-btn:active {
+            background-color: rgba(0,0,0,0.05);
+        }
+        
+        /* Ensure buttons have high z-index to capture touch events */
+        button {
+            z-index: 5;
+            position: relative;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        .icon {
+            margin-right: 5px;
+            font-style: normal;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+        
+        .report-container {
+            margin-top: 20px;
+            max-height: 70vh;
+            overflow-y: auto;
+            padding-bottom: 20px;
+            display: none; /* Initially hidden, will be shown when results are available */
+        }
+        
+        .result-message {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            display: none;
+        }
+        
+        .correct {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .incorrect {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        
+        .previous-attempts {
+            margin-top: 20px;
+        }
+        
+        #attempts-list {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+            overflow-y: visible;
+            padding-bottom: 30px; /* Extra space at bottom for scrolling */
+        }
+        
+        .attempt-item {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            word-break: break-word;
+            overflow-wrap: break-word;
+            width: 100%;
+        }
+        
+        .attempt-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        
+        .attempt-date {
+            font-weight: 500;
+            color: #555;
+        }
+        
+        .attempt-score {
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        
+        .attempt-details {
+            display: none;
+            grid-template-columns: 1fr;
+            gap: 8px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed #e0e0e0;
+            animation: fadeIn 0.3s ease;
+            overflow: visible;
+            height: auto;
+            transition: all 0.3s ease;
+        }
+        
+        .attempt-detail-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .detail-label {
+            font-weight: bold;
+            color: #555;
+        }
+        
+        .toggle-details-btn {
+            margin-top: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+            min-width: 100px;
+            min-height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .toggle-details-btn:hover {
+            background-color: #45a049;
+        }
+        
+        .toggle-details-btn:active,
+        .toggle-details-btn.button-active,
+        .toggle-details-btn.button-touching {
+            background-color: #3d8b3d;
+            transform: translateY(1px);
+        }
+        
+        /* Touch-specific styles */
+        .touch-device .draggable-line {
+            height: 12px;
+            opacity: 0.9;
+        }
+        
+        .touch-device .angle-indicator {
+            opacity: 1;
+            background-color: rgba(255, 255, 255, 0.9);
+            font-weight: bold;
+        }
+        
+        .touch-device .draggable-line:active {
+            box-shadow: 0 0 12px rgba(0, 0, 0, 0.6);
+            opacity: 0.9;
+        }
+        
+        /* Detect touch devices */
+        @media (hover: none) and (pointer: coarse) {
+            body {
+                touch-action: auto;
+            }
+            
+            /* Apply touch-device class to body */
+            body:not(.touch-device) {
+                touch-action: auto;
+            }
+            
+            /* Only restrict touch actions on draggable elements */
+            .draggable-line, .draggable-handle {
+                touch-action: none; /* No scrolling/zooming on the lines themselves */
+            }
+            
+            /* Allow scrolling on the container */
+            .angles-container {
+                touch-action: pan-y; /* Allow vertical scrolling */
+                overflow-y: auto; /* Enable scrolling if content overflows */
+            }
+            
+            /* Ensure attempts are visible and scrollable on mobile */
+            .report-container {
+                max-height: 60vh;
+                overflow-y: auto !important; /* Force scrolling to work on mobile */
+                -webkit-overflow-scrolling: touch;
+                padding-bottom: 50px; /* Extra padding at bottom for scrolling */
+            }
+        }
+        
+        /* Extra small devices */
+        @media (max-width: 400px) {
+            .container {
+                padding: 5px 3px;
+            }
+            
+            h1 {
+                font-size: 1.1rem;
+                margin-bottom: 8px;
+            }
+            
+            .angles-container {
+                height: 460px; /* Doubled from 230px to 460px */
+            }
+            
+            .draggable-line {
+                height: 10px;
+                width: 70px;
+            }
+            
+            .reset-btn, .hint-btn, .submit-btn {
+                padding: 6px 7px;
+                font-size: 0.9rem;
+                min-height: 30px;
+                border-radius: 3px;
+            }
+            
+            .reference-guide {
+                padding: 4px;
+                grid-gap: 3px;
+                font-size: 10px;
+            }
+            
+            .profile-icon {
+                width: 28px;
+                height: 28px;
+                font-size: 13px;
+                margin-left: 5px;
+            }
+        }
+        
+        /* Mobile optimizations */
+        @media (max-width: 600px) {
+            .container {
+                padding: 8px 5px;
+                width: 100%;
+                max-width: 100%;
+            }
+            
+            h1 {
+                font-size: 1.2rem;
+            }
+            
+            .quiz-container {
+                padding: 8px 5px;
+                border-radius: 6px;
+            }
+            
+            .angles-container {
+                height: 500px; /* Doubled from 250px to 500px */
+                margin-bottom: 8px;
+                border-radius: 5px;
+            }
+            
+            .draggable-line {
+                height: 12px;
+                width: 80px;
+            }
+            
+            .draggable-handle {
+                width: 24px;
+                height: 24px;
+            }
+            
+            .reference-guide {
+                padding: 6px;
+                grid-gap: 4px;
+                bottom: 5px;
+                font-size: 11px;
+                width: 95%;
+            }
+            
+            .instructions {
+                font-size: 0.8rem;
+                margin-bottom: 8px;
+                padding: 6px;
+                border-radius: 4px;
+            }
+            
+            .reset-btn, .hint-btn, .submit-btn {
+                padding: 7px 8px;
+                font-size: 12px;
+                margin: 0;
+                min-height: 34px;
+                border-radius: 4px;
+            }
+            
+            .controls {
+                flex-wrap: wrap;
+                font-size: 0.85rem;
+                padding: 6px;
+                margin-bottom: 10px;
+            }
+            
+            .instruction-targets {
+                flex-wrap: wrap;
+                gap: 5px;
+            }
+            
+            .instruction-targets span {
+                font-size: 0.75rem;
+                padding: 2px 4px;
+                margin-bottom: 3px;
+            }
+            
+            .profile-icon {
+                width: 35px;
+                height: 35px;
+                font-size: 16px;
+            }
+            
+            #report-container {
+                width: 100%;
+            }
+            
+            .attempt-details {
+                grid-template-columns: 1fr;
+                padding: 10px;
+            }
+            
+            .attempt-detail-item {
+                padding: 8px 0;
+            }
+            
+            .toggle-details-btn {
+                min-width: 90px;
+                padding: 8px 10px;
+                font-size: 13px;
+            }
+            
+            .angle-indicator {
+                transform: translate(40px, -20px);
+                font-size: 10px;
+                padding: 1px 4px;
+            }
+            
+            /* Target smaller device height */
+            @media (max-height: 900px) {
+                .angles-container {
+                    height: 350px;
+                }
+                
+                .instructions {
+                    padding: 3px;
+                    margin-bottom: 5px;
+                }
+                
+                .draggable-line {
+                    width: 55px;
+                    height: 7px;
+                }
+                
+                /* More compact results/attempts area */
+                .attempt-item {
+                    padding: 8px;
+                    margin-bottom: 8px;
+                }
+                
+                #report-container h2 {
+                    font-size: 1.1rem;
+                    margin: 5px 0;
+                }
+            }
+            
+            /* iPhone SE and other tiny screens */
+            @media (max-width: 375px) {
+                .instruction-targets span {
+                    font-size: 0.7rem;
+                    padding: 2px 4px;
+                }
+                
+                .angles-container {
+                    height: 220px;
+                }
+                
+                .angle-indicator {
+                    transform: translate(35px, -16px);
+                    font-size: 9px;
+                    padding: 1px 3px;
+                }
+                
+                .controls {
+                    flex-direction: row;
+                    flex-wrap: wrap;
+                }
+                
+                .reset-btn, .hint-btn, .submit-btn {
+                    flex: 1;
+                    min-width: 70px;
+                    padding: 8px 5px;
+                    font-size: 0.8rem;
+                }
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Find the Angles</h1>
+            <div class="user-profile">
+                <span id="user-name">User</span>
+                <div class="profile-icon" id="profileIcon" title="User" onclick="window.location.href='index.html'">U</div>
+                <div class="patient-indicator" id="patient-indicator" style="display: none;">Patient</div>
+            </div>
+        </header>
+        
+        <div class="quiz-container">
+            <div class="instructions">
+                <p>Each line has a specific target angle to match:</p>
+                <div class="instruction-targets">
+                    <span style="color:var(--primary-color)">Line 1: <b>30°</b></span>
+                    <span style="color:var(--secondary-color)">Line 2: <b>60°</b></span>
+                    <span style="color:var(--accent-color)">Line 3: <b>120°</b></span>
+                    <span style="color:var(--error-color)">Line 4: <b>150°</b></span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="angles-container" id="angles-container">
+            <div class="draggable-line line1" id="line1"></div>
+            <div class="draggable-line line2" id="line2"></div>
+            <div class="draggable-line line3" id="line3"></div>
+            <div class="draggable-line line4" id="line4"></div>
+            <div class="reference-guide" id="reference-guide">
+                <!-- Target angles will be shown here -->
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button class="reset-btn" id="reset-btn"><i class="icon">↺</i> Reset</button>
+                <button class="submit-btn" id="submit-btn"><i class="icon">✓</i> Submit</button>
+                <button class="hint-btn" id="hint-btn"><i class="icon">?</i> Hint</button>
+                <button class="reset-btn" id="home-btn" onclick="window.location.href='index.html'"><i class="icon">⌂</i> Home</button>
+            </div>
+            
+            <div class="result-message" id="result-message"></div>
+        </div>
+        
+        <div class="report-container" id="report-container">
+            <h2>All Quiz Attempts</h2>
+            <ul id="attempts-list"></ul>
+            <button id="clear-report" class="reset-btn">Clear Report</button>
+        </div>
+    </div>
+    
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
+            authDomain: "projeccvi.firebaseapp.com",
+            projectId: "projeccvi",
+            storageBucket: "projeccvi.appspot.com",
+            messagingSenderId: "279067566247",
+            appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
+        };
+        
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const database = firebase.database();
+        
+        // Get quiz context from session storage
+        const currentPatientId = sessionStorage.getItem('currentPatientId');
+        const doctorId = sessionStorage.getItem('doctorId');
+        const isPatientQuiz = !!(currentPatientId && doctorId);
+        
+        console.log('Quiz context in FG:', { 
+            isPatientQuiz, 
+            currentPatientId: currentPatientId || 'none',
+            doctorId: doctorId || 'none'
+        });
+        
+        // Global variables
+        let startTime = null;
+        let interactions = 0;
+        let quizData = {
+            targetAngles: [30, 60, 120, 150], // Angles in degrees for each line
+            toleranceAngle: 7 // Acceptable deviation in degrees
+        };
+        
+        // HTML Elements
+        const line1 = document.getElementById('line1');
+        const line2 = document.getElementById('line2');
+        const line3 = document.getElementById('line3');
+        const line4 = document.getElementById('line4');
+        const anglesContainer = document.getElementById('angles-container');
+        const referenceGuide = document.getElementById('reference-guide');
+        const resetBtn = document.getElementById('reset-btn');
+        const submitBtn = document.getElementById('submit-btn');
+        const resultMessage = document.getElementById('result-message');
+        const attemptsListDiv = document.getElementById('attempts-list');
+        const userNameSpan = document.getElementById('user-name');
+        const profileIcon = document.getElementById('profileIcon');
+        const patientIndicator = document.getElementById('patient-indicator');
+        
+        // Track line positions and angles
+        let line1Position = { x: 0, y: 0, angle: 0 };
+        let line2Position = { x: 0, y: 0, angle: 0 };
+        let line3Position = { x: 0, y: 0, angle: 0 };
+        let line4Position = { x: 0, y: 0, angle: 0 };
+        
+        // Initialize quiz
+        function initializeQuiz() {
+            // Create reference labels showing target angles
+            createAngleReferences();
+            
+            // Set initial positions
+            resetLinePositions();
+            
+            // Start timer
+            startTime = new Date();
+            
+            // Set up event listeners for draggable elements
+            setupDrag(line1, 1);
+            setupDrag(line2, 2);
+            setupDrag(line3, 3);
+            setupDrag(line4, 4);
+            
+            // Improved button event listeners with better mobile support
+            // Use both click and touchend events to ensure reliability on all devices
+            resetBtn.addEventListener('click', resetQuiz);
+            resetBtn.addEventListener('touchend', function(e) {
+                e.preventDefault(); // Prevent double triggering
+                resetQuiz();
+            });
+            
+            submitBtn.addEventListener('click', submitAnswer);
+            submitBtn.addEventListener('touchend', function(e) {
+                e.preventDefault();
+                submitAnswer();
+            });
+            
+            const hintBtn = document.getElementById('hint-btn');
+            hintBtn.addEventListener('click', showHint);
+            hintBtn.addEventListener('touchend', function(e) {
+                e.preventDefault();
+                showHint();
+            });
+            
+            // Set up Clear Report button with both mouse and touch handling
+            const clearReportBtn = document.getElementById('clear-report');
+            clearReportBtn.addEventListener('click', clearReport);
+            clearReportBtn.addEventListener('touchend', function(e) {
+                e.preventDefault();
+                clearReport();
+            });
+            
+            // Add touch-specific adjustments when running on mobile
+            if (isTouchDevice()) {
+                document.body.classList.add('touch-device');
+                // Prevent zooming when double tapping
+                document.addEventListener('dblclick', function(e) {
+                    e.preventDefault();
+                });
+                
+                // Add active state for touch feedback
+                const allButtons = document.querySelectorAll('button');
+                allButtons.forEach(button => {
+                    button.addEventListener('touchstart', function() {
+                        this.classList.add('button-active');
+                    });
+                    button.addEventListener('touchend touchcancel', function() {
+                        this.classList.remove('button-active');
+                    });
+                });
+            }
+        }
+        
+        // Helper function to detect touch devices
+        function isTouchDevice() {
+            return (('ontouchstart' in window) ||
+                   (navigator.maxTouchPoints > 0) ||
+                   (navigator.msMaxTouchPoints > 0));
+        }
+        
+        // Create angle references
+        function createAngleReferences() {
+            referenceGuide.innerHTML = '';
+            
+            // Create reference text labels
+            quizData.targetAngles.forEach((angle, index) => {
+                const angleLabel = document.createElement('div');
+                angleLabel.className = 'angle-label';
+                angleLabel.textContent = `Line ${index+1}: ${angle}°`;
+                angleLabel.style.color = index === 0 ? 'var(--primary-color)' : 
+                                       index === 1 ? 'var(--secondary-color)' : 
+                                       index === 2 ? 'var(--accent-color)' : 
+                                       'var(--error-color)';
+                referenceGuide.appendChild(angleLabel);
+            });
+        }
+        
+        // Reset line positions
+        function resetLinePositions() {
+            const containerWidth = anglesContainer.offsetWidth;
+            const containerHeight = anglesContainer.offsetHeight;
+            
+            // Calculate better positions for lines - arrange in a grid pattern
+            // for easier access on mobile
+            const centerX = containerWidth / 2;
+            const gridTop = containerHeight * 0.25;
+            const gridBottom = containerHeight * 0.6;
+            const gridLeft = containerWidth * 0.25;
+            const gridRight = containerWidth * 0.75;
+            
+            // Set line positions in a grid pattern
+            line1Position = { x: gridLeft, y: gridTop, angle: Math.floor(Math.random() * 180) };
+            line2Position = { x: gridRight, y: gridTop, angle: Math.floor(Math.random() * 180) };
+            line3Position = { x: gridLeft, y: gridBottom, angle: Math.floor(Math.random() * 180) };
+            line4Position = { x: gridRight, y: gridBottom, angle: Math.floor(Math.random() * 180) };
+            
+            // Update visual positions
+            updateLinePosition(line1, line1Position, 'var(--primary-color)');
+            updateLinePosition(line2, line2Position, 'var(--secondary-color)');
+            updateLinePosition(line3, line3Position, 'var(--accent-color)');
+            updateLinePosition(line4, line4Position, 'var(--error-color)');
+        }
+        
+        // Update line position and rotation visually
+        function updateLinePosition(line, position, color) {
+            line.style.left = `${position.x}px`;
+            line.style.top = `${position.y}px`;
+            line.style.transform = `rotate(${position.angle}deg)`;
+            if (color) {
+                line.style.backgroundColor = color;
+            }
+        }
+        
+        // Set up drag functionality with improved angle calculation
+        function setupDrag(element, lineId) {
+            let isDragging = false;
+            let startX, startY;
+            let centerX, centerY;
+            let currentPosition;
+            let lastAngle = 0;
+            let targetAngle;
+            
+            // Create angle indicator
+            const angleIndicator = document.createElement('div');
+            angleIndicator.className = 'angle-indicator';
+            element.appendChild(angleIndicator);
+            
+            // Determine which position object to use and the target angle
+            switch(lineId) {
+                case 1: 
+                    currentPosition = line1Position; 
+                    targetAngle = quizData.targetAngles[0];
+                    break;
+                case 2: 
+                    currentPosition = line2Position; 
+                    targetAngle = quizData.targetAngles[1];
+                    break;
+                case 3: 
+                    currentPosition = line3Position; 
+                    targetAngle = quizData.targetAngles[2];
+                    break;
+                case 4: 
+                    currentPosition = line4Position; 
+                    targetAngle = quizData.targetAngles[3];
+                    break;
+            }
+            
+            // Set line color according to index
+            const color = lineId === 1 ? 'var(--primary-color)' : 
+                         lineId === 2 ? 'var(--secondary-color)' : 
+                         lineId === 3 ? 'var(--accent-color)' : 
+                         'var(--error-color)';
+            element.style.backgroundColor = color;
+            
+            // Mouse events
+            element.addEventListener('mousedown', onStart);
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onEnd);
+            
+            // Touch events for mobile with improved handling
+            element.addEventListener('touchstart', handleTouch(onStart), { passive: false });
+            document.addEventListener('touchmove', handleTouch(onMove), { passive: false });
+            document.addEventListener('touchend', handleTouch(onEnd));
+            document.addEventListener('touchcancel', handleTouch(onEnd));
+            
+            // Add special class to signal this is being dragged
+            element.addEventListener('touchstart', function() {
+                document.querySelectorAll('.draggable-line').forEach(line => {
+                    line.classList.remove('currently-dragging');
+                });
+                element.classList.add('currently-dragging');
+            });
+            
+            element.addEventListener('touchend', function() {
+                setTimeout(() => {
+                    element.classList.remove('currently-dragging');
+                }, 300);
+            });
+            
+            // Show angle on hover
+            element.addEventListener('mouseover', () => showAngleIndicator(true));
+            element.addEventListener('mouseout', () => {
+                if (!isDragging) showAngleIndicator(false);
+            });
+            
+            function showAngleIndicator(show) {
+                angleIndicator.style.opacity = show ? '1' : '0';
+                if (show) {
+                    angleIndicator.textContent = Math.round(normalizeAngle(currentPosition.angle)) + '°';
+                    // Change color based on how close to target angle
+                    const diff = Math.abs(normalizeAngle(currentPosition.angle) - targetAngle);
+                    const minDiff = Math.min(diff, 360 - diff);
+                    
+                    if (minDiff <= quizData.toleranceAngle) {
+                        angleIndicator.style.backgroundColor = '#d4edda';
+                        angleIndicator.style.color = '#155724';
+                    } else if (minDiff <= quizData.toleranceAngle * 2) {
+                        angleIndicator.style.backgroundColor = '#fff3cd';
+                        angleIndicator.style.color = '#856404';
+                    } else {
+                        angleIndicator.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
+                        angleIndicator.style.color = '#333';
+                    }
+                }
+            }
+            
+            function handleTouch(callback) {
+                return function(event) {
+                    if (event.type === 'touchend' || event.type === 'touchcancel') {
+                        // For touchend we use changedTouches instead of touches
+                        if (event.changedTouches && event.changedTouches[0]) {
+                            event.preventDefault();
+                            event.clientX = event.changedTouches[0].clientX;
+                            event.clientY = event.changedTouches[0].clientY;
+                            callback(event);
+                        } else {
+                            // If we somehow lose touch, just call the callback without coords
+                            callback(event);
+                        }
+                    } else if (event.touches && event.touches[0]) {
+                        // For touchstart and touchmove
+                        event.preventDefault();
+                        event.clientX = event.touches[0].clientX;
+                        event.clientY = event.touches[0].clientY;
+                        callback(event);
+                    }
+                };
+            }
+            
+            function onStart(e) {
+                interactions++;
+                isDragging = true;
+                
+                // Get the container coordinates
+                const containerRect = anglesContainer.getBoundingClientRect();
+                
+                // Get the rotation origin (left side of line)
+                centerX = currentPosition.x + containerRect.left;
+                centerY = currentPosition.y + containerRect.top;
+                
+                // Starting mouse coordinates
+                startX = e.clientX;
+                startY = e.clientY;
+                
+                // Save the current angle as the start angle
+                lastAngle = currentPosition.angle;
+                
+                // Visual feedback for dragging
+                element.style.opacity = '0.8';
+                element.style.boxShadow = '0 0 10px rgba(0,0,0,0.4)';
+                showAngleIndicator(true);
+                
+                e.stopPropagation();
+            }
+            
+            function onMove(e) {
+                if (!isDragging) return;
+                
+                // Calculate the angle between the initial vector and current vector
+                // Initial vector: from center to start point
+                // Current vector: from center to current point
+                
+                // Current mouse position relative to center
+                const currentX = e.clientX - centerX;
+                const currentY = e.clientY - centerY; 
+                
+                // On mobile, if the distance is too small, use a more direct approach
+                const distanceFromCenter = Math.sqrt(currentX * currentX + currentY * currentY);
+                
+                if (distanceFromCenter < 20) {
+                    // For very close interactions, use a simpler approach with deltas
+                    const deltaX = e.clientX - startX;
+                    const deltaY = e.clientY - startY;
+                    const sensitivity = 0.5;
+                    currentPosition.angle = lastAngle + (deltaX - deltaY) * sensitivity;
+                } else {
+                    // Calculate the angle with atan2 for more accurate rotation
+                    const angle = Math.atan2(currentY, currentX) * (180 / Math.PI);
+                    
+                    // Update the position with the new angle
+                    currentPosition.angle = angle;
+                }
+                
+                // Update line position
+                updateLinePosition(element, currentPosition);
+                
+                // Update the angle indicator
+                angleIndicator.textContent = Math.round(normalizeAngle(currentPosition.angle)) + '°';
+                
+                // Change color based on how close to target angle
+                const diff = Math.abs(normalizeAngle(currentPosition.angle) - targetAngle);
+                const minDiff = Math.min(diff, 360 - diff);
+                
+                if (minDiff <= quizData.toleranceAngle) {
+                    angleIndicator.style.backgroundColor = '#d4edda';
+                    angleIndicator.style.color = '#155724';
+                } else if (minDiff <= quizData.toleranceAngle * 2) {
+                    angleIndicator.style.backgroundColor = '#fff3cd';
+                    angleIndicator.style.color = '#856404';
+                } else {
+                    angleIndicator.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
+                    angleIndicator.style.color = '#333';
+                }
+            }
+            
+            function onEnd() {
+                if (!isDragging) return;
+                isDragging = false;
+                
+                // Provide haptic feedback on mobile when angle is close to target
+                const diff = Math.abs(normalizeAngle(currentPosition.angle) - targetAngle);
+                const minDiff = Math.min(diff, 360 - diff);
+                
+                if (minDiff <= quizData.toleranceAngle && navigator.vibrate) {
+                    navigator.vibrate(50); // Short vibration for feedback
+                }
+                
+                // Normalize angle to 0-360 range
+                currentPosition.angle = normalizeAngle(currentPosition.angle);
+                
+                // Reset visual indicators after a short delay
+                setTimeout(() => {
+                    element.style.opacity = '1';
+                    element.style.boxShadow = '';
+                    showAngleIndicator(false);
+                }, 300);
+            }
+        }
+        
+        // Reset quiz
+        function resetQuiz() {
+            resetLinePositions();
+            startTime = new Date();
+            interactions = 0;
+            resultMessage.style.display = 'none';
+            
+            // Add animation effect
+            anglesContainer.classList.add('reset-animation');
+            setTimeout(() => {
+                anglesContainer.classList.remove('reset-animation');
+            }, 300);
+        }
+        
+        // Show hint
+        function showHint() {
+            interactions++;
+            
+            // Get closest line to target
+            const line1Diff = Math.min(Math.abs(normalizeAngle(line1Position.angle) - quizData.targetAngles[0]), 
+                                    Math.abs(normalizeAngle(line1Position.angle) - (quizData.targetAngles[0] + 360)));
+            const line2Diff = Math.min(Math.abs(normalizeAngle(line2Position.angle) - quizData.targetAngles[1]), 
+                                     Math.abs(normalizeAngle(line2Position.angle) - (quizData.targetAngles[1] + 360)));
+            const line3Diff = Math.min(Math.abs(normalizeAngle(line3Position.angle) - quizData.targetAngles[2]), 
+                                     Math.abs(normalizeAngle(line3Position.angle) - (quizData.targetAngles[2] + 360)));
+            const line4Diff = Math.min(Math.abs(normalizeAngle(line4Position.angle) - quizData.targetAngles[3]), 
+                                     Math.abs(normalizeAngle(line4Position.angle) - (quizData.targetAngles[3] + 360)));
+            
+            // Create hint array [lineId, diff]
+            const hints = [
+                [1, line1Diff],
+                [2, line2Diff],
+                [3, line3Diff],
+                [4, line4Diff]
+            ];
+            
+            // Sort by difference (largest first)
+            hints.sort((a, b) => b[1] - a[1]);
+            
+            // Get the line that needs the most adjustment (index 0)
+            const lineToHint = hints[0][0];
+            const lineDiff = hints[0][1];
+            
+            // Only give hint if line is not already close
+            if (lineDiff <= quizData.toleranceAngle) {
+                resultMessage.textContent = "All lines are already close to their targets!";  
+            } else {
+                let lineElement, targetAngle, currentAngle;
+                
+                switch(lineToHint) {
+                    case 1: 
+                        lineElement = line1;
+                        targetAngle = quizData.targetAngles[0];
+                        currentAngle = normalizeAngle(line1Position.angle);
+                        break;
+                    case 2: 
+                        lineElement = line2;
+                        targetAngle = quizData.targetAngles[1];
+                        currentAngle = normalizeAngle(line2Position.angle);
+                        break;
+                    case 3: 
+                        lineElement = line3;
+                        targetAngle = quizData.targetAngles[2];
+                        currentAngle = normalizeAngle(line3Position.angle);
+                        break;
+                    case 4: 
+                        lineElement = line4;
+                        targetAngle = quizData.targetAngles[3];
+                        currentAngle = normalizeAngle(line4Position.angle);
+                        break;
+                }
+                
+                // Calculate direction to rotate
+                const direction = (targetAngle > currentAngle) ? 
+                    (targetAngle - currentAngle <= 180 ? 'clockwise' : 'counter-clockwise') :
+                    (currentAngle - targetAngle <= 180 ? 'counter-clockwise' : 'clockwise');
+                
+                // Apply pulsing animation to highlight the line
+                lineElement.classList.add('pulse-animation');
+                setTimeout(() => {
+                    lineElement.classList.remove('pulse-animation');
+                }, 2000);
+                
+                // Display hint message
+                resultMessage.textContent = `Try rotating Line ${lineToHint} ${direction} to get closer to ${targetAngle}°`;
+            }
+            
+            resultMessage.className = 'result-message hint';
+            resultMessage.style.display = 'block';
+            
+            // Hide hint after 3 seconds
+            setTimeout(() => {
+                if (resultMessage.className.includes('hint')) {
+                    resultMessage.style.display = 'none';
+                }
+            }, 3000);
+        }
+        
+        // Submit answer with improved mobile compatibility
+        function submitAnswer() {
+            try {
+                // Ensure all dragging is complete
+                isDragging = false;
+                
+                const endTime = new Date();
+                const timeSpentSeconds = (endTime - startTime) / 1000; // in seconds
+                const timeSpent = endTime - startTime; // in milliseconds
+                
+                // Check if angles match the target with tolerance for all lines
+                const line1Angle = normalizeAngle(line1Position.angle);
+                const line2Angle = normalizeAngle(line2Position.angle);
+                const line3Angle = normalizeAngle(line3Position.angle);
+                const line4Angle = normalizeAngle(line4Position.angle);
+                
+                console.log('Current angles:', [line1Angle, line2Angle, line3Angle, line4Angle]);
+                console.log('Target angles:', quizData.targetAngles);
+                
+                // Calculate the minimum angle difference (accounting for 360 degree wrapping)
+                const line1AngleDiff = Math.min(Math.abs(line1Angle - quizData.targetAngles[0]), Math.abs(line1Angle - (quizData.targetAngles[0] + 360)));
+                const line2AngleDiff = Math.min(Math.abs(line2Angle - quizData.targetAngles[1]), Math.abs(line2Angle - (quizData.targetAngles[1] + 360)));
+                const line3AngleDiff = Math.min(Math.abs(line3Angle - quizData.targetAngles[2]), Math.abs(line3Angle - (quizData.targetAngles[2] + 360)));
+                const line4AngleDiff = Math.min(Math.abs(line4Angle - quizData.targetAngles[3]), Math.abs(line4Angle - (quizData.targetAngles[3] + 360)));
+                
+                console.log('Angle differences:', [line1AngleDiff, line2AngleDiff, line3AngleDiff, line4AngleDiff]);
+                
+                const isLine1Correct = line1AngleDiff <= quizData.toleranceAngle;
+                const isLine2Correct = line2AngleDiff <= quizData.toleranceAngle;
+                const isLine3Correct = line3AngleDiff <= quizData.toleranceAngle;
+                const isLine4Correct = line4AngleDiff <= quizData.toleranceAngle;
+                
+                // Count how many lines are correct
+                const correctCount = [isLine1Correct, isLine2Correct, isLine3Correct, isLine4Correct].filter(Boolean).length;
+                
+                // Calculate percentage score based on how many lines are correct
+                const score = Math.round((correctCount / 4) * 100);
+                const isAllCorrect = correctCount === 4;
+                
+                // Calculate average deviation for analytics
+                const avgAngleDiff = (line1AngleDiff + line2AngleDiff + line3AngleDiff + line4AngleDiff) / 4;
+                
+                console.log('Score calculation:', { score, correctCount, isAllCorrect, avgAngleDiff });
+                
+                // Display result with improved mobile feedback
+                if (isAllCorrect) {
+                    resultMessage.textContent = "Excellent! All angles match perfectly.";
+                    resultMessage.className = "result-message correct";
+                    // Provide haptic feedback on mobile for success
+                    if (navigator.vibrate) {
+                        navigator.vibrate([100, 50, 100]); // Success pattern
+                    }
+                } else if (correctCount > 0) {
+                    resultMessage.textContent = `You got ${correctCount} out of 4 angles correct. Keep trying!`;
+                    resultMessage.className = "result-message incorrect";
+                    if (navigator.vibrate) {
+                        navigator.vibrate(50); // Light feedback
+                    }
+                } else {
+                    resultMessage.textContent = "None of the angles match. Try adjusting them more carefully.";
+                    resultMessage.className = "result-message incorrect";
+                }
+                
+                // Make sure result is visible on mobile
+                resultMessage.style.display = 'block';
+                // Scroll to ensure result is visible on mobile
+                setTimeout(() => {
+                    resultMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 100);
+                
+                // Create a result object with all data
+                const resultData = {
+                    score: score,
+                    timeSpent: timeSpent, // in milliseconds for database consistency
+                    timeSpentDisplay: timeSpentSeconds.toFixed(2) + 's', // formatted for display
+                    interactions: interactions,
+                    lineAngles: [line1Angle, line2Angle, line3Angle, line4Angle],
+                    angleDifferences: [line1AngleDiff, line2AngleDiff, line3AngleDiff, line4AngleDiff],
+                    correctCount: correctCount,
+                    avgAngleDiff: avgAngleDiff,
+                    targetAngles: quizData.targetAngles,
+                    isCorrect: isAllCorrect,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                };
+                
+                console.log('Saving quiz result:', resultData);
+                
+                // Save result to database with detailed information
+                saveQuizResult(resultData);
+                
+            } catch (error) {
+                console.error('Error in submitAnswer:', error);
+                alert('There was an error submitting your answer. Please try again.');
+            }
+        }
+        
+        // Normalize angle to 0-360 range
+        function normalizeAngle(angle) {
+            angle = angle % 360;
+            if (angle < 0) angle += 360;
+            return angle;
+        }
+        
+        // Save quiz result to Firebase with improved reliability
+        async function saveQuizResult(result) {
+            const user = auth.currentUser;
+            if (!user) {
+                console.error('No user authenticated');
+                return;
+            }
+            
+            try {
+                const timestamp = Date.now();
+                let path;
+
+                // Check if this is a patient quiz (doctor viewing patient)
+                if (isPatientQuiz) {
+                    // This is a doctor testing a patient
+                    console.log(`Saving patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/FG/${timestamp}`;
+                } else {
+                    // Regular user quiz - Fetch role with error handling
+                    try {
+                        const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                        const role = roleSnapshot.val();
+                        
+                        if (role === 'doctor') {
+                            console.log(`Saving doctor's own quiz results: ${user.uid}`);
+                            path = `doctors/${user.uid}/quiz/FG/${timestamp}`;
+                        } else {
+                            console.log(`Saving regular user quiz results: ${user.uid}`);
+                            path = `users/${user.uid}/quiz/FG/${timestamp}`;
+                        }
+                    } catch (roleError) {
+                        console.error('Error determining user role, saving as regular user:', roleError);
+                        // Fallback to regular user path if role check fails
+                        path = `users/${user.uid}/quiz/FG/${timestamp}`;
+                    }
+                }
+                
+                console.log(`Saving quiz results to path: ${path}`);
+            
+                // Save the result with retry logic
+                let saveAttempts = 0;
+                const maxAttempts = 3;
+                let saveSuccess = false;
+                
+                while (!saveSuccess && saveAttempts < maxAttempts) {
+                    try {
+                        saveAttempts++;
+                        await database.ref(path).set(result);
+                        console.log(`Quiz results saved successfully (attempt ${saveAttempts})`);
+                        saveSuccess = true;
+                    } catch (saveError) {
+                        console.error(`Error saving quiz result (attempt ${saveAttempts}):`, saveError);
+                        if (saveAttempts >= maxAttempts) {
+                            throw saveError; // Re-throw after max attempts
+                        }
+                        // Wait a bit before retrying
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    }
+                }
+                
+                // Only load previous attempts if save was successful
+                if (saveSuccess) {
+                    loadPreviousAttempts();
+                } else {
+                    alert('There was an issue saving your result. Previous attempts may not show your latest score.');
+                }
+            } catch (error) {
+                console.error('Error in saveQuizResult:', error);
+                // Display friendly error to user
+                alert('There was an issue saving your result. You can still continue using the app.');
+            }
+        }
+        
+        // Load previous attempts with better mobile compatibility
+        async function loadPreviousAttempts() {
+            const user = auth.currentUser;
+            if (!user) {
+                console.log('No user authenticated, cannot load attempts');
+                return;
+            }
+            
+            try {
+                // Show loading indicator
+                const reportList = document.getElementById('attempts-list');
+                reportList.innerHTML = '<h3>Previous Attempts</h3><p>Loading your previous attempts...</p>';
+                
+                let path;
+                
+                // Check if this is a patient quiz (doctor viewing patient)
+                if (isPatientQuiz) {
+                    console.log(`Loading patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/FG`;
+                } else {
+                    // Regular user quiz with better error handling
+                    try {
+                        const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                        const role = roleSnapshot.val();
+                        
+                        if (role === 'doctor') {
+                            console.log(`Loading doctor's own quiz results: ${user.uid}`);
+                            path = `doctors/${user.uid}/quiz/FG`;
+                        } else {
+                            console.log(`Loading regular user quiz results: ${user.uid}`);
+                            path = `users/${user.uid}/quiz/FG`;
+                        }
+                    } catch (roleError) {
+                        console.error('Error determining user role, loading as regular user:', roleError);
+                        // Fallback to regular user path if role check fails
+                        path = `users/${user.uid}/quiz/FG`;
+                    }
+                }
+            
+                console.log(`Fetching quiz results from path: ${path}`);
+                
+                // Use a timeout to ensure database query doesn't hang
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Database query timeout')), 10000)
+                );
+                
+                // Race the database query against a timeout
+                const snapshot = await Promise.race([
+                    database.ref(path).once('value'),
+                    timeoutPromise
+                ]);
+                
+                // Clear loading indicator
+                reportList.innerHTML = '<h3>Previous Attempts</h3>';
+                
+                if (snapshot && snapshot.exists && snapshot.exists()) {
+                    const attempts = {};
+                    
+                    // Convert the snapshot to an array of entries with timestamps as keys
+                    snapshot.forEach(childSnapshot => {
+                        if (childSnapshot && childSnapshot.val) {
+                            const timestamp = childSnapshot.key;
+                            const data = childSnapshot.val();
+                            if (data) attempts[timestamp] = data;
+                        }
+                    });
+                    
+                    const attemptEntries = Object.entries(attempts);
+                    console.log(`Found ${attemptEntries.length} previous attempts`);
+                    
+                    if (attemptEntries.length > 0) {
+                        // Sort by timestamp, newest first
+                        attemptEntries.sort((a, b) => b[0] - a[0]);
+                        
+                        // Limit to 10 most recent attempts for mobile performance
+                        const recentAttempts = attemptEntries.slice(0, 10);
+                        
+                        // Add attempt count summary
+                        if (attemptEntries.length > 10) {
+                            reportList.innerHTML += `<p>Showing the 10 most recent of ${attemptEntries.length} total attempts</p>`;
+                        }
+                        
+                        recentAttempts.forEach(([timestamp, result]) => {
+                            if (!result) {
+                                console.log('Skipping invalid result entry');
+                                return;
+                            }
+                            
+                            const attemptItem = document.createElement('div');
+                            attemptItem.className = 'attempt-item';
+                            
+                            // Convert timestamp to readable date
+                            let formattedDate;
+                            try {
+                                const date = new Date(parseInt(timestamp));
+                                formattedDate = date.toLocaleString();
+                            } catch (dateError) {
+                                console.error('Error formatting date:', dateError);
+                                formattedDate = 'Unknown date';
+                            }
+                            
+                            // Create the date and score section
+                            const dateScoreDiv = document.createElement('div');
+                            dateScoreDiv.className = 'attempt-header';
+                            
+                            // Safely access score
+                            const score = result.score !== undefined ? result.score : 'N/A';
+                            
+                            dateScoreDiv.innerHTML = `
+                                <div class="attempt-date">${formattedDate}</div>
+                                <div class="attempt-score">Score: ${score}%</div>
+                            `;
+                            attemptItem.appendChild(dateScoreDiv);
+                            
+                            // Create the details section
+                            const detailsDiv = document.createElement('div');
+                            detailsDiv.className = 'attempt-details';
+                            
+                            // Format the details content based on our quiz data
+                            let detailsHtml = `
+                                <div class="attempt-detail-item">
+                                    <span class="detail-label">Time spent:</span>
+                                    <span>${result.timeSpentDisplay ? result.timeSpentDisplay : (result.timeSpent ? (result.timeSpent / 1000).toFixed(2) + 's' : 'N/A')}</span>
+                                </div>
+                                <div class="attempt-detail-item">
+                                    <span class="detail-label">Interactions:</span>
+                                    <span>${result.interactions || 'N/A'}</span>
+                                </div>
+                                <div class="attempt-detail-item">
+                                    <span class="detail-label">Correct Angles:</span>
+                                    <span>${result.correctCount || 0} out of 4</span>
+                                </div>`;
+                                
+                            // Check if we have the new format with lineAngles array
+                            if (result.lineAngles && Array.isArray(result.lineAngles)) {
+                                // New format with multiple lines
+                                for (let i = 0; i < result.lineAngles.length; i++) {
+                                    if (result.lineAngles[i] !== undefined && result.targetAngles && result.targetAngles[i] !== undefined) {
+                                        detailsHtml += `
+                                        <div class="attempt-detail-item">
+                                            <span class="detail-label">Line ${i+1} Angle:</span>
+                                            <span>${parseFloat(result.lineAngles[i]).toFixed(1)}° (Target: ${result.targetAngles[i]}°)</span>
+                                        </div>`;
+                                    }
+                                }
+                                
+                                if (result.avgAngleDiff !== undefined) {
+                                    detailsHtml += `
+                                    <div class="attempt-detail-item">
+                                        <span class="detail-label">Avg Deviation:</span>
+                                        <span>${parseFloat(result.avgAngleDiff).toFixed(1)}°</span>
+                                    </div>`;
+                                }
+                            } else if (result.line1Angle !== undefined && result.line2Angle !== undefined) {
+                                // Old format with just two lines
+                                detailsHtml += `
+                                <div class="attempt-detail-item">
+                                    <span class="detail-label">Line 1 Angle:</span>
+                                    <span>${parseFloat(result.line1Angle).toFixed(1)}°</span>
+                                </div>
+                                <div class="attempt-detail-item">
+                                    <span class="detail-label">Line 2 Angle:</span>
+                                    <span>${parseFloat(result.line2Angle).toFixed(1)}°</span>
+                                </div>`;
+                            }
+                            
+                            // Add final result status
+                            detailsHtml += `
+                                <div class="attempt-detail-item">
+                                    <span class="detail-label">Result:</span>
+                                    <span>${result.isCorrect ? 'Correct' : 'Incorrect'}</span>
+                                </div>`;
+                            detailsDiv.innerHTML = detailsHtml;
+                            attemptItem.appendChild(detailsDiv);
+                            
+                            // Add a button to toggle details - with mobile-friendly tap area
+                            const toggleBtn = document.createElement('button');
+                            toggleBtn.className = 'toggle-details-btn';
+                            toggleBtn.textContent = 'Show Details';
+                            toggleBtn.onclick = function(e) {
+                                e.preventDefault(); // Prevent double-click/tap issues
+                                
+                                if (detailsDiv.style.display === 'none' || !detailsDiv.style.display) {
+                                    detailsDiv.style.display = 'grid';
+                                    this.textContent = 'Hide Details';
+                                    // Make sure details are visible without forcing scroll
+                                    detailsDiv.style.opacity = '1';
+                                    detailsDiv.style.height = 'auto';
+                                    detailsDiv.style.maxHeight = '500px';
+                                } else {
+                                    detailsDiv.style.display = 'none';
+                                    this.textContent = 'Show Details';
+                                }
+                            };
+                            dateScoreDiv.appendChild(toggleBtn);
+                            
+                            // Initially hide details
+                            detailsDiv.style.display = 'none';
+                            
+                            reportList.appendChild(attemptItem);
+                        });
+                    } else {
+                        reportList.innerHTML += '<p>No previous attempts found.</p>';
+                    }
+                } else {
+                    reportList.innerHTML += '<p>No previous attempts found.</p>';
+                }
+                
+                // Make sure the report container is visible and properly styled for scrolling
+                const reportContainer = document.getElementById('report-container');
+                reportContainer.style.display = 'block';
+                reportContainer.style.maxHeight = '70vh';
+                reportContainer.style.overflowY = 'auto';
+                
+            } catch (error) {
+                console.error('Error fetching previous attempts:', error);
+                document.getElementById('attempts-list').innerHTML = '<h3>Previous Attempts</h3><p>Error loading attempts: ' + (error.message || 'Unknown error') + '</p><p>Please try again later.</p>';
+            }
+        }
+        
+        // Clear report function
+        async function clearReport() {
+            const user = auth.currentUser;
+            if (!user) {
+                alert('You need to be logged in to clear the report.');
+                return;
+            }
+
+            try {
+                let path;
+                
+                // Check if this is a patient quiz (doctor viewing patient)
+                if (isPatientQuiz) {
+                    console.log(`Clearing patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/FG`;
+                } else {
+                    // Regular user quiz
+                    // Check if user is a doctor
+                    const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                    const role = roleSnapshot.val();
+                    
+                    if (role === 'doctor') {
+                        console.log(`Clearing doctor's own quiz results: ${user.uid}`);
+                        path = `doctors/${user.uid}/quiz/FG`;
+                    } else {
+                        console.log(`Clearing regular user quiz results: ${user.uid}`);
+                        path = `users/${user.uid}/quiz/FG`;
+                    }
+                }
+                
+                console.log(`Removing all quiz results from path: ${path}`);
+                
+                // Remove all data at the specified path
+                await database.ref(path).remove();
+                
+                // Reset the results display
+                document.getElementById('attempts-list').innerHTML = '<h3>Previous Attempts</h3><p>No previous attempts found.</p>';
+                
+                alert('All quiz reports have been cleared successfully.');
+                
+            } catch (error) {
+                console.error('Error clearing report:', error);
+                alert('Failed to clear the report: ' + error.message);
+            }
+        }
+        
+        // Auth state observer
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                console.log('User authenticated in FG:', user.uid);
+                
+                try {
+                    // Check if user is a doctor
+                    if (!isPatientQuiz) {
+                        const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                        const role = roleSnapshot.val();
+                        
+                        if (role === 'doctor') {
+                            console.log('User is a doctor');
+                        }
+                        
+                        // Get user profile data
+                        const userSnap = await database.ref(`users/${user.uid}/profile`).once('value');
+                        const profile = userSnap.val() || {};
+                        
+                        userNameSpan.textContent = profile.name || user.displayName || user.email || 'User';
+                        
+                        // Set initials for profile icon
+                        const initial = (profile.name || user.displayName || user.email || 'U').charAt(0).toUpperCase();
+                        profileIcon.textContent = initial;
+                        patientIndicator.style.display = 'none';
+                    } else {
+                        // This is a doctor viewing a patient's quiz
+                        console.log('Doctor viewing patient quiz');
+                        
+                        // Get patient profile
+                        const patientSnapshot = await database.ref(`doctors/${doctorId}/patients/${currentPatientId}/profile`).once('value');
+                        const profile = patientSnapshot.val() || {};
+                        
+                        userNameSpan.textContent = profile.name || 'Patient';
+                        const initial = (profile.name || 'P').charAt(0).toUpperCase();
+                        profileIcon.textContent = initial;
+                        patientIndicator.style.display = 'inline-block';
+                    }
+                    
+                    // Initialize quiz when profile is ready
+                    initializeQuiz();
+                    loadPreviousAttempts();
+                    
+                } catch (error) {
+                    console.error('Error in auth state change:', error);
+                }
+            } else {
+                // Not logged in, redirect to login page
+                window.location.href = 'index.html';
+            }
+        });
+        
+        // Optimize touch handling on mobile devices
+        document.addEventListener('touchmove', function(e) {
+            // Only prevent default when directly manipulating a line or handle
+            // This allows scrolling on the rest of the page
+            if (e.touches.length > 1 || 
+                e.target.classList.contains('draggable-line') ||
+                e.target.classList.contains('draggable-handle')) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+        
+        // Add double-tap prevention for iOS
+        document.addEventListener('touchend', function(e) {
+            // Check if our target is a button or inside a button
+            const isButton = e.target.tagName === 'BUTTON' || e.target.closest('button');
+            
+            // Handle differently for buttons vs other interactive elements
+            if (isButton) {
+                // For buttons, just let the event propagate normally
+                // The specific button event handlers will take care of it
+                return;
+            } else if (e.target.classList.contains('draggable-line') ||
+                       e.target.classList.contains('draggable-handle')) {
+                // For draggable elements only, prevent default behavior
+                // Allow normal touch behavior everywhere else for scrolling
+                e.preventDefault();
+            }
+        }, { passive: false });
+        
+        // Fix for mobile buttons - intercept touch events on control buttons
+        document.querySelector('.controls').addEventListener('touchstart', function(e) {
+            // Mark the element as being touched
+            if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+                e.target.closest('button').classList.add('button-touching');
+            }
+        }, { passive: true });
+        
+        document.querySelector('.controls').addEventListener('touchend', function(e) {
+            // Find all touched buttons and remove their touching state
+            document.querySelectorAll('.button-touching').forEach(btn => {
+                btn.classList.remove('button-touching');
+            });
+            
+            // If this is a button or inside a button, handle the tap
+            const button = e.target.tagName === 'BUTTON' ? e.target : e.target.closest('button');
+            if (button) {
+                e.preventDefault(); // Prevent any default handling
+                e.stopPropagation(); // Stop event from bubbling
+                
+                // Simulate a click after a slight delay
+                setTimeout(() => {
+                    button.click();
+                }, 10);
+            }
+        }, { passive: false });
+        
+        // Initialize the quiz after page loads
+        window.addEventListener('load', initializeQuiz);
+    </script>
+</body>
+</html>

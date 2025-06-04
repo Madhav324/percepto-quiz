@@ -792,8 +792,30 @@
             leftArrow.style.visibility = 'hidden';
             rightArrow.style.visibility = 'hidden';
             
-            // Set appropriate direction images based on instruction
-            if (instruction.includes('TOP')) {
+            // Handle mixed instructions for the last question that has both TOP and BOTTOM
+            if (instruction.includes('TOP') && instruction.includes('BOTTOM')) {
+                // Check if it's specifically asking for "first gift in TOP, others in BOTTOM"
+                if (instruction.includes('first') && instruction.includes('others')) {
+                    // Show up arrow on left, down arrow on right
+                    leftArrow.src = 'images/SR/up.png';
+                    leftArrow.style.visibility = 'visible';
+                    rightArrow.src = 'images/SR/down.png';
+                    rightArrow.style.visibility = 'visible';
+                } else {
+                    // For any other mixed case, we can decide based on which appears first
+                    if (instruction.indexOf('TOP') < instruction.indexOf('BOTTOM')) {
+                        leftArrow.src = 'images/SR/up.png';
+                        rightArrow.src = 'images/SR/down.png';
+                    } else {
+                        leftArrow.src = 'images/SR/down.png';
+                        rightArrow.src = 'images/SR/up.png';
+                    }
+                    leftArrow.style.visibility = 'visible';
+                    rightArrow.style.visibility = 'visible';
+                }
+            }
+            // Handle simple single-direction cases
+            else if (instruction.includes('TOP')) {
                 leftArrow.src = 'images/SR/up.png';
                 leftArrow.style.visibility = 'visible';
                 rightArrow.src = 'images/SR/up.png';
