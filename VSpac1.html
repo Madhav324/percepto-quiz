@@ -976,18 +976,18 @@
             const touch = e.changedTouches[0];
             touchDragging.style.opacity = '1';
             
-            // Determine which area the touch ended in
-            const upperRect = upperArea.getBoundingClientRect();
-            const lowerRect = lowerArea.getBoundingClientRect();
+            // Get element at touch position
+            const elemBelow = document.elementFromPoint(touch.clientX, touch.clientY);
             
-            let dropArea = null;
-            
-            if (touch.clientY >= upperRect.top && touch.clientY <= upperRect.bottom && 
-                touch.clientX >= upperRect.left && touch.clientX <= upperRect.right) {
-                dropArea = upperArea;
-            } else if (touch.clientY >= lowerRect.top && touch.clientY <= lowerRect.bottom && 
-                touch.clientX >= lowerRect.left && touch.clientX <= lowerRect.right) {
-                dropArea = lowerArea;
+            // Find the drop-area container by traversing up
+            let dropArea = elemBelow;
+            while (dropArea && !dropArea.classList.contains('drop-area')) {
+                dropArea = dropArea.parentElement;
+                // If we've gone up to the body, we're not in a valid drop area
+                if (!dropArea || dropArea === document.body) {
+                    dropArea = null;
+                    break;
+                }
             }
             
             if (dropArea) {
@@ -999,7 +999,7 @@
                     const placedImage = document.createElement('img');
                     placedImage.src = touchDragging.src;
                     placedImage.className = 'placed-image';
-                    placedImage.id = `placed-${touchDragging.id}`;
+                    placedImage.id = `placed-${touchDragging.id}-${Date.now()}`; // Add timestamp for uniqueness
                     placedImage.setAttribute('data-id', touchDragging.id);
                     
                     // Add touch events to the placed image
@@ -1035,18 +1035,28 @@
             
             if (!draggable) return;
             
+            // Get drop area - find the actual drop-area element
+            let dropArea = e.target;
+            while (dropArea && !dropArea.classList.contains('drop-area')) {
+                dropArea = dropArea.parentElement;
+                // If we've gone up to the body, we're not in a valid drop area
+                if (dropArea === document.body) {
+                    return;
+                }
+            }
+            
             // Check if this is a placed image being moved
             const isPlacedImage = draggable.classList.contains('placed-image');
             
             if (isPlacedImage) {
                 // Move the placed image to the new drop area
-                e.target.appendChild(draggable);
+                dropArea.appendChild(draggable);
             } else {
                 // Create a placed version of the image
                 const placedImage = document.createElement('img');
                 placedImage.src = draggable.src;
                 placedImage.className = 'placed-image';
-                placedImage.id = `placed-${id}`;
+                placedImage.id = `placed-${id}-${Date.now()}`; // Add timestamp for uniqueness
                 placedImage.setAttribute('data-id', id);
                 placedImage.setAttribute('draggable', 'true');
                 
@@ -1057,11 +1067,11 @@
                 draggable.style.visibility = 'hidden';
                 
                 // Add to the appropriate drop area
-                e.target.appendChild(placedImage);
+                dropArea.appendChild(placedImage);
             }
             
             // Arrange the placed elements immediately to predefined positions
-            rearrangeImages(e.target);
+            rearrangeImages(dropArea);
         }
         
         // Function to rearrange images in a drop area
@@ -1071,27 +1081,11 @@
             const imageSize = window.innerWidth <= 600 ? 45 : 60; // Responsive image size
             const gap = window.innerWidth <= 600 ? 6 : 10;  // Responsive gap
             
-            // Remove any duplicate images (same data-id) - keep only the last added one
-            const uniqueImgs = [];
-            const seenIds = new Set();
+            // We no longer remove duplicates by data-id, since we're using unique IDs with timestamps
+            // Instead, we'll just keep all images in the drop area and arrange them
             
-            // Process in reverse to keep the most recently added ones
-            for (let i = placedImgs.length - 1; i >= 0; i--) {
-                const img = placedImgs[i];
-                const dataId = img.getAttribute('data-id');
-                
-                if (!seenIds.has(dataId)) {
-                    // Keep this image - it's the first (most recent) one we've seen with this ID
-                    seenIds.add(dataId);
-                    uniqueImgs.unshift(img); // Add to front to restore original order
-                } else {
-                    // This is a duplicate, remove it from the DOM
-                    img.remove();
-                }
-            }
-            
-            // Calculate layout for the remaining unique images
-            const totalWidth = uniqueImgs.length * (imageSize + gap) - gap;
+            // Calculate layout for all placed images
+            const totalWidth = placedImgs.length * (imageSize + gap) - gap;
             const startX = (dropArea.offsetWidth - totalWidth) / 2;
             
             // Position Y - predefined position depending on which area
@@ -1105,7 +1099,7 @@
             }
             
             // Position images with proper spacing to avoid overlapping
-            uniqueImgs.forEach((img, index) => {
+            placedImgs.forEach((img, index) => {
                 // Calculate exact predefined positions for each image
                 const x = startX + index * (imageSize + gap);
                 
