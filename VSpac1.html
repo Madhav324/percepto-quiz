@@ -89,14 +89,27 @@
             margin-left: 8px;
         }
 
+        .game-area-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            margin-bottom: 20px;
+        }
+        
         .game-area {
             position: relative;
-            width: 300px;
-            height: 300px;
-            margin: 20px auto;
-            border: 2px solid #4CAF50;
-            border-radius: 8px;
+            width: 100%;
+            max-width: 350px;
+            margin: 0 auto 20px;
+            background-color: #fff;
+            border-radius: 10px;
             overflow: hidden;
+        }
+
+        .direction-image {
+            width: 40px;
+            height: auto;
         }
 
         #question-image {
@@ -507,7 +520,10 @@
             .game-area {
                 width: 95%;
                 max-width: 280px;
-                height: 280px;
+            }
+            
+            .direction-image {
+                width: 30px;
             }
             
             .draggable {
@@ -553,10 +569,14 @@
         </div>
         <div class="instruction" id="instruction"></div>
         
-        <div class="game-area">
-            <img id="question-image" src="images/SR/table.png" alt="Background Image">
-            <div class="drop-area" id="upper-area"></div>
-            <div class="drop-area" id="lower-area"></div>
+        <div class="game-area-container">
+            <img class="direction-image" id="left-arrow" alt="Left Direction">
+            <div class="game-area">
+                <img id="question-image" src="images/SR/table.png" alt="Background Image">
+                <div class="drop-area" id="upper-area"></div>
+                <div class="drop-area" id="lower-area"></div>
+            </div>
+            <img class="direction-image" id="right-arrow" alt="Right Direction">
         </div>
         
         <div class="options-container" id="options-container"></div>
@@ -762,7 +782,34 @@
             let instruction = level.instruction;
             instructionText.innerHTML = ''; // Clear previous content
             
-            // Replace direction keywords with arrows
+            // Update the side arrow images based on the level instruction
+            const leftArrow = document.getElementById('left-arrow');
+            const rightArrow = document.getElementById('right-arrow');
+            
+            // Default - hide both arrows
+            leftArrow.style.visibility = 'hidden';
+            rightArrow.style.visibility = 'hidden';
+            
+            // Set appropriate direction images based on instruction
+            if (instruction.includes('TOP')) {
+                leftArrow.src = 'images/SR/up.png';
+                leftArrow.style.visibility = 'visible';
+                rightArrow.src = 'images/SR/up.png';
+                rightArrow.style.visibility = 'visible';
+            } else if (instruction.includes('BOTTOM')) {
+                leftArrow.src = 'images/SR/down.png';
+                leftArrow.style.visibility = 'visible';
+                rightArrow.src = 'images/SR/down.png';
+                rightArrow.style.visibility = 'visible';
+            } else if (instruction.includes('LEFT')) {
+                leftArrow.src = 'images/SR/left.png';
+                leftArrow.style.visibility = 'visible';
+            } else if (instruction.includes('RIGHT')) {
+                rightArrow.src = 'images/SR/right.png';
+                rightArrow.style.visibility = 'visible';
+            }
+            
+            // Replace direction keywords with arrows in the instruction text
             const words = instruction.split(' ');
             words.forEach(word => {
                 if (word.includes('TOP')) {
