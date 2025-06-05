@@ -112,10 +112,9 @@
 
         .clickable-area {
             position: absolute;
-            border: 2px solid transparent;
-            border-radius: 50%;
+            background-color: transparent;
             cursor: pointer;
-            transition: all 0.2s ease;
+            z-index: 2;
         }
 
         .clickable-area:hover {
@@ -125,6 +124,24 @@
         .clickable-area.selected {
             border-color: #4CAF50;
             background-color: rgba(76, 175, 80, 0.3);
+        }
+        
+        .scenario-object {
+            border-radius: 8px;
+            overflow: hidden;
+            transition: transform 0.2s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .scenario-object:hover {
+            transform: scale(1.05);
+            box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+        }
+
+        .feedback-mark {
+            position: absolute;
+            font-size: 24px;
+            z-index: 3;
         }
         
         /* Object Finding Puzzle Styles */
@@ -345,7 +362,7 @@
 <body>
     <div id="quiz-container">
         <div class="header">
-            <h1>Object Finding Puzzle</h1>
+            <h1>Object Selection Task</h1>
             <div class="profile-icon" id="profileIcon" title="Back to Home" onclick="window.location.href='index.html'"></div>
         </div>
         
@@ -355,17 +372,14 @@
                 <div class="patient-indicator">Patient Test</div>
             </div>
             
-            <!-- Target objects display area (top) -->
-            <div id="target-objects-wrapper">
-                <h4 style="margin: 5px 0; font-size: 0.9rem;">Find these objects:</h4>
-                <div id="target-objects"></div>
-            </div>
-            
-            <!-- Scenario image with clickable areas -->
-            <div id="question-container">
-                <div id="scenario-container">
-                    <img id="scenario-image" src="" alt="Scenario">
-                    <!-- Clickable areas will be added here dynamically -->
+            <!-- Object Selection Task -->
+            <div id="question-container" style="display: none;">
+                <h4 style="margin: 5px 0; font-size: 0.9rem;">Select these objects from the scene:</h4>
+                <div id="target-objects" style="margin-bottom: 8px;"></div>
+                
+                <div id="scenario-container" style="position: relative;">
+                    <img id="scenario-image" alt="Scenario" style="max-width: 100%;">
+                    <!-- Objects will be added here dynamically -->
                 </div>
             </div>
             
@@ -655,13 +669,13 @@
             // Clear containers
             targetObjectsContainer.innerHTML = '';
             // Remove any existing clickable areas
-            const existingAreas = scenarioContainer.querySelectorAll('.clickable-area');
+            const existingAreas = scenarioContainer.querySelectorAll('.clickable-area, .scenario-object');
             existingAreas.forEach(area => area.remove());
             
-            // Set the scenario image
+            // Set the base scenario image
             scenarioImage.src = currentScenario.scenarioImage;
             
-            // Display target objects
+            // Display target objects in the targets list
             currentScenario.targetObjects.forEach(targetObj => {
                 const img = document.createElement('img');
                 img.src = targetObj.image;
@@ -672,7 +686,7 @@
                 targetObjectsContainer.appendChild(img);
             });
             
-            // Create clickable areas after the image has loaded
+            // Wait for the base image to load before adding object elements
             scenarioImage.onload = () => {
                 const imgWidth = scenarioImage.offsetWidth;
                 const imgHeight = scenarioImage.offsetHeight;
@@ -703,23 +717,85 @@
                 
                 scenarioContainer.after(buttonContainer);
                 
-                // Create clickable areas with coordinates relative to the actual displayed image size
+                // Create all objects (visible now) with scaled coordinates
                 currentScenario.clickableAreas.forEach(area => {
-                    const clickableArea = document.createElement('div');
-                    clickableArea.className = 'clickable-area';
-                    clickableArea.dataset.id = area.id;
+                    // Create the object container
+                    const objectContainer = document.createElement('div');
+                    objectContainer.className = 'scenario-object';
+                    objectContainer.dataset.id = area.id;
                     
                     // Calculate the scaled position based on actual image dimensions
                     const scaleX = imgWidth / 400; // Assuming original coordinates are based on 400px width
                     const scaleY = imgHeight / 300; // Assuming original coordinates are based on 300px height
                     
-                    clickableArea.style.left = (area.x * scaleX) + 'px';
-                    clickableArea.style.top = (area.y * scaleY) + 'px';
-                    clickableArea.style.width = (area.width * scaleX) + 'px';
-                    clickableArea.style.height = (area.height * scaleY) + 'px';
+                    objectContainer.style.position = 'absolute';
+                    objectContainer.style.left = (area.x * scaleX) + 'px';
+                    objectContainer.style.top = (area.y * scaleY) + 'px';
+                    objectContainer.style.width = (area.width * scaleX) + 'px';
+                    objectContainer.style.height = (area.height * scaleY) + 'px';
+                    objectContainer.style.cursor = 'pointer';
+                    objectContainer.style.display = 'flex';
+                    objectContainer.style.justifyContent = 'center';
+                    objectContainer.style.alignItems = 'center';
                     
-                    clickableArea.onclick = () => checkAnswer(area.id);
-                    scenarioContainer.appendChild(clickableArea);
+                    // Find if this is a target object or a distractor
+                    const isTargetObj = currentScenario.targetObjects.some(obj => obj.id === area.id);
+                    
+                    // Create the visual representation for this object
+                    let objectImage;
+                    if (isTargetObj) {
+                        // If it's a target object, use its image
+                        const targetObj = currentScenario.targetObjects.find(obj => obj.id === area.id);
+                        objectImage = document.createElement('img');
+                        objectImage.src = targetObj.image;
+                        objectImage.alt = targetObj.name;
+                        objectImage.title = targetObj.name;
+                        objectImage.style.maxWidth = '100%';
+                        objectImage.style.maxHeight = '100%';
+                    } else {
+                        // For distractors, create a visual element with the id name
+                        // Extract object type from the ID (e.g., "blueball" -> "Blue Ball")
+                        const name = area.id.replace(/([A-Z])/g, ' $1')
+                            .replace(/^./, str => str.toUpperCase())
+                            .replace(/([a-z])([a-z]*)/g, (match, first, rest) => first.toUpperCase() + rest);
+                        
+                        // Create an appropriate visual for distractor objects
+                        if (area.id.includes('ball')) {
+                            objectImage = document.createElement('div');
+                            objectImage.style.width = '80%';
+                            objectImage.style.height = '80%';
+                            objectImage.style.borderRadius = '50%';
+                            objectImage.style.backgroundColor = area.id.replace(/([a-z]+)ball/g, '$1');
+                            objectImage.title = name;
+                        } else if (area.id.includes('hat') || area.id.includes('cap')) {
+                            objectImage = document.createElement('div');
+                            objectImage.innerHTML = '👒';
+                            objectImage.style.fontSize = '2em';
+                            objectImage.style.color = area.id.replace(/([a-z]+)(hat|cap)/g, '$1');
+                            objectImage.title = name;
+                        } else if (area.id.includes('book')) {
+                            objectImage = document.createElement('div');
+                            objectImage.innerHTML = '📕';
+                            objectImage.style.fontSize = '2em';
+                            objectImage.title = name;
+                        } else {
+                            // Generic emoji or shape for other objects
+                            const emoji = area.id.includes('dog') ? '🐶' : 
+                                        area.id.includes('scooter') ? '🛴' : 
+                                        area.id.includes('lamp') ? '💡' : 
+                                        area.id.includes('paper') ? '📄' : 
+                                        area.id.includes('icecream') ? '🍦' : '🔶';
+                            
+                            objectImage = document.createElement('div');
+                            objectImage.innerHTML = emoji;
+                            objectImage.style.fontSize = '2em';
+                            objectImage.title = name;
+                        }
+                    }
+                    
+                    objectContainer.appendChild(objectImage);
+                    objectContainer.onclick = () => checkAnswer(area.id);
+                    scenarioContainer.appendChild(objectContainer);
                 });
             };
         }
