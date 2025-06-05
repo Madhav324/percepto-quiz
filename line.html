@@ -128,12 +128,31 @@
             margin-bottom: 15px;
         }
         
+        .instructions-container {
+            background-color: var(--bg-light);
+            border-radius: 8px;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            max-width: 100%;
+            width: 100%;
+        }
+        
+        #instructions-text {
+            margin-bottom: 12px;
+            font-weight: 500;
+            font-size: 1.15rem;
+            color: var(--primary-color);
+            letter-spacing: 0.2px;
+        }
+        
         .instructions {
-            margin-bottom: 15px;
-            padding: 10px;
+            padding: 12px 15px;
             background-color: #e9f5ff;
-            border-radius: 5px;
-            font-size: 0.9rem;
+            border-radius: 6px;
+            font-size: 1rem;
+            line-height: 1.4;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
         }
         
         .angles-container {
@@ -852,9 +871,7 @@
             <button class="home-btn" id="home-btn" onclick="window.location.href='Vspac.html'"><span class="icon">⌂</span></button>
         </div>
         
-        <div class="mode-control">
-            <a href="#" id="mode-toggle" class="mode-toggle" onclick="return toggleQuizMode();">Mode: Sequential (One at a time)</a>
-        </div>
+
         
         <div class="result-message" id="result-message"></div>
         
@@ -886,7 +903,7 @@
         const doctorId = sessionStorage.getItem('doctorId');
         const isPatientQuiz = !!(currentPatientId && doctorId);
         
-        console.log('Quiz context in FG:', { 
+        console.log('Quiz context in line:', { 
             isPatientQuiz, 
             currentPatientId: currentPatientId || 'none',
             doctorId: doctorId || 'none'
@@ -900,41 +917,8 @@
         let quizData = {
             targetAngles: [30, 60, 120, 150], // Angles in degrees for each line
             toleranceAngle: 7, // Acceptable deviation in degrees
-            showMode: 'sequential' // 'sequential' = one at a time, 'all' = all at once
+            showMode: 'sequential' // Always sequential mode (one line at a time)
         };
-        
-        // Function to toggle between sequential and standard modes
-        function toggleQuizMode() {
-            // Toggle mode
-            quizData.showMode = (quizData.showMode === 'sequential') ? 'all' : 'sequential';
-            
-            // Reset quiz with new mode
-            resetQuiz();
-            
-            // Update UI to reflect the current mode
-            const modeIndicator = document.getElementById('mode-toggle');
-            if (modeIndicator) {
-                if (quizData.showMode === 'sequential') {
-                    modeIndicator.textContent = 'Mode: Sequential (One at a time)';
-                    modeIndicator.classList.add('sequential-mode');
-                    modeIndicator.classList.remove('standard-mode');
-                } else {
-                    modeIndicator.textContent = 'Mode: Standard (All lines)';
-                    modeIndicator.classList.add('standard-mode');
-                    modeIndicator.classList.remove('sequential-mode');
-                }
-            }
-            
-            // Update instructions
-            updateInstructions();
-            
-            // Provide haptic feedback if supported
-            if (navigator.vibrate) {
-                navigator.vibrate(50); // Short vibration for mode change
-            }
-            
-            return false; // Prevent default action if called from a link/button
-        }
         
         // HTML Elements
         const line1 = document.getElementById('line1');
@@ -957,24 +941,18 @@
         let line3Position = { x: 0, y: 0, angle: 0 };
         let line4Position = { x: 0, y: 0, angle: 0 };
         
-        // Update instructions based on mode
+        // Update instructions
         function updateInstructions() {
             const instructionsText = document.getElementById('instructions-text');
             const instructionTargets = document.getElementById('instruction-targets');
             
-            if (quizData.showMode === 'sequential') {
-                // Sequential mode instructions
-                instructionsText.textContent = 'Match each line to its target angle, one at a time.';
-                
-                // Only show the current target in the header (optional)
-                if (window.innerWidth <= 600) { // On mobile, maybe hide all target angles
-                    instructionTargets.style.display = 'none';
-                } else {
-                    instructionTargets.style.display = 'flex';
-                }
+            // Set sequential mode instructions
+            instructionsText.textContent = 'Match each line to its target angle, one at a time.';
+            
+            // Only show the current target in the header on larger screens
+            if (window.innerWidth <= 600) { // On mobile, hide all target angles
+                instructionTargets.style.display = 'none';
             } else {
-                // Original mode instructions
-                instructionsText.textContent = 'Match each line to its specific target angle:';
                 instructionTargets.style.display = 'flex';
             }
         }
@@ -990,17 +968,7 @@
             // Set initial positions
             resetLinePositions();
             
-            // Initialize mode toggle styling
-            const modeIndicator = document.getElementById('mode-toggle');
-            if (modeIndicator) {
-                if (quizData.showMode === 'sequential') {
-                    modeIndicator.classList.add('sequential-mode');
-                    modeIndicator.classList.remove('standard-mode');
-                } else {
-                    modeIndicator.classList.add('standard-mode');
-                    modeIndicator.classList.remove('sequential-mode');
-                }
-            }
+            // Always in sequential mode now
             
             // Start timer
             startTime = new Date();
@@ -1399,155 +1367,65 @@
             // Reset timer and other state
             startTime = new Date();
             interactions = 0;
-            isQuizActive = true;
-
-            // For sequential mode, reset the current line index
-            currentLineIndex = 0;
-            lineScores = [0, 0, 0, 0]; // Reset scores for each line
-
-            // Reset positions of all lines
+            dragCount = 0;
+            
+            // Clear result message
+            resultMessage.textContent = '';
+            resultMessage.style.display = 'none';
+            resultMessage.className = 'result-message';
+            
+            // Reset positions and visibility
             resetLinePositions();
-
-            // Clear any feedback
-            resultMessage.textContent = "";
-            resultMessage.classList.remove("success-message", "error-message");
-
-            // Re-create angle references with appropriate visibility
-            createAngleReferences();
-
-            // Update line visibility for sequential mode
-            if (quizData.showMode === 'sequential') {
-                updateLineVisibility();
-            }
+            
+            // Reset sequential mode variables
+            currentLineIndex = 0;
+            correctLines = 0;
+            
+            // Update current active line for sequential mode
+            updateActiveLineForSequential();
             
             // Update instructions
             updateInstructions();
-            
-            // Update mode toggle button text and styling
-            const modeIndicator = document.getElementById('mode-toggle');
-            if (modeIndicator) {
-                if (quizData.showMode === 'sequential') {
-                    modeIndicator.textContent = 'Mode: Sequential (One at a time)';
-                    modeIndicator.classList.add('sequential-mode');
-                    modeIndicator.classList.remove('standard-mode');
-                } else {
-                    modeIndicator.textContent = 'Mode: Standard (All lines)';
-                    modeIndicator.classList.add('standard-mode');
-                    modeIndicator.classList.remove('sequential-mode');
-                }
-            }
         }
         
         // Show hint
         function showHint() {
             interactions++;
             
-            // Handle differently based on show mode
-            if (quizData.showMode === 'sequential') {
-                // In sequential mode, only provide hint for current active line
-                const currentPositions = [line1Position, line2Position, line3Position, line4Position];
-                const currentPosition = currentPositions[currentLineIndex];
-                const currentAngle = normalizeAngle(currentPosition.angle);
-                const targetAngle = quizData.targetAngles[currentLineIndex];
-                
-                // Calculate angle difference (accounting for 360 degree wrapping)
-                const angleDiff = Math.min(
-                    Math.abs(currentAngle - targetAngle),
-                    Math.abs(currentAngle - (targetAngle + 360))
-                );
-                
-                // Only give hint if line is not already close
-                if (angleDiff <= quizData.toleranceAngle) {
-                    resultMessage.textContent = "Your line is already close to the target angle!";
-                } else {
-                    // Calculate direction to rotate
-                    const direction = (targetAngle > currentAngle) ? 
-                        (targetAngle - currentAngle <= 180 ? 'clockwise' : 'counter-clockwise') :
-                        (currentAngle - targetAngle <= 180 ? 'counter-clockwise' : 'clockwise');
-                    
-                    const lineElement = [line1, line2, line3, line4][currentLineIndex];
-                    
-                    // Apply pulsing animation to highlight the line
-                    lineElement.classList.add('pulse-animation');
-                    setTimeout(() => {
-                        lineElement.classList.remove('pulse-animation');
-                    }, 2000);
-                    
-                    // Display hint message
-                    resultMessage.textContent = `Try rotating the line ${direction} to get closer to ${targetAngle}°`;
-                }
+            // In sequential mode, only provide hint for current active line
+            const currentPositions = [line1Position, line2Position, line3Position, line4Position];
+            const currentPosition = currentPositions[currentLineIndex];
+            const currentAngle = normalizeAngle(currentPosition.angle);
+            const targetAngle = quizData.targetAngles[currentLineIndex];
+            
+            // Calculate angle difference (accounting for 360 degree wrapping)
+            const angleDiff = Math.min(
+                Math.abs(currentAngle - targetAngle),
+                Math.abs(currentAngle - (targetAngle + 360))
+            );
+            
+            // Only give hint if line is not already close
+            if (angleDiff <= quizData.toleranceAngle) {
+                resultMessage.textContent = "Your line is already close to the target angle!";
             } else {
-                // Original mode - hint for all lines 
-                // Get closest line to target
-                const line1Diff = Math.min(Math.abs(normalizeAngle(line1Position.angle) - quizData.targetAngles[0]), 
-                                        Math.abs(normalizeAngle(line1Position.angle) - (quizData.targetAngles[0] + 360)));
-                const line2Diff = Math.min(Math.abs(normalizeAngle(line2Position.angle) - quizData.targetAngles[1]), 
-                                         Math.abs(normalizeAngle(line2Position.angle) - (quizData.targetAngles[1] + 360)));
-                const line3Diff = Math.min(Math.abs(normalizeAngle(line3Position.angle) - quizData.targetAngles[2]), 
-                                         Math.abs(normalizeAngle(line3Position.angle) - (quizData.targetAngles[2] + 360)));
-                const line4Diff = Math.min(Math.abs(normalizeAngle(line4Position.angle) - quizData.targetAngles[3]), 
-                                         Math.abs(normalizeAngle(line4Position.angle) - (quizData.targetAngles[3] + 360)));
+                // Calculate direction to rotate
+                const direction = (targetAngle > currentAngle) ? 
+                    (targetAngle - currentAngle <= 180 ? 'clockwise' : 'counter-clockwise') :
+                    (currentAngle - targetAngle <= 180 ? 'counter-clockwise' : 'clockwise');
                 
-                // Create hint array [lineId, diff]
-                const hints = [
-                    [1, line1Diff],
-                    [2, line2Diff],
-                    [3, line3Diff],
-                    [4, line4Diff]
-                ];
+                const lineElement = [line1, line2, line3, line4][currentLineIndex];
                 
-                // Sort by difference (largest first)
-                hints.sort((a, b) => b[1] - a[1]);
+                // Apply pulsing animation to highlight the line
+                lineElement.classList.add('pulse-animation');
+                setTimeout(() => {
+                    lineElement.classList.remove('pulse-animation');
+                }, 2000);
                 
-                // Get the line that needs the most adjustment (index 0)
-                const lineToHint = hints[0][0];
-                const lineDiff = hints[0][1];
-                
-                // Only give hint if line is not already close
-                if (lineDiff <= quizData.toleranceAngle) {
-                    resultMessage.textContent = "All lines are already close to their targets!";
-                } else {
-                    let lineElement, targetAngle, currentAngle;
-                    
-                    switch(lineToHint) {
-                        case 1: 
-                            lineElement = line1;
-                            targetAngle = quizData.targetAngles[0];
-                            currentAngle = normalizeAngle(line1Position.angle);
-                            break;
-                        case 2: 
-                            lineElement = line2;
-                            targetAngle = quizData.targetAngles[1];
-                            currentAngle = normalizeAngle(line2Position.angle);
-                            break;
-                        case 3: 
-                            lineElement = line3;
-                            targetAngle = quizData.targetAngles[2];
-                            currentAngle = normalizeAngle(line3Position.angle);
-                            break;
-                        case 4: 
-                            lineElement = line4;
-                            targetAngle = quizData.targetAngles[3];
-                            currentAngle = normalizeAngle(line4Position.angle);
-                            break;
-                    }
-                    
-                    // Calculate direction to rotate
-                    const direction = (targetAngle > currentAngle) ? 
-                        (targetAngle - currentAngle <= 180 ? 'clockwise' : 'counter-clockwise') :
-                        (currentAngle - targetAngle <= 180 ? 'counter-clockwise' : 'clockwise');
-                    
-                    // Apply pulsing animation to highlight the line
-                    lineElement.classList.add('pulse-animation');
-                    setTimeout(() => {
-                        lineElement.classList.remove('pulse-animation');
-                    }, 2000);
-                    
-                    // Display hint message
-                    resultMessage.textContent = `Try rotating Line ${lineToHint} ${direction} to get closer to ${targetAngle}°`;
-                }
+                // Display hint message
+                resultMessage.textContent = `Try rotating the line ${direction} to get closer to ${targetAngle}°`;
             }
             
+            // Make result message visible with hint styling
             resultMessage.className = 'result-message hint';
             resultMessage.style.display = 'block';
             
@@ -1570,16 +1448,12 @@
                 // Ensure all dragging is complete
                 isDragging = false;
                 
-                if (quizData.showMode === 'sequential') {
-                    // In sequential mode, check only the current line
-                    submitSequentialAnswer();
-                } else {
-                    // Original mode - check all lines at once
-                    submitAllLinesAnswer();
-                }
+                // Handle sequential mode only (single line at a time)
+                submitSequentialAnswer();
             } catch (error) {
                 console.error('Error in submitAnswer:', error);
-                alert('There was an error submitting your answer. Please try again.');
+                resultMessage.textContent = 'An error occurred. Please try again.';
+                resultMessage.className = 'result-message error-message';
             }
         }
         
@@ -1802,7 +1676,7 @@
                 if (isPatientQuiz) {
                     // This is a doctor testing a patient
                     console.log(`Saving patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
-                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/FG/${timestamp}`;
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/line/${timestamp}`;
                 } else {
                     // Regular user quiz - Fetch role with error handling
                     try {
@@ -1811,15 +1685,15 @@
                         
                         if (role === 'doctor') {
                             console.log(`Saving doctor's own quiz results: ${user.uid}`);
-                            path = `doctors/${user.uid}/quiz/FG/${timestamp}`;
+                            path = `doctors/${user.uid}/quiz/line/${timestamp}`;
                         } else {
                             console.log(`Saving regular user quiz results: ${user.uid}`);
-                            path = `users/${user.uid}/quiz/FG/${timestamp}`;
+                            path = `users/${user.uid}/quiz/line/${timestamp}`;
                         }
                     } catch (roleError) {
                         console.error('Error determining user role, saving as regular user:', roleError);
                         // Fallback to regular user path if role check fails
-                        path = `users/${user.uid}/quiz/FG/${timestamp}`;
+                        path = `users/${user.uid}/quiz/line/${timestamp}`;
                     }
                 }
                 
@@ -1877,7 +1751,7 @@
                 // Check if this is a patient quiz (doctor viewing patient)
                 if (isPatientQuiz) {
                     console.log(`Loading patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
-                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/FG`;
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/line`;
                 } else {
                     // Regular user quiz with better error handling
                     try {
@@ -1886,15 +1760,15 @@
                         
                         if (role === 'doctor') {
                             console.log(`Loading doctor's own quiz results: ${user.uid}`);
-                            path = `doctors/${user.uid}/quiz/FG`;
+                            path = `doctors/${user.uid}/quiz/line`;
                         } else {
                             console.log(`Loading regular user quiz results: ${user.uid}`);
-                            path = `users/${user.uid}/quiz/FG`;
+                            path = `users/${user.uid}/quiz/line`;
                         }
                     } catch (roleError) {
                         console.error('Error determining user role, loading as regular user:', roleError);
                         // Fallback to regular user path if role check fails
-                        path = `users/${user.uid}/quiz/FG`;
+                        path = `users/${user.uid}/quiz/line`;
                     }
                 }
             
@@ -2093,7 +1967,7 @@
                 // Check if this is a patient quiz (doctor viewing patient)
                 if (isPatientQuiz) {
                     console.log(`Clearing patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
-                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/FG`;
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/line`;
                 } else {
                     // Regular user quiz
                     // Check if user is a doctor
@@ -2102,10 +1976,10 @@
                     
                     if (role === 'doctor') {
                         console.log(`Clearing doctor's own quiz results: ${user.uid}`);
-                        path = `doctors/${user.uid}/quiz/FG`;
+                        path = `doctors/${user.uid}/quiz/line`;
                     } else {
                         console.log(`Clearing regular user quiz results: ${user.uid}`);
-                        path = `users/${user.uid}/quiz/FG`;
+                        path = `users/${user.uid}/quiz/line`;
                     }
                 }
                 
@@ -2128,7 +2002,7 @@
         // Auth state observer
         auth.onAuthStateChanged(async (user) => {
             if (user) {
-                console.log('User authenticated in FG:', user.uid);
+                console.log('User authenticated in line:', user.uid);
                 
                 try {
                     // Check if user is a doctor
