@@ -148,27 +148,38 @@
         #target-objects {
             display: flex;
             flex-wrap: wrap;
-            gap: 5px;
-            margin-bottom: 5px;
+            gap: 8px;
+            margin: 5px 0 10px;
             justify-content: center;
-            background-color: rgba(255, 255, 255, 0.8);
-            border-radius: 5px;
-            padding: 5px;
+            background-color: rgba(245, 245, 250, 0.9);
+            border-radius: 8px;
+            padding: 10px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+            border: 1px solid #ccc;
         }
         
         .target-object {
-            width: 40px;
-            height: 40px;
+            width: 50px;
+            height: 50px;
             object-fit: contain;
-            border: 1px solid #ccc;
-            border-radius: 3px;
-            padding: 2px;
+            border: 1px solid #aaa;
+            border-radius: 5px;
+            padding: 4px;
+            background-color: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: transform 0.15s ease;
+        }
+        
+        .target-object:hover {
+            transform: scale(1.05);
+            border-color: #2196F3;
         }
         
         #scenario-container {
             position: relative;
-            width: 100%;
-            margin-top: 5px;
+            width: 90%;
+            max-width: 350px;
+            margin: 5px auto;
             border: 1px solid #ddd;
             border-radius: 5px;
             overflow: hidden;
@@ -596,6 +607,45 @@
             }
         });
 
+        // Generate a random position for objects that doesn't overlap existing areas
+        function generateRandomPosition(imageWidth, imageHeight, existingAreas) {
+            // Create random coordinates that don't overlap with existing areas
+            let attempts = 0;
+            let maxAttempts = 20;
+            let x, y, width, height;
+            let overlaps = true;
+            
+            // Keep trying until a non-overlapping position is found or max attempts reached
+            while (overlaps && attempts < maxAttempts) {
+                x = Math.floor(Math.random() * (imageWidth - 60));
+                y = Math.floor(Math.random() * (imageHeight - 60));
+                width = Math.floor(Math.random() * 20) + 40;
+                height = Math.floor(Math.random() * 20) + 40;
+                
+                // Check for overlaps with existing areas
+                overlaps = existingAreas.some(area => {
+                    return !(x > area.x + area.width || 
+                             x + width < area.x || 
+                             y > area.y + area.height || 
+                             y + height < area.y);
+                });
+                
+                attempts++;
+            }
+            
+            return overlaps ? null : { x, y, width, height };
+}
+
+        // Create a duplicate object with variations in appearance
+        function createDuplicateObject(originalId) {
+            const baseId = originalId.replace(/\d+$/, '');
+            
+            // Add a numeric suffix to differentiate from original
+            const newId = baseId + Math.floor(Math.random() * 1000);
+            
+            return newId;
+        }
+
         function generateRandomBlock(imageWidth, imageHeight) {
             const numBlocks = Math.floor(Math.random() * 2) + 2; // Randomly 2 or 3 blocks
             
@@ -717,6 +767,36 @@
                 
                 scenarioContainer.after(buttonContainer);
                 
+                // Store all existing areas to avoid overlaps when creating duplicates
+                const existingAreas = [...currentScenario.clickableAreas];
+                
+                // Create duplicate distractor objects (3-5 more objects)
+                const numDuplicates = Math.floor(Math.random() * 3) + 3;
+                const distractorAreas = currentScenario.clickableAreas.filter(area => 
+                    !currentScenario.targetObjects.some(obj => obj.id === area.id));
+                
+                // Only create duplicates if we have distractor objects
+                if (distractorAreas.length > 0) {
+                    for (let i = 0; i < numDuplicates; i++) {
+                        // Pick a random distractor to duplicate
+                        const randomIndex = Math.floor(Math.random() * distractorAreas.length);
+                        const originalArea = distractorAreas[randomIndex];
+                        
+                        // Generate non-overlapping position
+                        const newPosition = generateRandomPosition(imgWidth, imgHeight, existingAreas);
+                        
+                        if (newPosition) {
+                            const duplicateArea = {
+                                id: createDuplicateObject(originalArea.id),
+                                ...newPosition
+                            };
+                            
+                            existingAreas.push(duplicateArea);
+                            currentScenario.clickableAreas.push(duplicateArea);
+                        }
+                    }
+                }
+                
                 // Create all objects (visible now) with scaled coordinates
                 currentScenario.clickableAreas.forEach(area => {
                     // Create the object container
@@ -822,28 +902,34 @@
                 correctAnswers++;
                 
                 // Create a success animation at the clicked position
-                const clickedArea = document.querySelector(`.clickable-area[data-id="${areaId}"]`);
+                const clickedArea = document.querySelector(`.scenario-object[data-id="${areaId}"]`);
+                if (!clickedArea) return; // Safety check
+                
                 const scenarioContainer = document.getElementById('scenario-container');
                 
                 // Create a success indicator
                 const successMark = document.createElement('div');
-                successMark.className = 'success-mark';
+                successMark.className = 'feedback-mark success-mark';
                 successMark.innerHTML = '✓';
                 successMark.style.position = 'absolute';
                 successMark.style.left = clickedArea.style.left;
                 successMark.style.top = clickedArea.style.top;
                 successMark.style.fontSize = '2rem';
                 successMark.style.color = '#4CAF50';
+                successMark.style.fontWeight = 'bold';
                 successMark.style.zIndex = '10';
+                successMark.style.textShadow = '0px 0px 3px white';
                 scenarioContainer.appendChild(successMark);
                 
                 // Disable the clicked area to prevent multiple clicks
                 clickedArea.style.pointerEvents = 'none';
+                clickedArea.style.opacity = '0.7';
                 
-                // Remove the found target from display
+                // Mark the found target in the target list
                 const targetImage = document.querySelector(`.target-object[data-id="${areaId}"]`);
                 if (targetImage) {
                     targetImage.style.opacity = '0.3';
+                    targetImage.style.border = '2px solid #4CAF50';
                 }
                 
                 // Check if all targets have been found
@@ -859,30 +945,40 @@
                 triesLeft--;
                 incorrectAnswers++;
                 
-                if (triesLeft > 0) {
-                    // Create a failure indicator
-                    const clickedArea = document.querySelector(`.clickable-area[data-id="${areaId}"]`);
-                    const scenarioContainer = document.getElementById('scenario-container');
-                    
-                    const failMark = document.createElement('div');
-                    failMark.className = 'fail-mark';
-                    failMark.innerHTML = '✗';
-                    failMark.style.position = 'absolute';
-                    failMark.style.left = clickedArea.style.left;
-                    failMark.style.top = clickedArea.style.top;
-                    failMark.style.fontSize = '2rem';
-                    failMark.style.color = '#F44336';
-                    failMark.style.zIndex = '10';
-                    scenarioContainer.appendChild(failMark);
-                    
-                    // Remove the indicator after a short period
+                // Create a failure indicator
+                const clickedArea = document.querySelector(`.scenario-object[data-id="${areaId}"]`);
+                if (!clickedArea) return; // Safety check
+                
+                const scenarioContainer = document.getElementById('scenario-container');
+                
+                const failMark = document.createElement('div');
+                failMark.className = 'feedback-mark fail-mark';
+                failMark.innerHTML = '✗';
+                failMark.style.position = 'absolute';
+                failMark.style.left = clickedArea.style.left;
+                failMark.style.top = clickedArea.style.top;
+                failMark.style.fontSize = '2rem';
+                failMark.style.color = '#F44336';
+                failMark.style.fontWeight = 'bold';
+                failMark.style.zIndex = '10';
+                failMark.style.textShadow = '0px 0px 3px white';
+                scenarioContainer.appendChild(failMark);
+                
+                // Briefly disable this distractor to prevent repeated clicks
+                clickedArea.style.pointerEvents = 'none';
+                setTimeout(() => {
+                    clickedArea.style.pointerEvents = 'auto';
+                    // Remove the fail mark after a delay
+                    if (failMark.parentNode) {
+                        failMark.parentNode.removeChild(failMark);
+                    }
+                }, 1000);
+                
+                if (triesLeft <= 0) {
+                    // No more tries, move to next question
                     setTimeout(() => {
-                        failMark.remove();
+                        moveToNextQuestion();
                     }, 1000);
-                } else {
-                    // Out of tries, move to next question
-                    alert('Out of tries! Moving to the next scenario.');
-                    moveToNextQuestion();
                 }
             }
         }
