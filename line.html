@@ -853,12 +853,12 @@
                     <span style="color:var(--error-color)">Line 4: <b>150°</b></span>
                 </div>
             </div>
-            <div class="reference-guide" id="reference-guide">
-                <!-- Target angles will be shown here -->
-            </div>
         </div>
         
         <div class="angles-container" id="angles-container">
+            <div class="reference-guide" id="reference-guide">
+                <!-- Target angles will be shown here -->
+            </div>
             <div class="draggable-line line1" id="line1"></div>
             <div class="draggable-line line2" id="line2"></div>
             <div class="draggable-line line3" id="line3"></div>
@@ -912,10 +912,12 @@
         });
         
         // Global variables
-        let startTime = null;
+        let startTime, endTime;
         let interactions = 0;
-        let currentLineIndex = 0; // Track which line we're currently on (0-3)
-        let lineScores = [0, 0, 0, 0]; // Track success for each line
+        let dragCount = 0;
+        let incorrectAttemptsCount = 0; // Count of completely incorrect submissions
+        let lineScores = [0, 0, 0, 0]; // Score for each line
+        let currentLineIndex = 0; // Current line for sequential modes
         let quizData = {
             targetAngles: [30, 60, 120, 150], // Angles in degrees for each line
             toleranceAngle: 7, // Acceptable deviation in degrees
@@ -1370,6 +1372,7 @@
             startTime = new Date();
             interactions = 0;
             dragCount = 0;
+            incorrectAttemptsCount = 0;
             
             // Clear result message
             resultMessage.textContent = '';
@@ -1381,7 +1384,7 @@
             
             // Reset sequential mode variables
             currentLineIndex = 0;
-            correctLines = 0;
+            lineScores = [0, 0, 0, 0];
             
             // Update current active line for sequential mode
             updateActiveLineForSequential();
@@ -1516,22 +1519,22 @@
                 } else {
                     // All lines completed, show final score
                     const totalScore = Math.round(lineScores.reduce((a, b) => a + b, 0) / 4);
+                    
+                    // Record the quiz completion time
+                    endTime = new Date();
+                    const timeSpentSeconds = Math.floor((endTime - startTime) / 1000); // in seconds
+                    
                     setTimeout(() => {
-                        resultMessage.textContent = `Quiz completed! Your score: ${totalScore}%`;
+                        resultMessage.textContent = `Quiz completed! Your score: ${totalScore}% (Time: ${timeSpentSeconds}s)`;
                         resultMessage.className = 'result-message correct';
-                        
-                        // Record the quiz completion time
-                        endTime = new Date();
-                        const timeSpent = Math.floor((endTime - startTime) / 1000); // in seconds
                         
                         // Save results to Firebase
                         saveQuizResult({
                             score: totalScore,
-                            timeSpent: timeSpent,
+                            timeSpent: timeSpentSeconds,
                             interactions: interactions,
-                            targetAngles: quizData.targetAngles,
+                            incorrectAttempts: incorrectAttemptsCount,
                             userAngles: positions,
-                            lineScores: lineScores,
                             mode: quizData.showMode
                         });
                         
@@ -1550,6 +1553,12 @@
             } else {
                 resultMessage.textContent = `Not quite right. Try again to match the target angle.`;
                 resultMessage.className = 'result-message incorrect';
+                
+                // Check if angle is completely off (more than 20 degrees)
+                if (lineDiff > 20) {
+                    incorrectAttemptsCount++;
+                    console.log(`Completely incorrect attempt recorded: ${incorrectAttemptsCount}`);
+                }
                 
                 // Provide haptic feedback for incorrect answer if supported
                 if ('vibrate' in navigator) {
