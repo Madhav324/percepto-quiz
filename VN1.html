@@ -50,19 +50,20 @@
 
         .options-container {
             display: grid;
-            grid-template-columns: repeat(5, 80px);
-            gap: 8px;
+            grid-template-columns: repeat(6, 65px);
+            grid-template-rows: repeat(8, 65px);
+            gap: 6px;
             padding: 10px;
             justify-content: center;
             margin: 0 auto;
         }
 
         .option-image {
-            width: 80px;
-            height: 80px;
+            width: 65px;
+            height: 65px;
             object-fit: contain;
             border: 1px solid #e0e0e0;
-            padding: 4px;
+            padding: 3px;
             cursor: pointer;
             transition: transform 0.2s, border-color 0.2s;
             background: white;
@@ -205,8 +206,31 @@
             padding: 8px;
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #eee;
+        }
+        
+        .missed-targets {
+            margin-top: 15px;
+            border-top: 1px solid #e0e0e0;
+            padding-top: 15px;
+        }
+        
+        .missed-targets h3 {
+            font-size: 1.1em;
+            margin-bottom: 10px;
+            color: #2196F3;
+        }
+        
+        .quadrant-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-gap: 8px;
+        }
+        
+        .quadrant-item {
+            background-color: #f8f9fa;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 0.9em;
         }
 
         #result-container li strong {
@@ -375,52 +399,22 @@
 
         @media (max-width: 768px) {
             .options-container {
-                grid-template-columns: repeat(4, 1fr);
-                gap: 10px;
+                grid-template-columns: repeat(6, 50px);
+                grid-template-rows: repeat(8, 50px);
+                gap: 5px;
                 padding: 5px;
-            }
-            
-            .option-image {
-                width: 60px;
-                height: 60px;
-                padding: 2px;
-            }
-            
-            .question-image {
-                max-width: 100px;
-            }
-            
-            h1 {
-                font-size: 1.3em;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .game-container, .statistics-container {
-                padding: 10px;
-                width: 100%;
-                max-width: none;
-                margin: 10px 0;
-                border-radius: 0;
-            }
-            
-            .options-container {
-                grid-template-columns: repeat(4, 1fr);
-                gap: 3px;
-                padding: 5px;
-                margin-top: 10px;
             }
             
             .option-image {
                 width: 50px;
                 height: 50px;
-                padding: 1px;
-                border-width: 1px;
+                padding: 2px;
+                min-height: 26px;
             }
             
             .question-image {
-                max-width: 80px;
-                border-width: 2px;
+                max-width: 100px;
+                margin-bottom: 5px;
             }
             
             h1 {
@@ -428,24 +422,84 @@
                 margin: 5px 0;
             }
             
+            .game-container {
+                padding: 10px;
+                max-width: 650px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .game-container, .statistics-container {
+                padding: 5px;
+                width: 100%;
+                max-width: none;
+                margin: 5px 0;
+                border-radius: 0;
+            }
+            
+            .options-container {
+                grid-template-columns: repeat(6, 40px);
+                grid-template-rows: repeat(8, 40px);
+                gap: 1px;
+                padding: 2px;
+                margin-top: 5px;
+            }
+            
+            .option-image {
+                width: 40px;
+                height: 40px;
+                padding: 1px;
+                border-width: 1px;
+                min-height: 26px;
+            }
+            
+            .question-image {
+                max-width: 70px;
+                border-width: 1px;
+                margin-bottom: 3px;
+            }
+            
+            h1 {
+                font-size: 0.9rem;
+                margin: 3px 0;
+            }
+            
             button {
-                padding: 6px 12px;
-                font-size: 0.9em;
+                padding: 3px 6px;
+                font-size: 0.9rem;
+                min-height: 26px;
             }
             
             .stats-grid {
                 grid-template-columns: 1fr 1fr;
-                gap: 8px;
+                gap: 5px;
             }
             
             .stat-item {
-                padding: 8px;
-                font-size: 0.9em;
+                padding: 5px;
+                font-size: 0.85rem;
             }
             
             #result-container {
                 width: 100%;
-                padding: 10px;
+                padding: 5px;
+            }
+            
+            .header {
+                margin-bottom: 5px !important;
+            }
+            
+            .quadrant-stats {
+                grid-gap: 5px;
+            }
+            
+            .quadrant-item {
+                padding: 4px;
+                font-size: 0.8rem;
+            }
+            
+            body {
+                padding: 5px;
             }
         }
     </style>
@@ -599,6 +653,28 @@
                     
                     document.getElementById('profileIcon').textContent = initial;
                     // Start the game
+                    function startNewRound() {
+                        foundCount = 0; // Reset found count for new round
+                        
+                        // Reset current round missed tracking
+                        currentRoundMissed = {
+                            'topLeft': 0,
+                            'topRight': 0,
+                            'bottomLeft': 0,
+                            'bottomRight': 0
+                        };
+                        
+                        selectRandomQuestion();
+                        displayOptions();
+                        
+                        // Show question, hide options
+                        document.getElementById('questionSection').style.display = 'block';
+                        optionsContainer.style.display = 'none';
+                        
+                        gameStarted = true;
+                        startTime = Date.now();
+                        firstOptionSelected = false;
+                    }
                     startNewRound();
                     questionImage.onclick = showOptions;
                 } catch (error) {
@@ -624,6 +700,22 @@
         let isPromptsOpen = false; // Track if prompts are open
         let gameStarted = false; // Track if game has started
         let answerTaps = 0; // Count taps only for answer selections
+        
+        // Quadrant tracking
+        let missedByQuadrant = {
+            'topLeft': 0,
+            'topRight': 0,
+            'bottomLeft': 0,
+            'bottomRight': 0
+        };
+        
+        // Current round tracking
+        let currentRoundMissed = {
+            'topLeft': 0,
+            'topRight': 0,
+            'bottomLeft': 0,
+            'bottomRight': 0
+        };
 
         const baseImages = [
             'images/VN/candy.png',
@@ -671,15 +763,66 @@
         }
 
         function createOptionsArray() {
-            let options = new Array(20).fill(null);
-            options[0] = currentQuestion;
-            options[1] = currentQuestion;
+            // Create array with 48 items (6x8 grid)
+            let options = new Array(48).fill(null);
             
-            const others = baseImages.filter(img => img !== currentQuestion);
-            for (let i = 2; i < 20; i++) {
-                options[i] = others[i % others.length];
+            // Calculate indices for each quadrant
+            // Grid is 6x8 = 48 total cells
+            // Each quadrant is 3x4 = 12 cells
+            const quadrants = {
+                topLeft: [],     // Quadrant 1: Columns 0-2, Rows 0-3
+                topRight: [],    // Quadrant 2: Columns 3-5, Rows 0-3
+                bottomLeft: [],  // Quadrant 3: Columns 0-2, Rows 4-7
+                bottomRight: [] // Quadrant 4: Columns 3-5, Rows 4-7
+            };
+            
+            // Populate quadrant indices
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 6; col++) {
+                    const index = row * 6 + col;
+                    
+                    if (row < 4) { // Top half
+                        if (col < 3) { // Left half
+                            quadrants.topLeft.push(index);
+                        } else { // Right half
+                            quadrants.topRight.push(index);
+                        }
+                    } else { // Bottom half
+                        if (col < 3) { // Left half
+                            quadrants.bottomLeft.push(index);
+                        } else { // Right half
+                            quadrants.bottomRight.push(index);
+                        }
+                    }
+                }
             }
-            return shuffleArray(options);
+            
+            // Select one random position in each quadrant for the target
+            const targetPositions = {
+                topLeft: quadrants.topLeft[Math.floor(Math.random() * quadrants.topLeft.length)],
+                topRight: quadrants.topRight[Math.floor(Math.random() * quadrants.topRight.length)],
+                bottomLeft: quadrants.bottomLeft[Math.floor(Math.random() * quadrants.bottomLeft.length)],
+                bottomRight: quadrants.bottomRight[Math.floor(Math.random() * quadrants.bottomRight.length)]
+            };
+            
+            // Place targets in each quadrant
+            options[targetPositions.topLeft] = currentQuestion;
+            options[targetPositions.topRight] = currentQuestion;
+            options[targetPositions.bottomLeft] = currentQuestion;
+            options[targetPositions.bottomRight] = currentQuestion;
+            
+            // Store target positions for reference when checking answers
+            window.targetPositions = targetPositions;
+            
+            // Fill the rest with other images
+            const others = baseImages.filter(img => img !== currentQuestion);
+            for (let i = 0; i < 48; i++) {
+                if (options[i] === null) {
+                    options[i] = others[i % others.length];
+                }
+            }
+            
+            return options;
         }
 
         function displayOptions() {
@@ -705,40 +848,103 @@
         }
 
         function checkAnswer(imgElement, selectedImage) {
-            // Count taps when an answer option is selected
-            answerTaps++;
-            
-            // Record first tap time on the first option selection
-            if (!firstOptionSelected) {
-                firstTapTime = (Date.now() - totalStartTime) / 1000;
-                firstOptionSelected = true;
+            if (!firstTapTime && gameStarted) {
+                firstTapTime = Date.now();
+                console.log('First interaction time recorded');
             }
             
             totalTaps++;
+            answerTaps++;
+            
+            // If first option selected, record the time
+            if (!firstOptionSelected) {
+                firstOptionSelected = true;
+            }
+            
+            // Get index of clicked image
+            const index = parseInt(imgElement.dataset.index);
+            
+            // Determine which quadrant this click was in
+            let quadrant = getQuadrantFromIndex(index);
             
             if (selectedImage === currentQuestion) {
+                imgElement.classList.add('correct');
                 showFeedback(true);
                 foundCount++;
                 score++;
-                // Hide the correct answer
-                imgElement.style.visibility = 'hidden';
                 
-                if (foundCount >= 2) {
-                    isPromptsOpen = true; // Mark that alert will be shown
+                // Mark target as found in the current target positions
+                for (const [quad, pos] of Object.entries(window.targetPositions)) {
+                    if (pos === index) {
+                        window.targetPositions[quad] = null; // Mark as found
+                        break;
+                    }
+                }
+                
+                if (foundCount === 4) { // Now need to find 4 targets
                     setTimeout(() => {
-                        alert('Congratulations!');
-                        // Show the statistics container
-                        document.getElementById('statsContainer').style.display = 'block';
-                        showResults();
-                    }, 500);
+                        optionsContainer.innerHTML = '';
+                        if (usedImagesInCurrentRound.length >= 3) {
+                            // Save missed targets for this round
+                            for (const [quad, pos] of Object.entries(window.targetPositions)) {
+                                if (pos !== null) { // If target wasn't found
+                                    currentRoundMissed[quad]++;
+                                    missedByQuadrant[quad]++;
+                                }
+                            }
+                            showResults();
+                        } else {
+                            // Save missed targets for this round
+                            for (const [quad, pos] of Object.entries(window.targetPositions)) {
+                                if (pos !== null) { // If target wasn't found
+                                    currentRoundMissed[quad]++;
+                                    missedByQuadrant[quad]++;
+                                }
+                            }
+                            startNewRound();
+                        }
+                    }, 1000);
                 }
             } else {
-                incorrectAnswers++;
-                document.getElementById('incorrectPlacements').textContent = incorrectAnswers;
-                
                 imgElement.classList.add('incorrect');
                 showFeedback(false);
-                setTimeout(() => imgElement.classList.remove('incorrect'), 300);
+                incorrectAnswers++;
+                
+                // Check if this is near a target and track as a miss in the appropriate quadrant
+                for (const [quad, pos] of Object.entries(window.targetPositions)) {
+                    if (pos !== null && getQuadrantFromIndex(pos) === getQuadrantFromIndex(index)) {
+                        // This is an incorrect selection in a quadrant with an unfound target
+                        // Don't increment missed count yet - only do that at the end if target wasn't found
+                        break;
+                    }
+                }
+                
+                // Disable this option
+                imgElement.style.opacity = '0.5';
+                imgElement.onclick = null;
+            }
+            
+            document.getElementById('taps').textContent = answerTaps;
+            document.getElementById('correctAnswers').textContent = score;
+            document.getElementById('incorrectPlacements').textContent = incorrectAnswers;
+        }
+        
+        function getQuadrantFromIndex(index) {
+            const row = Math.floor(index / 6);
+            const col = index % 6;
+            
+            if (row < 4) { // Top half
+                if (col < 3) { // Left half
+                    return 'topLeft';
+                } else { // Right half
+                    return 'topRight';
+                }
+            } else { // Bottom half
+                if (col < 3) { // Left half
+                    return 'bottomLeft';
+                } else { // Right half
+                    return 'bottomRight';
+                }
             }
         }
 
@@ -749,6 +955,15 @@
             answerTaps = 0;
             firstOptionSelected = false; // Reset first option selected flag
             firstTapTime = null; // Reset first tap time
+            
+            // Reset current round missed tracking
+            currentRoundMissed = {
+                'topLeft': 0,
+                'topRight': 0,
+                'bottomLeft': 0,
+                'bottomRight': 0
+            };
+            
             selectRandomQuestion();
             questionImage.style.display = 'block';
             optionsContainer.style.display = 'none';
@@ -780,7 +995,23 @@
             document.getElementById('total-correct').innerText = score;
             document.getElementById('total-incorrect').innerText = incorrectAnswers;
 
-            document.getElementById('result-container').style.display = 'block';
+            // Display missed targets by quadrant
+            const missedTargetsDiv = document.createElement('div');
+            missedTargetsDiv.className = 'missed-targets';
+            missedTargetsDiv.innerHTML = `
+                <h3>Missed Targets by Quadrant</h3>
+                <div class="quadrant-stats">
+                    <div class="quadrant-item">Top Left: ${missedByQuadrant.topLeft}</div>
+                    <div class="quadrant-item">Top Right: ${missedByQuadrant.topRight}</div>
+                    <div class="quadrant-item">Bottom Left: ${missedByQuadrant.bottomLeft}</div>
+                    <div class="quadrant-item">Bottom Right: ${missedByQuadrant.bottomRight}</div>
+                </div>
+            `;
+            
+            // Add the missed targets div to the result container
+            const resultContainer = document.getElementById('result-container');
+            resultContainer.appendChild(missedTargetsDiv);
+            resultContainer.style.display = 'block';
             document.getElementById('report-container').style.display = 'flex';
             
             // Reset the prompts flag after showing results
@@ -796,6 +1027,7 @@
                 totalTaps,
                 answerTaps,
                 totalIncorrectAnswers: incorrectAnswers,
+                missedTargets: missedByQuadrant,
                 timestamp: Date.now()
             });
         }
