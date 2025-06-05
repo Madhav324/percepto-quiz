@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Object Finding Puzzle</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow-y: auto;
+            margin: 0;
+            flex-direction: column;
+        }
+
+        #quiz-container {
+            text-align: center;
+            padding: 20px;
+            border-radius: 8px;
+            background-color: #fff;
+            box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.1);
+            width: 450px;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .profile-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #2196F3;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: bold;
+            text-decoration: none;
+            transition: background-color 0.3s;
+            font-size: 18px;
+        }
+        
+        .profile-icon:hover {
+            background-color: #1976D2;
+        }
+
+        .profile-icon:hover::after {
+            content: attr(title);
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: #333;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            margin-top: 5px;
+        }
+
+        button {
+            padding: 10px 15px;
+            margin: 10px;
+            border: none;
+            background-color: #4CAF50;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        #question-container {
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        #question-container img {
+            width: 100%;
+            max-width: 200px;
+            height: 200px;
+            object-fit: contain;
+        }
+
+        .scenario-container {
+            position: relative;
+            width: 100%;
+            max-width: 450px;
+            margin: 0 auto 20px;
+            overflow: hidden;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+        }
+
+        .scenario-image {
+            width: 100%;
+            display: block;
+        }
+
+        .clickable-area {
+            position: absolute;
+            border: 2px solid transparent;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .clickable-area:hover {
+            background-color: rgba(76, 175, 80, 0.2);
+        }
+
+        .clickable-area.selected {
+            border-color: #4CAF50;
+            background-color: rgba(76, 175, 80, 0.3);
+        }
+        
+        /* Object Finding Puzzle Styles */
+        #target-objects {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-bottom: 5px;
+            justify-content: center;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 5px;
+            padding: 5px;
+        }
+        
+        .target-object {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            padding: 2px;
+        }
+        
+        #scenario-container {
+            position: relative;
+            width: 100%;
+            margin-top: 5px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        
+        #scenario-image {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        
+        .clickable-area {
+            position: absolute;
+            cursor: pointer;
+            border: 1px dashed rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+            z-index: 5;
+            transition: background-color 0.2s;
+        }
+        
+        .clickable-area:hover {
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+        
+        .success-mark, .fail-mark {
+            animation: fadeInOut 1s ease-in-out;
+        }
+        
+        @keyframes fadeInOut {
+            0% { opacity: 0; }
+            20% { opacity: 1; }
+            80% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        .target-objects {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+
+        .target-object {
+            width: 60px;
+            height: 60px;
+            border: 2px solid #2196F3;
+            border-radius: 8px;
+            padding: 5px;
+            object-fit: contain;
+            background-color: #e3f2fd;
+        }
+
+        @media (max-width: 480px) {
+            .target-object {
+                width: 45px;
+                height: 45px;
+                padding: 3px;
+            }
+        }
+
+        #images-container img:hover {
+            border-color: #4CAF50;
+        }
+
+        #result-container {
+            display: none;
+            margin-top: 20px;
+        }
+
+        #report-container {
+            margin-top: 40px;
+            width: 80%;
+            max-width: 600px;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #report-container h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        #report-container ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        #report-container li {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+        }
+
+        h1, h2 {
+            color: #2c3e50;
+            margin: 0;
+        }
+
+        .user-info {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            text-align: right;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .patient-indicator {
+            display: inline-block;
+            background-color: #e9f5e9;
+            color: #4CAF50;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+        
+        .attempt-item {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .attempt-item:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .attempt-date {
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 16px;
+        }
+        
+        .attempt-score {
+            color: #4CAF50;
+            margin-bottom: 10px;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        
+        .attempt-details {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+            background-color: #f0f0f0;
+            padding: 12px;
+            border-radius: 6px;
+            color: #333;
+            font-size: 14px;
+        }
+        
+        .attempt-detail-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .detail-label {
+            font-weight: bold;
+            color: #555;
+        }
+        
+        .toggle-details-btn {
+            margin-top: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        
+        .toggle-details-btn:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div id="quiz-container">
+        <div class="header">
+            <h1>Object Finding Puzzle</h1>
+            <div class="profile-icon" id="profileIcon" title="Back to Home" onclick="window.location.href='index.html'"></div>
+        </div>
+        
+        <div id="quiz-content">
+            <div class="patient-test-banner" id="patientTestBanner" style="display: none">
+                <span id="patientName"></span>
+                <div class="patient-indicator">Patient Test</div>
+            </div>
+            
+            <!-- Target objects display area (top) -->
+            <div id="target-objects-wrapper">
+                <h4 style="margin: 5px 0; font-size: 0.9rem;">Find these objects:</h4>
+                <div id="target-objects"></div>
+            </div>
+            
+            <!-- Scenario image with clickable areas -->
+            <div id="question-container">
+                <div id="scenario-container">
+                    <img id="scenario-image" src="" alt="Scenario">
+                    <!-- Clickable areas will be added here dynamically -->
+                </div>
+            </div>
+            
+            <div id="images-container" class="option-container" style="display: none;"></div>
+            
+            <div id="result-container" style="display:none">
+                <div class="result-message">Quiz Complete!</div>
+                <h2>Quiz Results</h2>
+                <ul style="list-style: none; padding: 0;">
+                    <li><strong>Score:</strong> <span id="score"></span></li>
+                    <li><strong>Total Time:</strong> <span id="total-time"></span> seconds</li>
+                    <li><strong>Average Time:</strong> <span id="avg-time"></span> seconds</li>
+                    <li><strong>First Tap Time:</strong> <span id="first-tap"></span> seconds</li>
+                    <li><strong>Total Taps:</strong> <span id="total-taps"></span></li>
+                    <li><strong>Total Correct Answers:</strong> <span id="total-correct"></span></li>
+                    <li><strong>Total Incorrect Answers:</strong> <span id="total-incorrect"></span></li>
+                </ul>
+                <div class="button-container" style="margin-top: 10px;">
+                    <button onclick="restartQuiz()" style="margin-right: 10px; min-height: 26px; padding: 5px 10px; font-size: 0.9rem;">Restart Quiz</button>
+                    <button onclick="window.location.href='VC.html'" style="min-height: 26px; padding: 5px 10px; font-size: 0.9rem;">Return to Visual Cognition</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="report-container" style="display: none;">
+        <div id="report-list"></div>
+        <button id="clear-report" onclick="clearReport()">Clear Report</button>
+    </div>
+
+    <!-- Firebase App (the core Firebase SDK) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <!-- Firebase Auth -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <!-- Firebase Database -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
+            authDomain: "projeccvi.firebaseapp.com",
+            projectId: "projeccvi",
+            storageBucket: "projeccvi.appspot.com",
+            messagingSenderId: "279067566247",
+            appId: "1:279067566247:web:9cf00f7bf1ea3549fabb82"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const auth = firebase.auth();
+        
+        // Quiz context handling
+        const currentPatientId = sessionStorage.getItem('currentPatientId');
+        const doctorId = sessionStorage.getItem('doctorId');
+        const isPatientQuiz = !!(currentPatientId && doctorId);
+        
+        console.log('Quiz context:', {
+            isPatientQuiz, 
+            currentPatientId: currentPatientId || 'none',
+            doctorId: doctorId || 'none'
+        });
+
+        const scenarios = [
+            {
+                // First scenario - Garden Scene
+                scenarioImage: "images/VC/scenario/garden.jpg",
+                targetObjects: [
+                    { id: "redball", name: "Red Ball", image: "images/VC/objects/ball_red.png" },
+                    { id: "bluebird", name: "Blue Bird", image: "images/VC/objects/bird_blue.png" }
+                ],
+                clickableAreas: [
+                    { id: "redball", x: 20, y: 30, width: 50, height: 50 }, // Red ball coordinates
+                    { id: "bluebird", x: 75, y: 15, width: 45, height: 40 }, // Blue bird coordinates
+                    { id: "yellowdog", x: 150, y: 200, width: 60, height: 55 }, // Distractor item
+                    { id: "kite", x: 300, y: 50, width: 70, height: 60 } // Distractor item
+                ]
+            },
+            {
+                // Second scenario - Playground Scene
+                scenarioImage: "images/VC/scenario/playground.jpg",
+                targetObjects: [
+                    { id: "greenfrisbee", name: "Green Frisbee", image: "images/VC/objects/frisbee_green.png" },
+                    { id: "yellowkite", name: "Yellow Kite", image: "images/VC/objects/kite_yellow.png" }
+                ],
+                clickableAreas: [
+                    { id: "greenfrisbee", x: 180, y: 120, width: 55, height: 55 },
+                    { id: "yellowkite", x: 250, y: 40, width: 70, height: 70 },
+                    { id: "blueball", x: 50, y: 220, width: 40, height: 40 }, // Distractor
+                    { id: "redscooter", x: 300, y: 180, width: 80, height: 60 } // Distractor
+                ]
+            },
+            {
+                // Third scenario - Beach Scene
+                scenarioImage: "images/VC/scenario/beach.jpg",
+                targetObjects: [
+                    { id: "pinkumbrella", name: "Pink Umbrella", image: "images/VC/objects/umbrella_pink.png" },
+                    { id: "orangeball", name: "Orange Ball", image: "images/VC/objects/ball_orange.png" },
+                    { id: "yellowsandals", name: "Yellow Sandals", image: "images/VC/objects/sandals_yellow.png" }
+                ],
+                clickableAreas: [
+                    { id: "pinkumbrella", x: 100, y: 70, width: 80, height: 70 },
+                    { id: "orangeball", x: 240, y: 180, width: 45, height: 45 },
+                    { id: "yellowsandals", x: 30, y: 220, width: 60, height: 40 },
+                    { id: "blueicecream", x: 180, y: 150, width: 35, height: 50 }, // Distractor
+                    { id: "redhat", x: 280, y: 90, width: 50, height: 40 } // Distractor
+                ]
+            },
+            {
+                // Fourth scenario - Room Scene
+                scenarioImage: "images/VC/scenario/room.jpg",
+                targetObjects: [
+                    { id: "brownbook", name: "Brown Book", image: "images/VC/objects/book_brown.png" },
+                    { id: "blackcat", name: "Black Cat", image: "images/VC/objects/cat_black.png" }
+                ],
+                clickableAreas: [
+                    { id: "brownbook", x: 130, y: 160, width: 50, height: 40 },
+                    { id: "blackcat", x: 220, y: 190, width: 60, height: 50 },
+                    { id: "bluecup", x: 80, y: 120, width: 30, height: 35 }, // Distractor
+                    { id: "greenbottle", x: 270, y: 140, width: 25, height: 45 } // Distractor
+                ]
+            }
+        ];
+        
+        // Use scenarios as our questions
+        const questions = scenarios;
+
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let startTime;
+        let totalStartTime;
+        let triesLeft = 3;
+        let timeTaken = [];
+        let totalTaps = 0;
+        let firstTapTime;
+        let incorrectAnswers = 0;
+        let correctAnswers = 0;
+
+        // Firebase authentication observer
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                console.log('User authenticated in VC4:', user.uid);
+                
+                try {
+                    // Check if user is a doctor
+                    if (!isPatientQuiz) {
+                        const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                        const role = roleSnapshot.val();
+                        
+                        if (role === 'doctor') {
+                            console.log('Doctor detected without patient context, redirecting');
+                            // Redirect doctors without patient context back to index
+                            alert('Please select a patient first to administer the quiz.');
+                            window.location.href = 'index.html';
+                            return;
+                        }
+                    }
+                    
+                    // Load user profile
+                    let profile;
+                    if (isPatientQuiz) {
+                        // Doctor viewing patient
+                        console.log(`Loading patient profile in VC4: ${currentPatientId}`);
+                        const patientSnapshot = await database.ref(`doctors/${doctorId}/patients/${currentPatientId}/profile`).once('value');
+                        profile = patientSnapshot.val();
+                    } else {
+                        // Regular user
+                        console.log('Loading user profile in VC4');
+                        const userSnapshot = await database.ref(`users/${user.uid}/profile`).once('value');
+                        profile = userSnapshot.val();
+                    }
+                    
+                    // Get first letter of name or email
+                    let initial = 'U';
+                    if (profile && profile.name) {
+                        initial = profile.name.charAt(0).toUpperCase();
+                    } else if (user.email) {
+                        initial = user.email.charAt(0).toUpperCase();
+                    }
+                    
+                    // Display patient indicator
+                    if (isPatientQuiz) {
+                        const patientIndicator = document.getElementById('patient-indicator');
+                        patientIndicator.textContent = 'Patient';
+                        patientIndicator.style.display = 'inline-block';
+                    } else {
+                        const patientIndicator = document.getElementById('patient-indicator');
+                        patientIndicator.style.display = 'none';
+                    }
+                    
+                    document.getElementById('profileIcon').textContent = initial;
+                    document.getElementById('profileIcon').title = 'Back to Home';
+                    
+                    totalStartTime = Date.now();
+                    displayQuestion();
+                } catch (error) {
+                    console.error('Error loading profile in VC4:', error);
+                    document.getElementById('profileIcon').textContent = 'U';
+                    totalStartTime = Date.now();
+                    displayQuestion();
+                }
+            } else {
+                window.location.href = 'index.html';
+            }
+        });
+
+        document.addEventListener("click", () => {
+            totalTaps++;
+            if (totalTaps === 1) {
+                firstTapTime = (Date.now() - totalStartTime) / 1000;
+            }
+        });
+
+        function generateRandomBlock(imageWidth, imageHeight) {
+            const numBlocks = Math.floor(Math.random() * 2) + 2; // Randomly 2 or 3 blocks
+            
+            // Store existing block positions to check for collisions
+            const existingBlocks = [];
+
+            for (let i = 0; i < numBlocks; i++) {
+                // Random width and height
+                const blockWidth = Math.floor(Math.random() * (imageWidth / 3)) + 30; // Random width between 30px and imageWidth/3
+                const blockHeight = Math.floor(Math.random() * (imageHeight / 3)) + 30; // Random height between 30px and imageHeight/3
+
+                // Generate random position and check for collisions
+                let blockX, blockY;
+                let collisionDetected;
+
+                do {
+                    collisionDetected = false;
+                    blockX = Math.floor(Math.random() * (imageWidth - blockWidth + 150));
+                    blockY = Math.floor(Math.random() * (imageHeight - blockHeight));
+
+                    // Check if the new block collides with any existing block
+                    for (let j = 0; j < existingBlocks.length; j++) {
+                        const existingBlock = existingBlocks[j];
+                        const distanceX = Math.abs(blockX - existingBlock.x);
+                        const distanceY = Math.abs(blockY - existingBlock.y);
+
+                        if (distanceX < (blockWidth + existingBlock.width) / 2 && distanceY < (blockHeight + existingBlock.height) / 2) {
+                            collisionDetected = true;
+                            break;
+                        }
+                    }
+                } while (collisionDetected); // Keep generating until no collision is detected
+
+                // Create a div element for the block
+                const block = document.createElement('div');
+                block.style.position = 'absolute';
+                block.style.backgroundColor = 'white';
+                block.style.width = `${blockWidth}px`;
+                block.style.height = `${blockHeight}px`;
+                block.style.top = `${blockY}px`;
+                block.style.left = `${blockX}px`;
+
+                // Add the block's position and size to the existing blocks array
+                existingBlocks.push({ x: blockX, y: blockY, width: blockWidth, height: blockHeight });
+
+                // Append the block to the question image container if needed
+                // const questionImage = document.querySelector('#question-container img');
+                // if (questionImage && questionImage.parentNode) {
+                //     questionImage.parentNode.appendChild(block);
+                // }
+            }
+        }
+
+        function displayQuestion() {
+            if (currentQuestionIndex >= questions.length) {
+                showResults();
+                return;
+            }
+
+            startTime = Date.now();
+            const currentScenario = questions[currentQuestionIndex];
+            
+            const questionContainer = document.getElementById('question-container');
+            const targetObjectsContainer = document.getElementById('target-objects');
+            const scenarioContainer = document.getElementById('scenario-container');
+            const scenarioImage = document.getElementById('scenario-image');
+            
+            questionContainer.style.display = 'block';
+            scenarioContainer.style.display = 'block';
+            
+            // Clear containers
+            targetObjectsContainer.innerHTML = '';
+            // Remove any existing clickable areas
+            const existingAreas = scenarioContainer.querySelectorAll('.clickable-area');
+            existingAreas.forEach(area => area.remove());
+            
+            // Set the scenario image
+            scenarioImage.src = currentScenario.scenarioImage;
+            
+            // Display target objects
+            currentScenario.targetObjects.forEach(targetObj => {
+                const img = document.createElement('img');
+                img.src = targetObj.image;
+                img.alt = targetObj.name;
+                img.title = targetObj.name;
+                img.className = 'target-object';
+                img.dataset.id = targetObj.id;
+                targetObjectsContainer.appendChild(img);
+            });
+            
+            // Create clickable areas after the image has loaded
+            scenarioImage.onload = () => {
+                const imgWidth = scenarioImage.offsetWidth;
+                const imgHeight = scenarioImage.offsetHeight;
+                
+                // Add skip/return buttons below the scenario image
+                const buttonContainer = document.createElement('div');
+                buttonContainer.style.display = 'flex';
+                buttonContainer.style.justifyContent = 'space-between';
+                buttonContainer.style.width = '100%';
+                buttonContainer.style.marginTop = '10px';
+                
+                const returnButton = document.createElement('button');
+                returnButton.innerText = 'Return';
+                returnButton.style.backgroundColor = '#2196F3';
+                returnButton.onclick = () => window.location.href = 'VC.html';
+                returnButton.style.minHeight = '26px';
+                returnButton.style.padding = '5px 10px';
+                returnButton.style.fontSize = '0.9rem';
+                buttonContainer.appendChild(returnButton);
+                
+                const skipButton = document.createElement('button');
+                skipButton.innerText = 'Skip';
+                skipButton.onclick = skipQuestion;
+                skipButton.style.minHeight = '26px';
+                skipButton.style.padding = '5px 10px';
+                skipButton.style.fontSize = '0.9rem';
+                buttonContainer.appendChild(skipButton);
+                
+                scenarioContainer.after(buttonContainer);
+                
+                // Create clickable areas with coordinates relative to the actual displayed image size
+                currentScenario.clickableAreas.forEach(area => {
+                    const clickableArea = document.createElement('div');
+                    clickableArea.className = 'clickable-area';
+                    clickableArea.dataset.id = area.id;
+                    
+                    // Calculate the scaled position based on actual image dimensions
+                    const scaleX = imgWidth / 400; // Assuming original coordinates are based on 400px width
+                    const scaleY = imgHeight / 300; // Assuming original coordinates are based on 300px height
+                    
+                    clickableArea.style.left = (area.x * scaleX) + 'px';
+                    clickableArea.style.top = (area.y * scaleY) + 'px';
+                    clickableArea.style.width = (area.width * scaleX) + 'px';
+                    clickableArea.style.height = (area.height * scaleY) + 'px';
+                    
+                    clickableArea.onclick = () => checkAnswer(area.id);
+                    scenarioContainer.appendChild(clickableArea);
+                });
+            };
+        }
+
+        function checkAnswer(areaId) {
+            const endTime = Date.now();
+            const timeSpent = (endTime - startTime) / 1000;
+            timeTaken.push(timeSpent);
+            
+            // Record the first tap time if not already set
+            if (firstTapTime === null) {
+                firstTapTime = timeSpent;
+            }
+            
+            // Increment total taps counter
+            totalTaps++;
+            
+            const currentScenario = questions[currentQuestionIndex];
+            const targetIds = currentScenario.targetObjects.map(obj => obj.id);
+            
+            if (targetIds.includes(areaId)) {
+                // Found a target object
+                score++;
+                correctAnswers++;
+                
+                // Create a success animation at the clicked position
+                const clickedArea = document.querySelector(`.clickable-area[data-id="${areaId}"]`);
+                const scenarioContainer = document.getElementById('scenario-container');
+                
+                // Create a success indicator
+                const successMark = document.createElement('div');
+                successMark.className = 'success-mark';
+                successMark.innerHTML = '✓';
+                successMark.style.position = 'absolute';
+                successMark.style.left = clickedArea.style.left;
+                successMark.style.top = clickedArea.style.top;
+                successMark.style.fontSize = '2rem';
+                successMark.style.color = '#4CAF50';
+                successMark.style.zIndex = '10';
+                scenarioContainer.appendChild(successMark);
+                
+                // Disable the clicked area to prevent multiple clicks
+                clickedArea.style.pointerEvents = 'none';
+                
+                // Remove the found target from display
+                const targetImage = document.querySelector(`.target-object[data-id="${areaId}"]`);
+                if (targetImage) {
+                    targetImage.style.opacity = '0.3';
+                }
+                
+                // Check if all targets have been found
+                const foundTargets = document.querySelectorAll('.target-object[style*="opacity: 0.3"]');
+                if (foundTargets.length === currentScenario.targetObjects.length) {
+                    // All targets found, proceed to next scenario after a short delay
+                    setTimeout(() => {
+                        moveToNextQuestion();
+                    }, 1000);
+                }
+            } else {
+                // Incorrect selection
+                triesLeft--;
+                incorrectAnswers++;
+                
+                if (triesLeft > 0) {
+                    // Create a failure indicator
+                    const clickedArea = document.querySelector(`.clickable-area[data-id="${areaId}"]`);
+                    const scenarioContainer = document.getElementById('scenario-container');
+                    
+                    const failMark = document.createElement('div');
+                    failMark.className = 'fail-mark';
+                    failMark.innerHTML = '✗';
+                    failMark.style.position = 'absolute';
+                    failMark.style.left = clickedArea.style.left;
+                    failMark.style.top = clickedArea.style.top;
+                    failMark.style.fontSize = '2rem';
+                    failMark.style.color = '#F44336';
+                    failMark.style.zIndex = '10';
+                    scenarioContainer.appendChild(failMark);
+                    
+                    // Remove the indicator after a short period
+                    setTimeout(() => {
+                        failMark.remove();
+                    }, 1000);
+                } else {
+                    // Out of tries, move to next question
+                    alert('Out of tries! Moving to the next scenario.');
+                    moveToNextQuestion();
+                }
+            }
+        }
+
+        function skipQuestion() {
+            incorrectAnswers++;
+            alert('You skipped this question!');
+            moveToNextQuestion();
+        }
+
+        function moveToNextQuestion() {
+            // Remove any existing skip button
+            const existingSkipButton = document.querySelector('#quiz-container > button');
+            if (existingSkipButton) {
+                existingSkipButton.remove();
+            }
+            
+            // Reset tries for the next question
+            triesLeft = 3;
+            currentQuestionIndex++;
+            
+            // Check if we have more questions or should show results
+            if (currentQuestionIndex < questions.length) {
+                displayQuestion();
+            } else {
+                showResults();
+            }
+        }
+        
+        function showResults() {
+            // Calculate scores and stats
+            const totalTime = timeTaken.reduce((a, b) => a + b, 0).toFixed(2);
+            const averageTime = (totalTime / Math.max(1, timeTaken.length)).toFixed(2);
+            
+            // Display results
+            const questionContainer = document.getElementById('question-container');
+            questionContainer.style.display = 'none';
+            
+            const imagesContainer = document.getElementById('images-container');
+            if (imagesContainer) { // Check if element exists first
+                imagesContainer.style.display = 'none';
+            }
+            
+            const resultContainer = document.getElementById('result-container');
+            resultContainer.style.display = 'block';
+            
+            document.getElementById('score').textContent = score;
+            document.getElementById('total-time').textContent = totalTime;
+            document.getElementById('avg-time').textContent = averageTime;
+            document.getElementById('first-tap').textContent = firstTapTime ? firstTapTime.toFixed(2) : 'N/A';
+            document.getElementById('total-taps').textContent = totalTaps;
+            document.getElementById('total-correct').textContent = correctAnswers;
+            document.getElementById('total-incorrect').textContent = incorrectAnswers;
+            
+            // Save results to database
+            saveQuizResults(
+                score,
+                parseFloat(totalTime),
+                parseFloat(averageTime),
+                firstTapTime ? parseFloat(firstTapTime.toFixed(2)) : 0,
+                totalTaps,
+                correctAnswers,
+                incorrectAnswers
+            );
+            
+            // Display previous attempts
+            displayPreviousAttempts();
+        }
+        
+        async function displayPreviousAttempts() {
+            // Show the report container
+            const reportContainer = document.getElementById('report-container');
+            reportContainer.style.display = 'flex';
+            
+            const reportList = document.getElementById('report-list');
+            reportList.innerHTML = '<h3>Previous Attempts</h3>';
+            
+            try {
+                const user = auth.currentUser;
+                if (!user) {
+                    reportList.innerHTML += '<p>You must be logged in to view previous attempts.</p>';
+                    return;
+                }
+                
+                // Get data path based on session
+                let path;
+                if (currentPatientId && doctorId) {
+                    // Doctor viewing patient quiz
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/VC4`;
+                } else {
+                    // Check if user is a doctor
+                    const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                    const role = roleSnapshot.val();
+                    
+                    if (role === 'doctor') {
+                        path = `doctors/${user.uid}/quiz/VC4`;
+                    } else {
+                        path = `users/${user.uid}/quiz/VC4`;
+                    }
+                }
+                
+                // Get attempts data
+                const attemptsSnapshot = await database.ref(path).once('value');
+                const attempts = attemptsSnapshot.val();
+                
+                if (attempts) {
+                    // Convert object to array and sort by timestamp descending
+                    const attemptsArray = Object.entries(attempts).map(([key, value]) => {
+                        return { ...value, id: key };
+                    }).sort((a, b) => b.timestamp - a.timestamp);
+                    
+                    // Display each attempt
+                    attemptsArray.forEach((attempt, index) => {
+                        // Create attempt item container
+                        const attemptItem = document.createElement('div');
+                        attemptItem.className = 'attempt-item';
+                        
+                        const date = new Date(attempt.timestamp);
+                        const dateString = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+                        
+                        // Create date and score section
+                        const dateScoreDiv = document.createElement('div');
+                        dateScoreDiv.innerHTML = `
+                            <div class="attempt-date">${dateString}</div>
+                            <div class="attempt-score">Score: ${attempt.score}</div>
+                        `;
+                        attemptItem.appendChild(dateScoreDiv);
+                        
+                        // Create details div (initially hidden)
+                        const detailsDiv = document.createElement('div');
+                        detailsDiv.className = 'attempt-details';
+                        detailsDiv.innerHTML = `
+                            <div class="attempt-detail-item">
+                                <span class="detail-label">Total Time:</span>
+                                <span>${attempt.totalTime.toFixed(2)}s</span>
+                            </div>
+                            <div class="attempt-detail-item">
+                                <span class="detail-label">Avg Time:</span>
+                                <span>${attempt.averageTime.toFixed(2)}s</span>
+                            </div>
+                            <div class="attempt-detail-item">
+                                <span class="detail-label">First Tap:</span>
+                                <span>${attempt.firstTapTime ? attempt.firstTapTime.toFixed(2) + 's' : 'N/A'}</span>
+                            </div>
+                            <div class="attempt-detail-item">
+                                <span class="detail-label">Total Taps:</span>
+                                <span>${attempt.totalTaps || 0}</span>
+                            </div>
+                            <div class="attempt-detail-item">
+                                <span class="detail-label">Correct:</span>
+                                <span>${attempt.correctAnswers || 0}</span>
+                            </div>
+                            <div class="attempt-detail-item">
+                                <span class="detail-label">Incorrect:</span>
+                                <span>${attempt.incorrectAnswers || 0}</span>
+                            </div>
+                        `;
+                        attemptItem.appendChild(detailsDiv);
+                        
+                        // Add toggle details button
+                        const toggleBtn = document.createElement('button');
+                        toggleBtn.className = 'toggle-details-btn';
+                        toggleBtn.textContent = 'Show Details';
+                        toggleBtn.style.minHeight = '26px';
+                        toggleBtn.style.padding = '5px 10px';
+                        toggleBtn.style.fontSize = '0.9rem';
+                        toggleBtn.onclick = function() {
+                            if (detailsDiv.style.display === 'none' || !detailsDiv.style.display) {
+                                detailsDiv.style.display = 'grid';
+                                this.textContent = 'Hide Details';
+                            } else {
+                                detailsDiv.style.display = 'none';
+                                this.textContent = 'Show Details';
+                            }
+                        };
+                        dateScoreDiv.appendChild(toggleBtn);
+                        
+                        // Initially hide details
+                        detailsDiv.style.display = 'none';
+                        
+                        reportList.appendChild(attemptItem);
+                    });
+                } else {
+                    reportList.innerHTML += '<p>No previous attempts found.</p>';
+                }
+            } catch (error) {
+                console.error('Error fetching previous attempts:', error);
+            }
+        }
+        
+        // Function to return to Visual Cognition page
+        function returnToVC() {
+            window.location.href = 'VC.html';
+        }
+        
+        // This function handles restarting the quiz
+        function restartQuiz() {
+            // Reset all quiz variables
+            currentQuestionIndex = 0;
+            score = 0;
+            timeTaken = [];
+            totalTaps = 0;
+            correctAnswers = 0;
+            incorrectAnswers = 0;
+            firstTapTime = null;
+            totalStartTime = Date.now();
+            
+            // Hide results container
+            document.getElementById('result-container').style.display = 'none';
+            document.getElementById('report-container').style.display = 'none';
+            
+            // Show question container
+            document.getElementById('question-container').style.display = 'block';
+            document.getElementById('images-container').style.display = 'flex';
+            
+            // Start the quiz
+            displayQuestion();
+        }
+
+        async function saveQuizResults(score, totalTime, averageTime, firstTapTime, totalTaps, correctAnswers, incorrectAnswers) {
+            const user = auth.currentUser;
+            if (!user) return;
+
+            try {
+                const timestamp = Date.now();
+                let path;
+
+                // Check if this is a patient quiz (doctor viewing patient)
+                if (currentPatientId && doctorId) {
+                    // This is a doctor testing a patient
+                    console.log(`Saving patient quiz results - Doctor: ${doctorId}, Patient: ${currentPatientId}`);
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/VC4/${timestamp}`;
+                } else {
+                    // Regular user quiz
+                    // Check if user is a doctor
+                    const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
+                    const role = roleSnapshot.val();
+                    
+                    if (role === 'doctor') {
+                        console.log(`Saving doctor's own quiz results: ${user.uid}`);
+                        path = `doctors/${user.uid}/quiz/VC4/${timestamp}`;
+                    } else {
+                        console.log(`Saving regular user quiz results: ${user.uid}`);
+                        path = `users/${user.uid}/quiz/VC4/${timestamp}`;
+                    }
+                }
+
+                console.log(`Saving quiz results to path: ${path}`);
+                await database.ref(path).set({
+                    score,
+                    totalTime,
+                    averageTime,
+                    firstTapTime,
+                    totalTaps,
+                    correctAnswers,
+                    incorrectAnswers,
+                    timestamp
+                });
+                
+                console.log('Quiz results saved successfully');
+            } catch (error) {
+                console.error('Error saving quiz results:', error);
+            }
+        }
+
+        async function clearReport() {
+            try {
+                const user = auth.currentUser;
+                if (!user) {
+                    alert('You must be logged in to clear reports.');
+                    return;
+                }
+                
+                // First, let's confirm the action
+                const confirmClear = confirm('Are you sure you want to clear all reports? This action cannot be undone.');
+                if (!confirmClear) {
+                    return;
+                }
+                
+                // Get patient context from sessionStorage
+                const currentPatientId = sessionStorage.getItem('currentPatientId');
+                const doctorId = sessionStorage.getItem('doctorId');
+                
+                // Determine path based solely on sessionStorage
+                let path = '';
+                
+                if (currentPatientId && doctorId) {
+                    // Doctor viewing patient quiz
+                    console.log(`Clearing reports for patient ${currentPatientId} viewed by doctor ${doctorId}`);
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/VC4`;
+                } else {
+                    // Regular user's own quiz results
+                    console.log(`Clearing reports for user ${user.uid}`);
+                    path = `users/${user.uid}/quiz/VC4`;
+                }
+                
+                console.log('Clearing reports at path:', path);
+                
+                // Remove the data (use set with null as a fallback if remove doesn't work)
+                try {
+                    await database.ref(path).remove();
+                } catch (removeError) {
+                    console.warn('Remove failed, trying set(null):', removeError);
+                    await database.ref(path).set(null);
+                }
+                
+                // Show confirmation and refresh the report list
+                alert('All reports have been cleared successfully!');
+                
+                // Update UI
+                const reportList = document.getElementById('report-list');
+                reportList.innerHTML = '<h3>Previous Attempts</h3><p>No previous attempts found.</p>';
+                
+                console.log('Reports cleared successfully');
+            } catch (error) {
+                console.error('Error clearing reports:', error);
+                alert('Failed to clear reports: ' + error.message);
+            }
+        }
+
+        function restartQuiz() {
+            document.getElementById('result-container').style.display = 'none';
+            document.getElementById('report-container').style.display = 'none';
+            document.getElementById('question-container').style.display = 'block';
+            document.getElementById('images-container').style.display = 'grid';
+            currentQuestionIndex = 0;
+            score = 0;
+            triesLeft = 3;
+            timeTaken = [];
+            incorrectAnswers = 0;
+            totalTaps = 0;
+            correctAnswers = 0;
+            totalStartTime = Date.now();
+            displayQuestion();
+        }
+    </script>
+</body>
+</html>
