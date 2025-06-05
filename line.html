@@ -1608,10 +1608,15 @@
                 resultMessage.textContent = `Not quite right. Try again to match the target angle.`;
                 resultMessage.className = 'result-message incorrect';
                 
-                // Check if angle is completely off (more than 20 degrees)
+                // Count every incorrect attempt
+                incorrectAttemptsCount++;
+                console.log(`Incorrect attempt recorded: ${incorrectAttemptsCount}`);
+                
+                // Note whether it was completely off or close
                 if (lineDiff > 20) {
-                    incorrectAttemptsCount++;
-                    console.log(`Completely incorrect attempt recorded: ${incorrectAttemptsCount}`);
+                    console.log(`Angle was completely off (${lineDiff.toFixed(1)}° difference)`);
+                } else {
+                    console.log(`Angle was close but not within tolerance (${lineDiff.toFixed(1)}° difference)`);
                 }
                 
                 // Provide haptic feedback for incorrect answer if supported
@@ -1920,15 +1925,15 @@
                             let detailsHtml = `
                                 <div class="attempt-detail-item">
                                     <span class="detail-label">Time spent:</span>
-                                    <span>${result.timeSpentDisplay ? result.timeSpentDisplay : (result.timeSpent ? (result.timeSpent / 1000).toFixed(2) + 's' : 'N/A')}</span>
+                                    <span>${result.timeSpent ? result.timeSpent + 's' : 'N/A'}</span>
                                 </div>
                                 <div class="attempt-detail-item">
                                     <span class="detail-label">Interactions:</span>
                                     <span>${result.interactions || 'N/A'}</span>
                                 </div>
                                 <div class="attempt-detail-item">
-                                    <span class="detail-label">Correct Angles:</span>
-                                    <span>${result.correctCount || 0} out of 4</span>
+                                    <span class="detail-label">Incorrect Attempts:</span>
+                                    <span>${result.incorrectAttempts || 0}</span>
                                 </div>`;
                                 
                             // Check if we have the new format with lineAngles array
