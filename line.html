@@ -161,13 +161,79 @@
             background-color: rgba(240, 240, 240, 0.9);
             border: 1px solid #ccc;
             border-radius: 8px;
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            grid-gap: 8px;
-            justify-content: center;
+            display: flex;
+            flex-direction: column;
             align-items: center;
+            justify-content: center;
             z-index: 5;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .progress-label {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        
+        .target-indicator {
+            width: 80px;
+            height: 5px;
+            background-color: transparent;
+            border-top: 2px solid;
+            margin: 15px 0;
+            transform-origin: left center;
+            position: relative;
+        }
+        
+        .target-indicator::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: -4px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: currentColor;
+        }
+        
+        .target-indicator::after {
+            content: 'Target';
+            position: absolute;
+            right: -30px;
+            top: -10px;
+            font-size: 10px;
+            color: currentColor;
+        }
+        
+        /* Mobile optimization for target indicator */
+        @media screen and (max-width: 400px) {
+            .target-indicator {
+                width: 60px;
+                height: 4px;
+                margin: 10px 0;
+            }
+            
+            .target-indicator::before {
+                width: 6px;
+                height: 6px;
+                top: -3px;
+            }
+            
+            .target-indicator::after {
+                right: -25px;
+                top: -8px;
+                font-size: 8px;
+            }
+            
+            .progress-label {
+                font-size: 11px;
+                margin-bottom: 4px;
+            }
+            
+            .angle-label {
+                font-size: 12px;
+            }
         }
         
         .angle-label {
@@ -232,7 +298,7 @@
             background-color: var(--secondary-color);
         }
         
-        .reset-btn, .hint-btn, .submit-btn {
+        .reset-btn, .hint-btn, .submit-btn, .home-btn {
             padding: 8px 12px;
             border-radius: 6px;
             cursor: pointer;
@@ -244,6 +310,47 @@
             min-height: 38px;
         }
         
+        .mode-control {
+            display: flex;
+            justify-content: center;
+            margin: 5px 0 10px;
+        }
+        
+        .mode-toggle {
+            font-size: 0.85rem;
+            color: var(--primary-color);
+            text-decoration: none;
+            background-color: rgba(66, 133, 244, 0.1);
+            padding: 4px 10px;
+            border-radius: 15px;
+            transition: all 0.2s ease;
+            display: inline-block;
+            text-align: center;
+        }
+        
+        .sequential-mode {
+            background-color: rgba(66, 133, 244, 0.2);
+            border-left: 3px solid var(--primary-color);
+            font-weight: 500;
+        }
+        
+        .standard-mode {
+            background-color: rgba(98, 95, 235, 0.15);
+            border-left: 3px solid var(--accent-color);
+            font-weight: 500;
+        }
+        
+        .mode-toggle:hover {
+            background-color: rgba(66, 133, 244, 0.2);
+        }
+        
+        @media screen and (max-width: 600px) {
+            .mode-toggle {
+                font-size: 0.8rem;
+                padding: 3px 8px;
+            }
+        }
+        
         .reset-btn {
             background-color: rgba(0,0,0,0.05);
             color: #333;
@@ -252,6 +359,22 @@
         .hint-btn {
             background-color: var(--accent-color);
             color: white;
+        }
+        
+        .home-btn {
+            background-color: rgba(0, 0, 0, 0.05);
+            color: #555;
+            padding: 6px 10px;
+            font-size: 16px;
+        }
+        
+        @media screen and (max-width: 600px) {
+            .reset-btn, .hint-btn, .submit-btn, .home-btn {
+                padding: 6px 8px;
+                margin: 0 3px;
+                font-size: 13px;
+                min-height: 34px;
+            }
         }
         
         .submit-btn {
@@ -553,7 +676,23 @@
                 font-size: 0.8rem;
                 margin-bottom: 8px;
                 padding: 6px;
-                border-radius: 4px;
+            }
+            
+            .instructions p {
+                margin-bottom: 3px;
+                font-size: 0.9rem;
+            }
+            
+            .instruction-targets {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 3px;
+            }
+            
+            .instruction-targets span {
+                font-size: 0.8rem;
+                padding: 1px 3px;
+                margin-bottom: 1px;
             }
             
             .reset-btn, .hint-btn, .submit-btn {
@@ -686,8 +825,8 @@
         
         <div class="quiz-container">
             <div class="instructions">
-                <p>Each line has a specific target angle to match:</p>
-                <div class="instruction-targets">
+                <p id="instructions-text">Match each line to its target angle, one at a time.</p>
+                <div class="instruction-targets" id="instruction-targets">
                     <span style="color:var(--primary-color)">Line 1: <b>30°</b></span>
                     <span style="color:var(--secondary-color)">Line 2: <b>60°</b></span>
                     <span style="color:var(--accent-color)">Line 3: <b>120°</b></span>
@@ -707,14 +846,17 @@
         </div>
         
         <div class="controls">
-            <button class="reset-btn" id="reset-btn"><i class="icon">↺</i> Reset</button>
-                <button class="submit-btn" id="submit-btn"><i class="icon">✓</i> Submit</button>
-                <button class="hint-btn" id="hint-btn"><i class="icon">?</i> Hint</button>
-                <button class="reset-btn" id="home-btn" onclick="window.location.href='index.html'"><i class="icon">⌂</i> Home</button>
-            </div>
-            
-            <div class="result-message" id="result-message"></div>
+            <button class="reset-btn" id="reset-btn"><span class="icon">↺</span> Reset</button>
+            <button class="hint-btn" id="hint-btn"><span class="icon">💡</span> Hint</button>
+            <button class="submit-btn" id="submit-btn"><span class="icon">✓</span> Submit</button>
+            <button class="home-btn" id="home-btn" onclick="window.location.href='Vspac.html'"><span class="icon">⌂</span></button>
         </div>
+        
+        <div class="mode-control">
+            <a href="#" id="mode-toggle" class="mode-toggle" onclick="return toggleQuizMode();">Mode: Sequential (One at a time)</a>
+        </div>
+        
+        <div class="result-message" id="result-message"></div>
         
         <div class="report-container" id="report-container">
             <h2>All Quiz Attempts</h2>
@@ -753,10 +895,46 @@
         // Global variables
         let startTime = null;
         let interactions = 0;
+        let currentLineIndex = 0; // Track which line we're currently on (0-3)
+        let lineScores = [0, 0, 0, 0]; // Track success for each line
         let quizData = {
             targetAngles: [30, 60, 120, 150], // Angles in degrees for each line
-            toleranceAngle: 7 // Acceptable deviation in degrees
+            toleranceAngle: 7, // Acceptable deviation in degrees
+            showMode: 'sequential' // 'sequential' = one at a time, 'all' = all at once
         };
+        
+        // Function to toggle between sequential and standard modes
+        function toggleQuizMode() {
+            // Toggle mode
+            quizData.showMode = (quizData.showMode === 'sequential') ? 'all' : 'sequential';
+            
+            // Reset quiz with new mode
+            resetQuiz();
+            
+            // Update UI to reflect the current mode
+            const modeIndicator = document.getElementById('mode-toggle');
+            if (modeIndicator) {
+                if (quizData.showMode === 'sequential') {
+                    modeIndicator.textContent = 'Mode: Sequential (One at a time)';
+                    modeIndicator.classList.add('sequential-mode');
+                    modeIndicator.classList.remove('standard-mode');
+                } else {
+                    modeIndicator.textContent = 'Mode: Standard (All lines)';
+                    modeIndicator.classList.add('standard-mode');
+                    modeIndicator.classList.remove('sequential-mode');
+                }
+            }
+            
+            // Update instructions
+            updateInstructions();
+            
+            // Provide haptic feedback if supported
+            if (navigator.vibrate) {
+                navigator.vibrate(50); // Short vibration for mode change
+            }
+            
+            return false; // Prevent default action if called from a link/button
+        }
         
         // HTML Elements
         const line1 = document.getElementById('line1');
@@ -779,13 +957,50 @@
         let line3Position = { x: 0, y: 0, angle: 0 };
         let line4Position = { x: 0, y: 0, angle: 0 };
         
+        // Update instructions based on mode
+        function updateInstructions() {
+            const instructionsText = document.getElementById('instructions-text');
+            const instructionTargets = document.getElementById('instruction-targets');
+            
+            if (quizData.showMode === 'sequential') {
+                // Sequential mode instructions
+                instructionsText.textContent = 'Match each line to its target angle, one at a time.';
+                
+                // Only show the current target in the header (optional)
+                if (window.innerWidth <= 600) { // On mobile, maybe hide all target angles
+                    instructionTargets.style.display = 'none';
+                } else {
+                    instructionTargets.style.display = 'flex';
+                }
+            } else {
+                // Original mode instructions
+                instructionsText.textContent = 'Match each line to its specific target angle:';
+                instructionTargets.style.display = 'flex';
+            }
+        }
+        
         // Initialize quiz
         function initializeQuiz() {
+            // Update instructions based on mode
+            updateInstructions();
+            
             // Create reference labels showing target angles
             createAngleReferences();
             
             // Set initial positions
             resetLinePositions();
+            
+            // Initialize mode toggle styling
+            const modeIndicator = document.getElementById('mode-toggle');
+            if (modeIndicator) {
+                if (quizData.showMode === 'sequential') {
+                    modeIndicator.classList.add('sequential-mode');
+                    modeIndicator.classList.remove('standard-mode');
+                } else {
+                    modeIndicator.classList.add('standard-mode');
+                    modeIndicator.classList.remove('sequential-mode');
+                }
+            }
             
             // Start timer
             startTime = new Date();
@@ -857,17 +1072,50 @@
         function createAngleReferences() {
             referenceGuide.innerHTML = '';
             
-            // Create reference text labels
-            quizData.targetAngles.forEach((angle, index) => {
+            if (quizData.showMode === 'sequential') {
+                // In sequential mode, only show the current target angle
+                const currentAngle = quizData.targetAngles[currentLineIndex];
+                const lineNumber = currentLineIndex + 1;
+                
+                const progressLabel = document.createElement('div');
+                progressLabel.className = 'progress-label';
+                progressLabel.textContent = `Question ${lineNumber} of 4`;
+                referenceGuide.appendChild(progressLabel);
+                
                 const angleLabel = document.createElement('div');
                 angleLabel.className = 'angle-label';
-                angleLabel.textContent = `Line ${index+1}: ${angle}°`;
-                angleLabel.style.color = index === 0 ? 'var(--primary-color)' : 
-                                       index === 1 ? 'var(--secondary-color)' : 
-                                       index === 2 ? 'var(--accent-color)' : 
-                                       'var(--error-color)';
+                angleLabel.textContent = `Target Angle: ${currentAngle}°`;
+                
+                const lineColor = [
+                    'var(--primary-color)',
+                    'var(--secondary-color)',
+                    'var(--accent-color)',
+                    'var(--error-color)'
+                ][currentLineIndex];
+                
+                angleLabel.style.color = lineColor;
                 referenceGuide.appendChild(angleLabel);
-            });
+                
+                // Add a visual target indicator
+                const targetIndicator = document.createElement('div');
+                targetIndicator.className = 'target-indicator';
+                targetIndicator.style.transform = `rotate(${currentAngle}deg)`;
+                targetIndicator.style.borderColor = lineColor;
+                referenceGuide.appendChild(targetIndicator);
+                
+            } else {
+                // Original mode - show all angle references
+                quizData.targetAngles.forEach((angle, index) => {
+                    const angleLabel = document.createElement('div');
+                    angleLabel.className = 'angle-label';
+                    angleLabel.textContent = `Line ${index+1}: ${angle}°`;
+                    angleLabel.style.color = index === 0 ? 'var(--primary-color)' : 
+                                           index === 1 ? 'var(--secondary-color)' : 
+                                           index === 2 ? 'var(--accent-color)' : 
+                                           'var(--error-color)';
+                    referenceGuide.appendChild(angleLabel);
+                });
+            }
         }
         
         // Reset line positions
@@ -875,25 +1123,49 @@
             const containerWidth = anglesContainer.offsetWidth;
             const containerHeight = anglesContainer.offsetHeight;
             
-            // Calculate better positions for lines - arrange in a grid pattern
-            // for easier access on mobile
+            // Reset all lines to center for easier rotation
             const centerX = containerWidth / 2;
-            const gridTop = containerHeight * 0.25;
-            const gridBottom = containerHeight * 0.6;
-            const gridLeft = containerWidth * 0.25;
-            const gridRight = containerWidth * 0.75;
+            const centerY = containerHeight / 2;
             
-            // Set line positions in a grid pattern
-            line1Position = { x: gridLeft, y: gridTop, angle: Math.floor(Math.random() * 180) };
-            line2Position = { x: gridRight, y: gridTop, angle: Math.floor(Math.random() * 180) };
-            line3Position = { x: gridLeft, y: gridBottom, angle: Math.floor(Math.random() * 180) };
-            line4Position = { x: gridRight, y: gridBottom, angle: Math.floor(Math.random() * 180) };
+            // Set line positions in the center
+            line1Position = { x: centerX, y: centerY, angle: Math.floor(Math.random() * 180) };
+            line2Position = { x: centerX, y: centerY, angle: Math.floor(Math.random() * 180) };
+            line3Position = { x: centerX, y: centerY, angle: Math.floor(Math.random() * 180) };
+            line4Position = { x: centerX, y: centerY, angle: Math.floor(Math.random() * 180) };
             
-            // Update visual positions
-            updateLinePosition(line1, line1Position, 'var(--primary-color)');
-            updateLinePosition(line2, line2Position, 'var(--secondary-color)');
-            updateLinePosition(line3, line3Position, 'var(--accent-color)');
-            updateLinePosition(line4, line4Position, 'var(--error-color)');
+            // Only update position of currently active line
+            if (quizData.showMode === 'sequential') {
+                // Update visual positions based on current line index
+                updateLineVisibility();
+            } else {
+                // Update all lines (legacy mode)
+                updateLinePosition(line1, line1Position, 'var(--primary-color)');
+                updateLinePosition(line2, line2Position, 'var(--secondary-color)');
+                updateLinePosition(line3, line3Position, 'var(--accent-color)');
+                updateLinePosition(line4, line4Position, 'var(--error-color)');
+            }
+        }
+        
+        // Update which lines are visible based on current line index
+        function updateLineVisibility() {
+            // Hide all lines first
+            line1.style.display = 'none';
+            line2.style.display = 'none';
+            line3.style.display = 'none';
+            line4.style.display = 'none';
+            
+            // Show only the current line
+            const currentLine = [line1, line2, line3, line4][currentLineIndex];
+            const currentPosition = [line1Position, line2Position, line3Position, line4Position][currentLineIndex];
+            const lineColor = [
+                'var(--primary-color)',
+                'var(--secondary-color)',
+                'var(--accent-color)',
+                'var(--error-color)'
+            ][currentLineIndex];
+            
+            currentLine.style.display = 'block';
+            updateLinePosition(currentLine, currentPosition, lineColor);
         }
         
         // Update line position and rotation visually
@@ -1124,89 +1396,156 @@
         
         // Reset quiz
         function resetQuiz() {
-            resetLinePositions();
+            // Reset timer and other state
             startTime = new Date();
             interactions = 0;
-            resultMessage.style.display = 'none';
+            isQuizActive = true;
+
+            // For sequential mode, reset the current line index
+            currentLineIndex = 0;
+            lineScores = [0, 0, 0, 0]; // Reset scores for each line
+
+            // Reset positions of all lines
+            resetLinePositions();
+
+            // Clear any feedback
+            resultMessage.textContent = "";
+            resultMessage.classList.remove("success-message", "error-message");
+
+            // Re-create angle references with appropriate visibility
+            createAngleReferences();
+
+            // Update line visibility for sequential mode
+            if (quizData.showMode === 'sequential') {
+                updateLineVisibility();
+            }
             
-            // Add animation effect
-            anglesContainer.classList.add('reset-animation');
-            setTimeout(() => {
-                anglesContainer.classList.remove('reset-animation');
-            }, 300);
+            // Update instructions
+            updateInstructions();
+            
+            // Update mode toggle button text and styling
+            const modeIndicator = document.getElementById('mode-toggle');
+            if (modeIndicator) {
+                if (quizData.showMode === 'sequential') {
+                    modeIndicator.textContent = 'Mode: Sequential (One at a time)';
+                    modeIndicator.classList.add('sequential-mode');
+                    modeIndicator.classList.remove('standard-mode');
+                } else {
+                    modeIndicator.textContent = 'Mode: Standard (All lines)';
+                    modeIndicator.classList.add('standard-mode');
+                    modeIndicator.classList.remove('sequential-mode');
+                }
+            }
         }
         
         // Show hint
         function showHint() {
             interactions++;
             
-            // Get closest line to target
-            const line1Diff = Math.min(Math.abs(normalizeAngle(line1Position.angle) - quizData.targetAngles[0]), 
-                                    Math.abs(normalizeAngle(line1Position.angle) - (quizData.targetAngles[0] + 360)));
-            const line2Diff = Math.min(Math.abs(normalizeAngle(line2Position.angle) - quizData.targetAngles[1]), 
-                                     Math.abs(normalizeAngle(line2Position.angle) - (quizData.targetAngles[1] + 360)));
-            const line3Diff = Math.min(Math.abs(normalizeAngle(line3Position.angle) - quizData.targetAngles[2]), 
-                                     Math.abs(normalizeAngle(line3Position.angle) - (quizData.targetAngles[2] + 360)));
-            const line4Diff = Math.min(Math.abs(normalizeAngle(line4Position.angle) - quizData.targetAngles[3]), 
-                                     Math.abs(normalizeAngle(line4Position.angle) - (quizData.targetAngles[3] + 360)));
-            
-            // Create hint array [lineId, diff]
-            const hints = [
-                [1, line1Diff],
-                [2, line2Diff],
-                [3, line3Diff],
-                [4, line4Diff]
-            ];
-            
-            // Sort by difference (largest first)
-            hints.sort((a, b) => b[1] - a[1]);
-            
-            // Get the line that needs the most adjustment (index 0)
-            const lineToHint = hints[0][0];
-            const lineDiff = hints[0][1];
-            
-            // Only give hint if line is not already close
-            if (lineDiff <= quizData.toleranceAngle) {
-                resultMessage.textContent = "All lines are already close to their targets!";  
-            } else {
-                let lineElement, targetAngle, currentAngle;
+            // Handle differently based on show mode
+            if (quizData.showMode === 'sequential') {
+                // In sequential mode, only provide hint for current active line
+                const currentPositions = [line1Position, line2Position, line3Position, line4Position];
+                const currentPosition = currentPositions[currentLineIndex];
+                const currentAngle = normalizeAngle(currentPosition.angle);
+                const targetAngle = quizData.targetAngles[currentLineIndex];
                 
-                switch(lineToHint) {
-                    case 1: 
-                        lineElement = line1;
-                        targetAngle = quizData.targetAngles[0];
-                        currentAngle = normalizeAngle(line1Position.angle);
-                        break;
-                    case 2: 
-                        lineElement = line2;
-                        targetAngle = quizData.targetAngles[1];
-                        currentAngle = normalizeAngle(line2Position.angle);
-                        break;
-                    case 3: 
-                        lineElement = line3;
-                        targetAngle = quizData.targetAngles[2];
-                        currentAngle = normalizeAngle(line3Position.angle);
-                        break;
-                    case 4: 
-                        lineElement = line4;
-                        targetAngle = quizData.targetAngles[3];
-                        currentAngle = normalizeAngle(line4Position.angle);
-                        break;
+                // Calculate angle difference (accounting for 360 degree wrapping)
+                const angleDiff = Math.min(
+                    Math.abs(currentAngle - targetAngle),
+                    Math.abs(currentAngle - (targetAngle + 360))
+                );
+                
+                // Only give hint if line is not already close
+                if (angleDiff <= quizData.toleranceAngle) {
+                    resultMessage.textContent = "Your line is already close to the target angle!";
+                } else {
+                    // Calculate direction to rotate
+                    const direction = (targetAngle > currentAngle) ? 
+                        (targetAngle - currentAngle <= 180 ? 'clockwise' : 'counter-clockwise') :
+                        (currentAngle - targetAngle <= 180 ? 'counter-clockwise' : 'clockwise');
+                    
+                    const lineElement = [line1, line2, line3, line4][currentLineIndex];
+                    
+                    // Apply pulsing animation to highlight the line
+                    lineElement.classList.add('pulse-animation');
+                    setTimeout(() => {
+                        lineElement.classList.remove('pulse-animation');
+                    }, 2000);
+                    
+                    // Display hint message
+                    resultMessage.textContent = `Try rotating the line ${direction} to get closer to ${targetAngle}°`;
                 }
+            } else {
+                // Original mode - hint for all lines 
+                // Get closest line to target
+                const line1Diff = Math.min(Math.abs(normalizeAngle(line1Position.angle) - quizData.targetAngles[0]), 
+                                        Math.abs(normalizeAngle(line1Position.angle) - (quizData.targetAngles[0] + 360)));
+                const line2Diff = Math.min(Math.abs(normalizeAngle(line2Position.angle) - quizData.targetAngles[1]), 
+                                         Math.abs(normalizeAngle(line2Position.angle) - (quizData.targetAngles[1] + 360)));
+                const line3Diff = Math.min(Math.abs(normalizeAngle(line3Position.angle) - quizData.targetAngles[2]), 
+                                         Math.abs(normalizeAngle(line3Position.angle) - (quizData.targetAngles[2] + 360)));
+                const line4Diff = Math.min(Math.abs(normalizeAngle(line4Position.angle) - quizData.targetAngles[3]), 
+                                         Math.abs(normalizeAngle(line4Position.angle) - (quizData.targetAngles[3] + 360)));
                 
-                // Calculate direction to rotate
-                const direction = (targetAngle > currentAngle) ? 
-                    (targetAngle - currentAngle <= 180 ? 'clockwise' : 'counter-clockwise') :
-                    (currentAngle - targetAngle <= 180 ? 'counter-clockwise' : 'clockwise');
+                // Create hint array [lineId, diff]
+                const hints = [
+                    [1, line1Diff],
+                    [2, line2Diff],
+                    [3, line3Diff],
+                    [4, line4Diff]
+                ];
                 
-                // Apply pulsing animation to highlight the line
-                lineElement.classList.add('pulse-animation');
-                setTimeout(() => {
-                    lineElement.classList.remove('pulse-animation');
-                }, 2000);
+                // Sort by difference (largest first)
+                hints.sort((a, b) => b[1] - a[1]);
                 
-                // Display hint message
-                resultMessage.textContent = `Try rotating Line ${lineToHint} ${direction} to get closer to ${targetAngle}°`;
+                // Get the line that needs the most adjustment (index 0)
+                const lineToHint = hints[0][0];
+                const lineDiff = hints[0][1];
+                
+                // Only give hint if line is not already close
+                if (lineDiff <= quizData.toleranceAngle) {
+                    resultMessage.textContent = "All lines are already close to their targets!";
+                } else {
+                    let lineElement, targetAngle, currentAngle;
+                    
+                    switch(lineToHint) {
+                        case 1: 
+                            lineElement = line1;
+                            targetAngle = quizData.targetAngles[0];
+                            currentAngle = normalizeAngle(line1Position.angle);
+                            break;
+                        case 2: 
+                            lineElement = line2;
+                            targetAngle = quizData.targetAngles[1];
+                            currentAngle = normalizeAngle(line2Position.angle);
+                            break;
+                        case 3: 
+                            lineElement = line3;
+                            targetAngle = quizData.targetAngles[2];
+                            currentAngle = normalizeAngle(line3Position.angle);
+                            break;
+                        case 4: 
+                            lineElement = line4;
+                            targetAngle = quizData.targetAngles[3];
+                            currentAngle = normalizeAngle(line4Position.angle);
+                            break;
+                    }
+                    
+                    // Calculate direction to rotate
+                    const direction = (targetAngle > currentAngle) ? 
+                        (targetAngle - currentAngle <= 180 ? 'clockwise' : 'counter-clockwise') :
+                        (currentAngle - targetAngle <= 180 ? 'counter-clockwise' : 'clockwise');
+                    
+                    // Apply pulsing animation to highlight the line
+                    lineElement.classList.add('pulse-animation');
+                    setTimeout(() => {
+                        lineElement.classList.remove('pulse-animation');
+                    }, 2000);
+                    
+                    // Display hint message
+                    resultMessage.textContent = `Try rotating Line ${lineToHint} ${direction} to get closer to ${targetAngle}°`;
+                }
             }
             
             resultMessage.className = 'result-message hint';
@@ -1218,6 +1557,11 @@
                     resultMessage.style.display = 'none';
                 }
             }, 3000);
+            
+            // Scroll to ensure result is visible on mobile
+            setTimeout(() => {
+                resultMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 100);
         }
         
         // Submit answer with improved mobile compatibility
@@ -1226,94 +1570,210 @@
                 // Ensure all dragging is complete
                 isDragging = false;
                 
-                const endTime = new Date();
-                const timeSpentSeconds = (endTime - startTime) / 1000; // in seconds
-                const timeSpent = endTime - startTime; // in milliseconds
-                
-                // Check if angles match the target with tolerance for all lines
-                const line1Angle = normalizeAngle(line1Position.angle);
-                const line2Angle = normalizeAngle(line2Position.angle);
-                const line3Angle = normalizeAngle(line3Position.angle);
-                const line4Angle = normalizeAngle(line4Position.angle);
-                
-                console.log('Current angles:', [line1Angle, line2Angle, line3Angle, line4Angle]);
-                console.log('Target angles:', quizData.targetAngles);
-                
-                // Calculate the minimum angle difference (accounting for 360 degree wrapping)
-                const line1AngleDiff = Math.min(Math.abs(line1Angle - quizData.targetAngles[0]), Math.abs(line1Angle - (quizData.targetAngles[0] + 360)));
-                const line2AngleDiff = Math.min(Math.abs(line2Angle - quizData.targetAngles[1]), Math.abs(line2Angle - (quizData.targetAngles[1] + 360)));
-                const line3AngleDiff = Math.min(Math.abs(line3Angle - quizData.targetAngles[2]), Math.abs(line3Angle - (quizData.targetAngles[2] + 360)));
-                const line4AngleDiff = Math.min(Math.abs(line4Angle - quizData.targetAngles[3]), Math.abs(line4Angle - (quizData.targetAngles[3] + 360)));
-                
-                console.log('Angle differences:', [line1AngleDiff, line2AngleDiff, line3AngleDiff, line4AngleDiff]);
-                
-                const isLine1Correct = line1AngleDiff <= quizData.toleranceAngle;
-                const isLine2Correct = line2AngleDiff <= quizData.toleranceAngle;
-                const isLine3Correct = line3AngleDiff <= quizData.toleranceAngle;
-                const isLine4Correct = line4AngleDiff <= quizData.toleranceAngle;
-                
-                // Count how many lines are correct
-                const correctCount = [isLine1Correct, isLine2Correct, isLine3Correct, isLine4Correct].filter(Boolean).length;
-                
-                // Calculate percentage score based on how many lines are correct
-                const score = Math.round((correctCount / 4) * 100);
-                const isAllCorrect = correctCount === 4;
-                
-                // Calculate average deviation for analytics
-                const avgAngleDiff = (line1AngleDiff + line2AngleDiff + line3AngleDiff + line4AngleDiff) / 4;
-                
-                console.log('Score calculation:', { score, correctCount, isAllCorrect, avgAngleDiff });
-                
-                // Display result with improved mobile feedback
-                if (isAllCorrect) {
-                    resultMessage.textContent = "Excellent! All angles match perfectly.";
-                    resultMessage.className = "result-message correct";
-                    // Provide haptic feedback on mobile for success
-                    if (navigator.vibrate) {
-                        navigator.vibrate([100, 50, 100]); // Success pattern
-                    }
-                } else if (correctCount > 0) {
-                    resultMessage.textContent = `You got ${correctCount} out of 4 angles correct. Keep trying!`;
-                    resultMessage.className = "result-message incorrect";
-                    if (navigator.vibrate) {
-                        navigator.vibrate(50); // Light feedback
-                    }
+                if (quizData.showMode === 'sequential') {
+                    // In sequential mode, check only the current line
+                    submitSequentialAnswer();
                 } else {
-                    resultMessage.textContent = "None of the angles match. Try adjusting them more carefully.";
-                    resultMessage.className = "result-message incorrect";
+                    // Original mode - check all lines at once
+                    submitAllLinesAnswer();
                 }
-                
-                // Make sure result is visible on mobile
-                resultMessage.style.display = 'block';
-                // Scroll to ensure result is visible on mobile
-                setTimeout(() => {
-                    resultMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                }, 100);
-                
-                // Create a result object with all data
-                const resultData = {
-                    score: score,
-                    timeSpent: timeSpent, // in milliseconds for database consistency
-                    timeSpentDisplay: timeSpentSeconds.toFixed(2) + 's', // formatted for display
-                    interactions: interactions,
-                    lineAngles: [line1Angle, line2Angle, line3Angle, line4Angle],
-                    angleDifferences: [line1AngleDiff, line2AngleDiff, line3AngleDiff, line4AngleDiff],
-                    correctCount: correctCount,
-                    avgAngleDiff: avgAngleDiff,
-                    targetAngles: quizData.targetAngles,
-                    isCorrect: isAllCorrect,
-                    timestamp: firebase.database.ServerValue.TIMESTAMP
-                };
-                
-                console.log('Saving quiz result:', resultData);
-                
-                // Save result to database with detailed information
-                saveQuizResult(resultData);
-                
             } catch (error) {
                 console.error('Error in submitAnswer:', error);
                 alert('There was an error submitting your answer. Please try again.');
             }
+        }
+        
+        // Submit answer for sequential mode
+        function submitSequentialAnswer() {
+            interactions++;
+            
+            const positions = [
+                normalizeAngle(line1Position.angle),
+                normalizeAngle(line2Position.angle),
+                normalizeAngle(line3Position.angle),
+                normalizeAngle(line4Position.angle)
+            ];
+            
+            // Check if the current line is at the correct angle
+            const currentAngle = positions[currentLineIndex];
+            const targetAngle = quizData.targetAngles[currentLineIndex];
+            const lineDiff = Math.min(
+                Math.abs(currentAngle - targetAngle),
+                Math.abs(currentAngle - (targetAngle + 360))
+            );
+            
+            const isCorrect = lineDiff <= quizData.toleranceAngle;
+            
+            // Record the score for this line
+            let angleDiffScore = Math.max(0, 100 - Math.floor(lineDiff * 3));
+            lineScores[currentLineIndex] = isCorrect ? angleDiffScore : 0;
+            
+            // Show result message
+            if (isCorrect) {
+                resultMessage.textContent = `Correct! Line angle matches the target.`;
+                resultMessage.className = 'result-message correct';
+                
+                // Provide haptic feedback for correct answer if supported
+                if ('vibrate' in navigator) {
+                    navigator.vibrate([50]); // Short pulse for success
+                }
+                
+                // Move to the next line if there are more
+                if (currentLineIndex < 3) {
+                    currentLineIndex++;
+                    setTimeout(() => {
+                        updateLineVisibility();
+                        createAngleReferences();
+                        updateInstructions(); // Update instructions for the next line
+                        resultMessage.style.display = 'none';
+                    }, 1500);
+                    
+                    // Add progress animation
+                    const nextColor = ["var(--primary-color)", "var(--secondary-color)", "var(--accent-color)", "var(--error-color)"][currentLineIndex];
+                    const progressMessage = `Moving to Line ${currentLineIndex + 1}`;
+                    resultMessage.textContent = `${resultMessage.textContent} ${progressMessage}`;
+                    
+                    // Ensure the result message is visible on mobile
+                    setTimeout(() => {
+                        resultMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }, 100);
+                } else {
+                    // All lines completed, show final score
+                    const totalScore = Math.round(lineScores.reduce((a, b) => a + b, 0) / 4);
+                    setTimeout(() => {
+                        resultMessage.textContent = `Quiz completed! Your score: ${totalScore}%`;
+                        resultMessage.className = 'result-message correct';
+                        
+                        // Record the quiz completion time
+                        endTime = new Date();
+                        const timeSpent = Math.floor((endTime - startTime) / 1000); // in seconds
+                        
+                        // Save results to Firebase
+                        saveQuizResults({
+                            score: totalScore,
+                            timeSpent: timeSpent,
+                            interactions: interactions,
+                            targetAngles: quizData.targetAngles,
+                            userAngles: positions,
+                            lineScores: lineScores,
+                            mode: quizData.showMode
+                        });
+                        
+                        // Provide longer haptic feedback for quiz completion
+                        if ('vibrate' in navigator) {
+                            navigator.vibrate([100, 50, 100]); // Pattern for completion
+                        }
+                        
+                        // Show all the attempts after completion
+                        setTimeout(() => {
+                            loadPreviousAttempts();
+                            document.querySelector('.report-container').style.display = 'block';
+                        }, 1500);
+                    }, 1000);
+                }
+            } else {
+                resultMessage.textContent = `Not quite right. Try again to match the target angle.`;
+                resultMessage.className = 'result-message incorrect';
+                
+                // Provide haptic feedback for incorrect answer if supported
+                if ('vibrate' in navigator) {
+                    navigator.vibrate([20, 30, 20]); // Brief pattern for error
+                }
+            }
+            
+            resultMessage.style.display = 'block';
+            
+            // Ensure the result message is visible on mobile
+            setTimeout(() => {
+                resultMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 100);
+        }
+        
+        // Original submit answer function (all lines at once)
+        function submitAllLinesAnswer() {
+            const endTime = new Date();
+            const timeSpentSeconds = (endTime - startTime) / 1000; // in seconds
+            const timeSpent = endTime - startTime; // in milliseconds
+            
+            // Check if angles match the target with tolerance for all lines
+            const line1Angle = normalizeAngle(line1Position.angle);
+            const line2Angle = normalizeAngle(line2Position.angle);
+            const line3Angle = normalizeAngle(line3Position.angle);
+            const line4Angle = normalizeAngle(line4Position.angle);
+            
+            console.log('Current angles:', [line1Angle, line2Angle, line3Angle, line4Angle]);
+            console.log('Target angles:', quizData.targetAngles);
+            
+            // Calculate the minimum angle difference (accounting for 360 degree wrapping)
+            const line1AngleDiff = Math.min(Math.abs(line1Angle - quizData.targetAngles[0]), Math.abs(line1Angle - (quizData.targetAngles[0] + 360)));
+            const line2AngleDiff = Math.min(Math.abs(line2Angle - quizData.targetAngles[1]), Math.abs(line2Angle - (quizData.targetAngles[1] + 360)));
+            const line3AngleDiff = Math.min(Math.abs(line3Angle - quizData.targetAngles[2]), Math.abs(line3Angle - (quizData.targetAngles[2] + 360)));
+            const line4AngleDiff = Math.min(Math.abs(line4Angle - quizData.targetAngles[3]), Math.abs(line4Angle - (quizData.targetAngles[3] + 360)));
+            
+            console.log('Angle differences:', [line1AngleDiff, line2AngleDiff, line3AngleDiff, line4AngleDiff]);
+            
+            const isLine1Correct = line1AngleDiff <= quizData.toleranceAngle;
+            const isLine2Correct = line2AngleDiff <= quizData.toleranceAngle;
+            const isLine3Correct = line3AngleDiff <= quizData.toleranceAngle;
+            const isLine4Correct = line4AngleDiff <= quizData.toleranceAngle;
+            
+            // Count how many lines are correct
+            const correctCount = [isLine1Correct, isLine2Correct, isLine3Correct, isLine4Correct].filter(Boolean).length;
+            
+            // Calculate percentage score based on how many lines are correct
+            const score = Math.round((correctCount / 4) * 100);
+            const isAllCorrect = correctCount === 4;
+            
+            // Calculate average deviation for analytics
+            const avgAngleDiff = (line1AngleDiff + line2AngleDiff + line3AngleDiff + line4AngleDiff) / 4;
+            
+            console.log('Score calculation:', { score, correctCount, isAllCorrect, avgAngleDiff });
+            
+            // Display result with improved mobile feedback
+            if (isAllCorrect) {
+                resultMessage.textContent = "Excellent! All angles match perfectly.";
+                resultMessage.className = "result-message correct";
+                // Provide haptic feedback on mobile for success
+                if (navigator.vibrate) {
+                    navigator.vibrate([100, 50, 100]); // Success pattern
+                }
+            } else if (correctCount > 0) {
+                resultMessage.textContent = `You got ${correctCount} out of 4 angles correct. Keep trying!`;
+                resultMessage.className = "result-message incorrect";
+                if (navigator.vibrate) {
+                    navigator.vibrate(50); // Light feedback
+                }
+            } else {
+                resultMessage.textContent = "None of the angles match. Try adjusting them more carefully.";
+                resultMessage.className = "result-message incorrect";
+            }
+            
+            // Make sure result is visible on mobile
+            resultMessage.style.display = 'block';
+            // Scroll to ensure result is visible on mobile
+            setTimeout(() => {
+                resultMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 100);
+            
+            // Create a result object with all data
+            const resultData = {
+                score: score,
+                timeSpent: timeSpent, // in milliseconds for database consistency
+                timeSpentDisplay: timeSpentSeconds.toFixed(2) + 's', // formatted for display
+                interactions: interactions,
+                lineAngles: [line1Angle, line2Angle, line3Angle, line4Angle],
+                angleDifferences: [line1AngleDiff, line2AngleDiff, line3AngleDiff, line4AngleDiff],
+                correctCount: correctCount,
+                avgAngleDiff: avgAngleDiff,
+                targetAngles: quizData.targetAngles,
+                isCorrect: isAllCorrect,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            };
+            
+            console.log('Saving quiz result:', resultData);
+            
+            // Save result to database with detailed information
+            saveQuizResult(resultData);
         }
         
         // Normalize angle to 0-360 range
@@ -1325,6 +1785,9 @@
         
         // Save quiz result to Firebase with improved reliability
         async function saveQuizResult(result) {
+            // Make sure mode is included in results
+            result.mode = quizData.showMode;
+            
             const user = auth.currentUser;
             if (!user) {
                 console.error('No user authenticated');
