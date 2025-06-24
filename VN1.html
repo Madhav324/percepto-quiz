@@ -770,26 +770,40 @@
             'br': 0  // bottom-right
         };
         
-        // Using simple and reliable image URLs with placeholder images
-        const distractorImages = [
-            'https://dummyimage.com/50x50/2196F3/ffffff&text=C', // cup
-            'https://dummyimage.com/50x50/2196F3/ffffff&text=H', // chair
-            'https://dummyimage.com/50x50/2196F3/ffffff&text=B', // book
-            'https://dummyimage.com/50x50/2196F3/ffffff&text=P', // pen
-            'https://dummyimage.com/50x50/2196F3/ffffff&text=T', // phone
-            'https://dummyimage.com/50x50/2196F3/ffffff&text=K', // clock
-            'https://dummyimage.com/50x50/2196F3/ffffff&text=G', // glasses
-            'https://dummyimage.com/50x50/2196F3/ffffff&text=L', // lamp
-            'https://dummyimage.com/50x50/2196F3/ffffff&text=Y', // key
-            'https://dummyimage.com/50x50/2196F3/ffffff&text=D'  // plate
-        ];
+        // Using direct SVG creation instead of URLs
+        function createSvgElement(text, color) {
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('width', '40');
+            svg.setAttribute('height', '40');
+            svg.setAttribute('viewBox', '0 0 40 40');
+            
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('cx', '20');
+            circle.setAttribute('cy', '20');
+            circle.setAttribute('r', '18');
+            circle.setAttribute('fill', color);
+            
+            const textElement = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            textElement.setAttribute('x', '20');
+            textElement.setAttribute('y', '27');
+            textElement.setAttribute('text-anchor', 'middle');
+            textElement.setAttribute('font-size', '20');
+            textElement.setAttribute('fill', 'white');
+            textElement.textContent = text;
+            
+            svg.appendChild(circle);
+            svg.appendChild(textElement);
+            
+            return svg;
+        }
         
-        const targetImages = [
-            'https://dummyimage.com/50x50/4CAF50/ffffff&text=*', // star
-            'https://dummyimage.com/50x50/4CAF50/ffffff&text=♥', // heart
-            'https://dummyimage.com/50x50/4CAF50/ffffff&text=✿', // flower
-            'https://dummyimage.com/50x50/4CAF50/ffffff&text=♫'  // bell
-        ];
+        // Define symbols for distractors and targets
+        const distractorSymbols = ['C', 'H', 'B', 'P', 'T', 'K', 'G', 'L', 'Y', 'D'];
+        const targetSymbols = ['★', '♥', '✿', '♫'];
+        
+        // These will be used to create SVGs directly in the DOM
+        const distractorColor = '#2196F3'; // Blue
+        const targetColor = '#4CAF50';      // Green
         
                 // Function to initialize the visual neglect assessment
         function initGame() {
@@ -911,7 +925,7 @@
                     const targetCell = cellsWithContent.find(cell => cell.row === row && cell.col === col && cell.isTarget);
                     
                     if (targetCell) {
-                        // This is a target cell - Create a div that will contain either an image or a fallback
+                        // This is a target cell - Create SVG directly
                         const imageContainer = document.createElement('div');
                         imageContainer.className = 'image-container';
                         imageContainer.style.width = '50px';
@@ -920,37 +934,17 @@
                         imageContainer.style.justifyContent = 'center';
                         imageContainer.style.alignItems = 'center';
                         
-                        // Create both the image and the fallback text
-                        const img = document.createElement('img');
-                        img.src = shuffledTargets[targetCell.targetIndex % shuffledTargets.length];
-                        img.alt = 'Target';
-                        img.style.width = '40px';
-                        img.style.height = '40px';
-                        img.style.display = 'block';
+                        // Create SVG element with target symbol
+                        const symbol = targetSymbols[targetCell.targetIndex % targetSymbols.length];
+                        const svg = createSvgElement(symbol, targetColor);
                         
-                        // Create fallback text right away
-                        const fallbackText = document.createElement('span');
-                        fallbackText.textContent = '★';
-                        fallbackText.style.fontSize = '30px';
-                        fallbackText.style.color = '#4CAF50';
-                        fallbackText.style.display = 'none'; // Hide it initially
-                        
-                        // Add both to the container
-                        imageContainer.appendChild(img);
-                        imageContainer.appendChild(fallbackText);
-                        
-                        // Show fallback if image fails
-                        img.onerror = function() {
-                            img.style.display = 'none';
-                            fallbackText.style.display = 'block';
-                        };
-                        
+                        imageContainer.appendChild(svg);
                         gridItem.appendChild(imageContainer);
                         gridItem.classList.add('target');
                         gridItem.dataset.isTarget = 'true';
                         gridItem.dataset.targetIndex = targetCell.targetIndex;
                     } else {
-                        // This is a distractor cell - Create a div that will contain either an image or a fallback
+                        // This is a distractor cell - Create SVG directly
                         const imageContainer = document.createElement('div');
                         imageContainer.className = 'image-container';
                         imageContainer.style.width = '50px';
@@ -959,31 +953,11 @@
                         imageContainer.style.justifyContent = 'center';
                         imageContainer.style.alignItems = 'center';
                         
-                        // Create both the image and the fallback text
-                        const img = document.createElement('img');
-                        img.src = shuffledDistractors[distractorIndex % shuffledDistractors.length];
-                        img.alt = 'Distractor';
-                        img.style.width = '40px';
-                        img.style.height = '40px';
-                        img.style.display = 'block';
+                        // Create SVG element with distractor symbol
+                        const symbol = distractorSymbols[distractorIndex % distractorSymbols.length];
+                        const svg = createSvgElement(symbol, distractorColor);
                         
-                        // Create fallback text right away
-                        const fallbackText = document.createElement('span');
-                        fallbackText.textContent = '■';
-                        fallbackText.style.fontSize = '30px';
-                        fallbackText.style.color = '#2196F3';
-                        fallbackText.style.display = 'none'; // Hide it initially
-                        
-                        // Add both to the container
-                        imageContainer.appendChild(img);
-                        imageContainer.appendChild(fallbackText);
-                        
-                        // Show fallback if image fails
-                        img.onerror = function() {
-                            img.style.display = 'none';
-                            fallbackText.style.display = 'block';
-                        };
-                        
+                        imageContainer.appendChild(svg);
                         gridItem.appendChild(imageContainer);
                         distractorIndex++;
                     }
