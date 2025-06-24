@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Object Matching Game</title>
+    <title>Visual Neglect Assessment</title>
     <style>
         body {
             font-family: 'Comic Sans MS', cursive, sans-serif;
@@ -48,29 +48,77 @@
             margin-bottom: 10px;
         }
 
-        .options-container {
+        .grid-container {
             display: grid;
-            grid-template-columns: repeat(5, 80px);
-            gap: 8px;
+            grid-template-columns: repeat(6, 1fr);
+            grid-template-rows: repeat(8, 1fr);
+            gap: 5px;
             padding: 10px;
             justify-content: center;
             margin: 0 auto;
+            background-color: #f9f9f9;
+            border-radius: 10px;
+            max-width: 600px;
         }
 
-        .option-image {
-            width: 80px;
-            height: 80px;
-            object-fit: contain;
+        .grid-item {
+            width: 100%;
+            height: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
             border: 1px solid #e0e0e0;
             padding: 4px;
             cursor: pointer;
             transition: transform 0.2s, border-color 0.2s;
             background: white;
+            border-radius: 5px;
+        }
+        
+        .grid-item img {
+            max-width: 80%;
+            max-height: 80%;
+            object-fit: contain;
         }
 
-        .option-image:hover {
+        .grid-item:hover {
             transform: scale(1.05);
             border-color: #2196F3;
+        }
+        
+        .target {
+            border: 2px dashed rgba(76, 175, 80, 0.5);
+        }
+        
+        .target-found {
+            background-color: rgba(76, 175, 80, 0.2);
+            border: 2px solid #4CAF50;
+        }
+        
+        .quadrant-tl { /* top-left */
+            grid-column: 1 / 4;
+            grid-row: 1 / 5;
+        }
+        
+        .quadrant-tr { /* top-right */
+            grid-column: 4 / 7;
+            grid-row: 1 / 5;
+        }
+        
+        .quadrant-bl { /* bottom-left */
+            grid-column: 1 / 4;
+            grid-row: 5 / 9;
+        }
+        
+        .quadrant-br { /* bottom-right */
+            grid-column: 4 / 7;
+            grid-row: 5 / 9;
+        }
+        
+        .round-info {
+            margin-bottom: 15px;
+            font-weight: bold;
+            color: #2196F3;
         }
 
         .correct {
@@ -156,12 +204,33 @@
             gap: 15px;
             margin-top: 10px;
         }
-
-        .stat-item {
+        
+        .instruction-section {
+            text-align: center;
             padding: 10px;
-            background-color: #f8f9fa;
+            background-color: #e3f2fd;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+        
+        .quadrant-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .quadrant-stat-item {
+            background-color: #f5f5f5;
+            padding: 8px;
             border-radius: 5px;
             text-align: center;
+        }
+        
+        .missed-targets {
+            color: #f44336;
+            font-weight: bold;
         }
 
         .history-container {
@@ -449,27 +518,60 @@
             }
         }
     </style>
-</head>
 <body>
     <div class="game-container">
         <div class="header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
-            <h1>Remember and Find the Object!</h1>
-            <div class="profile-icon" id="profileIcon" title="Back to Home" onclick="window.location.href='index.html'" style="width: 35px; height: 35px; border-radius: 50%; background-color: #2196F3; color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; font-weight: bold; text-decoration: none; transition: background-color 0.3s; font-size: 18px;"></div>
-            <div class="user-info">
-                <span id="patient-indicator" class="patient-indicator" style="display: none; background-color: #e9f5e9; color: #4CAF50; padding: 3px 8px; border-radius: 12px; font-size: 12px; margin-left: 8px;"></span>
-            </div>
+            <h1>Visual Neglect Assessment</h1>
+            <div class="profile-icon" id="profileIcon" title="Back to Home" onclick="window.location.href='index.html'"></div>
         </div>
         
-        <div class="question-section">
-            <img id="questionImage" class="question-image" src="" alt="Question Image" style="cursor: pointer;">
+        <div id="patientTestBanner" class="patient-test-banner" style="display: none; margin-bottom: 15px;">
+            <span id="patientName"></span>
+            <div class="patient-indicator">Patient Test</div>
+        </div>
+
+        <div id="instructions" class="instruction-section">
+            <p>Find and click on all the target objects in the grid. There are 4 targets total.</p>
+        </div>
+
+        <div id="roundInfo" class="round-info">
+            <p>Round: <span id="currentRound">1</span> of <span id="totalRounds">3</span></p>
         </div>
         
-        <div id="optionsContainer" class="options-container" style="display: none;">
+        <div id="gridContainer" class="grid-container">
+            <!-- Grid will be generated here -->
+        </div>
+        
+        <div class="button-container" style="margin-top: 15px;">
+            <button id="nextRoundBtn" style="display: none;">Next Round</button>
+            <button id="finishBtn" style="display: none;">Finish</button>
         </div>
     </div>
 
-    <div id="result-container">
-        <h2>Quiz Results</h2>
+    <div id="result-container" style="display: none;">
+        <h2>Visual Neglect Assessment Results</h2>
+        
+        <h3>Missed Targets by Quadrant</h3>
+        <div class="quadrant-stats">
+            <div class="quadrant-stat-item" title="Top-Left Quadrant">
+                <h4>Top-Left</h4>
+                <p id="missed-tl">Missed: 0</p>
+            </div>
+            <div class="quadrant-stat-item" title="Top-Right Quadrant">
+                <h4>Top-Right</h4>
+                <p id="missed-tr">Missed: 0</p>
+            </div>
+            <div class="quadrant-stat-item" title="Bottom-Left Quadrant">
+                <h4>Bottom-Left</h4>
+                <p id="missed-bl">Missed: 0</p>
+            </div>
+            <div class="quadrant-stat-item" title="Bottom-Right Quadrant">
+                <h4>Bottom-Right</h4>
+                <p id="missed-br">Missed: 0</p>
+            </div>
+        </div>
+        
+        <h3>Performance Statistics</h3>
         <ul style="list-style: none; padding: 0;">
             <li><strong>Score:</strong> <span id="score"></span></li>
             <li><strong>Total Time:</strong> <span id="total-time"></span> seconds</li>
@@ -479,7 +581,11 @@
             <li><strong>Total Correct Answers:</strong> <span id="total-correct"></span></li>
             <li><strong>Total Incorrect Answers:</strong> <span id="total-incorrect"></span></li>
         </ul>
-        <a href="VN.html" style="text-decoration: none;"><button>Return Home</button></a>
+        
+        <div style="margin-top: 20px;">
+            <button id="restartBtn">Start Again</button>
+            <a href="index.html" style="text-decoration: none;"><button>Return Home</button></a>
+        </div>
     </div>
 
     <div id="report-container">
@@ -593,60 +699,105 @@
                         patientIndicator.textContent = 'Patient';
                         patientIndicator.style.display = 'inline-block';
                     } else {
-                        const patientIndicator = document.getElementById('patient-indicator');
-                        patientIndicator.style.display = 'none';
+                        document.getElementById('patientTestBanner').style.display = 'none';
                     }
                     
                     document.getElementById('profileIcon').textContent = initial;
-                    // Start the game
+                    // Initialize and start the game
+                    initGame();
                     startNewRound();
-                    questionImage.onclick = showOptions;
                 } catch (error) {
                     console.error('Error loading profile in VN1:', error);
                     document.getElementById('profileIcon').textContent = 'U';
                     // Start the game anyway
+                    initGame();
                     startNewRound();
-                    questionImage.onclick = showOptions;
                 }
-            } else {
-                window.location.href = 'login.html';
             }
         });
 
-        // Game statistics
-        let startTime;
-        let totalStartTime = Date.now();
+        // Variables for Visual Neglect Assessment
+        const gridSize = { cols: 6, rows: 8 };
+        const totalGridCells = gridSize.cols * gridSize.rows;
+        const targetCount = 4; // One target per quadrant
+        const totalRounds = 3;
+        
+        let gameStarted = false;
+        let currentRound = 1;
+        let foundTargets = [];
+        let missedTargets = [];
+        let roundStartTime;
+        let totalStartTime;
         let totalTaps = 0;
-        let firstTapTime = null;
-        let firstOptionSelected = false; // Track first option selection
-        let score = 0;
+        let correctAnswers = 0;
         let incorrectAnswers = 0;
-        let isPromptsOpen = false; // Track if prompts are open
-        let gameStarted = false; // Track if game has started
-        let answerTaps = 0; // Count taps only for answer selections
-
-        const baseImages = [
-            'images/VN/candy.png',
-            'images/VN/car.png',
-            'images/VN/comb.png',
-            'images/VN/cycle.png',
-            'images/VN/dog.png',
-            'images/VN/fish.png',
-            'images/VN/flower.png',
-            'images/VN/ice.png',
-            'images/VN/laddu.png',
-            'images/VN/parrot.png',
-            'images/VN/pencil.png',
-            'images/VN/shirt.png'
+        let timeTaken = [];
+        let firstTapTime = null;
+        let score = 0;
+        let isPromptsOpen = false;
+        
+        // Track missed targets by quadrant
+        let missedTargetsByQuadrant = {
+            'tl': 0, // top-left
+            'tr': 0, // top-right
+            'bl': 0, // bottom-left
+            'br': 0  // bottom-right
+        };
+        
+        // Image arrays for grid
+        const distractorImages = [
+            'https://tinyurl.com/2s4bzhrj', // cup
+            'https://tinyurl.com/53n95mu5', // chair
+            'https://tinyurl.com/3jwdp782', // book
+            'https://tinyurl.com/y33tw6bd', // pen
+            'https://tinyurl.com/4hu9y9vp', // phone
+            'https://tinyurl.com/2p8jb4vj', // clock
+            'https://tinyurl.com/mr3ye8z3', // glasses
+            'https://tinyurl.com/2s4cfrdx', // lamp
+            'https://tinyurl.com/2p8s5vwc', // key
+            'https://tinyurl.com/mwa9fmrt'  // plate
         ];
-
-        let currentQuestion = null;
-        let foundCount = 0;
-        let usedImagesInCurrentRound = [];
-        let currentOptions = [];
-
-        const questionImage = document.getElementById('questionImage');
-        const optionsContainer = document.getElementById('optionsContainer');
+        
+        const targetImages = [
+            'https://tinyurl.com/3vvwmhdm', // star
+            'https://tinyurl.com/3mu6e4z8', // heart
+            'https://tinyurl.com/59adfu7j', // flower
+            'https://tinyurl.com/bdzr8d27'  // bell
+        ];
+        
+                // Function to initialize the visual neglect assessment
+        function initGame() {
+            document.getElementById('currentRound').textContent = currentRound;
+            document.getElementById('totalRounds').textContent = totalRounds;
+            
+            // Set up event listeners
+            document.getElementById('nextRoundBtn').addEventListener('click', startNextRound);
+            document.getElementById('finishBtn').addEventListener('click', showResults);
+            document.getElementById('restartBtn').addEventListener('click', restartAssessment);
+            
+            // Initialize game state
+            gameStarted = true;
+            totalStartTime = Date.now();
+            firstTapTime = null;
+            foundTargets = [];
+            missedTargets = [];
+            
+            // Reset statistics for each round
+            correctAnswers = 0;
+            incorrectAnswers = 0;
+            totalTaps = 0;
+            
+            // Reset missed targets tracking
+            missedTargetsByQuadrant = {
+                'tl': 0,
+                'tr': 0,
+                'bl': 0,
+                'br': 0
+            };
+        }
+        
+        // Grid container reference
+        const gridContainer = document.getElementById('gridContainer');
 
         function shuffleArray(array) {
             for (let i = array.length - 1; i > 0; i--) {
@@ -655,50 +806,327 @@
             }
             return array;
         }
-
-        function selectRandomQuestion() {
-            const availableImages = baseImages.filter(img => !usedImagesInCurrentRound.includes(img));
+        
+        // Generate grid and start new round
+        function startNewRound() {
+            // Update round counter
+            document.getElementById('currentRound').textContent = currentRound;
             
-            if (availableImages.length === 0) {
-                usedImagesInCurrentRound = [];
-                currentQuestion = baseImages[Math.floor(Math.random() * baseImages.length)];
-            } else {
-                currentQuestion = availableImages[Math.floor(Math.random() * availableImages.length)];
+            // Clear grid container
+            gridContainer.innerHTML = '';
+            
+            // Reset round-specific variables
+            foundTargets = [];
+            roundStartTime = Date.now();
+            
+            // Create grid cells and place targets
+            createGrid();
+            
+            // Hide buttons during gameplay
+            document.getElementById('nextRoundBtn').style.display = 'none';
+            document.getElementById('finishBtn').style.display = 'none';
+        }
+        
+        // Generate the grid with targets in each quadrant
+        function createGrid() {
+            // Define quadrants (row start, row end, col start, col end)
+            const quadrants = {
+                'tl': {rowStart: 0, rowEnd: 4, colStart: 0, colEnd: 3}, // top left
+                'tr': {rowStart: 0, rowEnd: 4, colStart: 3, colEnd: 6}, // top right
+                'bl': {rowStart: 4, rowEnd: 8, colStart: 0, colEnd: 3}, // bottom left
+                'br': {rowStart: 4, rowEnd: 8, colStart: 3, colEnd: 6}  // bottom right
+            };
+            
+            // Shuffle target images for this round
+            const shuffledTargets = [...targetImages].sort(() => Math.random() - 0.5);
+            
+            // Shuffle distractor images
+            const shuffledDistractors = [...distractorImages].sort(() => Math.random() - 0.5);
+            
+            // Create grid cells
+            let distractorIndex = 0;
+            let targetIndex = 0;
+            let cellsWithContent = [];
+            
+            // Place targets in each quadrant
+            for (const quadKey in quadrants) {
+                const quadrant = quadrants[quadKey];
+                
+                // Pick a random position in this quadrant
+                const targetRow = Math.floor(Math.random() * (quadrant.rowEnd - quadrant.rowStart)) + quadrant.rowStart;
+                const targetCol = Math.floor(Math.random() * (quadrant.colEnd - quadrant.colStart)) + quadrant.colStart;
+                
+                // Save this position for the target
+                cellsWithContent.push({row: targetRow, col: targetCol, isTarget: true, quadrant: quadKey, targetIndex: targetIndex});
+                targetIndex++;
             }
             
-            usedImagesInCurrentRound.push(currentQuestion);
-            questionImage.src = currentQuestion;
-        }
-
-        function createOptionsArray() {
-            let options = new Array(20).fill(null);
-            options[0] = currentQuestion;
-            options[1] = currentQuestion;
-            
-            const others = baseImages.filter(img => img !== currentQuestion);
-            for (let i = 2; i < 20; i++) {
-                options[i] = others[i % others.length];
+            // Create all grid cells
+            for (let row = 0; row < gridSize.rows; row++) {
+                for (let col = 0; col < gridSize.cols; col++) {
+                    // Create a grid cell
+                    const gridItem = document.createElement('div');
+                    gridItem.className = 'grid-item';
+                    gridItem.dataset.row = row;
+                    gridItem.dataset.col = col;
+                    
+                    // Determine which quadrant this cell belongs to
+                    let quadKey = '';
+                    if (row < 4) {
+                        if (col < 3) quadKey = 'tl';
+                        else quadKey = 'tr';
+                    } else {
+                        if (col < 3) quadKey = 'bl';
+                        else quadKey = 'br';
+                    }
+                    gridItem.dataset.quadrant = quadKey;
+                    
+                    // Check if this cell should have a target
+                    const targetCell = cellsWithContent.find(cell => cell.row === row && cell.col === col && cell.isTarget);
+                    
+                    if (targetCell) {
+                        // This is a target cell
+                        const img = document.createElement('img');
+                        img.src = shuffledTargets[targetCell.targetIndex % shuffledTargets.length];
+                        img.alt = 'Target';
+                        img.width = 50;
+                        img.height = 50;
+                        gridItem.appendChild(img);
+                        gridItem.classList.add('target');
+                        gridItem.dataset.isTarget = 'true';
+                        gridItem.dataset.targetIndex = targetCell.targetIndex;
+                    } else {
+                        // This is a distractor cell
+                        const img = document.createElement('img');
+                        img.src = shuffledDistractors[distractorIndex % shuffledDistractors.length];
+                        img.alt = 'Distractor';
+                        img.width = 50;
+                        img.height = 50;
+                        gridItem.appendChild(img);
+                        distractorIndex++;
+                    }
+                    
+                    // Add click event handler
+                    gridItem.addEventListener('click', handleGridItemClick);
+                    
+                    // Add to the grid
+                    gridContainer.appendChild(gridItem);
+                }
             }
-            return shuffleArray(options);
         }
-
-        function displayOptions() {
-            optionsContainer.innerHTML = '';
-            currentOptions = createOptionsArray();
+        
+        // Handle clicks on grid items
+        function handleGridItemClick(event) {
+            if (!gameStarted) return;
             
-            currentOptions.forEach((imageSrc, index) => {
-                const img = document.createElement('img');
-                img.src = imageSrc;
-                img.className = 'option-image';
-                img.dataset.index = index;
-                img.onclick = () => checkAnswer(img, imageSrc);
-                optionsContainer.appendChild(img);
+            const gridItem = event.currentTarget;
+            const isTarget = gridItem.dataset.isTarget === 'true';
+            const quadrant = gridItem.dataset.quadrant;
+            
+            // Record first tap time
+            if (firstTapTime === null) {
+                firstTapTime = Date.now() - totalStartTime;
+            }
+            
+            // Count all taps for analytics
+            totalTaps++;
+            
+            if (isTarget && !gridItem.classList.contains('target-found')) {
+                // Found a target
+                correctAnswers++;
+                
+                // Mark as found
+                gridItem.classList.add('target-found');
+                
+                // Track this target as found
+                foundTargets.push({
+                    row: parseInt(gridItem.dataset.row),
+                    col: parseInt(gridItem.dataset.col),
+                    quadrant: quadrant
+                });
+                
+                // Check if all targets are found
+                if (foundTargets.length === targetCount) {
+                    setTimeout(() => {
+                        // Record time for this round
+                        const roundTime = Date.now() - roundStartTime;
+                        timeTaken.push(roundTime);
+                        
+                        // Find and mark missed targets
+                        markMissedTargets();
+                        
+                        // Check if this was the last round
+                        if (currentRound === totalRounds) {
+                            document.getElementById('finishBtn').style.display = 'block';
+                        } else {
+                            document.getElementById('nextRoundBtn').style.display = 'block';
+                        }
+                    }, 500);
+                }
+            } else if (!isTarget) {
+                // Clicked on a distractor
+                incorrectAnswers++;
+                
+                // Visual feedback (optional)
+                const originalBackground = gridItem.style.backgroundColor;
+                gridItem.style.backgroundColor = 'rgba(255, 0, 0, 0.2)';
+                setTimeout(() => {
+                    gridItem.style.backgroundColor = originalBackground;
+                }, 300);
+            }
+        }
+        
+        // Identify missed targets at the end of the round
+        function markMissedTargets() {
+            const gridItems = document.querySelectorAll('.grid-item');
+            gridItems.forEach(item => {
+                if (item.dataset.isTarget === 'true' && !item.classList.contains('target-found')) {
+                    // This is a missed target
+                    item.classList.add('missed-target');
+                    
+                    // Record the missed target
+                    const quadrant = item.dataset.quadrant;
+                    missedTargets.push({
+                        row: parseInt(item.dataset.row),
+                        col: parseInt(item.dataset.col),
+                        quadrant: quadrant
+                    });
+                    
+                    // Increment the counter for this quadrant
+                    missedTargetsByQuadrant[quadrant]++;
+                }
             });
         }
+        
+        // Start the next round
+        function startNextRound() {
+            currentRound++;
+            startNewRound();
+        }
+        
+        // Show final results
+        function showResults() {
+            gameStarted = false;
+            
+            // Calculate total time
+            const totalTime = Date.now() - totalStartTime;
+            const averageTime = timeTaken.length > 0 ? timeTaken.reduce((a, b) => a + b, 0) / timeTaken.length : 0;
+            
+            // Update quadrant results display
+            document.getElementById('missed-tl').textContent = `Missed: ${missedTargetsByQuadrant.tl}`;
+            document.getElementById('missed-tr').textContent = `Missed: ${missedTargetsByQuadrant.tr}`;
+            document.getElementById('missed-bl').textContent = `Missed: ${missedTargetsByQuadrant.bl}`;
+            document.getElementById('missed-br').textContent = `Missed: ${missedTargetsByQuadrant.br}`;
+            
+            // Update performance statistics
+            document.getElementById('score').textContent = correctAnswers;
+            document.getElementById('total-time').textContent = (totalTime / 1000).toFixed(2);
+            document.getElementById('avg-time').textContent = (averageTime / 1000).toFixed(2);
+            document.getElementById('first-tap').textContent = firstTapTime ? (firstTapTime / 1000).toFixed(2) : 'N/A';
+            document.getElementById('total-taps').textContent = totalTaps;
+            document.getElementById('total-correct').textContent = correctAnswers;
+            document.getElementById('total-incorrect').textContent = incorrectAnswers;
+            
+            // Show results container and hide other containers
+            document.getElementById('gridContainer').style.display = 'none';
+            document.getElementById('result-container').style.display = 'block';
+            document.getElementById('instructions').style.display = 'none';
+            document.getElementById('roundInfo').style.display = 'none';
+            document.getElementById('report-container').style.display = 'none';
+            
+            // Add results to be saved
+            const results = {
+                missedByQuadrant: missedTargetsByQuadrant,
+                score: correctAnswers,
+                totalTime: totalTime,
+                averageTime: averageTime,
+                firstTapTime: firstTapTime,
+                totalTaps: totalTaps,
+                correctAnswers: correctAnswers,
+                incorrectAnswers: incorrectAnswers,
+                timestamp: Date.now()
+            };
+            
+            // Save results
+            saveResults(results);
+        }
+        
+        // Restart the assessment
+        function restartAssessment() {
+            // Reset all variables
+            currentRound = 1;
+            foundTargets = [];
+            missedTargets = [];
+            missedTargetsByQuadrant = {
+                'tl': 0, 'tr': 0, 'bl': 0, 'br': 0
+            };
+            correctAnswers = 0;
+            incorrectAnswers = 0;
+            totalTaps = 0;
+            timeTaken = [];
+            firstTapTime = null;
+            
+            // Reset UI
+            document.getElementById('gridContainer').style.display = 'grid';
+            document.getElementById('result-container').style.display = 'none';
+            document.getElementById('instructions').style.display = 'block';
+            document.getElementById('roundInfo').style.display = 'block';
+            
+            // Start new round
+            initGame();
+            startNewRound();
+        }
+        
+        // Save assessment results to Firebase
+        function saveResults(results) {
+            // Check if user is logged in and Firebase is initialized
+            if (typeof firebase !== 'undefined' && firebase.auth().currentUser) {
+                const user = firebase.auth().currentUser;
+                const db = firebase.firestore();
+                
+                let quizData = {
+                    userId: user.uid,
+                    quizType: 'VN1',
+                    results: results,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    isPatient: isPatient
+                };
+                
+                if (patientId) {
+                    quizData.patientId = patientId;
+                }
+                
+                db.collection('quizResults').add(quizData)
+                .then(() => {
+                    console.log('Results successfully saved');
+                })
+                .catch((error) => {
+                    console.error('Error saving results: ', error);
+                });
+            } else {
+                // For local testing or when Firebase is not available
+                console.log('Results saved locally:', results);
+                localStorage.setItem('vn1Results', JSON.stringify(results));
+            }
+        }
 
-        function showFeedback(isCorrect) {
-            const div = document.createElement('div');
-            div.className = isCorrect ? 'correct-feedback' : 'incorrect-feedback';
+function showFeedback(isCorrect) {
+    const div = document.createElement('div');
+    div.className = isCorrect ? 'correct-feedback' : 'incorrect-feedback';
+    div.textContent = isCorrect ? 'Correct!' : 'Try Again!';
+    document.body.appendChild(div);
+    setTimeout(() => div.remove(), 1000);
+}
+
+function checkAnswer(imgElement, selectedImage) {
+    // Count taps when an answer option is selected
+    answerTaps++;
+
+    // Record first tap time on the first option selection
+    if (!firstOptionSelected) {
+        firstTapTime = (Date.now() - totalStartTime) / 1000;
+        firstOptionSelected = true;
+    }
             div.textContent = isCorrect ? 'Correct!' : 'Try Again!';
             document.body.appendChild(div);
             setTimeout(() => div.remove(), 1000);
