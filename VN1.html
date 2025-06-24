@@ -96,15 +96,33 @@
             display: flex;
             justify-content: center;
             align-items: center;
+            overflow: visible;
         }
         
-        /* Force image display */
-        img[src^="https://dummyimage.com"] {
-            display: inline-block !important;
+        /* Style for all images */
+        .image-container img {
+            display: block !important;
             visibility: visible !important;
             opacity: 1 !important;
             min-width: 40px;
             min-height: 40px;
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            border: none;
+            outline: none;
+        }
+        
+        /* Target image styles */
+        .target-image {
+            border: 2px solid transparent;
+            border-radius: 5px;
+        }
+        
+        /* Distractor image styles */
+        .distractor-image {
+            border: 2px solid transparent;
+            border-radius: 5px;
         }
 
         .grid-item:hover {
@@ -770,40 +788,41 @@
             'br': 0  // bottom-right
         };
         
-        // Using direct SVG creation instead of URLs
-        function createSvgElement(text, color) {
-            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-            svg.setAttribute('width', '40');
-            svg.setAttribute('height', '40');
-            svg.setAttribute('viewBox', '0 0 40 40');
-            
-            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            circle.setAttribute('cx', '20');
-            circle.setAttribute('cy', '20');
-            circle.setAttribute('r', '18');
-            circle.setAttribute('fill', color);
-            
-            const textElement = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            textElement.setAttribute('x', '20');
-            textElement.setAttribute('y', '27');
-            textElement.setAttribute('text-anchor', 'middle');
-            textElement.setAttribute('font-size', '20');
-            textElement.setAttribute('fill', 'white');
-            textElement.textContent = text;
-            
-            svg.appendChild(circle);
-            svg.appendChild(textElement);
-            
-            return svg;
+        // Use the VN-specific images from the project directory
+        const allImages = [
+            'images/VN/candy.png',
+            'images/VN/car.png',
+            'images/VN/comb.png',
+            'images/VN/cycle.png',
+            'images/VN/dog.png',
+            'images/VN/fish.png',
+            'images/VN/flower.png',
+            'images/VN/ice.png',
+            'images/VN/laddu.png',
+            'images/VN/parrot.png',
+            'images/VN/pencil.png',
+            'images/VN/shirt.png'
+        ];
+        
+        // Shuffle the array to get random distribution
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
         }
         
-        // Define symbols for distractors and targets
-        const distractorSymbols = ['C', 'H', 'B', 'P', 'T', 'K', 'G', 'L', 'Y', 'D'];
-        const targetSymbols = ['★', '♥', '✿', '♫'];
+        // Shuffle the images
+        const shuffledImages = shuffleArray([...allImages]);
         
-        // These will be used to create SVGs directly in the DOM
-        const distractorColor = '#2196F3'; // Blue
-        const targetColor = '#4CAF50';      // Green
+        // Select 4 images as targets and the rest as distractors
+        const targetImages = shuffledImages.slice(0, 4);
+        const distractorImages = shuffledImages.slice(4);
+        
+        // Mark target images with specific class to identify them visually
+        const targetImageClass = 'target-image';
+        const distractorImageClass = 'distractor-image';
         
                 // Function to initialize the visual neglect assessment
         function initGame() {
@@ -925,39 +944,71 @@
                     const targetCell = cellsWithContent.find(cell => cell.row === row && cell.col === col && cell.isTarget);
                     
                     if (targetCell) {
-                        // This is a target cell - Create SVG directly
+                        // This is a target cell - Create an image element
                         const imageContainer = document.createElement('div');
                         imageContainer.className = 'image-container';
-                        imageContainer.style.width = '50px';
-                        imageContainer.style.height = '50px';
+                        imageContainer.style.width = '60px';
+                        imageContainer.style.height = '60px';
                         imageContainer.style.display = 'flex';
                         imageContainer.style.justifyContent = 'center';
                         imageContainer.style.alignItems = 'center';
                         
-                        // Create SVG element with target symbol
-                        const symbol = targetSymbols[targetCell.targetIndex % targetSymbols.length];
-                        const svg = createSvgElement(symbol, targetColor);
+                        // Create image element
+                        const img = document.createElement('img');
+                        img.src = targetImages[targetCell.targetIndex % targetImages.length];
+                        img.alt = 'Target';
+                        img.className = targetImageClass;
+                        img.style.width = '50px';
+                        img.style.height = '50px';
+                        img.style.objectFit = 'contain';
                         
-                        imageContainer.appendChild(svg);
+                        // Fallback if image fails to load
+                        img.onerror = function() {
+                            const fallback = document.createElement('div');
+                            fallback.textContent = 'T';
+                            fallback.style.fontSize = '24px';
+                            fallback.style.fontWeight = 'bold';
+                            fallback.style.color = 'green';
+                            imageContainer.innerHTML = '';
+                            imageContainer.appendChild(fallback);
+                        };
+                        
+                        imageContainer.appendChild(img);
                         gridItem.appendChild(imageContainer);
                         gridItem.classList.add('target');
                         gridItem.dataset.isTarget = 'true';
                         gridItem.dataset.targetIndex = targetCell.targetIndex;
                     } else {
-                        // This is a distractor cell - Create SVG directly
+                        // This is a distractor cell - Create an image element
                         const imageContainer = document.createElement('div');
                         imageContainer.className = 'image-container';
-                        imageContainer.style.width = '50px';
-                        imageContainer.style.height = '50px';
+                        imageContainer.style.width = '60px';
+                        imageContainer.style.height = '60px';
                         imageContainer.style.display = 'flex';
                         imageContainer.style.justifyContent = 'center';
                         imageContainer.style.alignItems = 'center';
                         
-                        // Create SVG element with distractor symbol
-                        const symbol = distractorSymbols[distractorIndex % distractorSymbols.length];
-                        const svg = createSvgElement(symbol, distractorColor);
+                        // Create image element
+                        const img = document.createElement('img');
+                        img.src = distractorImages[distractorIndex % distractorImages.length];
+                        img.alt = 'Distractor';
+                        img.className = distractorImageClass;
+                        img.style.width = '50px';
+                        img.style.height = '50px';
+                        img.style.objectFit = 'contain';
                         
-                        imageContainer.appendChild(svg);
+                        // Fallback if image fails to load
+                        img.onerror = function() {
+                            const fallback = document.createElement('div');
+                            fallback.textContent = 'D';
+                            fallback.style.fontSize = '24px';
+                            fallback.style.fontWeight = 'bold';
+                            fallback.style.color = 'blue';
+                            imageContainer.innerHTML = '';
+                            imageContainer.appendChild(fallback);
+                        };
+                        
+                        imageContainer.appendChild(img);
                         gridItem.appendChild(imageContainer);
                         distractorIndex++;
                     }
