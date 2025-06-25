@@ -1145,6 +1145,9 @@
                 imageObservationsFound[currentImageIndex] = [];
             }
             
+            // Clear any previous observations for this analysis to prevent contamination
+            imageObservationsFound[currentImageIndex] = [];
+            
             // Start with a fresh array for this analysis
             const specificObservationsFound = [];
             
@@ -1328,12 +1331,11 @@
             const criteriaDisplay = document.getElementById('criteriaMatched');
             // Create a list of found observations
             if (specificObservationsFound.length > 0 && updateDisplay) {
-                // Store only unique observations for this image
+                // Store only the observations found in this current analysis
                 imageObservationsFound[currentImageIndex] = [...new Set(specificObservationsFound)];
                 
                 let matchedHTML = `
-                    <div class="matched-criteria-header">Great job! You observed:</div>
-                    <ul class="criteria-list">
+                    <h4>You observed:</h4><ul>
                 `;
                 
                 // Use the imageObservationsFound array which contains only unique observations
@@ -1347,19 +1349,18 @@
                 
                 // Save the matched criteria for this image
                 imageMatchedCriteria[currentImageIndex] = matchedHTML;
+            } else {
+                // No observations found, clear the display
+                imageObservationsFound[currentImageIndex] = [];
+                criteriaDisplay.innerHTML = '';
+                criteriaDisplay.style.display = 'none';
+                imageMatchedCriteria[currentImageIndex] = '';
             }
             
             // Update auto score based on observations found - with age-appropriate feedback
             if (updateDisplay) {
-                // Count unique observations for scoring using our stored unique observations
-                // Make sure we have unique observations stored
-                if (!imageObservationsFound[currentImageIndex]) {
-                    imageObservationsFound[currentImageIndex] = [];
-                }
-                
-                // Ensure uniqueness again
-                imageObservationsFound[currentImageIndex] = [...new Set(specificObservationsFound)];
-                const uniqueCount = imageObservationsFound[currentImageIndex].length;
+                // Use the observations found in this current analysis only
+                const uniqueCount = specificObservationsFound.length;
                 
                 // Store numeric score value (0-5 scale)
                 let scoreValue = 0;
