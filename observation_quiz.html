@@ -282,17 +282,56 @@
             padding: 15px;
             background-color: #f0f0f0;
             border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .evaluator-header {
+            font-weight: bold;
+            color: #444;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+        }
+        
+        .score-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: flex-start;
+        }
+        
+        .feedback-container {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+        }
+        
+        #evaluatorFeedback {
+            height: 80px;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            font-family: inherit;
+            resize: vertical;
+        }
+        
+        .evaluator-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 10px;
         }
         
         select {
             padding: 10px;
             font-size: 1.1em;
             border-radius: 5px;
-            border: 1px solid #ddd;
-        }
-        
-        .save-btn {
-            background-color: #3498db;
+            border: 1px solid #ccc;
+            margin-right: 10px;
+            cursor: pointer;
+            background-color: white;
         }
         
         .next-btn {
@@ -389,15 +428,23 @@
         </div>
         
         <div class="evaluator-controls">
-            <p class="score-label">Evaluator score:</p>
-            <select id="evaluatorScore">
-                <option value="">Select score</option>
-                <option value="0">No observations (0 verbs)</option>
-                <option value="1">1-2 observations</option>
-                <option value="2">3+ observations</option>
-            </select>
-            <button id="saveBtn" class="btn save-btn">Save Result</button>
-            <button id="nextImageBtn" class="btn next-btn">Next Image</button>
+            <div class="evaluator-header">Teacher/Evaluator Controls:</div>
+            <div class="score-options">
+                <select id="evaluatorScore">
+                    <option value="">Select score...</option>
+                    <option value="0">No observations (0)</option>
+                    <option value="1">1-2 observations</option>
+                    <option value="2">3+ observations</option>
+                </select>
+                <div class="feedback-container">
+                    <label for="evaluatorFeedback">Written feedback:</label>
+                    <textarea id="evaluatorFeedback" placeholder="Add specific feedback for this child..."></textarea>
+                </div>
+            </div>
+            <div class="evaluator-buttons">
+                <button id="saveBtn" class="btn save-btn">Save Result</button>
+                <button id="nextImageBtn" class="btn next-btn">Next Image</button>
+            </div>
         </div>
         </div>
     </div>
@@ -605,6 +652,9 @@
         // Current image index
         let currentImageIndex = 0;
         
+        // Store transcripts for each image
+        const imageTranscripts = {};
+        
         // DOM Elements
         const micBtn = document.getElementById('micBtn');
         const transcript = document.getElementById('transcript');
@@ -680,8 +730,25 @@
         
         // Load image based on index
         function loadImage(index) {
+            // Save current transcript before changing images
+            if (transcript.textContent !== "Start speaking to see your words here! Remember to describe ALL actions you see in the image." && 
+                transcript.textContent !== "Listening... Please describe all actions you can see happening in the image.") {
+                imageTranscripts[currentImageIndex] = transcript.textContent;
+            }
+            
+            // Update current image index
+            currentImageIndex = index;
             observationImage.src = images[index];
             updateNavButtons();
+            
+            // Load transcript for this image if it exists
+            if (imageTranscripts[index]) {
+                transcript.innerHTML = imageTranscripts[index];
+                analyzeTranscript(transcript.textContent);
+            } else {
+                transcript.textContent = "Start speaking to see your words here! Remember to describe ALL actions you see in the image.";
+                autoScore.textContent = "Waiting for observation...";
+            }
             
             // Display image-specific information for evaluator
             const currentCriteria = imageObservations[index];
@@ -699,8 +766,21 @@
         
         // Reset quiz for new image
         function resetQuiz() {
-            transcript.textContent = "Start speaking to see your words here! Remember to describe ALL actions you see in the image.";
-            autoScore.textContent = "Waiting for observation...";
+            // Save the current transcript if available
+            if (transcript.textContent !== "Start speaking to see your words here! Remember to describe ALL actions you see in the image." && 
+                transcript.textContent !== "Listening... Please describe all actions you can see happening in the image.") {
+                imageTranscripts[currentImageIndex] = transcript.textContent;
+            }
+            
+            // Load any existing transcript for the new image
+            if (imageTranscripts[currentImageIndex]) {
+                transcript.innerHTML = imageTranscripts[currentImageIndex];
+                analyzeTranscript(transcript.textContent);
+            } else {
+                transcript.textContent = "Start speaking to see your words here! Remember to describe ALL actions you see in the image.";
+                autoScore.textContent = "Waiting for observation...";
+            }
+            
             evaluatorScore.value = "";
         }
         
@@ -813,9 +893,16 @@
         
         // Handle speech recognition results
         if (recognition) {
-            let fullTranscript = ''; // Store the complete transcript across multiple recognitions
+            // Initialize the fullTranscript for each image separately
+            let fullTranscriptMap = {};
             
             recognition.onresult = (event) => {
+                // Get or initialize the transcript for the current image
+                if (!fullTranscriptMap[currentImageIndex]) {
+                    fullTranscriptMap[currentImageIndex] = '';
+                }
+                
+                let fullTranscript = fullTranscriptMap[currentImageIndex];
                 let interimTranscript = '';
                 let finalTranscript = '';
                 
@@ -823,7 +910,12 @@
                     const transcriptText = event.results[i][0].transcript;
                     
                     if (event.results[i].isFinal) {
-                        finalTranscript += transcriptText + ' ';
+                        // Add proper punctuation if missing
+                        let formattedText = transcriptText.trim();
+                        if (formattedText && !formattedText.match(/[.!?]$/)) {
+                            formattedText += '.';
+                        }
+                        finalTranscript += formattedText + ' ';
                     } else {
                         interimTranscript += transcriptText;
                     }
@@ -832,16 +924,47 @@
                 // Append to full transcript if we have final results
                 if (finalTranscript) {
                     fullTranscript += finalTranscript;
+                    fullTranscriptMap[currentImageIndex] = fullTranscript;
                 }
                 
+                // Format the transcript with proper sentence capitalization
+                let formattedTranscript = formatTranscript(fullTranscript);
+                
                 // Update transcript display with full content
-                transcript.textContent = fullTranscript + (interimTranscript ? interimTranscript : '');
+                transcript.textContent = formattedTranscript + (interimTranscript ? interimTranscript : '');
+                imageTranscripts[currentImageIndex] = transcript.textContent;
                 
                 // Analyze the complete transcript for action verbs
                 if (fullTranscript) {
                     analyzeTranscript(fullTranscript);
                 }
             };
+            
+            // Function to format transcript with proper capitalization and punctuation
+            function formatTranscript(text) {
+                if (!text) return '';
+                
+                // Ensure sentences end with punctuation
+                let formatted = text.replace(/\s+/g, ' ').trim();
+                
+                // Split by sentence-ending punctuation
+                let sentences = formatted.split(/([.!?]+)/);
+                let result = '';
+                
+                // Process each sentence fragment and its punctuation
+                for (let i = 0; i < sentences.length; i += 2) {
+                    let sentence = sentences[i].trim();
+                    let punctuation = sentences[i+1] || '.';
+                    
+                    if (sentence) {
+                        // Capitalize the first letter of each sentence
+                        sentence = sentence.charAt(0).toUpperCase() + sentence.slice(1);
+                        result += sentence + punctuation + ' ';
+                    }
+                }
+                
+                return result.trim();
+            }
             
             recognition.onerror = (event) => {
                 console.error("Speech recognition error:", event.error);
@@ -964,8 +1087,11 @@
             // Update transcript with highlighted verbs
             transcript.innerHTML = highlightedText;
             
+            // Count unique observation types (to handle repetitions)
+            const uniqueObservations = [...new Set(specificObservationsFound)];
+            const observationCount = uniqueObservations.length || observationSentences.length;
+            
             // Generate auto score based on observation count with child-appropriate feedback
-            const observationCount = specificObservationsFound.length || observationSentences.length;
             let scoreText = "";
             let scoreValue = "";
             
@@ -978,6 +1104,11 @@
             } else {
                 scoreText = "Excellent! You found " + observationCount + " different activities!";
                 scoreValue = "2";
+            }
+            
+            // Log any repeated observations that were counted only once
+            if (specificObservationsFound.length > uniqueObservations.length) {
+                console.log(`Note: ${specificObservationsFound.length - uniqueObservations.length} repeated observations were counted only once`);
             }
             
             // Update auto score display
@@ -1055,6 +1186,12 @@
                                     <span class="detail-label">Auto Score:</span>
                                     <span>${report.autoScore || 'Not available'}</span>
                                 </div>
+                                ${report.evaluatorFeedback ? `
+                                <div class="detail-row">
+                                    <span class="detail-label">Teacher Feedback:</span>
+                                    <span class="feedback-text">${report.evaluatorFeedback}</span>
+                                </div>
+                                ` : ''}
                             </div>
                         </div>
                     `;
@@ -1091,12 +1228,14 @@
                 
                 // Create results object
                 const timestamp = Date.now();
+                const evaluatorFeedback = document.getElementById('evaluatorFeedback').value;
                 const results = {
                     imageId: currentImageIndex,
                     imageUrl: images[currentImageIndex],
                     transcript: transcript.textContent,
                     autoScore: autoScore.textContent,
                     finalScore: evaluatorScore.options[evaluatorScore.selectedIndex].text,
+                    evaluatorFeedback: evaluatorFeedback || "",
                     timestamp: new Date().toISOString()
                 };
                 
