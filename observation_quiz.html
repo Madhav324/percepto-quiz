@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Child Observation Quiz - What's Happening?</title>
+    <style>
+        /* Child-friendly styling with website integration */
+        body {
+            font-family: 'Comic Sans MS', 'Nunito', Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            overflow-y: auto;
+        }
+        
+        /* Profile icon styling */
+        .profile-icon {
+            width: 40px;
+            height: 40px;
+            background-color: #4a90e2;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            position: relative;
+        }
+        
+        .profile-icon:before {
+            content: '\1f464';
+            font-size: 20px;
+        }
+        
+        /* Header styling */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            padding: 15px 20px;
+            background-color: #6a5acd;
+            color: white;
+            border-radius: 12px 12px 0 0;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 2.2em;
+        }
+        
+        /* Quiz container */
+        #quiz-container {
+            width: 90%;
+            max-width: 800px;
+            background-color: #ffffff;
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.15);
+            margin: 20px auto;
+            overflow: hidden;
+        }
+        
+        /* Quiz result container */
+        .quiz-result {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 500px;
+        }
+        
+        /* Report container styles */
+        #report-container {
+            width: 90%;
+            max-width: 800px;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+            margin: 20px auto;
+            padding: 20px;
+            display: none;
+        }
+        
+        .attempt-item {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid #4a90e2;
+        }
+        
+        .attempt-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .attempt-date {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+        
+        .attempt-score {
+            font-weight: bold;
+            color: #4a90e2;
+        }
+        
+        .attempt-details {
+            font-size: 0.95rem;
+        }
+        
+        .detail-row {
+            margin-bottom: 5px;
+        }
+        
+        .detail-label {
+            font-weight: 500;
+            margin-right: 8px;
+            color: #495057;
+        }
+        
+        #clear-report {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 8px 15px;
+            cursor: pointer;
+            font-weight: 500;
+            margin-top: 10px;
+        }
+        
+        #clear-report:hover {
+            background-color: #c82333;
+        }
+        
+        /* Patient test banner */
+        .patient-test-banner {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin: 10px 20px;
+            font-weight: 500;
+        }
+        
+        .patient-indicator {
+            background-color: #dc3545;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+        
+        #quiz-content {
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .instructions {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            color: #444;
+        }
+        
+        .image-container {
+            position: relative;
+            width: 100%;
+            height: 400px;
+            margin: 20px 0;
+            border: 5px solid #ffb6c1;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .image-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+        }
+        
+        .btn {
+            background-color: #ff6b6b;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 15px 25px;
+            font-size: 1.2em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.1s, background-color 0.3s;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        .btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .btn:active {
+            transform: scale(0.98);
+        }
+        
+        .mic-btn {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background-color: #ff6b6b;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2em;
+            transition: all 0.3s;
+        }
+        
+        .mic-btn.recording {
+            background-color: #ff0000;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        .transcript-container {
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+            min-height: 100px;
+            text-align: left;
+        }
+        
+        .transcript {
+            font-size: 1.2em;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .score-container {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #e9f7ef;
+            border-radius: 10px;
+        }
+        
+        .score-label {
+            font-size: 1.3em;
+            color: #444;
+            margin-bottom: 10px;
+        }
+        
+        .score-display {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #2ecc71;
+        }
+        
+        .evaluator-controls {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+        }
+        
+        select {
+            padding: 10px;
+            font-size: 1.1em;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        
+        .save-btn {
+            background-color: #3498db;
+        }
+        
+        .next-btn {
+            background-color: #2ecc71;
+        }
+        
+        .highlighted {
+            background-color: #ffeb3b;
+            padding: 2px;
+            border-radius: 3px;
+        }
+        
+        .nav-arrows {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        
+        .arrow-btn {
+            background-color: #9b59b6;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 10px 15px;
+            font-size: 1.2em;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                width: 95%;
+                padding: 15px;
+            }
+            
+            .instructions {
+                font-size: 1.2em;
+            }
+            
+            .image-container {
+                height: 300px;
+            }
+            
+            .btn {
+                padding: 12px 20px;
+                font-size: 1em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="quiz-container">
+        <div class="header">
+            <h1>What's Happening? 🔍</h1>
+            <div class="profile-icon" id="profileIcon" title="Back to Home" onclick="window.location.href='index.html'"></div>
+        </div>
+        
+        <div id="quiz-content">
+            <div class="patient-test-banner" id="patientTestBanner" style="display: none">
+                <span id="patientName"></span>
+                <div class="patient-indicator">Patient Test</div>
+            </div>
+        <p class="instructions">Look at the picture and tell me what is happening! 😃</p>
+        
+        <div class="nav-arrows">
+            <button id="prevBtn" class="arrow-btn hidden">⬅️ Previous</button>
+            <button id="nextBtn" class="arrow-btn hidden">Next ➡️</button>
+        </div>
+        
+        <div class="image-container">
+            <img id="observationImage" src="images/VC/sample1.jpg" alt="Observation image">
+        </div>
+        
+        <div class="controls">
+            <button id="micBtn" class="mic-btn">🎤</button>
+        </div>
+        
+        <div class="transcript-container">
+            <p class="score-label">Child's observations:</p>
+            <p id="transcript" class="transcript">Start speaking to see your words here!</p>
+        </div>
+        
+        <div class="score-container">
+            <p class="score-label">Auto-score:</p>
+            <p id="autoScore" class="score-display">Waiting for observation...</p>
+        </div>
+        
+        <div class="evaluator-controls">
+            <p class="score-label">Evaluator score:</p>
+            <select id="evaluatorScore">
+                <option value="">Select score</option>
+                <option value="0">No observations (0 verbs)</option>
+                <option value="1">1-2 observations</option>
+                <option value="2">3+ observations</option>
+            </select>
+            <button id="saveBtn" class="btn save-btn">Save Result</button>
+            <button id="nextImageBtn" class="btn next-btn">Next Image</button>
+        </div>
+        </div>
+    </div>
+    
+    <div id="report-container">
+        <h2>Previous Attempts</h2>
+        <div id="report-list"></div>
+        <button id="clear-report" onclick="clearReport()">Clear Report</button>
+    </div>
+
+    <!-- Firebase App (the core Firebase SDK) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <!-- Firebase Auth -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <!-- Firebase Database -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    
+    <!-- Speech Recognition, Scoring and Firebase Script -->
+    <script>
+        // Firebase configuration - Same as used across the site
+        const firebaseConfig = {
+            apiKey: "AIzaSyDFENL5Z_2Cewh4p6zp_BZtxL9n0di-9u8",
+            authDomain: "projeccvi.firebaseapp.com",
+            projectId: "projeccvi",
+            storageBucket: "projeccvi.appspot.com",
+            messagingSenderId: "571019207511",
+            appId: "1:571019207511:web:5768efc4c01e7b95a9b842"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const database = firebase.database();
+        
+        // Check if user is in patient mode
+        const currentPatientId = sessionStorage.getItem('currentPatientId');
+        const doctorId = sessionStorage.getItem('doctorId');
+        const isPatientQuiz = !!(currentPatientId && doctorId);
+        
+        console.log('Quiz context:', {
+            isPatientQuiz, 
+            currentPatientId: currentPatientId || 'none',
+            doctorId: doctorId || 'none'
+        });
+        
+        // Sample images for the quiz
+        const images = [
+            "images/VC/sample1.jpg",
+            "images/VC/sample2.jpg",
+            "images/VC/sample3.jpg",
+            "images/VC/sample4.jpg",
+            "images/VC/sample5.jpg"
+        ];
+        
+        // Current image index
+        let currentImageIndex = 0;
+        
+        // DOM Elements
+        const micBtn = document.getElementById('micBtn');
+        const transcript = document.getElementById('transcript');
+        const autoScore = document.getElementById('autoScore');
+        const evaluatorScore = document.getElementById('evaluatorScore');
+        const saveBtn = document.getElementById('saveBtn');
+        const nextImageBtn = document.getElementById('nextImageBtn');
+        const observationImage = document.getElementById('observationImage');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const patientTestBanner = document.getElementById('patientTestBanner');
+        const patientName = document.getElementById('patientName');
+        
+        // Update UI if in patient mode
+        if (isPatientQuiz) {
+            // Show patient banner
+            patientTestBanner.style.display = 'flex';
+            
+            // Try to get patient name from sessionStorage
+            const patientDisplayName = sessionStorage.getItem('patientDisplayName');
+            if (patientDisplayName) {
+                patientName.textContent = patientDisplayName;
+            } else {
+                patientName.textContent = `Patient ID: ${currentPatientId}`;
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize the quiz
+            loadImage(currentImageIndex);
+            setupNavigationButtons();
+            
+            // Check for previous reports once auth state is determined
+            auth.onAuthStateChanged(function(user) {
+                if (user) {
+                    console.log("User is logged in:", user.uid);
+                    loadPreviousReports();
+                } else {
+                    console.log("No user is currently logged in.");
+                }
+            });
+        });
+
+        // Set up navigation buttons
+        function setupNavigationButtons() {
+            prevBtn.addEventListener('click', () => {
+                if (currentImageIndex > 0) {
+                    currentImageIndex--;
+                    loadImage(currentImageIndex);
+                }
+            });
+            
+            nextBtn.addEventListener('click', () => {
+                if (currentImageIndex < images.length - 1) {
+                    currentImageIndex++;
+                    loadImage(currentImageIndex);
+                }
+            });
+            
+            nextImageBtn.addEventListener('click', () => {
+                if (currentImageIndex < images.length - 1) {
+                    currentImageIndex++;
+                    loadImage(currentImageIndex);
+                    resetQuiz();
+                } else {
+                    alert("You've reached the last image!");
+                }
+            });
+            
+            // Update navigation button visibility
+            updateNavButtons();
+        }
+        
+        // Load image based on index
+        function loadImage(index) {
+            observationImage.src = images[index];
+            updateNavButtons();
+        }
+        
+        // Update navigation buttons visibility
+        function updateNavButtons() {
+            prevBtn.classList.toggle('hidden', currentImageIndex === 0);
+            nextBtn.classList.toggle('hidden', currentImageIndex === images.length - 1);
+        }
+        
+        // Reset quiz for new image
+        function resetQuiz() {
+            transcript.textContent = "Start speaking to see your words here!";
+            autoScore.textContent = "Waiting for observation...";
+            evaluatorScore.value = "";
+        }
+        
+        // Action verbs to detect in speech
+        const actionVerbs = [
+            "running", "jumping", "playing", "eating", "drinking", "sitting", "standing", "walking", 
+            "talking", "singing", "dancing", "swimming", "flying", "climbing", "crawling", "sliding",
+            "riding", "driving", "pushing", "pulling", "throwing", "catching", "kicking", "hitting",
+            "reading", "writing", "drawing", "painting", "building", "breaking", "cutting", "folding",
+            "washing", "cleaning", "cooking", "baking", "smiling", "laughing", "crying", "sleeping",
+            "waking", "dressing", "undressing", "fighting", "hugging", "kissing", "waving", "pointing",
+            "hiding", "seeking", "falling", "rising", "shopping", "selling", "buying", "giving",
+            "taking", "making", "creating", "destroying", "opening", "closing", "starting", "stopping",
+            "looking", "watching", "seeing", "hearing", "listening", "touching", "feeling", "tasting",
+            "smelling", "thinking", "knowing", "learning", "teaching", "helping", "hurting", "caring",
+            "run", "jump", "play", "eat", "drink", "sit", "stand", "walk", "talk", "sing", "dance",
+            "swim", "fly", "climb", "crawl", "slide", "ride", "drive", "push", "pull", "throw", "catch",
+            "kick", "hit", "read", "write", "draw", "paint", "build", "break", "cut", "fold", "wash",
+            "clean", "cook", "bake", "smile", "laugh", "cry", "sleep", "wake", "dress", "undress",
+            "fight", "hug", "kiss", "wave", "point", "hide", "seek", "fall", "rise", "shop", "sell",
+            "buy", "give", "take", "make", "create", "destroy", "open", "close", "start", "stop",
+            "look", "watch", "see", "hear", "listen", "touch", "feel", "taste", "smell", "think",
+            "know", "learn", "teach", "help", "hurt", "care", "like", "love", "hate", "want", "need"
+        ];
+        
+        // Speech recognition setup
+        let recognition = null;
+        try {
+            // Initialize Web Speech API
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'en-US';
+            
+            console.log("Speech recognition supported");
+        } catch (e) {
+            console.error("Speech recognition not supported:", e);
+            alert("Speech recognition is not supported in your browser. Please use Chrome or Edge.");
+            micBtn.disabled = true;
+        }
+        
+        // Recording state
+        let isRecording = false;
+        let audioChunks = [];
+        let mediaRecorder = null;
+        
+        // Handle microphone button click
+        micBtn.addEventListener('click', toggleRecording);
+        
+        // Toggle recording state
+        function toggleRecording() {
+            if (!recognition) return;
+            
+            if (isRecording) {
+                // Stop recording
+                stopRecording();
+            } else {
+                // Start recording
+                startRecording();
+            }
+        }
+        
+        // Start recording
+        function startRecording() {
+            if (!recognition) return;
+            
+            // Start speech recognition
+            recognition.start();
+            isRecording = true;
+            micBtn.classList.add('recording');
+            transcript.textContent = "Listening...";
+            
+            // Also start audio recording if supported
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ audio: true })
+                    .then(stream => {
+                        mediaRecorder = new MediaRecorder(stream);
+                        mediaRecorder.ondataavailable = (e) => {
+                            if (e.data.size > 0) audioChunks.push(e.data);
+                        };
+                        audioChunks = [];
+                        mediaRecorder.start();
+                    })
+                    .catch(error => console.error("Error accessing microphone:", error));
+            }
+        }
+        
+        // Stop recording
+        function stopRecording() {
+            if (!recognition) return;
+            
+            // Stop speech recognition
+            recognition.stop();
+            isRecording = false;
+            micBtn.classList.remove('recording');
+            
+            // Stop audio recording if active
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                
+                // Create audio blob when stopped
+                mediaRecorder.onstop = () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    // Store audioBlob for later saving if needed
+                    window.audioRecording = audioBlob;
+                };
+            }
+        }
+        
+        // Handle speech recognition results
+        if (recognition) {
+            recognition.onresult = (event) => {
+                let interimTranscript = '';
+                let finalTranscript = '';
+                
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcriptText = event.results[i][0].transcript;
+                    
+                    if (event.results[i].isFinal) {
+                        finalTranscript += transcriptText;
+                    } else {
+                        interimTranscript += transcriptText;
+                    }
+                }
+                
+                // Update transcript display
+                transcript.textContent = finalTranscript || interimTranscript;
+                
+                // Analyze the transcript for action verbs
+                if (finalTranscript) {
+                    analyzeTranscript(finalTranscript);
+                }
+            };
+            
+            recognition.onerror = (event) => {
+                console.error("Speech recognition error:", event.error);
+                stopRecording();
+                alert("There was a problem with speech recognition: " + event.error);
+            };
+            
+            recognition.onend = () => {
+                console.log("Speech recognition ended");
+                isRecording = false;
+                micBtn.classList.remove('recording');
+            };
+        }
+        
+        // Analyze transcript for action verbs
+        function analyzeTranscript(text) {
+            // Convert to lowercase for case-insensitive matching
+            const lowerText = text.toLowerCase();
+            
+            // Split into words
+            const words = lowerText.split(/\W+/);
+            
+            // Find action verbs in the transcript
+            const foundVerbs = [];
+            words.forEach(word => {
+                if (actionVerbs.includes(word) && !foundVerbs.includes(word)) {
+                    foundVerbs.push(word);
+                }
+            });
+            
+            // Count unique action verbs
+            const verbCount = foundVerbs.length;
+            
+            // Highlight verbs in transcript
+            let highlightedText = text;
+            foundVerbs.forEach(verb => {
+                // Create a regex that matches the verb as a whole word
+                const regex = new RegExp(`\\b${verb}\\b`, 'gi');
+                highlightedText = highlightedText.replace(regex, `<span class="highlighted">$&</span>`);
+            });
+            
+            // Update transcript with highlighted verbs
+            transcript.innerHTML = highlightedText;
+            
+            // Generate auto score based on verb count
+            let scoreText = "";
+            let scoreValue = "";
+            
+            if (verbCount === 0) {
+                scoreText = "No observations (0 verbs)";
+                scoreValue = "0";
+            } else if (verbCount >= 1 && verbCount <= 2) {
+                scoreText = "1-2 observations (" + verbCount + " verbs)";
+                scoreValue = "1";
+            } else {
+                scoreText = "3+ observations (" + verbCount + " verbs)";
+                scoreValue = "2";
+            }
+            
+            // Update auto score display
+            autoScore.textContent = scoreText;
+            
+            // Set evaluator score to match auto score by default
+            evaluatorScore.value = scoreValue;
+        }
+        
+        // Save button click handler
+        saveBtn.addEventListener('click', saveResults);
+        
+        // Load previous reports from Firebase
+        async function loadPreviousReports() {
+            try {
+                const user = auth.currentUser;
+                if (!user) {
+                    console.log('No user logged in, cannot load reports');
+                    return;
+                }
+                
+                // Determine path based on patient/doctor context
+                let path = '';
+                const timestamp = Date.now();
+                
+                if (isPatientQuiz) {
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/observation_quiz`;
+                    console.log(`Loading patient reports from: ${path}`);
+                } else {
+                    path = `users/${user.uid}/observation_quiz`;
+                    console.log(`Loading user reports from: ${path}`);
+                }
+                
+                // Get data from Firebase
+                const snapshot = await database.ref(path).once('value');
+                const data = snapshot.val();
+                
+                // Update the report container
+                const reportList = document.getElementById('report-list');
+                
+                if (!data) {
+                    reportList.innerHTML = '<h3>Previous Attempts</h3><p>No previous attempts found.</p>';
+                    document.getElementById('report-container').style.display = 'flex';
+                    return;
+                }
+                
+                // Process and display the report data
+                let reportsHTML = '<h3>Previous Attempts</h3>';
+                
+                Object.keys(data).reverse().forEach(key => {
+                    const report = data[key];
+                    const date = new Date(report.timestamp);
+                    const formattedDate = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+                    
+                    reportsHTML += `
+                        <div class="attempt-item">
+                            <div class="attempt-header">
+                                <div class="attempt-date">${formattedDate}</div>
+                                <div class="attempt-score">Score: ${report.finalScore}</div>
+                            </div>
+                            <div class="attempt-details">
+                                <div class="detail-row">
+                                    <span class="detail-label">Image:</span>
+                                    <span>${report.imageUrl || 'Unknown'}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Transcript:</span>
+                                    <span>${report.transcript || 'No transcript available'}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Auto Score:</span>
+                                    <span>${report.autoScore || 'Not available'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                reportList.innerHTML = reportsHTML;
+                document.getElementById('report-container').style.display = 'flex';
+                
+            } catch (error) {
+                console.error('Error loading reports:', error);
+            }
+        }
+        
+        // Save results to database
+        async function saveResults() {
+            // Validate that we have data to save
+            if (transcript.textContent === "Start speaking to see your words here!" || 
+                transcript.textContent === "Listening...") {
+                alert("Please record some observations before saving!");
+                return;
+            }
+            
+            if (!evaluatorScore.value) {
+                alert("Please select an evaluator score before saving!");
+                return;
+            }
+            
+            try {
+                const user = auth.currentUser;
+                if (!user) {
+                    alert('You must be logged in to save results');
+                    return;
+                }
+                
+                // Create results object
+                const timestamp = Date.now();
+                const results = {
+                    imageId: currentImageIndex,
+                    imageUrl: images[currentImageIndex],
+                    transcript: transcript.textContent,
+                    autoScore: autoScore.textContent,
+                    finalScore: evaluatorScore.options[evaluatorScore.selectedIndex].text,
+                    timestamp: new Date().toISOString()
+                };
+                
+                // Determine path based on patient/doctor context
+                let path = '';
+                
+                if (isPatientQuiz) {
+                    console.log(`Saving patient quiz results for: ${currentPatientId} by doctor: ${doctorId}`);
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/observation_quiz/${timestamp}`;
+                } else {
+                    console.log(`Saving regular user quiz results: ${user.uid}`);
+                    path = `users/${user.uid}/observation_quiz/${timestamp}`;
+                }
+                
+                console.log(`Saving quiz results to path: ${path}`);
+                await database.ref(path).set(results);
+                
+                console.log('Quiz results saved successfully');
+                alert("Results saved successfully!");
+                
+                // Ask if they want to continue to next image
+                if (currentImageIndex < images.length - 1) {
+                    const continueNext = confirm("Would you like to continue to the next image?");
+                    if (continueNext) {
+                        currentImageIndex++;
+                        loadImage(currentImageIndex);
+                        resetQuiz();
+                    }
+                } else {
+                    alert("You've completed all images! Thank you for participating.");
+                }
+                
+                // Refresh reports
+                loadPreviousReports();
+                
+            } catch (error) {
+                console.error("Error saving results:", error);
+                alert("Error saving results: " + error.message);
+            }
+        }
+        
+        // Function to clear reports
+        async function clearReport() {
+            try {
+                const user = auth.currentUser;
+                if (!user) {
+                    alert('You must be logged in to clear reports.');
+                    return;
+                }
+                
+                // Prompt confirmation before clearing
+                const confirmed = confirm('Are you sure you want to clear all reports? This cannot be undone.');
+                if (!confirmed) {
+                    return;
+                }
+                
+                // Determine path based on patient/doctor context
+                let path = '';
+                
+                if (isPatientQuiz) {
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/observation_quiz`;
+                    console.log(`Clearing patient reports from path: ${path}`);
+                } else {
+                    path = `users/${user.uid}/observation_quiz`;
+                    console.log(`Clearing user reports from path: ${path}`);
+                }
+                
+                // Remove all reports at this path
+                await database.ref(path).remove();
+                
+                // Update UI
+                document.getElementById('report-list').innerHTML = '<p>No previous attempts found.</p>';
+                alert('All reports cleared successfully!');
+                
+            } catch (error) {
+                console.error('Error clearing reports:', error);
+                alert('Error clearing reports: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>
