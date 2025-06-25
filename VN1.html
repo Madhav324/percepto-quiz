@@ -485,7 +485,7 @@
                 <div id="countdownDisplay" style="font-size: 18px; font-weight: bold;">Time: 30s</div>
                 <div id="progress-display">Targets Found: <span id="found-count">0</span>/4</div>
             </div>
-            <div id="grid-container" style="display: grid; grid-template-columns: repeat(6, 80px); grid-template-rows: repeat(8, 80px); gap: 5px; margin: 0 auto;"></div>
+            <div id="grid-container" style="display: grid; grid-template-columns: repeat(6, 80px); grid-template-rows: repeat(8, 80px); gap: 5px; margin: 0 auto; justify-content: center; max-width: 600px;"></div>
         </div>
     </div>
 
@@ -687,6 +687,7 @@
         let gameStarted = false; // Track if game has started
         let testActive = false;
         let testCompleted = false;
+        let incorrectTaps = []; // Track incorrect taps with position and quadrant
         
         // Available images
         const baseImages = [
@@ -897,6 +898,14 @@
                     document.getElementById('found-count').textContent = clickedTargets.length;
                 }
             } else {
+                // Record incorrect tap with position and timing information
+                incorrectTaps.push({
+                    col, 
+                    row, 
+                    quadrant,
+                    time: (Date.now() - totalStartTime) / 1000
+                });
+                
                 imgElement.style.border = '3px solid red';
                 setTimeout(() => {
                     imgElement.style.border = '1px solid #e0e0e0';
@@ -1033,12 +1042,51 @@
                 missedByQuadrantStr = 'None';
             }
             
+            // Count incorrect taps by quadrant for detailed analysis
+            const incorrectByQuadrant = {
+                'topLeft': 0,
+                'topRight': 0,
+                'bottomLeft': 0,
+                'bottomRight': 0
+            };
+            
+            incorrectTaps.forEach(tap => {
+                incorrectByQuadrant[tap.quadrant]++;
+            });
+            
+            // Prepare incorrect taps string
+            let incorrectByQuadrantStr = '';
+            Object.entries(incorrectByQuadrant).forEach(([quadrant, count]) => {
+                if (count > 0) {
+                    if (incorrectByQuadrantStr) incorrectByQuadrantStr += ', ';
+                    incorrectByQuadrantStr += `${quadrants[quadrant]} (${count})`;
+                }
+            });
+            
+            if (!incorrectByQuadrantStr) {
+                incorrectByQuadrantStr = 'None';
+            }
+            
             // Update the result display
             document.getElementById('score').innerText = foundTargets;
             document.getElementById('total-time').innerText = totalTimeInSeconds;
             document.getElementById('first-tap').innerText = firstTapTime ? firstTapTime.toFixed(2) : "N/A";
             document.getElementById('total-taps').innerText = totalTaps;
             document.getElementById('total-incorrect').innerText = missedTargetsTotal;
+            
+            // Add incorrect taps to the results display
+            const resultsList = document.querySelector('#result-container ul');
+            
+            // Add incorrect taps info if there are any
+            if (incorrectTaps.length > 0) {
+                const incorrectItem = document.createElement('li');
+                incorrectItem.innerHTML = `<strong>Incorrect Taps:</strong> <span>${incorrectTaps.length}</span>`;
+                resultsList.appendChild(incorrectItem);
+                
+                const incorrectByQuadrantItem = document.createElement('li');
+                incorrectByQuadrantItem.innerHTML = `<strong>Incorrect Taps by Quadrant:</strong> <span>${incorrectByQuadrantStr}</span>`;
+                resultsList.appendChild(incorrectByQuadrantItem);
+            }
             
             // Show the report container with past attempts
             document.getElementById('report-container').style.display = 'flex';
@@ -1048,6 +1096,9 @@
                 missedTargets,
                 missedTargetsTotal,
                 missedByQuadrantStr,
+                incorrectTaps: incorrectTaps.length,
+                incorrectByQuadrant,
+                incorrectByQuadrantStr,
                 totalTime: totalTimeInSeconds,
                 firstTapTime: firstTapTime ? firstTapTime.toFixed(2) : "N/A",
                 totalTaps,
