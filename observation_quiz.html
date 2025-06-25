@@ -850,8 +850,8 @@
                     }
                 }
                 
-                // Re-analyze to ensure everything is updated correctly
-                analyzeTranscript(transcript.textContent, false); // Pass false to prevent overwriting existing display
+                // Don't re-analyze when loading the image - use saved content only
+                // This prevents duplicating observations
             } else {
                 clearTranscript();
             }
@@ -943,11 +943,20 @@
                     autoScore.textContent = imageAutoScores[currentImageIndex];
                 }
                 
-                // If we have stored matched criteria for this image, restore them before recording
-                const criteriaDisplay = document.getElementById('criteriaMatched');
-                if (criteriaDisplay && imageMatchedCriteria[currentImageIndex]) {
-                    criteriaDisplay.innerHTML = imageMatchedCriteria[currentImageIndex];
-                    criteriaDisplay.style.display = 'block';
+                // Restore the matching criteria if available for this image
+                if (imageMatchedCriteria[currentImageIndex]) {
+                    const criteriaDisplay = document.getElementById('criteriaMatched');
+                    if (criteriaDisplay) {
+                        criteriaDisplay.innerHTML = imageMatchedCriteria[currentImageIndex];
+                        criteriaDisplay.style.display = 'block';
+                    }
+                } else {
+                    // Make sure to clear criteria display if there's nothing to show
+                    const criteriaDisplay = document.getElementById('criteriaMatched');
+                    if (criteriaDisplay) {
+                        criteriaDisplay.innerHTML = '';
+                        criteriaDisplay.style.display = 'none';
+                    }
                 }
             }
             
@@ -1132,7 +1141,7 @@
                 imageObservationsFound[currentImageIndex] = [];
             }
             
-            // Start with a fresh array for this analysis if not resuming from previous
+            // Start with a fresh array for this analysis
             const specificObservationsFound = [];
             
             // Check for image-specific observations
@@ -1213,9 +1222,6 @@
                 const regex = new RegExp(`\\b${verb}\\b`, 'gi');
                 highlightedText = highlightedText.replace(regex, `<span class="highlighted">$&</span>`);
             });
-            
-            // Function to highlight keywords in transcript - removed as we're using a more direct approach
-            
             
             // Extract all keywords and synonyms for highlighting
             const allKeywords = new Set();
@@ -1370,17 +1376,18 @@
             
             // Add visualization for observed criteria - show what was detected
             const criteriaDisplay = document.getElementById('criteriaMatched');
-            
+            // Create a list of found observations
             if (specificObservationsFound.length > 0 && updateDisplay) {
+                // Store only unique observations for this image
+                imageObservationsFound[currentImageIndex] = [...new Set(specificObservationsFound)];
+                
                 let matchedHTML = `
                     <div class="matched-criteria-header">Great job! You observed:</div>
                     <ul class="criteria-list">
                 `;
                 
-                // Remove duplicates from observations before displaying
-                const uniqueObservations = [...new Set(specificObservationsFound)];
-                
-                uniqueObservations.forEach(observation => {
+                // Use the imageObservationsFound array which contains only unique observations
+                imageObservationsFound[currentImageIndex].forEach(observation => {
                     matchedHTML += `<li class="criteria-item">${observation}</li>`;
                 });
                 
@@ -1388,14 +1395,21 @@
                 criteriaDisplay.innerHTML = matchedHTML;
                 criteriaDisplay.style.display = 'block';
                 
-                // Store this for the current image
+                // Save the matched criteria for this image
                 imageMatchedCriteria[currentImageIndex] = matchedHTML;
             }
             
             // Update auto score based on observations found - with age-appropriate feedback
             if (updateDisplay) {
-                // Count unique observations for scoring
-                const uniqueCount = uniqueObservations.length;
+                // Count unique observations for scoring using our stored unique observations
+                // Make sure we have unique observations stored
+                if (!imageObservationsFound[currentImageIndex]) {
+                    imageObservationsFound[currentImageIndex] = [];
+                }
+                
+                // Ensure uniqueness again
+                imageObservationsFound[currentImageIndex] = [...new Set(specificObservationsFound)];
+                const uniqueCount = imageObservationsFound[currentImageIndex].length;
                 
                 // Store numeric score value (0-5 scale)
                 let scoreValue = 0;
@@ -1426,9 +1440,6 @@
                 // Add image-specific context for clarity
                 const imageName = currentImageIndex === 0 ? "first" : "second";
                 scoreText += ` (Image ${currentImageIndex + 1})`;
-                
-                // Save the found observations for this specific image
-                imageObservationsFound[currentImageIndex] = [...specificObservationsFound];
                 
                 // Update the displayed score
                 autoScore.textContent = scoreText;
