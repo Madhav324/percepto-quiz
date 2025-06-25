@@ -1172,11 +1172,16 @@
                             keywordFrequency[keyword]++;
                             
                         } else {
-                            // Check synonyms with word boundary matching for more accuracy
+                            // Check synonyms with both exact and partial matching for flexibility
                             const synonyms = observation.synonyms?.[keyword] || [];
                             for (const synonym of synonyms) {
+                                // Try exact word boundary match first
                                 const synonymRegex = new RegExp('\\b' + synonym + '\\b', 'i');
-                                if (synonymRegex.test(lowerText)) {
+                                // Also try partial match for word variations (climbing -> climb)
+                                const partialMatch = lowerText.includes(synonym.toLowerCase());
+                                const reversePartialMatch = synonym.toLowerCase().includes(lowerText.split(' ').find(word => word.length > 2) || '');
+                                
+                                if (synonymRegex.test(lowerText) || partialMatch || reversePartialMatch) {
                                     keywordsMatched.push(keyword);
                                     synonymsMatched.push(synonym + ' → ' + keyword);
                                     
@@ -1191,12 +1196,12 @@
                         }
                     });
                     
-                    // Calculate match threshold based on keyword count
-                    let matchThreshold = 0.75; // Default for 1-2 keywords (75%)
+                    // Make matching more flexible for children's speech variations
+                    let matchThreshold = 0.4; // More permissive: 40% for 1-2 keywords
                     if (observation.keywords.length >= 4) {
-                        matchThreshold = 0.5; // 50% for 4+ keywords
+                        matchThreshold = 0.25; // Very permissive: 25% for 4+ keywords
                     } else if (observation.keywords.length === 3) {
-                        matchThreshold = 0.67; // 67% for 3 keywords
+                        matchThreshold = 0.34; // Permissive: 34% for 3 keywords (1 out of 3)
                     }
                     
                     const matchRatio = keywordsMatched.length / observation.keywords.length;
@@ -1208,16 +1213,20 @@
                                synonymsMatched.some(s => s.includes(kw) && keywordFrequency[s.split(' → ')[0] + ':' + kw] > 1);
                     });
                     
-                    if (matchRatio >= matchThreshold && (!isRepeat || hasNewKeywords)) {
+                    // More permissive matching - if we have at least 1 keyword match, consider it
+                    if ((keywordsMatched.length >= 1) && (!isRepeat || hasNewKeywords)) {
                         specificObservationsFound.push(observation.main);
                         console.log(`Found valid observation: ${observation.main}`);
                         console.log(`Matched keywords: ${keywordsMatched.join(', ')}`);
+                        console.log(`Match ratio: ${matchRatio} (${keywordsMatched.length}/${observation.keywords.length})`);
                         if (synonymsMatched.length > 0) {
                             console.log(`Matched synonyms: ${synonymsMatched.join(', ')}`);
                         }
                         if (isRepeat && hasNewKeywords) {
                             console.log(`This is a repeated observation with new keyword mentions`);
                         }
+                    } else {
+                        console.log(`Observation "${observation.main}" did not match. Keywords found: ${keywordsMatched.length}/${observation.keywords.length}`);
                     }
                 });
             }
