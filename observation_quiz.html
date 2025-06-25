@@ -1037,6 +1037,32 @@
                 
                 let fullTranscript = fullTranscriptMap[currentImageIndex];
                 let interimTranscript = '';
+                let finalTranscript = '';
+                
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcriptText = event.results[i][0].transcript;
+                    
+                    if (event.results[i].isFinal) {
+                        // Add proper punctuation if missing
+                        let formattedText = transcriptText.trim();
+                        if (formattedText && !formattedText.match(/[.!?]$/)) {
+                            formattedText += '.';
+                        }
+                        finalTranscript += formattedText + ' ';
+                    } else {
+                        interimTranscript += transcriptText;
+                    }
+                }
+                
+                // Append to full transcript if we have final results
+                if (finalTranscript) {
+                    fullTranscript += finalTranscript;
+                    fullTranscriptMap[currentImageIndex] = fullTranscript;
+                }
+                
+                // Format the transcript with proper sentence capitalization
+                let formattedTranscript = formatTranscript(fullTranscript);
+                
                 // Update transcript display with full content
                 transcript.textContent = formattedTranscript + (interimTranscript ? interimTranscript : '');
                 imageTranscripts[currentImageIndex] = transcript.textContent;
