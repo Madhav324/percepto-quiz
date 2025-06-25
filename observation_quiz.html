@@ -696,8 +696,10 @@
         // Current image index
         let currentImageIndex = 0;
         
-        // Store transcripts for each image
+        // Store transcripts, scores and matched criteria for each image
         const imageTranscripts = {};
+        const imageAutoScores = {};
+        const imageMatchedCriteria = {};
         
         // DOM Elements
         const micBtn = document.getElementById('micBtn');
@@ -723,6 +725,11 @@
                 criteriaDisplay.innerHTML = '';
                 criteriaDisplay.style.display = 'none';
             }
+            
+            // Also clear the stored data for the current image
+            imageTranscripts[currentImageIndex] = null;
+            imageAutoScores[currentImageIndex] = null;
+            imageMatchedCriteria[currentImageIndex] = null;
         }
         
         // Update UI if in patient mode
@@ -787,12 +794,19 @@
         
         // Load image based on index
         function loadImage(index) {
-            // Use the global clearTranscript function here
-            
-            // Save current transcript before changing images
+            // Save current transcript and score before changing images
             if (transcript.textContent !== "Start speaking to see your words here! Remember to describe ALL actions you see in the image." && 
                 transcript.textContent !== "Listening... Please describe all actions you can see happening in the image.") {
                 imageTranscripts[currentImageIndex] = transcript.textContent;
+                
+                // Save the current auto-score and matched criteria
+                imageAutoScores[currentImageIndex] = autoScore.textContent;
+                
+                // Save matched criteria HTML if it exists
+                const criteriaDisplay = document.getElementById('criteriaMatched');
+                if (criteriaDisplay) {
+                    imageMatchedCriteria[currentImageIndex] = criteriaDisplay.innerHTML;
+                }
             }
             
             // Update current image index
@@ -800,10 +814,31 @@
             observationImage.src = images[index];
             updateNavButtons();
             
-            // Load transcript for this image if it exists
+            // Load transcript and score for this image if it exists
             if (imageTranscripts[index]) {
                 transcript.innerHTML = imageTranscripts[index];
-                analyzeTranscript(transcript.textContent);
+                
+                // Restore the saved auto-score for this image
+                if (imageAutoScores[index]) {
+                    autoScore.textContent = imageAutoScores[index];
+                } else {
+                    autoScore.textContent = "Waiting for observation...";
+                }
+                
+                // Restore the matched criteria display
+                const criteriaDisplay = document.getElementById('criteriaMatched');
+                if (criteriaDisplay) {
+                    if (imageMatchedCriteria[index]) {
+                        criteriaDisplay.innerHTML = imageMatchedCriteria[index];
+                        criteriaDisplay.style.display = 'block';
+                    } else {
+                        criteriaDisplay.innerHTML = '';
+                        criteriaDisplay.style.display = 'none';
+                    }
+                }
+                
+                // Re-analyze to ensure everything is updated correctly
+                analyzeTranscript(transcript.textContent, false); // Pass false to prevent overwriting existing display
             } else {
                 clearTranscript();
             }
@@ -886,7 +921,26 @@
         let mediaRecorder = null;
         
         // Handle microphone button click
-        micBtn.addEventListener('click', toggleRecording);
+        micBtn.addEventListener('click', function() {
+            // If we're changing from not recording to recording,
+            // make sure we've loaded any saved scores for current image
+            if (!isRecording) {
+                // If we have stored auto-scores for this image, restore them before recording
+                if (imageAutoScores[currentImageIndex]) {
+                    autoScore.textContent = imageAutoScores[currentImageIndex];
+                }
+                
+                // If we have stored matched criteria for this image, restore them before recording
+                const criteriaDisplay = document.getElementById('criteriaMatched');
+                if (criteriaDisplay && imageMatchedCriteria[currentImageIndex]) {
+                    criteriaDisplay.innerHTML = imageMatchedCriteria[currentImageIndex];
+                    criteriaDisplay.style.display = 'block';
+                }
+            }
+            
+            // Now toggle recording as usual
+            toggleRecording();
+        });
         
         // Toggle recording state
         function toggleRecording() {
@@ -1037,7 +1091,7 @@
         }
         
         // Analyze transcript for action verbs and image-specific observations
-        function analyzeTranscript(text) {
+        function analyzeTranscript(text, updateDisplay = true) {
             // Convert to lowercase for case-insensitive matching
             const lowerText = text.toLowerCase();
             
@@ -1296,41 +1350,51 @@
             
             // Add visualization for observed criteria - show what was detected
             const criteriaDisplay = document.getElementById('criteriaMatched');
-            if (criteriaDisplay) {
-                if (uniqueObservations.length > 0) {
-                    criteriaDisplay.innerHTML = '<div class="matched-criteria-header">Good job! You noticed:</div>';
-                    
-                    const criteriaList = document.createElement('ul');
-                    criteriaList.className = 'criteria-list';
-                    
-                    uniqueObservations.forEach(obs => {
-                        const item = document.createElement('li');
-                        item.textContent = obs;
-                        item.className = 'criteria-item';
-                        criteriaList.appendChild(item);
-                    });
-                    
-                    criteriaDisplay.appendChild(criteriaList);
-                    criteriaDisplay.style.display = 'block';
-                } else {
-                    criteriaDisplay.innerHTML = '';
-                    criteriaDisplay.style.display = 'none';
-                }
+            
+            if (specificObservationsFound.length > 0 && updateDisplay) {
+                let matchedHTML = `
+                    <div class="matched-criteria-header">Great job! You observed:</div>
+                    <ul class="criteria-list">
+                `;
+                
+                specificObservationsFound.forEach(observation => {
+                    matchedHTML += `<li class="criteria-item">${observation}</li>`;
+                });
+                
+                matchedHTML += `</ul>`;
+                criteriaDisplay.innerHTML = matchedHTML;
+                criteriaDisplay.style.display = 'block';
+                
+                // Store this for the current image
+                imageMatchedCriteria[currentImageIndex] = matchedHTML;
             }
             
-            // Update auto score display
-            autoScore.textContent = scoreText;
-            
-            // Set evaluator score to match auto score by default
-            evaluatorScore.value = scoreValue;
+            // Update auto score based on observations found
+            if (updateDisplay) {
+                let scoreText = "";
+                if (specificObservationsFound.length === 0) {
+                    scoreText = "Not enough observations yet. Try describing more of what's happening!";
+                } else if (specificObservationsFound.length === 1) {
+                    scoreText = "Good start! You've described 1 key observation. Can you find more?";
+                } else if (specificObservationsFound.length === 2) {
+                    scoreText = "Nice job! You've described 2 key observations. Keep looking!";
+                } else if (specificObservationsFound.length >= 3 && specificObservationsFound.length <= 4) {
+                    scoreText = "Very good! You've described several key observations. Can you find any more?";
+                } else {
+                    scoreText = "Excellent! You've described many key observations about the image!";
+                }
+                
+                // Update the displayed score
+                autoScore.textContent = scoreText;
+                
+                // Store this for the current image
+                imageAutoScores[currentImageIndex] = scoreText;
+            }
             
             // Console log for debugging
-            console.log(`Analysis: ${verbCount} action verbs found, ${observationCount} valid observations identified`);
+            console.log(`Analysis for image ${currentImageIndex}: ${specificObservationsFound.length} valid observations identified`);
             console.log(`Image-specific observations found:`, specificObservationsFound);
         }
-        
-        // Save button click handler
-        saveBtn.addEventListener('click', saveResults);
         
         // Load previous reports from Firebase
         async function loadPreviousReports() {
