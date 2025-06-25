@@ -449,6 +449,35 @@
             "images/VC/observation/garden.jpg" // Colorful park scene with children and older woman
         ];
         
+        // Specific observations criteria for each image
+        const imageObservations = [
+            { // Black and white tree rescue scene (park.jpg)
+                validObservations: [
+                    "man stuck tree",
+                    "cat tree",
+                    "dog barking jumping tree",
+                    "girl calling help reaching",
+                    "firefighters running ladder",
+                    "firetruck parked background",
+                    "man worried scared"
+                ],
+                totalPossible: "5–7"
+            },
+            { // Colorful park scene with children and older woman (garden.jpg)
+                validObservations: [
+                    "girl riding scooter",
+                    "dog running kids",
+                    "boy girl climbing sitting tree",
+                    "woman sitting bench children",
+                    "child hugging woman",
+                    "children running path",
+                    "boy hanging tree branch",
+                    "children playing happily"
+                ],
+                totalPossible: "6–8"
+            }
+        ];
+        
         // Current image index
         let currentImageIndex = 0;
         
@@ -529,6 +558,13 @@
         function loadImage(index) {
             observationImage.src = images[index];
             updateNavButtons();
+            
+            // Display image-specific information for evaluator
+            const currentCriteria = imageObservations[index];
+            if (currentCriteria) {
+                console.log(`Loaded image ${index} with ${currentCriteria.totalPossible} possible observations`);
+                console.log(`Valid observations for this image:`, currentCriteria.validObservations);
+            }
         }
         
         // Update navigation buttons visibility
@@ -696,7 +732,7 @@
             };
         }
         
-        // Analyze transcript for action verbs
+        // Analyze transcript for action verbs and image-specific observations
         function analyzeTranscript(text) {
             // Convert to lowercase for case-insensitive matching
             const lowerText = text.toLowerCase();
@@ -722,6 +758,26 @@
                 return actionVerbs.some(verb => new RegExp('\\b' + verb + '\\b', 'i').test(lowerSentence));
             });
             
+            // Check for image-specific observations
+            const currentObservationCriteria = imageObservations[currentImageIndex];
+            const specificObservationsFound = [];
+            
+            if (currentObservationCriteria) {
+                currentObservationCriteria.validObservations.forEach(observation => {
+                    // Split the observation criteria into keywords
+                    const keywords = observation.split(' ');
+                    // Consider it a match if most keywords are present in the text
+                    const requiredMatches = Math.max(1, Math.floor(keywords.length * 0.7));
+                    const matchCount = keywords.filter(keyword => 
+                        lowerText.includes(keyword)
+                    ).length;
+                    
+                    if (matchCount >= requiredMatches) {
+                        specificObservationsFound.push(observation);
+                    }
+                });
+            }
+            
             // Highlight verbs in transcript
             let highlightedText = text;
             foundVerbs.forEach(verb => {
@@ -733,18 +789,19 @@
             // Update transcript with highlighted verbs
             transcript.innerHTML = highlightedText;
             
-            // Generate auto score based on verb count and observations
+            // Generate auto score based on observation count
+            const observationCount = specificObservationsFound.length || observationSentences.length;
             let scoreText = "";
             let scoreValue = "";
             
-            if (verbCount === 0) {
+            if (observationCount === 0) {
                 scoreText = "No observations (0 actions identified)";
                 scoreValue = "0";
-            } else if (verbCount >= 1 && verbCount <= 2) {
-                scoreText = "1-2 observations (" + verbCount + " actions identified)";
+            } else if (observationCount >= 1 && observationCount <= 2) {
+                scoreText = "1-2 observations (" + observationCount + " valid actions identified)";
                 scoreValue = "1";
             } else {
-                scoreText = "3+ observations (" + verbCount + " actions identified)";
+                scoreText = "3+ observations (" + observationCount + " valid actions identified)";
                 scoreValue = "2";
             }
             
@@ -755,7 +812,8 @@
             evaluatorScore.value = scoreValue;
             
             // Console log for debugging
-            console.log(`Analysis: ${verbCount} action verbs found, ${observationSentences.length} observation sentences identified`);
+            console.log(`Analysis: ${verbCount} action verbs found, ${observationCount} valid observations identified`);
+            console.log(`Image-specific observations found:`, specificObservationsFound);
         }
         
         // Save button click handler
