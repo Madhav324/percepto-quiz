@@ -360,15 +360,18 @@
                 <span id="patientName"></span>
                 <div class="patient-indicator">Patient Test</div>
             </div>
-        <p class="instructions">Look at the picture and tell me what is happening! 😃</p>
+            <div class="instructions">
+                <p>Look at the image carefully and describe ALL activities you can see.<br>Use the microphone to record your complete observations.</p>
+            </div>
+            <div class="nav-arrows">
+                <button id="prevBtn" class="arrow-btn hidden">⬅️ Previous</button>
+                <button id="nextBtn" class="arrow-btn hidden">Next ➡️</button>
+            </div>
         
-        <div class="nav-arrows">
-            <button id="prevBtn" class="arrow-btn hidden">⬅️ Previous</button>
-            <button id="nextBtn" class="arrow-btn hidden">Next ➡️</button>
-        </div>
+            <div class="image-container">
+                <img id="observationImage" src="images/VC/animal/cat.png" alt="Observation image">
+            </div>
         
-        <div class="image-container">
-            <img id="observationImage" src="images/VC/animal/cat.png" alt="Observation image">
         </div>
         
         <div class="controls">
@@ -377,7 +380,7 @@
         
         <div class="transcript-container">
             <p class="score-label">Child's observations:</p>
-            <p id="transcript" class="transcript">Start speaking to see your words here!</p>
+            <p id="transcript" class="transcript">Start speaking to see your words here! Remember to describe ALL actions you see in the image.</p>
         </div>
         
         <div class="score-container">
@@ -442,11 +445,8 @@
         
         // Sample images for the quiz
         const images = [
-            "images/VC/animal/cat.png",
-            "images/VC/animal/ele.png",
-            "images/VC/animal/gira.png",
-            "images/VC/animal/zebra.png",
-            "images/VC/puzzle/happy1.png"
+            "images/VC/observation/park.jpg", // Black and white tree rescue scene
+            "images/VC/observation/garden.jpg" // Colorful park scene with children and older woman
         ];
         
         // Current image index
@@ -539,7 +539,7 @@
         
         // Reset quiz for new image
         function resetQuiz() {
-            transcript.textContent = "Start speaking to see your words here!";
+            transcript.textContent = "Start speaking to see your words here! Remember to describe ALL actions you see in the image.";
             autoScore.textContent = "Waiting for observation...";
             evaluatorScore.value = "";
         }
@@ -612,7 +612,7 @@
             recognition.start();
             isRecording = true;
             micBtn.classList.add('recording');
-            transcript.textContent = "Listening...";
+            transcript.textContent = "Listening... Please describe all actions you can see happening in the image.";
             
             // Also start audio recording if supported
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
@@ -653,6 +653,8 @@
         
         // Handle speech recognition results
         if (recognition) {
+            let fullTranscript = ''; // Store the complete transcript across multiple recognitions
+            
             recognition.onresult = (event) => {
                 let interimTranscript = '';
                 let finalTranscript = '';
@@ -661,18 +663,23 @@
                     const transcriptText = event.results[i][0].transcript;
                     
                     if (event.results[i].isFinal) {
-                        finalTranscript += transcriptText;
+                        finalTranscript += transcriptText + ' ';
                     } else {
                         interimTranscript += transcriptText;
                     }
                 }
                 
-                // Update transcript display
-                transcript.textContent = finalTranscript || interimTranscript;
-                
-                // Analyze the transcript for action verbs
+                // Append to full transcript if we have final results
                 if (finalTranscript) {
-                    analyzeTranscript(finalTranscript);
+                    fullTranscript += finalTranscript;
+                }
+                
+                // Update transcript display with full content
+                transcript.textContent = fullTranscript + (interimTranscript ? interimTranscript : '');
+                
+                // Analyze the complete transcript for action verbs
+                if (fullTranscript) {
+                    analyzeTranscript(fullTranscript);
                 }
             };
             
@@ -708,6 +715,13 @@
             // Count unique action verbs
             const verbCount = foundVerbs.length;
             
+            // Find complete observations (sentences with action verbs)
+            const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+            const observationSentences = sentences.filter(sentence => {
+                const lowerSentence = sentence.toLowerCase();
+                return actionVerbs.some(verb => new RegExp('\\b' + verb + '\\b', 'i').test(lowerSentence));
+            });
+            
             // Highlight verbs in transcript
             let highlightedText = text;
             foundVerbs.forEach(verb => {
@@ -719,18 +733,18 @@
             // Update transcript with highlighted verbs
             transcript.innerHTML = highlightedText;
             
-            // Generate auto score based on verb count
+            // Generate auto score based on verb count and observations
             let scoreText = "";
             let scoreValue = "";
             
             if (verbCount === 0) {
-                scoreText = "No observations (0 verbs)";
+                scoreText = "No observations (0 actions identified)";
                 scoreValue = "0";
             } else if (verbCount >= 1 && verbCount <= 2) {
-                scoreText = "1-2 observations (" + verbCount + " verbs)";
+                scoreText = "1-2 observations (" + verbCount + " actions identified)";
                 scoreValue = "1";
             } else {
-                scoreText = "3+ observations (" + verbCount + " verbs)";
+                scoreText = "3+ observations (" + verbCount + " actions identified)";
                 scoreValue = "2";
             }
             
@@ -739,6 +753,9 @@
             
             // Set evaluator score to match auto score by default
             evaluatorScore.value = scoreValue;
+            
+            // Console log for debugging
+            console.log(`Analysis: ${verbCount} action verbs found, ${observationSentences.length} observation sentences identified`);
         }
         
         // Save button click handler
@@ -821,8 +838,8 @@
         // Save results to database
         async function saveResults() {
             // Validate that we have data to save
-            if (transcript.textContent === "Start speaking to see your words here!" || 
-                transcript.textContent === "Listening...") {
+            if (transcript.textContent === "Start speaking to see your words here! Remember to describe ALL actions you see in the image." || 
+                transcript.textContent === "Listening... Please describe all actions you can see happening in the image.") {
                 alert("Please record some observations before saving!");
                 return;
             }
