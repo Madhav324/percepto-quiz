@@ -1148,21 +1148,12 @@
             // Start with a fresh array for this analysis
             const specificObservationsFound = [];
             
-            // Special case for first image with man in tree
-            if (currentImageIndex === 0) {
-                // Check for variations of tree/dream/three with climbing/stuck/sitting
-                if ((lowerText.includes("tree") || lowerText.includes("dream") || lowerText.includes("three")) && 
-                    (lowerText.includes("climb") || lowerText.includes("stuck") || lowerText.includes("sit"))) {
-                    specificObservationsFound.push("man stuck tree");
-                    console.log("Special case detected: Tree/climbing observation added");
-                }
-            }
-            
-            // Check for image-specific observations
+            // Check for image-specific observations ONLY for the current image
             const currentCriteria = imageObservations[currentImageIndex];
+            console.log(`Analyzing transcript for image ${currentImageIndex}:`, currentCriteria?.id || 'Unknown');
             
             if (currentCriteria && currentCriteria.validObservations) {
-                console.log("Analyzing transcript for image-specific observations");
+                console.log(`Checking ${currentCriteria.validObservations.length} observations for image ${currentImageIndex}`);
                 
                 // Check each valid observation criteria
                 currentCriteria.validObservations.forEach(observation => {
@@ -1300,76 +1291,6 @@
             
             // Find complete observations (sentences with action verbs) - done below
             
-            // Check for image-specific observations with enhanced flexibility for children's vocabulary
-            if (currentCriteria && currentCriteria.validObservations) {
-                currentCriteria.validObservations.forEach(observation => {
-                    // For each observation, calculate how many keywords are matched
-                    const keywordsMatched = [];
-                    const synonymsMatched = [];
-                    
-                    observation.keywords.forEach(keyword => {
-                        // Check for partial keyword matches (more flexible) using RegExp
-                        // This will catch variations like 'tree'/'dream' or 'stick'/'stuck'
-                        const keywordPattern = new RegExp(keyword.split('').join('\\s*'), 'i'); 
-                        if (keywordPattern.test(lowerText) || lowerText.includes(keyword)) {
-                            keywordsMatched.push(keyword);
-                            
-                            // Count keyword frequency
-                            if (!keywordFrequency[keyword]) keywordFrequency[keyword] = 0;
-                            keywordFrequency[keyword]++;
-                            
-                        } else {
-                            // Check synonyms
-                            const synonyms = observation.synonyms?.[keyword] || [];
-                            for (const synonym of synonyms) {
-                                // More flexible synonym matching to handle speech variations
-                                const synonymPattern = new RegExp(synonym.split('').join('\\s*'), 'i');
-                                if (synonymPattern.test(lowerText) || lowerText.includes(synonym)) {
-                                    keywordsMatched.push(keyword);
-                                    synonymsMatched.push(synonym + ' → ' + keyword);
-                                    
-                                    // Count synonym frequency
-                                    const frequencyKey = `${synonym}:${keyword}`;
-                                    if (!keywordFrequency[frequencyKey]) keywordFrequency[frequencyKey] = 0;
-                                    keywordFrequency[frequencyKey]++;
-                                    
-                                    break;
-                                }
-                            }
-                        }
-                    });
-                    
-                    // Calculate match threshold based on keyword count
-                    let matchThreshold = 0.75; // Default for 1-2 keywords (75%)
-                    if (observation.keywords.length >= 4) {
-                        matchThreshold = 0.5; // 50% for 4+ keywords
-                    } else if (observation.keywords.length === 3) {
-                        matchThreshold = 0.67; // 67% for 3 keywords
-                    }
-                    
-                    const matchRatio = keywordsMatched.length / observation.keywords.length;
-                    
-                    // If the observation is already found, only add it again if keywords have been repeated
-                    const isRepeat = specificObservationsFound.includes(observation.main);
-                    const hasNewKeywords = keywordsMatched.some(kw => {
-                        return keywordFrequency[kw] > 1 || 
-                               synonymsMatched.some(s => s.includes(kw) && keywordFrequency[s.split(' → ')[0] + ':' + kw] > 1);
-                    });
-                    
-                    if (matchRatio >= matchThreshold && (!isRepeat || hasNewKeywords)) {
-                        specificObservationsFound.push(observation.main);
-                        console.log(`Found valid observation: ${observation.main}`);
-                        console.log(`Matched keywords: ${keywordsMatched.join(', ')}`);
-                        if (synonymsMatched.length > 0) {
-                            console.log(`Matched synonyms: ${synonymsMatched.join(', ')}`);
-                        }
-                        if (isRepeat && hasNewKeywords) {
-                            console.log(`This is a repeated observation with new keyword mentions`);
-                        }
-                    }
-                });
-            }
-            
             // Count unique observation types (to handle repetitions)
             const uniqueObservations = [...new Set(specificObservationsFound)];
             const observationCount = uniqueObservations.length || observationSentences.length;
@@ -1487,10 +1408,10 @@
                 const timestamp = Date.now();
                 
                 if (isPatientQuiz) {
-                    path = `doctors/${doctorId}/patients/${currentPatientId}/observation_quiz`;
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/observation`;
                     console.log(`Loading patient reports from: ${path}`);
                 } else {
-                    path = `users/${user.uid}/observation_quiz`;
+                    path = `users/${user.uid}/quiz/observation`;
                     console.log(`Loading user reports from: ${path}`);
                 }
                 
@@ -1592,10 +1513,10 @@
                 
                 if (isPatientQuiz) {
                     console.log(`Saving patient quiz results for: ${currentPatientId} by doctor: ${doctorId}`);
-                    path = `doctors/${doctorId}/patients/${currentPatientId}/observation_quiz/${timestamp}`;
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/observation/${timestamp}`;
                 } else {
                     console.log(`Saving regular user quiz results: ${user.uid}`);
-                    path = `users/${user.uid}/observation_quiz/${timestamp}`;
+                    path = `users/${user.uid}/quiz/observation/${timestamp}`;
                 }
                 
                 console.log(`Saving quiz results to path: ${path}`);
@@ -1644,10 +1565,10 @@
                 let path = '';
                 
                 if (isPatientQuiz) {
-                    path = `doctors/${doctorId}/patients/${currentPatientId}/observation_quiz`;
+                    path = `doctors/${doctorId}/patients/${currentPatientId}/quiz/observation`;
                     console.log(`Clearing patient reports from path: ${path}`);
                 } else {
-                    path = `users/${user.uid}/observation_quiz`;
+                    path = `users/${user.uid}/quiz/observation`;
                     console.log(`Clearing user reports from path: ${path}`);
                 }
                 
