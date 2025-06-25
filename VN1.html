@@ -623,9 +623,37 @@
         let testActive = false;
         let testCompleted = false;
         
-        // Images for targets and distractors
-        const targetImage = 'images/VN/flower.png';
-        const distractorImage = 'images/VN/laddu.png';
+        // Available images
+        const baseImages = [
+            'images/VN/candy.png',
+            'images/VN/car.png',
+            'images/VN/comb.png',
+            'images/VN/cycle.png',
+            'images/VN/dog.png',
+            'images/VN/fish.png',
+            'images/VN/flower.png',
+            'images/VN/ice.png',
+            'images/VN/laddu.png',
+            'images/VN/parrot.png',
+            'images/VN/pencil.png',
+            'images/VN/shirt.png'
+        ];
+        
+        // Will be set randomly for each test
+        let targetImage;
+        let distractorImages = [];
+        
+        // Function to randomize images for each test
+        function randomizeImages() {
+            // Shuffle the available images
+            const shuffledImages = shuffleArray([...baseImages]);
+            
+            // Select first image as target
+            targetImage = shuffledImages[0];
+            
+            // Use next 3 images as distractors
+            distractorImages = shuffledImages.slice(1, 4);
+        }
         
         // Grid configuration
         const GRID_COLS = 6;
@@ -716,7 +744,15 @@
                     
                     // Check if this position is a target
                     const isTarget = targets.some(t => t.col === col && t.row === row);
-                    img.src = isTarget ? targetImage : distractorImage;
+                    
+                    if (isTarget) {
+                        img.src = targetImage;
+                    } else {
+                        // Randomly select one of the distractor images
+                        const randomIndex = Math.floor(Math.random() * distractorImages.length);
+                        img.src = distractorImages[randomIndex];
+                    }
+                    
                     img.className = 'option-image';
                     img.dataset.col = col;
                     img.dataset.row = row;
@@ -797,6 +833,10 @@
             gameStarted = true;
             testActive = true;
             testCompleted = false;
+            timeRemaining = TEST_DURATION;
+            
+            // Randomize the target and distractor images for this test run
+            randomizeImages();
             
             // Create the grid with targets
             createGrid();
