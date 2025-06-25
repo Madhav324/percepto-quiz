@@ -38,26 +38,7 @@
             font-size: 20px;
         }
         
-        /* Age selector styling */
-        .age-control {
-            display: flex;
-            align-items: center;
-            margin-right: 15px;
-            background-color: #ffffff;
-            padding: 3px 10px;
-            border-radius: 15px;
-            color: #333;
-        }
-        
-        .age-selector {
-            margin-left: 5px;
-            padding: 3px;
-            border-radius: 5px;
-            border: 1px solid #ddd;
-            background-color: #f9f9f9;
-            font-family: inherit;
-            cursor: pointer;
-        }
+
         
         /* Header styling */
         .header {
@@ -549,9 +530,7 @@
         const doctorId = sessionStorage.getItem('doctorId') || '';
         const currentPatientId = sessionStorage.getItem('currentPatientId') || '';
         
-        // Set age group if provided in session storage
-        let childAgeGroup = sessionStorage.getItem('childAgeGroup') || 'medium'; // default to medium (8-12)
-        
+
         console.log('Quiz context:', {
             isPatientQuiz, 
             currentPatientId: currentPatientId || 'none',
@@ -725,6 +704,7 @@
         const imageAutoScores = {};
         const imageAutoScoreValues = {}; // Store numeric score values
         const imageMatchedCriteria = {};
+        const imageObservationsFound = {}; // Store observations found per image
         
         // DOM Elements
         const micBtn = document.getElementById('micBtn');
@@ -751,10 +731,11 @@
                 criteriaDisplay.style.display = 'none';
             }
             
-            // Also clear the stored data for the current image
+            // Clear the stored data for the current image
             imageTranscripts[currentImageIndex] = null;
             imageAutoScores[currentImageIndex] = null;
             imageMatchedCriteria[currentImageIndex] = null;
+            imageObservationsFound[currentImageIndex] = [];
         }
         
         // Update UI if in patient mode
@@ -772,37 +753,7 @@
         }
         
         document.addEventListener('DOMContentLoaded', () => {
-            // Add age group selector to adjust feedback style
-            const header = document.querySelector('.header');
-            if (header) {
-                const ageSelector = document.createElement('select');
-                ageSelector.id = 'ageGroupSelector';
-                ageSelector.className = 'age-selector';
-                ageSelector.innerHTML = `
-                    <option value="younger" ${childAgeGroup === 'younger' ? 'selected' : ''}>Ages 5-7</option>
-                    <option value="medium" ${childAgeGroup === 'medium' ? 'selected' : ''}>Ages 8-12</option>
-                    <option value="older" ${childAgeGroup === 'older' ? 'selected' : ''}>Ages 13-15</option>
-                `;
-                
-                ageSelector.addEventListener('change', (e) => {
-                    childAgeGroup = e.target.value;
-                    sessionStorage.setItem('childAgeGroup', childAgeGroup);
-                    console.log(`Age group changed to: ${childAgeGroup}`);
-                    
-                    // Re-analyze current transcript with new age group if available
-                    if (transcript.textContent !== "Start speaking to see your words here! Remember to describe ALL actions you see in the image." && 
-                        transcript.textContent !== "Listening... Please describe all actions you can see happening in the image.") {
-                        analyzeTranscript(transcript.textContent);
-                    }
-                });
-                
-                // Add label and selector
-                const ageControl = document.createElement('div');
-                ageControl.className = 'age-control';
-                ageControl.innerHTML = '<span>Age: </span>';
-                ageControl.appendChild(ageSelector);
-                header.appendChild(ageControl);
-            }
+
             
             // Initialize the quiz
             loadImage(currentImageIndex);
@@ -863,6 +814,11 @@
                 const criteriaDisplay = document.getElementById('criteriaMatched');
                 if (criteriaDisplay) {
                     imageMatchedCriteria[currentImageIndex] = criteriaDisplay.innerHTML;
+                }
+                
+                // Save found observations for this image
+                if (!imageObservationsFound[currentImageIndex]) {
+                    imageObservationsFound[currentImageIndex] = [];
                 }
             }
             
@@ -1171,9 +1127,16 @@
                 return actionVerbs.some(verb => new RegExp('\\b' + verb + '\\b', 'i').test(lowerSentence));
             });
             
+            // Ensure we have an array to store found observations for each image
+            if (!imageObservationsFound[currentImageIndex]) {
+                imageObservationsFound[currentImageIndex] = [];
+            }
+            
+            // Start with a fresh array for this analysis if not resuming from previous
+            const specificObservationsFound = [];
+            
             // Check for image-specific observations
             const currentCriteria = imageObservations[currentImageIndex];
-            const specificObservationsFound = [];
             
             if (currentCriteria && currentCriteria.validObservations) {
                 console.log("Analyzing transcript for image-specific observations");
@@ -1445,47 +1408,27 @@
                 // Save the numeric score for this image
                 imageAutoScoreValues[currentImageIndex] = scoreValue;
                 
-                // Different feedback based on age group and score
+                // Standard feedback based on score
                 let scoreText = "";
                 
-                // Generate age-appropriate feedback messages
-                const feedbackOptions = {
-                    younger: [
-                        "Try looking carefully at what's happening. What do you see?",
-                        "Good eye! You found something! What else can you see?",
-                        "Wonderful! You spotted two things! Can you find more?",
-                        "Amazing job! You've found several things happening!",
-                        "Wow! You're a super observer! You found so many things!",
-                        "Incredible! You have excellent observation skills!"
-                    ],
-                    medium: [
-                        "Not enough observations yet. Try describing more of what's happening!",
-                        "Good start! You've described 1 key observation. Can you find more?",
-                        "Nice job! You've described 2 key observations. Keep looking!",
-                        "Very good! You've described several key observations. Can you find more?",
-                        "Great work! You've identified many important details!",
-                        "Excellent! You've demonstrated superior observation skills!"
-                    ],
-                    older: [
-                        "Your observations are limited. Consider analyzing the image more thoroughly.",
-                        "You've identified one key element. Continue examining the relationships and context.",
-                        "You've noted two significant observations. Continue analyzing for deeper insights.",
-                        "Good analysis. You've identified several important elements in the scene.",
-                        "Strong observational skills. You've captured most of the key details.", 
-                        "Excellent analysis! Your comprehensive observations demonstrate exceptional attention to detail."
-                    ]
-                };
-                
-                // Select feedback based on age group and score
-                const feedback = feedbackOptions[childAgeGroup] || feedbackOptions.medium;
-                scoreText = feedback[scoreValue];
-                
-                // Add image-specific context if we have multiple observations
-                if (uniqueCount > 0) {
-                    // Add which image this is for clarity
-                    const imageName = currentImageIndex === 0 ? "first" : "second";
-                    scoreText += ` (${uniqueCount} observations in the ${imageName} image)`;
+                if (uniqueCount === 0) {
+                    scoreText = "Not enough observations yet. Try describing more of what's happening!";
+                } else if (uniqueCount === 1) {
+                    scoreText = "Good start! You've described 1 key observation. Can you find more?";
+                } else if (uniqueCount === 2) {
+                    scoreText = "Nice job! You've described 2 key observations. Keep looking!";
+                } else if (uniqueCount >= 3 && uniqueCount <= 4) {
+                    scoreText = "Very good! You've described several key observations. Can you find more?";
+                } else {
+                    scoreText = "Excellent! You've described many key observations about the image!";
                 }
+                
+                // Add image-specific context for clarity
+                const imageName = currentImageIndex === 0 ? "first" : "second";
+                scoreText += ` (Image ${currentImageIndex + 1})`;
+                
+                // Save the found observations for this specific image
+                imageObservationsFound[currentImageIndex] = [...specificObservationsFound];
                 
                 // Update the displayed score
                 autoScore.textContent = scoreText;
@@ -1496,8 +1439,7 @@
             
             // Console log for debugging
             console.log(`Analysis for image ${currentImageIndex}: ${specificObservationsFound.length} valid observations identified (${uniqueObservations.length} unique)`);
-            console.log(`Image-specific observations found:`, specificObservationsFound);
-            console.log(`Using age group: ${childAgeGroup} for feedback`);
+            console.log(`Image-specific observations found for image ${currentImageIndex + 1}:`, specificObservationsFound);
         }
         
         // Load previous reports from Firebase
