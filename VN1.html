@@ -461,29 +461,80 @@
             </div>
         </div>
 
-        <p>Click on all target images you can find. Press the Start button to begin.</p>
-        <button id="startButton" onclick="startTest()">Start Test</button>
-        <div id="countdownDisplay" style="font-size: 24px; margin: 10px 0; display: none;"></div>
-        
-        <div id="gridContainer" class="options-container" style="display: none;">
+        <!-- Phase 1: Introduction -->
+        <div id="intro-container">
+            <h2>Visual Neglect Test</h2>
+            <p>In this test, you need to find and click on all target images in the grid.</p>
+            <div id="target-preview" style="text-align: center; margin: 20px 0;">
+                <p><strong>The target image you need to find will be:</strong></p>
+                <img id="target-preview-image" src="" alt="Target Image" style="width: 80px; height: 80px; border: 2px dashed #007BFF;">
+            </div>
+            <p><strong>Instructions:</strong></p>
+            <ul>
+                <li>You have 30 seconds to find all 4 targets</li>
+                <li>One target is located in each quadrant of the grid</li>
+                <li>Click on the target images as quickly as you can</li>
+                <li>The test will end when all targets are found or time expires</li>
+            </ul>
+            <button id="startButton">Start Test</button>
+        </div>
+
+        <!-- Phase 2: Test -->
+        <div id="test-container" style="display: none;">
+            <div id="test-info" style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                <div id="countdownDisplay" style="font-size: 18px; font-weight: bold;">Time: 30s</div>
+                <div id="progress-display">Targets Found: <span id="found-count">0</span>/4</div>
+            </div>
+            <div id="grid-container" style="display: grid; grid-template-columns: repeat(6, 80px); grid-template-rows: repeat(8, 80px); gap: 5px; margin: 0 auto;"></div>
         </div>
     </div>
 
-    <div id="result-container">
+    <!-- Phase 3: Results -->
+    <div id="result-container" style="display: none;">
         <h2>Visual Neglect Test Results</h2>
-        <ul style="list-style: none; padding: 0;">
-            <li><strong>Targets Found:</strong> <span id="score"></span> of 4</li>
-            <li><strong>Targets Missed:</strong> <span id="total-incorrect"></span></li>
-            <li><strong>Test Duration:</strong> <span id="total-time"></span> seconds</li>
-            <li><strong>Response Time:</strong> <span id="first-tap"></span> seconds</li>
-            <li><strong>Total Taps:</strong> <span id="total-taps"></span></li>
-            <li><strong>Found Targets:</strong> <span id="total-correct"></span></li>
-        </ul>
-        <a href="VN.html" style="text-decoration: none;"><button>Return Home</button></a>
+        
+        <!-- Summary Statistics -->
+        <div class="result-summary" style="margin-bottom: 20px;">
+            <ul style="list-style: none; padding: 0;">
+                <li><strong>Targets Found:</strong> <span id="score"></span> of 4</li>
+                <li><strong>Targets Missed:</strong> <span id="total-incorrect"></span></li>
+                <li><strong>Test Duration:</strong> <span id="total-time"></span> seconds</li>
+                <li><strong>Response Time:</strong> <span id="first-tap"></span> seconds</li>
+                <li><strong>Total Taps:</strong> <span id="total-taps"></span></li>
+            </ul>
+        </div>
+        
+        <!-- Visual Quadrant Display -->
+        <div class="quadrant-results">
+            <h3>Quadrant Analysis</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; width: 300px; height: 300px; margin: 0 auto; gap: 5px;">
+                <div id="topLeft" class="quadrant" style="background-color: #e9f5fe; border: 1px solid #ccc; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                    <p>Top Left</p>
+                    <div id="topLeft-status" class="status"></div>
+                </div>
+                <div id="topRight" class="quadrant" style="background-color: #e9f5fe; border: 1px solid #ccc; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                    <p>Top Right</p>
+                    <div id="topRight-status" class="status"></div>
+                </div>
+                <div id="bottomLeft" class="quadrant" style="background-color: #e9f5fe; border: 1px solid #ccc; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                    <p>Bottom Left</p>
+                    <div id="bottomLeft-status" class="status"></div>
+                </div>
+                <div id="bottomRight" class="quadrant" style="background-color: #e9f5fe; border: 1px solid #ccc; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                    <p>Bottom Right</p>
+                    <div id="bottomRight-status" class="status"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div style="margin-top: 20px;">
+            <button id="restart-button" onclick="resetTest()" style="margin-right: 10px;">Try Again</button>
+            <a href="VN.html" style="text-decoration: none;"><button>Return Home</button></a>
+        </div>
     </div>
-
+    
     <div id="report-container">
-        <h2>All Quiz Attempts</h2>
+        <h2>All Test Attempts</h2>
         <ul id="report-list"></ul>
         <button id="clear-report" onclick="clearReport()">Clear Report</button>
     </div>
@@ -598,6 +649,20 @@
                     }
                     
                     document.getElementById('profileIcon').textContent = initial;
+                    
+                    // When DOM is loaded
+                    document.addEventListener('DOMContentLoaded', function() {
+                        // Initialize Firebase
+                        checkIfUserLoggedIn();
+                        fetchAttempts();
+                        
+                        // Initialize the test
+                        prepareTest();
+                        
+                        // Add event listener to the start button
+                        document.getElementById('startButton').addEventListener('click', startTest);
+                    });
+                    
                     // Start the game
                     startNewRound();
                     questionImage.onclick = showOptions;
@@ -651,14 +716,73 @@
             // Select first image as target
             targetImage = shuffledImages[0];
             
-            // Use next 3 images as distractors
-            distractorImages = shuffledImages.slice(1, 4);
+            // Use all remaining images as distractors for better diversity
+            distractorImages = shuffledImages.slice(1);
         }
         
         // Grid configuration
         const GRID_COLS = 6;
         const GRID_ROWS = 8;
         const TOTAL_CELLS = GRID_COLS * GRID_ROWS;
+        
+        // Function to get the quadrant for a given cell position
+        function getQuadrant(col, row) {
+            if (col < GRID_COLS/2) {
+                if (row < GRID_ROWS/2) {
+                    return 'topLeft';
+                } else {
+                    return 'bottomLeft';
+                }
+            } else {
+                if (row < GRID_ROWS/2) {
+                    return 'topRight';
+                } else {
+                    return 'bottomRight';
+                }
+            }
+        }
+
+        // Function to shuffle array (Fisher-Yates algorithm)
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+        
+        // Function to reset the test for another attempt
+        function resetTest() {
+            // Clear any running timers
+            if (countdownTimer) {
+                clearInterval(countdownTimer);
+            }
+            
+            // Reset variables
+            timeRemaining = TEST_DURATION;
+            testActive = false;
+            testCompleted = false;
+            
+            // Hide test and results containers, show intro
+            document.getElementById('test-container').style.display = 'none';
+            document.getElementById('result-container').style.display = 'none';
+            document.getElementById('intro-container').style.display = 'block';
+            
+            // Enable the start button
+            document.getElementById('startButton').disabled = false;
+            
+            // Prepare a new test
+            prepareTest();
+        }
+        
+        // Function to prepare the test (select images without starting)
+        function prepareTest() {
+            // Randomize images for the upcoming test
+            randomizeImages();
+            
+            // Show the target image in the preview
+            document.getElementById('target-preview-image').src = targetImage;
+        }
         
         // Target tracking
         let targets = [];
@@ -675,26 +799,7 @@
         let timeRemaining = TEST_DURATION;
         let countdownTimer;
 
-        const gridContainer = document.getElementById('gridContainer');
-
-        function shuffleArray(array) {
-            for (let i = array.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [array[i], array[j]] = [array[j], array[i]];
-            }
-            return array;
-        }
-        
-        // Determine quadrant based on grid position
-        function getQuadrant(col, row) {
-            const midCol = GRID_COLS / 2;
-            const midRow = GRID_ROWS / 2;
-            
-            if (col < midCol && row < midRow) return 'topLeft';
-            if (col >= midCol && row < midRow) return 'topRight';
-            if (col < midCol && row >= midRow) return 'bottomLeft';
-            return 'bottomRight';
-        }
+        const gridContainer = document.getElementById('grid-container');
         
         // Create the grid layout with targets
         function createGrid() {
@@ -770,7 +875,6 @@
         function handleCellClick(imgElement) {
             if (!testActive || testCompleted) return;
             
-            // Record first tap time
             if (firstTapTime === null) {
                 firstTapTime = (Date.now() - totalStartTime) / 1000;
             }
@@ -783,12 +887,14 @@
             const quadrant = imgElement.dataset.quadrant;
             
             if (isTarget) {
-                // Mark as clicked to track which targets were found
                 const targetIndex = targets.findIndex(t => t.col === col && t.row === row);
                 if (targetIndex !== -1 && !clickedTargets.includes(targetIndex)) {
                     clickedTargets.push(targetIndex);
                     imgElement.style.border = '3px solid green';
                     showFeedback(true);
+                    
+                    // Update the found counter in the UI
+                    document.getElementById('found-count').textContent = clickedTargets.length;
                 }
             } else {
                 imgElement.style.border = '3px solid red';
@@ -798,7 +904,6 @@
                 showFeedback(false);
             }
             
-            // If all targets found or time is up, end the test
             if (clickedTargets.length === targets.length) {
                 endTest();
             }
@@ -815,9 +920,10 @@
         
         // Start the visual neglect test
         function startTest() {
-            document.getElementById('startButton').disabled = true;
-            document.getElementById('countdownDisplay').style.display = 'block';
-            document.getElementById('countdownDisplay').textContent = `Time: ${timeRemaining}s`;
+            // Hide intro screen, show test screen
+            document.getElementById('intro-container').style.display = 'none';
+            document.getElementById('test-container').style.display = 'block';
+            document.getElementById('result-container').style.display = 'none';
             
             // Reset tracking variables
             targets = [];
@@ -835,12 +941,12 @@
             testCompleted = false;
             timeRemaining = TEST_DURATION;
             
-            // Randomize the target and distractor images for this test run
-            randomizeImages();
+            // Show initial counters
+            document.getElementById('countdownDisplay').textContent = `Time: ${timeRemaining}s`;
+            document.getElementById('found-count').textContent = '0';
             
             // Create the grid with targets
             createGrid();
-            gridContainer.style.display = 'grid';
             
             // Start the timer
             totalStartTime = Date.now();
@@ -854,29 +960,53 @@
             }, 1000);
         }
         
-        // End the test and show results
+        // End the test and calculate results
         function endTest() {
+            if (testCompleted) return;
+            
             clearInterval(countdownTimer);
             testActive = false;
             testCompleted = true;
             
-            // Calculate missed targets
+            // Calculate missed targets by quadrant
             targets.forEach((target, index) => {
                 if (!clickedTargets.includes(index)) {
                     missedTargets[target.quadrant]++;
                 }
             });
             
-            isPromptsOpen = true;
-            setTimeout(() => {
-                alert('Test completed!');
-                showResults();
-            }, 500);
+            // Hide test container, show results container
+            document.getElementById('test-container').style.display = 'none';
+            document.getElementById('result-container').style.display = 'block';
+            
+            // Show results
+            showResults();
+            
+            // Update quadrant visual display
+            updateQuadrantDisplay();
+        }
+        
+        // Update the visual display of quadrant results
+        function updateQuadrantDisplay() {
+            const quadrants = ['topLeft', 'topRight', 'bottomLeft', 'bottomRight'];
+            
+            quadrants.forEach(quadrant => {
+                const statusDiv = document.getElementById(`${quadrant}-status`);
+                const quadrantDiv = document.getElementById(quadrant);
+                
+                if (missedTargets[quadrant] > 0) {
+                    // Target was missed in this quadrant
+                    statusDiv.innerHTML = `<span style="color: red; font-weight: bold;">MISSED</span>`;
+                    quadrantDiv.style.backgroundColor = '#ffebee'; // Light red background
+                } else {
+                    // Target was found in this quadrant
+                    statusDiv.innerHTML = `<span style="color: green; font-weight: bold;">FOUND</span>`;
+                    quadrantDiv.style.backgroundColor = '#e8f5e9'; // Light green background
+                }
+            });
         }
 
         function showResults() {
-            isPromptsOpen = true; // Mark that results are shown
-            
             const totalEndTime = Date.now();
             const totalTimeInSeconds = ((totalEndTime - totalStartTime) / 1000).toFixed(2);
             const foundTargets = clickedTargets.length;
@@ -908,22 +1038,10 @@
             document.getElementById('total-time').innerText = totalTimeInSeconds;
             document.getElementById('first-tap').innerText = firstTapTime ? firstTapTime.toFixed(2) : "N/A";
             document.getElementById('total-taps').innerText = totalTaps;
-            document.getElementById('total-correct').innerText = foundTargets;
             document.getElementById('total-incorrect').innerText = missedTargetsTotal;
-
-            // Create and display the quadrant results
-            const resultContainer = document.getElementById('result-container');
-            const quadrantResults = document.createElement('li');
-            quadrantResults.innerHTML = `<strong>Missed Targets by Quadrant:</strong> <span>${missedByQuadrantStr}</span>`;
-            resultContainer.querySelector('ul').appendChild(quadrantResults);
             
-            document.getElementById('result-container').style.display = 'block';
+            // Show the report container with past attempts
             document.getElementById('report-container').style.display = 'flex';
-            
-            // Reset the prompts flag after showing results
-            setTimeout(() => {
-                isPromptsOpen = false;
-            }, 100);
             
             saveAttempt({
                 foundTargets,
@@ -1182,6 +1300,18 @@
             if (!gameStarted) return;
             
             totalTaps++;
+        });
+        
+        // Initialize the test when page loads
+        window.addEventListener('DOMContentLoaded', () => {
+            // Initialize the test by preparing images
+            prepareTest();
+            
+            // Add event listener to the start button
+            document.getElementById('startButton').addEventListener('click', startTest);
+            
+            // Add event listener to restart button
+            document.getElementById('restart-button').addEventListener('click', resetTest);
         });
     </script>
 </body>
