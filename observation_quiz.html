@@ -574,7 +574,7 @@
                             "girl": ["child", "kid", "she", "daughter", "person"],
                             "climbing": ["going up", "on", "in", "up on", "going in", "up", "hanging"],
                             "sitting": ["on", "resting", "staying", "perched", "in"],
-                            "tree": ["branch", "plant", "nature", "up high"]
+                            "tree": ["branch", "plant", "up high"]
                         }
                     },
                     {
@@ -689,7 +689,7 @@
                         main: "man worried scared",
                         keywords: ["man", "worried", "scared"],
                         synonyms: {
-                            "man": ["person", "guy", "he", "someone"],
+                            "man": ["person", "guy", "someone", "he", "dad", "father"],
                             "worried": ["afraid", "frightened", "nervous", "unhappy", "sad", "upset", "needs help"],
                             "scared": ["afraid", "frightened", "crying", "need help", "shouting", "worried"]
                         }
@@ -1211,10 +1211,20 @@
                     
                     // Make matching more flexible for children's speech variations
                     let matchThreshold = 0.4; // More permissive: 40% for 1-2 keywords
+                    let minKeywords = 1; // Minimum keywords needed
+                    
                     if (observation.keywords.length >= 4) {
                         matchThreshold = 0.25; // Very permissive: 25% for 4+ keywords
+                        minKeywords = 1;
                     } else if (observation.keywords.length === 3) {
                         matchThreshold = 0.34; // Permissive: 34% for 3 keywords (1 out of 3)
+                        minKeywords = 1;
+                    } else if (observation.keywords.length === 2) {
+                        matchThreshold = 0.5; // Need at least 1 out of 2 keywords
+                        minKeywords = 1;
+                    } else {
+                        matchThreshold = 1.0; // Need all keywords for single-keyword observations
+                        minKeywords = 1;
                     }
                     
                     const matchRatio = keywordsMatched.length / observation.keywords.length;
@@ -1226,10 +1236,43 @@
                                synonymsMatched.some(s => s.includes(kw) && keywordFrequency[s.split(' → ')[0] + ':' + kw] > 1);
                     });
                     
-                    // More permissive matching - if we have at least 1 keyword match, consider it
-                    if ((keywordsMatched.length >= 1) && (!isRepeat || hasNewKeywords)) {
+                    // Better matching logic - require either:
+                    // 1. Multiple keywords matched, OR
+                    // 2. High-confidence single keyword match (not common words like "tree", "dog" alone)
+                    let isValidMatch = false;
+                    
+                    if (keywordsMatched.length >= 2) {
+                        // Multiple keywords matched - likely a good match
+                        isValidMatch = true;
+                    } else if (keywordsMatched.length === 1) {
+                        // Single keyword - be more selective
+                        const singleKeyword = keywordsMatched[0];
+                        const commonWords = ['tree', 'dog', 'boy', 'girl', 'child', 'children', 'man', 'woman'];
+                        
+                        if (commonWords.includes(singleKeyword)) {
+                            // For common words, also require action words or context
+                            const actionWords = observation.keywords.filter(kw => 
+                                !commonWords.includes(kw) && 
+                                (kw.includes('ing') || ['running', 'climbing', 'sitting', 'hanging', 'riding', 'barking', 'calling', 'stuck', 'worried', 'scared'].includes(kw))
+                            );
+                            
+                            // Check if any action words are mentioned in the text
+                            const hasActionContext = actionWords.some(actionWord => {
+                                const actionSynonyms = observation.synonyms?.[actionWord] || [];
+                                return actionSynonyms.some(synonym => lowerText.includes(synonym.toLowerCase()));
+                            });
+                            
+                            isValidMatch = hasActionContext;
+                        } else {
+                            // Non-common words can match with single keyword
+                            isValidMatch = true;
+                        }
+                    }
+                    
+                    // Final validation
+                    if (isValidMatch && matchRatio >= matchThreshold && (!isRepeat || hasNewKeywords)) {
                         specificObservationsFound.push(observation.main);
-                        console.log(`Found valid observation: ${observation.main}`);
+                        console.log(`✅ Found valid observation: ${observation.main}`);
                         console.log(`Matched keywords: ${keywordsMatched.join(', ')}`);
                         console.log(`Match ratio: ${matchRatio} (${keywordsMatched.length}/${observation.keywords.length})`);
                         if (synonymsMatched.length > 0) {
@@ -1239,7 +1282,7 @@
                             console.log(`This is a repeated observation with new keyword mentions`);
                         }
                     } else {
-                        console.log(`Observation "${observation.main}" did not match. Keywords found: ${keywordsMatched.length}/${observation.keywords.length}`);
+                        console.log(`❌ Observation "${observation.main}" did not match. Keywords found: ${keywordsMatched.length}/${observation.keywords.length}, Valid: ${isValidMatch}, Ratio: ${matchRatio}`);
                     }
                 });
             }
@@ -1329,17 +1372,22 @@
                 scoreText = "No observations yet - try describing what you see happening!";
                 scoreValue = "0";
             } else if (observationCount >= 1 && observationCount <= 2) {
-                scoreText = "Good start! You found " + observationCount + " activities. Can you see more?";
+                scoreText = "Good start! You found " + observationCount + " key observations. Can you see more?";
                 scoreValue = "1";
             } else {
-                scoreText = "Excellent! You found " + observationCount + " different activities!";
+                scoreText = "Excellent! You found " + observationCount + " different observations!";
                 scoreValue = "2";
             }
             
-            // Log any repeated observations that were counted only once
-            if (specificObservationsFound.length > uniqueObservations.length) {
-                console.log(`Note: ${specificObservationsFound.length - uniqueObservations.length} repeated observations were counted only once`);
-            }
+            // Add image-specific context for clarity
+            const imageName = currentImageIndex === 0 ? "first" : "second";
+            scoreText += ` (Image ${currentImageIndex + 1})`;
+            
+            // Update the displayed score
+            autoScore.textContent = scoreText;
+            
+            // Store this for the current image
+            imageAutoScores[currentImageIndex] = scoreText;
             
             // Add visualization for observed criteria - show what was detected
             const criteriaDisplay = document.getElementById('criteriaMatched');
@@ -1371,47 +1419,14 @@
                 imageMatchedCriteria[currentImageIndex] = '';
             }
             
-            // Update auto score based on observations found - with age-appropriate feedback
-            if (updateDisplay) {
-                // Use the observations found in this current analysis only
-                const uniqueCount = specificObservationsFound.length;
-                
-                // Store numeric score value (0-5 scale)
-                let scoreValue = 0;
-                if (uniqueCount >= 5) scoreValue = 5;
-                else if (uniqueCount >= 4) scoreValue = 4;
-                else if (uniqueCount >= 3) scoreValue = 3;
-                else if (uniqueCount >= 2) scoreValue = 2;
-                else if (uniqueCount >= 1) scoreValue = 1;
-                
-                // Save the numeric score for this image
-                imageAutoScoreValues[currentImageIndex] = scoreValue;
-                
-                // Standard feedback based on score
-                let scoreText = "";
-                
-                if (uniqueCount === 0) {
-                    scoreText = "Not enough observations yet. Try describing more of what's happening!";
-                } else if (uniqueCount === 1) {
-                    scoreText = "Good start! You've described 1 key observation. Can you find more?";
-                } else if (uniqueCount === 2) {
-                    scoreText = "Nice job! You've described 2 key observations. Keep looking!";
-                } else if (uniqueCount >= 3 && uniqueCount <= 4) {
-                    scoreText = "Very good! You've described several key observations. Can you find more?";
-                } else {
-                    scoreText = "Excellent! You've described many key observations about the image!";
-                }
-                
-                // Add image-specific context for clarity
-                const imageName = currentImageIndex === 0 ? "first" : "second";
-                scoreText += ` (Image ${currentImageIndex + 1})`;
-                
-                // Update the displayed score
-                autoScore.textContent = scoreText;
-                
-                // Store this for the current image
-                imageAutoScores[currentImageIndex] = scoreText;
-            }
+            // Store numeric score value for analytics
+            let numericScore = 0;
+            if (observationCount >= 5) numericScore = 5;
+            else if (observationCount >= 4) numericScore = 4;  
+            else if (observationCount >= 3) numericScore = 3;
+            else if (observationCount >= 2) numericScore = 2;
+            else if (observationCount >= 1) numericScore = 1;
+            imageAutoScoreValues[currentImageIndex] = numericScore;
             
             // Console log for debugging
             console.log(`Analysis for image ${currentImageIndex}: ${specificObservationsFound.length} valid observations identified (${uniqueObservations.length} unique)`);
