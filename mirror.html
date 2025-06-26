@@ -265,11 +265,28 @@
             font-weight: bold;
         }
         
-        .detail-row {
+        .attempt-details .detail-row {
             display: flex;
             justify-content: space-between;
             margin-bottom: 5px;
-            font-size: 13px;
+            font-size: 14px;
+            padding: 2px 5px;
+        }
+        
+        .detail-section-header {
+            background-color: #f0f8ff;
+            padding: 6px 5px;
+            margin-top: 8px;
+            margin-bottom: 6px;
+            border-radius: 4px;
+            font-weight: bold;
+            color: #2c3e50;
+            display: block !important;
+            text-align: center;
+        }
+        
+        .detail-section-header span {
+            width: 100%;
         }
         
         /* Eye tracking overlay */
@@ -354,12 +371,10 @@
         
         <div class="controls">
             <div class="control-group">
-                <label for="pattern">Movement Pattern:</label>
+                <label for="pattern">Pursuit Test:</label>
                 <select id="pattern">
-                    <option value="linear">Linear (Left to Right)</option>
-                    <option value="diagonal">Diagonal</option>
-                    <option value="circular">Circular</option>
-                    <option value="random">Random</option>
+                    <option value="horizontal">Horizontal Line (Left to Right)</option>
+                    <option value="vertical">Vertical Line (Up and Down)</option>
                 </select>
             </div>
             
@@ -398,26 +413,28 @@
         </div>
         
         <div class="observation-container">
-            <h3>Observation Checklist</h3>
-            <div class="observation-item">
-                <input type="checkbox" id="fixation">
-                <label for="fixation">Fixation achieved</label>
+            <h3>Assessment Checklist</h3>
+            <div class="observation-section">
+                <h4>Mirror Fixation</h4>
+                <div class="observation-item">
+                    <label for="fixationDuration">Time looking at reflection (seconds):</label>
+                    <input type="number" id="fixationDuration" min="0" max="300" value="0">
+                </div>
             </div>
-            <div class="observation-item">
-                <input type="checkbox" id="leftField">
-                <label for="leftField">Response to left field</label>
-            </div>
-            <div class="observation-item">
-                <input type="checkbox" id="rightField">
-                <label for="rightField">Response to right field</label>
-            </div>
-            <div class="observation-item">
-                <input type="checkbox" id="centerField">
-                <label for="centerField">Response to center field</label>
-            </div>
-            <div class="observation-item">
-                <label for="duration">Approximate duration of eye contact (seconds):</label>
-                <input type="number" id="duration" min="0" max="300" value="0">
+            
+            <div class="observation-section">
+                <h4>Light Pursuit</h4>
+                <div class="observation-item">
+                    <label for="pursuitCount">Successful pursuits (out of 5):</label>
+                    <select id="pursuitCount">
+                        <option value="0">0/5</option>
+                        <option value="1">1/5</option>
+                        <option value="2">2/5</option>
+                        <option value="3">3/5</option>
+                        <option value="4">4/5</option>
+                        <option value="5">5/5</option>
+                    </select>
+                </div>
             </div>
             <div class="observation-item">
                 <label for="notes">Notes:</label>
@@ -781,55 +798,52 @@
             // Calculate speed factor (1-10 scale)
             const speedFactor = speed / 5;
             
-            // Different movement patterns
+            // Two pursuit patterns: horizontal and vertical
             switch(pattern) {
-                case 'linear':
-                    // Linear movement (left to right)
+                case 'horizontal':
+                    // Horizontal movement (left to right)
                     if (!isReversed) {
                         xPos += speedFactor;
-                        if (xPos > maxX) xPos = 0;
+                        if (xPos > maxX) {
+                            xPos = maxX;
+                            isReversed = true;
+                        }
+                        // Keep vertical position centered
+                        yPos = maxY / 2;
                     } else {
                         xPos -= speedFactor;
-                        if (xPos < 0) xPos = maxX;
+                        if (xPos < 0) {
+                            xPos = 0;
+                            isReversed = false;
+                        }
+                        // Keep vertical position centered
+                        yPos = maxY / 2;
                     }
                     break;
                     
-                case 'diagonal':
-                    // Diagonal movement
+                case 'vertical':
+                    // Vertical movement (up and down)
                     if (!isReversed) {
-                        xPos += speedFactor;
                         yPos += speedFactor;
-                        if (xPos > maxX) xPos = 0;
-                        if (yPos > maxY) yPos = 0;
+                        if (yPos > maxY) {
+                            yPos = maxY;
+                            isReversed = true;
+                        }
+                        // Keep horizontal position centered
+                        xPos = maxX / 2;
                     } else {
-                        xPos -= speedFactor;
                         yPos -= speedFactor;
-                        if (xPos < 0) xPos = maxX;
-                        if (yPos < 0) yPos = maxY;
-                    }
-                    break;
-                    
-                case 'circular':
-                    // Circular movement
-                    angle += (isReversed ? -0.02 : 0.02) * speedFactor;
-                    xPos = maxX / 2 + Math.cos(angle) * (maxX / 2.5);
-                    yPos = maxY / 2 + Math.sin(angle) * (maxY / 2.5);
-                    break;
-                    
-                case 'random':
-                    // Random movement
-                    if (Math.random() > 0.95) {
-                        xPos += (Math.random() - 0.5) * speedFactor * 10;
-                        yPos += (Math.random() - 0.5) * speedFactor * 10;
-                        
-                        // Keep within bounds
-                        xPos = Math.max(0, Math.min(xPos, maxX));
-                        yPos = Math.max(0, Math.min(yPos, maxY));
+                        if (yPos < 0) {
+                            yPos = 0;
+                            isReversed = false;
+                        }
+                        // Keep horizontal position centered
+                        xPos = maxX / 2;
                     }
                     break;
             }
             
-            // Update position
+            // Update light position
             lightStimulus.style.left = `${xPos}px`;
             lightStimulus.style.top = `${yPos}px`;
             
@@ -857,11 +871,8 @@
             
             try {
                 // Get observation data
-                const fixation = document.getElementById('fixation').checked;
-                const leftField = document.getElementById('leftField').checked;
-                const rightField = document.getElementById('rightField').checked;
-                const centerField = document.getElementById('centerField').checked;
-                const duration = document.getElementById('duration').value;
+                const fixationDuration = document.getElementById('fixationDuration').value;
+                const pursuitCount = document.getElementById('pursuitCount').value;
                 const notes = document.getElementById('notes').value;
                 
                 // Prepare data object as a flat structure without nested objects
@@ -872,21 +883,18 @@
                     interactionCount,
                     pattern,
                     speed,
-                    // Flatten observation data
-                    fixation: document.getElementById('fixation').checked,
-                    leftField: document.getElementById('leftField').checked,
-                    rightField: document.getElementById('rightField').checked,
-                    centerField: document.getElementById('centerField').checked,
-                    duration: document.getElementById('duration').value,
-                    notes: document.getElementById('notes').value,
-                    // Flatten eye tracking data
+                    // Mirror fixation data
+                    fixationDuration: parseInt(fixationDuration) || 0,
+                    // Pursuit test data
+                    pursuitCount: parseInt(pursuitCount) || 0,
+                    pursuitSuccessRate: (parseInt(pursuitCount) / 5) * 100 || 0,
+                    notes: notes,
+                    // Eye tracking data if enabled
                     eyeTrackingEnabled: enableEyeTracking,
                     faceMovementCount: eyeMovementCount || 0,
                     eyeballMovementCount: eyeballMovementCount || 0,
-                    fixationDuration: eyeFixationDuration || 0,
-                    followingLightScore: followingScore || 0,
                     // Store simplified movement data
-                    eyeMovements: eyeMovementData.length
+                    eyeMovements: eyeMovementData ? eyeMovementData.length : 0
                 };
                 
                 // Determine the correct path based on user role
@@ -1030,32 +1038,40 @@
                         // Basic assessment details
                         detailRows += `
                             <div class="detail-row">
+                                <span class="detail-label">Assessment Duration:</span>
+                                <span>${assessment.assessmentDuration ? assessment.assessmentDuration.toFixed(1) : '0'}s</span>
+                            </div>
+                            <div class="detail-row">
                                 <span class="detail-label">Interactions:</span>
                                 <span>${assessment.interactionCount || 0}</span>
                             </div>
                             <div class="detail-row">
                                 <span class="detail-label">Speed Setting:</span>
                                 <span>${assessment.speed || 0}/10</span>
-                            </div>
-                            <div class="detail-row">
-                                <span class="detail-label">Fixation Achieved:</span>
-                                <span>${assessment.fixation ? 'Yes' : 'No'}</span>
                             </div>`;
                         
-                        // Field response data
-                        const fieldResponses = [];
-                        if (assessment.leftField) fieldResponses.push('Left');
-                        if (assessment.centerField) fieldResponses.push('Center');
-                        if (assessment.rightField) fieldResponses.push('Right');
-                        
+                        // Mirror fixation data
                         detailRows += `
-                            <div class="detail-row">
-                                <span class="detail-label">Field Response:</span>
-                                <span>${fieldResponses.length > 0 ? fieldResponses.join(', ') : 'None'}</span>
+                            <div class="detail-row detail-section-header">
+                                <span>Mirror Fixation Assessment</span>
                             </div>
                             <div class="detail-row">
-                                <span class="detail-label">Eye Contact Duration:</span>
-                                <span>${assessment.duration || 0}s</span>
+                                <span class="detail-label">Time Looking at Reflection:</span>
+                                <span>${assessment.fixationDuration || 0} seconds</span>
+                            </div>`;
+                            
+                        // Pursuit test data
+                        detailRows += `
+                            <div class="detail-row detail-section-header">
+                                <span>Light Pursuit Assessment</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Pattern Used:</span>
+                                <span>${assessment.pattern || 'horizontal'}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Successful Pursuits:</span>
+                                <span>${assessment.pursuitCount || 0}/5 (${assessment.pursuitSuccessRate || 0}%)</span>
                             </div>`;
                         
                         // Eye tracking data
