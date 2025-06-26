@@ -1153,13 +1153,20 @@
             
             // Check for image-specific observations ONLY for the current image
             const currentCriteria = imageObservations[currentImageIndex];
-            console.log(`Analyzing transcript for image ${currentImageIndex}:`, currentCriteria?.id || 'Unknown');
+            console.log(`=== ANALYSIS DEBUG ===`);
+            console.log(`Current Image Index: ${currentImageIndex}`);
+            console.log(`Current Criteria ID: ${currentCriteria?.id || 'Unknown'}`);
+            console.log(`Input text: "${cleanText}"`);
+            console.log(`Available observations for this image:`, currentCriteria?.validObservations?.map(obs => obs.main) || 'None');
             
             if (currentCriteria && currentCriteria.validObservations) {
                 console.log(`Checking ${currentCriteria.validObservations.length} observations for image ${currentImageIndex}`);
                 
                 // Check each valid observation criteria
-                currentCriteria.validObservations.forEach(observation => {
+                currentCriteria.validObservations.forEach((observation, obsIndex) => {
+                    console.log(`\n--- Checking observation ${obsIndex + 1}: "${observation.main}" ---`);
+                    console.log(`Keywords: [${observation.keywords.join(', ')}]`);
+                    
                     // For each observation, calculate how many keywords are matched
                     const keywordsMatched = [];
                     const synonymsMatched = [];
@@ -1233,6 +1240,10 @@
                     }
                 });
             }
+            
+            console.log(`=== FINAL RESULTS ===`);
+            console.log(`Image ${currentImageIndex} - Observations found:`, specificObservationsFound);
+            console.log(`About to store for image ${currentImageIndex}:`, [...new Set(specificObservationsFound)]);
             
             // Highlight verbs in transcript
             let highlightedText = text;
