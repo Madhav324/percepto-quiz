@@ -430,6 +430,24 @@
             margin-bottom: 5px;
             color: #1b5e20;
         }
+        
+        /* Styling for all transcripts display in reports */
+        .all-transcripts {
+            margin-top: 5px;
+            padding: 8px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+            border-left: 3px solid #4a90e2;
+        }
+        
+        .transcript-item {
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .transcript-item:last-child {
+            border-bottom: none;
+        }
     </style>
 </head>
 <body>
@@ -1490,9 +1508,21 @@
                                     <span>${report.imageUrl || 'Unknown'}</span>
                                 </div>
                                 <div class="detail-row">
-                                    <span class="detail-label">Transcript:</span>
-                                    <span>${report.transcript || 'No transcript available'}</span>
+                                    <span class="detail-label">Transcript (Current Image):</span>
+                                    <span>${report.currentTranscript || report.transcript || 'No transcript available'}</span>
                                 </div>
+                                ${report.allTranscripts ? `
+                                <div class="detail-row">
+                                    <span class="detail-label">All Transcripts:</span>
+                                    <div class="all-transcripts">
+                                        ${Object.keys(report.allTranscripts).map(imageKey => `
+                                            <div class="transcript-item">
+                                                <strong>${imageKey}:</strong> ${report.allTranscripts[imageKey]}
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                                ` : ''}
                                 <div class="detail-row">
                                     <span class="detail-label">Auto Score:</span>
                                     <span>${report.autoScore || 'Not available'}</span>
@@ -1540,15 +1570,29 @@
                 // Create results object
                 const timestamp = Date.now();
                 const evaluatorFeedback = document.getElementById('evaluatorFeedback').value;
+                
+                // Save current transcript if not already saved
+                imageTranscripts[currentImageIndex] = transcript.textContent;
+                
+                // Prepare all transcripts
+                const allTranscripts = {};
+                for (let i = 0; i < images.length; i++) {
+                    allTranscripts[`image${i+1}`] = imageTranscripts[i] || "No observations recorded";
+                }
+                
+                // Create comprehensive results object with all transcripts
                 const results = {
                     imageId: currentImageIndex,
                     imageUrl: images[currentImageIndex],
-                    transcript: transcript.textContent,
+                    currentTranscript: transcript.textContent,
+                    allTranscripts: allTranscripts,
                     autoScore: autoScore.textContent,
                     finalScore: evaluatorScore.options[evaluatorScore.selectedIndex].text,
                     evaluatorFeedback: evaluatorFeedback || "",
                     timestamp: new Date().toISOString()
                 };
+                
+                console.log("Saving all transcripts:", allTranscripts);
                 
                 // Determine path based on patient/doctor context
                 let path = '';
