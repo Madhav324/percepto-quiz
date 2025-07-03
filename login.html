@@ -256,64 +256,48 @@
         }
 
         // Google Sign In
-        window.signInWithGoogle = async () => {
-            const errorElement = document.getElementById(document.getElementById('loginForm').style.display === 'none' ? 'registerError' : 'loginError');
-            errorElement.style.display = 'none';
+        async function signInWithGoogle() {
+            // Determine which error element to use based on which form is visible
+            const isLoginForm = document.getElementById('loginForm').style.display !== 'none';
+            const errorElement = document.getElementById(isLoginForm ? 'loginError' : 'registerError');
             
             try {
+                // Clear previous errors and show loading message
+                errorElement.textContent = 'Opening Google sign-in window...';
+                errorElement.style.color = '#4285F4'; // Google blue color
+                errorElement.style.display = 'block';
+                
+                // Attempt to sign in with popup
                 const result = await auth.signInWithPopup(googleProvider);
                 console.log("Google sign-in successful:", result.user.email);
                 
-                // Get user info from Google
+                // User info is now available through the result
                 const user = result.user;
-                const userId = user.uid;
-                const userEmail = user.email;
-                const displayName = user.displayName || '';
-                const photoURL = user.photoURL || '';
                 
-                // Check if user has a profile
-                const hasProfile = await checkUserProfile(userId);
+                // Auth state change listener will handle the rest
+                // It will create or update the user profile and redirect
                 
-                // If no profile exists, create one with Google info
-                if (!hasProfile) {
-                    try {
-                        // Create user profile in Firestore
-                        await db.collection('userProfiles').doc(userId).set({
-                            email: userEmail,
-                            name: displayName,
-                            photoURL: photoURL,
-                            role: 'user', // Default role
-                            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                            lastLogin: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-                        console.log("Created new profile for Google user:", userEmail);
-                    } catch (profileError) {
-                        console.error("Error creating profile:", profileError);
-                    }
-                } else {
-                    // Update last login time
-                    try {
-                        await db.collection('userProfiles').doc(userId).update({
-                            lastLogin: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-                    } catch (updateError) {
-                        console.error("Error updating last login:", updateError);
-                    }
-                }
-                
-                // Redirect based on profile status
-                window.location.href = getPath(hasProfile ? 'index.html' : 'profile.html');
             } catch (error) {
                 console.error("Google sign-in error:", error.code, error.message);
                 errorElement.style.display = 'block';
-                if (error.code === 'auth/unauthorized-domain') {
+                errorElement.style.color = 'red';
+                
+                // Handle specific error cases
+                if (error.code === 'auth/popup-closed-by-user') {
+                    errorElement.textContent = 'The sign-in window was closed. Please try again and complete the sign-in process.';
+                } 
+                else if (error.code === 'auth/popup-blocked') {
+                    errorElement.textContent = 'Pop-up was blocked by your browser. Please allow pop-ups for this site and try again.';
+                }
+                else if (error.code === 'auth/unauthorized-domain') {
                     const currentDomain = window.location.hostname;
                     errorElement.textContent = `Please add "${currentDomain}" to Firebase authorized domains`;
-                } else {
+                } 
+                else {
                     errorElement.textContent = error.message;
                 }
             }
-        };
+        }
 
         // Check auth state
         auth.onAuthStateChanged(async (user) => {
