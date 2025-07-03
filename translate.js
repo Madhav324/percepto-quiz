@@ -1,6 +1,5 @@
 // Initialization for Google Translate
 function googleTranslateElementInit() {
-    // Check if element exists before initializing
     if (!document.getElementById('google_translate_element')) {
         console.error('Google Translate element not found on page');
         return;
@@ -14,6 +13,12 @@ function googleTranslateElementInit() {
             autoDisplay: false
         }, 'google_translate_element');
         console.log('Google Translate initialized successfully');
+        
+        // Wait a bit for Google Translate to fully initialize
+        setTimeout(function() {
+            // Restore saved language after initialization
+            restoreSavedLanguage();
+        }, 1000);
     } catch (error) {
         console.error('Failed to initialize Google Translate:', error);
     }
@@ -21,40 +26,159 @@ function googleTranslateElementInit() {
 
 // Function to change the language manually
 function translateLanguage(lang) {
-    // Wait for Google Translate to load if not immediately available
-    const maxAttempts = 10;
+    console.log('Attempting to translate to language:', lang);
+    
+    // Directly use the Google Translate Widget API if available
+    if (typeof google !== 'undefined' && google.translate) {
+        try {
+            // Try to use Google's doGoogleLanguageTranslator function if available
+            if (typeof doGoogleLanguageTranslator === 'function') {
+                console.log('Using doGoogleLanguageTranslator function');
+                doGoogleLanguageTranslator(lang);
+                localStorage.setItem('preferredLanguage', lang);
+                
+                // Update our custom selector
+                const customSelector = document.getElementById('language-selector');
+                if (customSelector) customSelector.value = lang;
+                
+                return true;
+            }
+        } catch (e) {
+            console.log('Direct Google API call failed:', e);
+            // Continue with fallback method
+        }
+    }
+    
+    // Fallback method - wait for Google Translate to load if not immediately available
+    const maxAttempts = 30; // Increase max attempts further
     let attempts = 0;
     
     const checkAndTranslate = function() {
-        const selectElement = document.querySelector('.goog-te-combo');
+        // Try multiple selector approaches for different Google Translate versions
+        const selectElement = document.querySelector('.goog-te-combo') || 
+                             document.querySelector('.VIpgJd-ZVi9od-xl07Ob-lTBxed') ||
+                             document.querySelector('[aria-label="Language Translate Widget"]') ||
+                             document.querySelector('select.goog-te-menu-value');
+        
         if (selectElement) {
-            // Set the value and trigger change
-            selectElement.value = lang;
-            selectElement.dispatchEvent(new Event('change'));
+            console.log('Found Google Translate element:', selectElement);
             
-            // Save to localStorage for persistence
-            localStorage.setItem('preferredLanguage', lang);
-            console.log('Language changed to: ' + lang);
-            
-            // Update custom language selector if it exists
-            const customSelector = document.getElementById('language-selector');
-            if (customSelector && customSelector.value !== lang) {
-                customSelector.value = lang;
+            try {
+                // Set the value
+                selectElement.value = lang;
+                
+                // Create and dispatch multiple event types for better compatibility
+                selectElement.dispatchEvent(new Event('change', { bubbles: true }));
+                selectElement.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+                
+                // Also try to trigger actual selection
+                const options = selectElement.options;
+                for (let i = 0; i < options.length; i++) {
+                    if (options[i].value === lang) {
+                        options[i].selected = true;
+                        break;
+                    }
+                }
+                
+                // Try clicking the element using a more direct method
+                selectElement.click();
+                
+                // Try to force a form submission if inside a form
+                const form = selectElement.closest('form');
+                if (form) {
+                    console.log('Found form, submitting it');
+                    form.submit();
+                }
+                
+                // Use jQuery if available for more event triggering options
+                if (window.jQuery) {
+                    console.log('Using jQuery for additional event triggering');
+                    try {
+                        jQuery(selectElement).trigger('change').trigger('click');
+                    } catch (err) {
+                        console.log('jQuery method failed:', err);
+                    }
+                }
+                
+                // Save to localStorage for persistence
+                localStorage.setItem('preferredLanguage', lang);
+                console.log('Language changed to:', lang);
+                
+                // Update custom language selector if it exists
+                const customSelector = document.getElementById('language-selector');
+                if (customSelector && customSelector.value !== lang) {
+                    customSelector.value = lang;
+                }
+                
+                // Last resort: Reload the page with the langpair parameter
+                if (attempts > 15) {
+                    console.log('Using page reload as last resort');
+                    // Add a small delay before reload
+                    setTimeout(function() {
+                        window.location.search = '?langpair=' + lang;
+                    }, 500);
+                }
+                
+                return true;
+            } catch (error) {
+                console.error('Error changing language:', error);
+                return false;
             }
-            
-            return true;
         } else if (attempts < maxAttempts) {
             attempts++;
-            setTimeout(checkAndTranslate, 300); // Try again in 300ms
+            console.log(`Google Translate selector not found yet, attempt ${attempts}/${maxAttempts}`);
+            setTimeout(checkAndTranslate, 500); // Try again in 500ms (increased wait time)
             return false;
         } else {
             console.error('Google Translate selector not found after multiple attempts');
+            // Last resort - direct link approach
+            console.log('Trying to use direct translation URL approach');
+            const translateUrl = 'https://translate.google.com/translate?sl=auto&tl=' + lang + '&u=' + encodeURIComponent(window.location.href);
+            window.open(translateUrl, '_blank');
             return false;
         }
     };
     
     return checkAndTranslate();
 }
+
+// Direct access to Google's translation API to switch languages
+window.doGoogleLanguageTranslator = function(lang) {
+    if (typeof google === 'undefined' || typeof google.translate === 'undefined') {
+        console.error('Google Translate API not available');
+        return false;
+    }
+
+    try {
+        // Force reload of the Google Translate element with new language
+        const gtElement = document.getElementById('google_translate_element');
+        if (gtElement) {
+            // Clear and reinitialize with desired language
+            gtElement.innerHTML = '';
+            new google.translate.TranslateElement({
+                pageLanguage: 'en',
+                includedLanguages: 'hi,ta,te,ml,kn,mr,gu,pa,bn,or,as,ur',
+                layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
+                autoDisplay: false,
+                multilanguagePage: true
+            }, 'google_translate_element');
+            
+            // Wait a moment for initialization
+            setTimeout(function() {
+                // Try to find and manipulate the dropdown
+                const selectElement = document.querySelector('.goog-te-combo');
+                if (selectElement) {
+                    selectElement.value = lang;
+                    selectElement.dispatchEvent(new Event('change', { bubbles: true }));
+                    return true;
+                }
+            }, 300);
+        }
+    } catch (e) {
+        console.error('Error in doGoogleLanguageTranslator:', e);
+    }
+    return false;
+};
 
 // Initialize language selector and Google Translate
 document.addEventListener('DOMContentLoaded', function() {
@@ -87,7 +211,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const savedLanguage = localStorage.getItem('preferredLanguage');
         if (savedLanguage) {
             console.log('Restoring saved language:', savedLanguage);
-            languageSelector.value = savedLanguage;
+            
+            if (languageSelector) {
+                languageSelector.value = savedLanguage;
+            }
             
             // Wait for Google Translate to fully initialize
             let attempts = 0;
