@@ -255,13 +255,27 @@
             }
         }
 
+        // Track if authentication is in progress to prevent multiple popups
+        let authInProgress = false;
+        
         // Google Sign In
         async function signInWithGoogle() {
             // Determine which error element to use based on which form is visible
             const isLoginForm = document.getElementById('loginForm').style.display !== 'none';
             const errorElement = document.getElementById(isLoginForm ? 'loginError' : 'registerError');
             
+            // Prevent multiple authentication attempts
+            if (authInProgress) {
+                errorElement.textContent = 'Authentication already in progress. Please wait...';
+                errorElement.style.color = '#FFA500'; // Orange warning color
+                errorElement.style.display = 'block';
+                return;
+            }
+            
             try {
+                // Set flag to prevent multiple authentication attempts
+                authInProgress = true;
+                
                 // Clear previous errors and show loading message
                 errorElement.textContent = 'Opening Google sign-in window...';
                 errorElement.style.color = '#4285F4'; // Google blue color
@@ -289,6 +303,9 @@
                 else if (error.code === 'auth/popup-blocked') {
                     errorElement.textContent = 'Pop-up was blocked by your browser. Please allow pop-ups for this site and try again.';
                 }
+                else if (error.code === 'auth/cancelled-popup-request') {
+                    errorElement.textContent = 'Sign-in was cancelled due to another popup conflict. Please try again in a few seconds.';
+                }
                 else if (error.code === 'auth/unauthorized-domain') {
                     const currentDomain = window.location.hostname;
                     errorElement.textContent = `Please add "${currentDomain}" to Firebase authorized domains`;
@@ -296,6 +313,11 @@
                 else {
                     errorElement.textContent = error.message;
                 }
+            } finally {
+                // Reset the authentication in progress flag
+                setTimeout(() => {
+                    authInProgress = false;
+                }, 1000); // Small delay to prevent immediate retries
             }
         }
 
