@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quiz Login</title>
+    <link rel="stylesheet" href="translate-styles.css">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -101,63 +102,31 @@
             display: none;
         }
     </style>
-    <!-- Google Translate API -->
-    <script type="text/javascript">
-        function googleTranslateElementInit() {
-            new google.translate.TranslateElement({
-                pageLanguage: 'en',
-                layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
-                autoDisplay: false
-            }, 'google_translate_element');
-        }
-    </script>
-    <script type="text/javascript" src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
-    <style>
-        /* Google Translate Widget Styling */
-        #google_translate_element {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            z-index: 1000;
-        }
-        
-        /* Hide Google Translate attribution */
-        .goog-logo-link, .goog-te-gadget span {
-            display: none !important;
-        }
-        
-        .goog-te-gadget {
-            color: transparent !important;
-            font-size: 0px !important;
-        }
-        
-        .goog-te-combo {
-            padding: 5px;
-            border-radius: 4px;
-            border: 1px solid #ddd;
-            font-size: 12px;
-            background-color: white;
-            color: #333;
-            cursor: pointer;
-        }
-        
-        /* Compact mode for mobile */
-        @media (max-width: 480px) {
-            #google_translate_element {
-                top: 5px;
-                right: 5px;
-            }
-            
-            .goog-te-combo {
-                font-size: 10px;
-                padding: 3px;
-            }
-        }
-    </style>
 </head>
 <body>
-    <!-- Google Translate Element -->
+    <!-- Hidden Google Translate element -->
     <div id="google_translate_element"></div>
+    
+    <!-- Language Selector Bar -->
+    <div id="translate-bar">
+        <span>Language:</span>
+        <select id="language-selector">
+            <option value="en">English</option>
+            <option value="hi">हिन्दी (Hindi)</option>
+            <option value="ta">தமிழ் (Tamil)</option>
+            <option value="te">తెలుగు (Telugu)</option>
+            <option value="ml">മലയാളം (Malayalam)</option>
+            <option value="kn">ಕನ್ನಡ (Kannada)</option>
+            <option value="mr">मराठी (Marathi)</option>
+            <option value="gu">ગુજરાતી (Gujarati)</option>
+            <option value="pa">ਪੰਜਾਬੀ (Punjabi)</option>
+            <option value="bn">বাংলা (Bengali)</option>
+            <option value="or">ଓଡ଼ିଆ (Odia)</option>
+            <option value="as">অসমীয়া (Assamese)</option>
+            <option value="ur">اردو (Urdu)</option>
+        </select>
+    </div>
+    
     <div class="login-container">
         <div id="loginForm">
             <h2>Login to Quiz Portal</h2>
@@ -255,71 +224,65 @@
             }
         }
 
-        // Track if authentication is in progress to prevent multiple popups
-        let authInProgress = false;
-        
         // Google Sign In
-        async function signInWithGoogle() {
-            // Determine which error element to use based on which form is visible
-            const isLoginForm = document.getElementById('loginForm').style.display !== 'none';
-            const errorElement = document.getElementById(isLoginForm ? 'loginError' : 'registerError');
-            
-            // Prevent multiple authentication attempts
-            if (authInProgress) {
-                errorElement.textContent = 'Authentication already in progress. Please wait...';
-                errorElement.style.color = '#FFA500'; // Orange warning color
-                errorElement.style.display = 'block';
-                return;
-            }
+        window.signInWithGoogle = async () => {
+            const errorElement = document.getElementById(document.getElementById('loginForm').style.display === 'none' ? 'registerError' : 'loginError');
+            errorElement.style.display = 'none';
             
             try {
-                // Set flag to prevent multiple authentication attempts
-                authInProgress = true;
-                
-                // Clear previous errors and show loading message
-                errorElement.textContent = 'Opening Google sign-in window...';
-                errorElement.style.color = '#4285F4'; // Google blue color
-                errorElement.style.display = 'block';
-                
-                // Attempt to sign in with popup
                 const result = await auth.signInWithPopup(googleProvider);
                 console.log("Google sign-in successful:", result.user.email);
                 
-                // User info is now available through the result
+                // Get user info from Google
                 const user = result.user;
+                const userId = user.uid;
+                const userEmail = user.email;
+                const displayName = user.displayName || '';
+                const photoURL = user.photoURL || '';
                 
-                // Auth state change listener will handle the rest
-                // It will create or update the user profile and redirect
+                // Check if user has a profile
+                const hasProfile = await checkUserProfile(userId);
                 
+                // If no profile exists, create one with Google info
+                if (!hasProfile) {
+                    try {
+                        // Create user profile in Firestore
+                        await db.collection('userProfiles').doc(userId).set({
+                            email: userEmail,
+                            name: displayName,
+                            photoURL: photoURL,
+                            role: 'user', // Default role
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                            lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        console.log("Created new profile for Google user:", userEmail);
+                    } catch (profileError) {
+                        console.error("Error creating profile:", profileError);
+                    }
+                } else {
+                    // Update last login time
+                    try {
+                        await db.collection('userProfiles').doc(userId).update({
+                            lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    } catch (updateError) {
+                        console.error("Error updating last login:", updateError);
+                    }
+                }
+                
+                // Redirect based on profile status
+                window.location.href = getPath(hasProfile ? 'index.html' : 'profile.html');
             } catch (error) {
                 console.error("Google sign-in error:", error.code, error.message);
                 errorElement.style.display = 'block';
-                errorElement.style.color = 'red';
-                
-                // Handle specific error cases
-                if (error.code === 'auth/popup-closed-by-user') {
-                    errorElement.textContent = 'The sign-in window was closed. Please try again and complete the sign-in process.';
-                } 
-                else if (error.code === 'auth/popup-blocked') {
-                    errorElement.textContent = 'Pop-up was blocked by your browser. Please allow pop-ups for this site and try again.';
-                }
-                else if (error.code === 'auth/cancelled-popup-request') {
-                    errorElement.textContent = 'Sign-in was cancelled due to another popup conflict. Please try again in a few seconds.';
-                }
-                else if (error.code === 'auth/unauthorized-domain') {
+                if (error.code === 'auth/unauthorized-domain') {
                     const currentDomain = window.location.hostname;
                     errorElement.textContent = `Please add "${currentDomain}" to Firebase authorized domains`;
-                } 
-                else {
+                } else {
                     errorElement.textContent = error.message;
                 }
-            } finally {
-                // Reset the authentication in progress flag
-                setTimeout(() => {
-                    authInProgress = false;
-                }, 1000); // Small delay to prevent immediate retries
             }
-        }
+        };
 
         // Check auth state
         auth.onAuthStateChanged(async (user) => {
@@ -427,5 +390,9 @@
             window.location.href = getPath('admin.html');
         }
     </script>
+    <!-- Google Translate API Script -->
+    <script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+    <!-- Custom translation script -->
+    <script src="translate.js"></script>
 </body>
 </html>
