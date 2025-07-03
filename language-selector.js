@@ -3,13 +3,29 @@
  * Reusable component for adding multi-language support
  */
 
-// Language selector functions
-window.toggleLanguageDropdown = () => {
+// Check if Firebase auth operation is in progress
+window.isFirebaseAuthInProgress = false;
+
+// Function to toggle language dropdown
+window.toggleLanguageDropdown = function() {
+    // Don't open dropdown if Firebase auth is in progress
+    if (window.isFirebaseAuthInProgress) {
+        console.log('Firebase auth in progress, cannot open language dropdown');
+        return;
+    }
+    
     const dropdown = document.getElementById('languageDropdown');
     dropdown.classList.toggle('show');
 };
 
-window.changeLanguage = (langCode, displayText) => {
+// Function to change language
+window.changeLanguage = function(langCode, displayText) {
+    // Don't change language if Firebase auth is in progress
+    if (window.isFirebaseAuthInProgress) {
+        console.log('Firebase auth in progress, cannot change language');
+        return;
+    }
+    
     // Update display
     document.getElementById('currentLanguage').textContent = displayText;
     document.getElementById('languageDropdown').classList.remove('show');
@@ -25,45 +41,58 @@ window.changeLanguage = (langCode, displayText) => {
             window.location.reload();
         }
     } else {
-        // Translate to selected language
+        // Translate to selected language with a longer delay to prevent popup conflicts
         setTimeout(() => {
-            const selectElement = document.querySelector('.goog-te-combo');
-            if (selectElement) {
-                selectElement.value = langCode;
-                selectElement.dispatchEvent(new Event('change'));
+            if (!window.isFirebaseAuthInProgress) {
+                const selectElement = document.querySelector('.goog-te-combo');
+                if (selectElement) {
+                    selectElement.value = langCode;
+                    selectElement.dispatchEvent(new Event('change'));
+                }
             }
-        }, 500);
+        }, 2000); // Increased delay to ensure no conflicts
     }
 };
 
 // Initialize Google Translate
-window.googleTranslateElementInit = () => {
-    new google.translate.TranslateElement({
-        pageLanguage: 'en',
-        includedLanguages: 'en,es,fr,de,it,pt,ru,ja,ko,zh,hi,ar,bn,ur,ta,te,ml,kn,gu,pa,mr,ne,si',
-        layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
-        autoDisplay: false
-    }, 'google_translate_element');
+function googleTranslateElementInit() {
+    // Initialize Google Translate with delayed activation to prevent Firebase popup conflicts
+    window.googleTranslateInitializer = function() {
+        new google.translate.TranslateElement({
+            pageLanguage: 'en',
+            includedLanguages: 'en,es,fr,de,it,pt,ru,ja,ko,zh,hi,ar,bn,ur,ta,te,ml,kn,gu,pa,mr,ne,si',
+            layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
+            autoDisplay: false
+        }, 'google_translate_element');
+    };
+    
+    // Delay initialization to avoid conflicts with Firebase popups
+    setTimeout(window.googleTranslateInitializer, 1000);
 };
 
 // Load saved language preference
-window.addEventListener('load', () => {
+window.addEventListener('load', function() {
     const savedLang = localStorage.getItem('selectedLanguage');
     const savedDisplay = localStorage.getItem('selectedLanguageDisplay');
     
-    if (savedLang && savedDisplay && savedLang !== 'en') {
+    if (savedLang && savedDisplay) {
         const currentLangElement = document.getElementById('currentLanguage');
         if (currentLangElement) {
             currentLangElement.textContent = savedDisplay;
         }
-        // Apply translation after a short delay
-        setTimeout(() => {
-            const selectElement = document.querySelector('.goog-te-combo');
-            if (selectElement) {
-                selectElement.value = savedLang;
-                selectElement.dispatchEvent(new Event('change'));
-            }
-        }, 1000);
+        
+        // Apply translation after a delay and only if no Firebase auth in progress
+        if (savedLang !== 'en') {
+            setTimeout(() => {
+                if (!window.isFirebaseAuthInProgress) {
+                    const selectElement = document.querySelector('.goog-te-combo');
+                    if (selectElement) {
+                        selectElement.value = savedLang;
+                        selectElement.dispatchEvent(new Event('change'));
+                    }
+                }
+            }, 2000); // Increased delay to prevent conflicts
+        }
     }
 });
 

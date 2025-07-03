@@ -359,9 +359,19 @@
             const errorElement = document.getElementById(document.getElementById('loginForm').style.display === 'none' ? 'registerError' : 'loginError');
             errorElement.style.display = 'none';
             
+            // Set flag to prevent Google Translate popups during auth
+            window.isFirebaseAuthInProgress = true;
+            
             try {
+                // Make sure Google Translate dropdown is closed before auth
+                const dropdown = document.getElementById('languageDropdown');
+                if (dropdown) dropdown.classList.remove('show');
+                
                 const result = await auth.signInWithPopup(googleProvider);
                 console.log("Google sign-in successful:", result.user.email);
+                
+                // Reset flag after auth is complete
+                window.isFirebaseAuthInProgress = false;
                 
                 // Get user info from Google
                 const user = result.user;
@@ -388,6 +398,8 @@
                         console.log("Created new profile for Google user:", userEmail);
                     } catch (profileError) {
                         console.error("Error creating profile:", profileError);
+                        // Reset flag on error
+                        window.isFirebaseAuthInProgress = false;
                     }
                 } else {
                     // Update last login time
@@ -397,20 +409,20 @@
                         });
                     } catch (updateError) {
                         console.error("Error updating last login:", updateError);
+                        // Reset flag on error
+                        window.isFirebaseAuthInProgress = false;
                     }
                 }
                 
                 // Redirect based on profile status
                 window.location.href = getPath(hasProfile ? 'index.html' : 'profile.html');
             } catch (error) {
-                console.error("Google sign-in error:", error.code, error.message);
+                console.error('Google sign-in error:', error);
+                errorElement.textContent = error.message;
                 errorElement.style.display = 'block';
-                if (error.code === 'auth/unauthorized-domain') {
-                    const currentDomain = window.location.hostname;
-                    errorElement.textContent = `Please add "${currentDomain}" to Firebase authorized domains`;
-                } else {
-                    errorElement.textContent = error.message;
-                }
+                
+                // Reset flag on error
+                window.isFirebaseAuthInProgress = false;
             }
         };
 
@@ -462,19 +474,31 @@
             const errorElement = document.getElementById('loginError');
             
             if (!email || !password) {
+                errorElement.textContent = 'Please enter both email and password.';
                 errorElement.style.display = 'block';
-                errorElement.textContent = "Please enter both email and password";
                 return;
             }
             
+            // Set flag to prevent Google Translate popups during auth
+            window.isFirebaseAuthInProgress = true;
+            
+            // Make sure Google Translate dropdown is closed before auth
+            const dropdown = document.getElementById('languageDropdown');
+            if (dropdown) dropdown.classList.remove('show');
+            
             try {
-                errorElement.style.display = 'none';
-                const userCredential = await auth.signInWithEmailAndPassword(email, password);
-                console.log("Login successful:", userCredential.user.email);
+                await auth.signInWithEmailAndPassword(email, password);
+                console.log('User logged in:', email);
+                
+                // Reset flag after auth is complete
+                window.isFirebaseAuthInProgress = false;
             } catch (error) {
-                console.error("Login error:", error.code, error.message);
-                errorElement.style.display = 'block';
+                console.error('Login error:', error);
                 errorElement.textContent = error.message;
+                errorElement.style.display = 'block';
+                
+                // Reset flag on error
+                window.isFirebaseAuthInProgress = false;
             }
         };
 
@@ -482,22 +506,49 @@
         window.registerUser = async () => {
             const email = document.getElementById('registerEmail').value;
             const password = document.getElementById('registerPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
             const errorElement = document.getElementById('registerError');
             
-            if (!email || !password) {
+            if (!email || !password || !confirmPassword) {
+                errorElement.textContent = 'Please fill in all fields.';
                 errorElement.style.display = 'block';
-                errorElement.textContent = "Please enter both email and password";
                 return;
             }
             
-            try {
-                errorElement.style.display = 'none';
-                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-                console.log("Registration successful:", userCredential.user.email);
-            } catch (error) {
-                console.error("Registration error:", error.code, error.message);
+            if (password !== confirmPassword) {
+                errorElement.textContent = 'Passwords do not match.';
                 errorElement.style.display = 'block';
+                return;
+            }
+            
+            // Set flag to prevent Google Translate popups during auth
+            window.isFirebaseAuthInProgress = true;
+            
+            // Make sure Google Translate dropdown is closed before auth
+            const dropdown = document.getElementById('languageDropdown');
+            if (dropdown) dropdown.classList.remove('show');
+            
+            try {
+                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                console.log('User registered:', userCredential.user.email);
+                
+                // Create empty profile document in Firestore
+                await db.collection('userProfiles').doc(userCredential.user.uid).set({
+                    email: email,
+                    role: 'user', // Default role
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                // Reset flag after auth is complete
+                window.isFirebaseAuthInProgress = false;
+            } catch (error) {
+                console.error('Registration error:', error);
                 errorElement.textContent = error.message;
+                errorElement.style.display = 'block';
+                
+                // Reset flag on error
+                window.isFirebaseAuthInProgress = false;
             }
         };
 

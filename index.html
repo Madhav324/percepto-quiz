@@ -9,12 +9,20 @@
     <!-- Google Translate Script -->
     <script type="text/javascript">
         function googleTranslateElementInit() {
-            new google.translate.TranslateElement({
-                pageLanguage: 'en',
-                includedLanguages: 'en,es,fr,de,it,pt,ru,ja,ko,zh,hi,ar,bn,ur,ta,te,ml,kn,gu,pa,mr,ne,si',
-                layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
-                autoDisplay: false
-            }, 'google_translate_element');
+            // Initialize Google Translate with delayed activation to prevent Firebase popup conflicts
+            window.googleTranslateInitializer = function() {
+                if (!window.isFirebaseAuthInProgress) {
+                    new google.translate.TranslateElement({
+                        pageLanguage: 'en',
+                        includedLanguages: 'en,es,fr,de,it,pt,ru,ja,ko,zh,hi,ar,bn,ur,ta,te,ml,kn,gu,pa,mr,ne,si',
+                        layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
+                        autoDisplay: false
+                    }, 'google_translate_element');
+                }
+            };
+            
+            // Delay initialization to avoid conflicts with Firebase popups
+            setTimeout(window.googleTranslateInitializer, 1000);
         }
     </script>
     <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
@@ -762,6 +770,13 @@
             }
 
             function logout() {
+                // Set flag to prevent Google Translate popups during auth operation
+                window.isFirebaseAuthInProgress = true;
+                
+                // Make sure Google Translate dropdown is closed before auth
+                const dropdown = document.getElementById('languageDropdown');
+                if (dropdown) dropdown.classList.remove('show');
+                
                 const currentPatientId = sessionStorage.getItem('currentPatientId');
                 if (currentPatientId) {
                     // If accessing as a patient, clear session and return to patients.html
@@ -773,9 +788,13 @@
                     auth.signOut()
                         .then(() => {
                             sessionStorage.clear();
+                            window.isFirebaseAuthInProgress = false;
                             window.location.href = 'login.html';
                         })
-                        .catch(error => console.error('Error logging out:', error));
+                        .catch(error => {
+                            console.error('Error logging out:', error);
+                            window.isFirebaseAuthInProgress = false;
+                        });
                 }
             }
 
@@ -793,6 +812,12 @@
             
             // Language selector functions
             window.toggleLanguageDropdown = () => {
+                // Don't toggle dropdown if Firebase auth is in progress
+                if (window.isFirebaseAuthInProgress) {
+                    console.log('Firebase auth in progress, cannot open language dropdown');
+                    return;
+                }
+                
                 const dropdown = document.getElementById('languageDropdown');
                 dropdown.classList.toggle('show');
             };
@@ -824,6 +849,9 @@
                 }
             };
             
+            // Firebase auth status flag to prevent popup conflicts
+            window.isFirebaseAuthInProgress = false;
+            
             // Load saved language preference
             window.addEventListener('load', () => {
                 const savedLang = localStorage.getItem('selectedLanguage');
@@ -834,14 +862,16 @@
                     if (currentLangElement) {
                         currentLangElement.textContent = savedDisplay;
                     }
-                    // Apply translation after a short delay
+                    // Apply translation after a short delay and only if Firebase auth is not in progress
                     setTimeout(() => {
-                        const selectElement = document.querySelector('.goog-te-combo');
-                        if (selectElement) {
-                            selectElement.value = savedLang;
-                            selectElement.dispatchEvent(new Event('change'));
+                        if (!window.isFirebaseAuthInProgress) {
+                            const selectElement = document.querySelector('.goog-te-combo');
+                            if (selectElement) {
+                                selectElement.value = savedLang;
+                                selectElement.dispatchEvent(new Event('change'));
+                            }
                         }
-                    }, 1000);
+                    }, 1500); // Longer delay to ensure no conflicts
                 }
             });
             
