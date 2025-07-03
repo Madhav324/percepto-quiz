@@ -1,84 +1,78 @@
-// Google Translate Widget Helper
-function loadTranslateWidget() {
-    // Create the Google Translate Element script
-    const translateScript = document.createElement('script');
-    translateScript.type = 'text/javascript';
-    translateScript.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
-    document.head.appendChild(translateScript);
-
-    // Create container for the translate element
-    const translateContainer = document.createElement('div');
-    translateContainer.id = 'google_translate_element';
-    translateContainer.style.position = 'absolute';
-    translateContainer.style.top = '10px';
-    translateContainer.style.right = '10px';
-    translateContainer.style.zIndex = '1000';
-    
-    // Insert the translate container as the first element in body
-    document.body.insertBefore(translateContainer, document.body.firstChild);
-    
-    // Add CSS styles
-    const styleElement = document.createElement('style');
-    styleElement.textContent = `
-        /* Google Translate Widget Styling */
-        #google_translate_element {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            z-index: 1000;
-        }
-        
-        /* Hide Google Translate attribution */
-        .goog-logo-link, .goog-te-gadget span {
-            display: none !important;
-        }
-        
-        .goog-te-gadget {
-            color: transparent !important;
-            font-size: 0px !important;
-        }
-        
-        .goog-te-combo {
-            padding: 5px;
-            border-radius: 4px;
-            border: 1px solid #ddd;
-            font-size: 12px;
-            background-color: white;
-            color: #333;
-            cursor: pointer;
-        }
-        
-        /* Compact mode for mobile */
-        @media (max-width: 480px) {
-            #google_translate_element {
-                top: 5px;
-                right: 5px;
-            }
-            
-            .goog-te-combo {
-                font-size: 10px;
-                padding: 3px;
-            }
-        }
-    `;
-    document.head.appendChild(styleElement);
-}
-
-// Initialize Google Translate function
+// Initialization for Google Translate
 function googleTranslateElementInit() {
     new google.translate.TranslateElement({
         pageLanguage: 'en',
-        layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
-        autoDisplay: false
+        includedLanguages: 'hi,ta,te,ml,kn,mr,gu,pa,bn,or,as,ur',
+        layout: google.translate.TranslateElement.InlineLayout.SIMPLE
     }, 'google_translate_element');
 }
 
-// Load the widget when the DOM is ready
-document.addEventListener('DOMContentLoaded', loadTranslateWidget);
-
-// In case the script is loaded after DOMContentLoaded
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', loadTranslateWidget);
-} else {
-    loadTranslateWidget();
+// Function to change the language manually
+function translateLanguage(lang) {
+    const selectElement = document.querySelector('.goog-te-combo');
+    if (selectElement) {
+        selectElement.value = lang;
+        // Trigger change event
+        const event = new Event('change');
+        selectElement.dispatchEvent(event);
+    }
 }
+
+// Initialize language selector
+document.addEventListener('DOMContentLoaded', function() {
+    // Check if the language selector already exists
+    if (!document.getElementById('language-selector')) {
+        return;
+    }
+
+    const languageSelector = document.getElementById('language-selector');
+    
+    // Add event listener to language selector
+    languageSelector.addEventListener('change', function() {
+        translateLanguage(this.value);
+    });
+
+    // Set initial language from localStorage if available
+    const savedLanguage = localStorage.getItem('preferredLanguage');
+    if (savedLanguage && savedLanguage !== 'en') {
+        // Wait for Google Translate to load
+        const checkGoogleTranslate = setInterval(function() {
+            if (document.querySelector('.goog-te-combo')) {
+                clearInterval(checkGoogleTranslate);
+                translateLanguage(savedLanguage);
+                languageSelector.value = savedLanguage;
+            }
+        }, 100);
+    }
+});
+
+// Save selected language to localStorage
+function saveLanguagePreference(lang) {
+    localStorage.setItem('preferredLanguage', lang);
+}
+
+// Add listener to Google Translate dropdown
+function addGoogleTranslateListener() {
+    const observer = new MutationObserver(function(mutations) {
+        if (document.querySelector('.goog-te-combo')) {
+            const googleCombo = document.querySelector('.goog-te-combo');
+            googleCombo.addEventListener('change', function() {
+                saveLanguagePreference(this.value);
+                // Also update our visible selector
+                const languageSelector = document.getElementById('language-selector');
+                if (languageSelector) {
+                    languageSelector.value = this.value;
+                }
+            });
+            observer.disconnect();
+        }
+    });
+    
+    observer.observe(document.body, { 
+        childList: true, 
+        subtree: true 
+    });
+}
+
+// Initialize the Google Translate listener
+document.addEventListener('DOMContentLoaded', addGoogleTranslateListener);
