@@ -17,6 +17,35 @@
     </script>
     <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
     <style>
+        /* Loading spinner for Google sign-in buttons */
+        .spinner {
+            display: none;
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(0, 0, 0, 0.1);
+            border-top: 2px solid #4285f4;
+            border-radius: 50%;
+            margin-left: 8px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .google-btn {
+            position: relative;
+        }
+        
+        .google-btn.loading span:not(.spinner) {
+            opacity: 0.7;
+        }
+        
+        .google-btn.loading .spinner {
+            display: inline-block;
+        }
+        
         body {
             font-family: Arial, sans-serif;
             display: flex;
@@ -261,9 +290,10 @@
         <div id="loginForm">
             <h2>Login to Quiz Portal</h2>
             <div class="error-message" id="loginError"></div>
-            <button onclick="signInWithGoogle()" class="google-btn">
+            <button onclick="signInWithGoogle()" class="google-btn" id="google-signin-btn">
                 <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google logo">
-                Sign in with Google
+                <span>Sign in with Google</span>
+                <span class="spinner" id="google-signin-spinner"></span>
             </button>
             <div class="divider">or</div>
             <div class="form-group">
@@ -287,9 +317,10 @@
         <div id="registerForm" style="display: none;">
             <h2>Create Account</h2>
             <div class="error-message" id="registerError"></div>
-            <button onclick="signInWithGoogle()" class="google-btn">
+            <button onclick="signInWithGoogle()" class="google-btn" id="google-signup-btn">
                 <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google logo">
-                Sign up with Google
+                <span>Sign up with Google</span>
+                <span class="spinner" id="google-signup-spinner"></span>
             </button>
             <div class="divider">or</div>
             <div class="form-group">
@@ -356,11 +387,33 @@
 
         // Google Sign In
         window.signInWithGoogle = async () => {
-            const errorElement = document.getElementById(document.getElementById('loginForm').style.display === 'none' ? 'registerError' : 'loginError');
+            const isRegisterForm = document.getElementById('loginForm').style.display === 'none';
+            const errorElement = document.getElementById(isRegisterForm ? 'registerError' : 'loginError');
+            const buttonId = isRegisterForm ? 'google-signup-btn' : 'google-signin-btn';
+            const spinnerId = isRegisterForm ? 'google-signup-spinner' : 'google-signin-spinner';
+            
+            // Clear previous errors
             errorElement.style.display = 'none';
+            
+            // Show loading state on button
+            const button = document.getElementById(buttonId);
+            button.classList.add('loading');
+            button.disabled = true;
             
             // Set flag to prevent Google Translate popups during auth
             window.isFirebaseAuthInProgress = true;
+            
+            // Create a timeout to detect if the popup is taking too long
+            const timeoutId = setTimeout(() => {
+                // Reset UI if no response after 45 seconds (popup might be blocked or slow connection)
+                if (window.isFirebaseAuthInProgress) {
+                    window.isFirebaseAuthInProgress = false;
+                    button.classList.remove('loading');
+                    button.disabled = false;
+                    errorElement.textContent = 'Authentication timed out. Please check popup blockers and try again.';
+                    errorElement.style.display = 'block';
+                }
+            }, 45000); // 45 second timeout
             
             try {
                 // Make sure Google Translate dropdown is closed before auth
@@ -368,6 +421,7 @@
                 if (dropdown) dropdown.classList.remove('show');
                 
                 const result = await auth.signInWithPopup(googleProvider);
+                clearTimeout(timeoutId); // Clear the timeout since auth was successful
                 console.log("Google sign-in successful:", result.user.email);
                 
                 // Reset flag after auth is complete
@@ -418,11 +472,35 @@
                 window.location.href = getPath(hasProfile ? 'index.html' : 'profile.html');
             } catch (error) {
                 console.error('Google sign-in error:', error);
-                errorElement.textContent = error.message;
-                errorElement.style.display = 'block';
+                clearTimeout(timeoutId); // Clear the timeout on error
                 
                 // Reset flag on error
                 window.isFirebaseAuthInProgress = false;
+                
+                // Handle popup closed by user more gracefully
+                if (error.code === 'auth/popup-closed-by-user') {
+                    console.log('Authentication popup was closed before completion');
+                    errorElement.textContent = 'Sign-in cancelled. Please try again.';
+                } else if (error.code === 'auth/cancelled-popup-request') {
+                    console.log('Another authentication popup is already open');
+                    errorElement.textContent = 'Another sign-in popup is already open. Please close it and try again.';
+                } else if (error.code === 'auth/network-request-failed') {
+                    errorElement.textContent = 'Network error. Please check your internet connection and try again.';
+                } else if (error.code === 'auth/too-many-requests') {
+                    errorElement.textContent = 'Too many attempts. Please wait a moment before trying again.';
+                } else if (error.code === 'auth/popup-blocked') {
+                    errorElement.textContent = 'Popup blocked. Please allow popups for this site and try again.';
+                } else {
+                    // For other errors, show the message
+                    errorElement.textContent = error.message || 'Authentication failed. Please try again.';
+                }
+                
+                errorElement.style.display = 'block';
+            } finally {
+                // Reset button state regardless of success or failure
+                const button = document.getElementById(buttonId);
+                button.classList.remove('loading');
+                button.disabled = false;
             }
         };
 
