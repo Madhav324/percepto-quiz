@@ -4,48 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quiz Login</title>
-    <!-- Google Translate Script -->
-    <script type="text/javascript">
-        function googleTranslateElementInit() {
-            new google.translate.TranslateElement({
-                pageLanguage: 'en',
-                includedLanguages: 'en,es,fr,de,it,pt,ru,ja,ko,zh,hi,ar,bn,ur,ta,te,ml,kn,gu,pa,mr,ne,si',
-                layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
-                autoDisplay: false
-            }, 'google_translate_element');
-        }
-    </script>
-    <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
     <style>
-        /* Loading spinner for Google sign-in buttons */
-        .spinner {
-            display: none;
-            width: 18px;
-            height: 18px;
-            border: 2px solid rgba(0, 0, 0, 0.1);
-            border-top: 2px solid #4285f4;
-            border-radius: 50%;
-            margin-left: 8px;
-            animation: spin 1s linear infinite;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        .google-btn {
-            position: relative;
-        }
-        
-        .google-btn.loading span:not(.spinner) {
-            opacity: 0.7;
-        }
-        
-        .google-btn.loading .spinner {
-            display: inline-block;
-        }
-        
         body {
             font-family: Arial, sans-serif;
             display: flex;
@@ -141,159 +100,71 @@
             margin-bottom: 1rem;
             display: none;
         }
-        
-        /* Language selector styles */
-        .language-selector {
+    </style>
+    <!-- Google Translate API -->
+    <script type="text/javascript">
+        function googleTranslateElementInit() {
+            new google.translate.TranslateElement({
+                pageLanguage: 'en',
+                layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
+                autoDisplay: false
+            }, 'google_translate_element');
+        }
+    </script>
+    <script type="text/javascript" src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+    <style>
+        /* Google Translate Widget Styling */
+        #google_translate_element {
             position: absolute;
-            top: 15px;
-            right: 15px;
+            top: 10px;
+            right: 10px;
             z-index: 1000;
         }
         
-        #google_translate_element {
-            display: inline-block;
-        }
-        
-        /* Hide Google Translate banner */
-        .goog-te-banner-frame.skiptranslate {
+        /* Hide Google Translate attribution */
+        .goog-logo-link, .goog-te-gadget span {
             display: none !important;
         }
         
-        body {
-            top: 0px !important;
-        }
-        
-        /* Style the Google Translate dropdown */
         .goog-te-gadget {
-            font-family: Arial, sans-serif !important;
-            font-size: 12px !important;
+            color: transparent !important;
+            font-size: 0px !important;
         }
         
-        .goog-te-gadget-simple {
-            background-color: #fff !important;
-            border: 1px solid #ddd !important;
-            border-radius: 4px !important;
-            padding: 5px 8px !important;
-            font-size: 12px !important;
-            cursor: pointer !important;
-        }
-        
-        .goog-te-gadget-simple:hover {
-            background-color: #f5f5f5 !important;
-        }
-        
-        .goog-te-gadget-icon {
-            display: none !important;
-        }
-        
-        .goog-te-gadget-simple .goog-te-menu-value span {
-            color: #666 !important;
-        }
-        
-        /* Custom language selector */
-        .custom-language-selector {
-            position: relative;
-            display: inline-block;
-        }
-        
-        .language-btn {
-            background: #fff;
-            border: 1px solid #ddd;
+        .goog-te-combo {
+            padding: 5px;
             border-radius: 4px;
-            padding: 5px 10px;
-            font-size: 12px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            color: #666;
-        }
-        
-        .language-btn:hover {
-            background-color: #f5f5f5;
-        }
-        
-        .language-dropdown {
-            position: absolute;
-            top: 100%;
-            right: 0;
-            background: white;
             border: 1px solid #ddd;
-            border-radius: 4px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            display: none;
-            z-index: 1001;
-            min-width: 120px;
-            max-height: 200px;
-            overflow-y: auto;
-        }
-        
-        .language-dropdown.show {
-            display: block;
-        }
-        
-        .language-option {
-            padding: 8px 12px;
-            cursor: pointer;
             font-size: 12px;
-            border-bottom: 1px solid #eee;
+            background-color: white;
+            color: #333;
+            cursor: pointer;
         }
         
-        .language-option:hover {
-            background-color: #f5f5f5;
-        }
-        
-        .language-option:last-child {
-            border-bottom: none;
+        /* Compact mode for mobile */
+        @media (max-width: 480px) {
+            #google_translate_element {
+                top: 5px;
+                right: 5px;
+            }
+            
+            .goog-te-combo {
+                font-size: 10px;
+                padding: 3px;
+            }
         }
     </style>
 </head>
 <body>
-    <!-- Language Selector -->
-    <div class="language-selector">
-        <div class="custom-language-selector">
-            <div class="language-btn" onclick="toggleLanguageDropdown()">
-                <span id="currentLanguage">🌐 EN</span>
-                <span>▼</span>
-            </div>
-            <div class="language-dropdown" id="languageDropdown">
-                <div class="language-option" onclick="changeLanguage('en', '🌐 EN')">🇺🇸 English</div>
-                <div class="language-option" onclick="changeLanguage('es', '🇪🇸 ES')">🇪🇸 Español</div>
-                <div class="language-option" onclick="changeLanguage('fr', '🇫🇷 FR')">🇫🇷 Français</div>
-                <div class="language-option" onclick="changeLanguage('de', '🇩🇪 DE')">🇩🇪 Deutsch</div>
-                <div class="language-option" onclick="changeLanguage('it', '🇮🇹 IT')">🇮🇹 Italiano</div>
-                <div class="language-option" onclick="changeLanguage('pt', '🇵🇹 PT')">🇵🇹 Português</div>
-                <div class="language-option" onclick="changeLanguage('ru', '🇷🇺 RU')">🇷🇺 Русский</div>
-                <div class="language-option" onclick="changeLanguage('ja', '🇯🇵 JA')">🇯🇵 日本語</div>
-                <div class="language-option" onclick="changeLanguage('ko', '🇰🇷 KO')">🇰🇷 한국어</div>
-                <div class="language-option" onclick="changeLanguage('zh', '🇨🇳 ZH')">🇨🇳 中文</div>
-                <div class="language-option" onclick="changeLanguage('hi', '🇮🇳 HI')">🇮🇳 हिंदी</div>
-                <div class="language-option" onclick="changeLanguage('ar', '🇸🇦 AR')">🇸🇦 العربية</div>
-                <div class="language-option" onclick="changeLanguage('bn', '🇧🇩 BN')">🇧🇩 বাংলা</div>
-                <div class="language-option" onclick="changeLanguage('ur', '🇵🇰 UR')">🇵🇰 اردو</div>
-                <div class="language-option" onclick="changeLanguage('ta', '🇮🇳 TA')">🇮🇳 தமிழ்</div>
-                <div class="language-option" onclick="changeLanguage('te', '🇮🇳 TE')">🇮🇳 తెలుగు</div>
-                <div class="language-option" onclick="changeLanguage('ml', '🇮🇳 ML')">🇮🇳 മലയാളം</div>
-                <div class="language-option" onclick="changeLanguage('kn', '🇮🇳 KN')">🇮🇳 ಕನ್ನಡ</div>
-                <div class="language-option" onclick="changeLanguage('gu', '🇮🇳 GU')">🇮🇳 ગુજરાતી</div>
-                <div class="language-option" onclick="changeLanguage('pa', '🇮🇳 PA')">🇮🇳 ਪੰਜਾਬੀ</div>
-                <div class="language-option" onclick="changeLanguage('mr', '🇮🇳 MR')">🇮🇳 मराठी</div>
-                <div class="language-option" onclick="changeLanguage('ne', '🇳🇵 NE')">🇳🇵 नेपाली</div>
-                <div class="language-option" onclick="changeLanguage('si', '🇱🇰 SI')">🇱🇰 සිංහල</div>
-            </div>
-        </div>
-        <!-- Hidden Google Translate Element -->
-        <div id="google_translate_element" style="display: none;"></div>
-    </div>
-    
+    <!-- Google Translate Element -->
+    <div id="google_translate_element"></div>
     <div class="login-container">
         <div id="loginForm">
             <h2>Login to Quiz Portal</h2>
             <div class="error-message" id="loginError"></div>
-            <button onclick="signInWithGoogle()" class="google-btn" id="google-signin-btn">
+            <button onclick="signInWithGoogle()" class="google-btn">
                 <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google logo">
-                <span>Sign in with Google</span>
-                <span class="spinner" id="google-signin-spinner"></span>
+                Sign in with Google
             </button>
             <div class="divider">or</div>
             <div class="form-group">
@@ -317,10 +188,9 @@
         <div id="registerForm" style="display: none;">
             <h2>Create Account</h2>
             <div class="error-message" id="registerError"></div>
-            <button onclick="signInWithGoogle()" class="google-btn" id="google-signup-btn">
+            <button onclick="signInWithGoogle()" class="google-btn">
                 <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google logo">
-                <span>Sign up with Google</span>
-                <span class="spinner" id="google-signup-spinner"></span>
+                Sign up with Google
             </button>
             <div class="divider">or</div>
             <div class="form-group">
@@ -385,114 +255,63 @@
             }
         }
 
-        // Check for redirect result on page load
-        window.addEventListener('load', function() {
-            // Clear any error messages that might be showing
-            document.getElementById('loginError').style.display = 'none';
-            document.getElementById('registerError').style.display = 'none';
-            
-            // Handle redirect result
-            auth.getRedirectResult().then(function(result) {
-                if (result.user) {
-                    console.log("Redirect sign-in successful:", result.user.email);
-                    
-                    // Get user info from Google
-                    const user = result.user;
-                    const userId = user.uid;
-                    const userEmail = user.email;
-                    const displayName = user.displayName || '';
-                    const photoURL = user.photoURL || '';
-                    
-                    // Check if user has a profile
-                    return checkUserProfile(userId).then(function(hasProfile) {
-                        // If no profile exists, create one with Google info
-                        if (!hasProfile) {
-                            return db.collection('userProfiles').doc(userId).set({
-                                email: userEmail,
-                                name: displayName,
-                                photoURL: photoURL,
-                                role: 'user', // Default role
-                                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                                lastLogin: firebase.firestore.FieldValue.serverTimestamp()
-                            }).then(function() {
-                                console.log("Created new profile for Google user:", userEmail);
-                                return hasProfile; // Return hasProfile status for the next then()
-                            }).catch(function(profileError) {
-                                console.error("Error creating profile:", profileError);
-                                return hasProfile; // Continue even if profile creation fails
-                            });
-                        } else {
-                            // Update last login time for existing profile
-                            return db.collection('userProfiles').doc(userId).update({
-                                lastLogin: firebase.firestore.FieldValue.serverTimestamp()
-                            }).then(function() {
-                                return hasProfile; // Return hasProfile status for the next then()
-                            }).catch(function(updateError) {
-                                console.error("Error updating last login:", updateError);
-                                return hasProfile; // Continue even if update fails
-                            });
-                        }
-                    }).then(function(hasProfile) {
-                        // Navigate to appropriate page
-                        window.location.href = getPath(hasProfile ? 'index.html' : 'profile.html');
-                    });
-                }
-            }).catch(function(error) {
-                if (error.code && error.code !== 'auth/user-cancelled') {
-                    console.error("Redirect error:", error);
-                    const errorElement = document.getElementById('loginError');
-                    errorElement.textContent = error.message || 'Authentication failed';
-                    errorElement.style.display = 'block';
-                }
-            });
-            
-            // Reset auth flags if the page is being loaded fresh
-            window.isFirebaseAuthInProgress = false;
-        });
-        
         // Google Sign In
-        window.signInWithGoogle = function() {
-            const isRegisterForm = document.getElementById('loginForm').style.display === 'none';
-            const errorElement = document.getElementById(isRegisterForm ? 'registerError' : 'loginError');
-            const buttonId = isRegisterForm ? 'google-signup-btn' : 'google-signin-btn';
-            
-            // Clear previous errors
+        window.signInWithGoogle = async () => {
+            const errorElement = document.getElementById(document.getElementById('loginForm').style.display === 'none' ? 'registerError' : 'loginError');
             errorElement.style.display = 'none';
             
-            // Show loading state on button
-            const button = document.getElementById(buttonId);
-            button.classList.add('loading');
-            button.disabled = true;
-            
-            // Set flag to prevent Google Translate popups during auth
-            window.isFirebaseAuthInProgress = true;
-            
             try {
-                // Make sure Google Translate dropdown is closed before auth
-                const dropdown = document.getElementById('languageDropdown');
-                if (dropdown) dropdown.classList.remove('show');
+                const result = await auth.signInWithPopup(googleProvider);
+                console.log("Google sign-in successful:", result.user.email);
                 
-                // Use redirect instead of popup for more reliable auth
-                auth.signInWithRedirect(googleProvider);
+                // Get user info from Google
+                const user = result.user;
+                const userId = user.uid;
+                const userEmail = user.email;
+                const displayName = user.displayName || '';
+                const photoURL = user.photoURL || '';
                 
-                // No need to reset button state as the page will reload after redirect
-                // The auth result will be handled in the page load handler
+                // Check if user has a profile
+                const hasProfile = await checkUserProfile(userId);
                 
-                // Note: We can't reset the flag here because the page will reload
-                // The flag will be reset when the page loads
+                // If no profile exists, create one with Google info
+                if (!hasProfile) {
+                    try {
+                        // Create user profile in Firestore
+                        await db.collection('userProfiles').doc(userId).set({
+                            email: userEmail,
+                            name: displayName,
+                            photoURL: photoURL,
+                            role: 'user', // Default role
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                            lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        console.log("Created new profile for Google user:", userEmail);
+                    } catch (profileError) {
+                        console.error("Error creating profile:", profileError);
+                    }
+                } else {
+                    // Update last login time
+                    try {
+                        await db.collection('userProfiles').doc(userId).update({
+                            lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    } catch (updateError) {
+                        console.error("Error updating last login:", updateError);
+                    }
+                }
+                
+                // Redirect based on profile status
+                window.location.href = getPath(hasProfile ? 'index.html' : 'profile.html');
             } catch (error) {
-                console.error('Google sign-in redirect error:', error);
-                
-                // Reset flag on error
-                window.isFirebaseAuthInProgress = false;
-                
-                // Handle redirect errors
-                errorElement.textContent = 'Authentication failed. Please try again.';
+                console.error("Google sign-in error:", error.code, error.message);
                 errorElement.style.display = 'block';
-                
-                // Reset button state
-                button.classList.remove('loading');
-                button.disabled = false;
+                if (error.code === 'auth/unauthorized-domain') {
+                    const currentDomain = window.location.hostname;
+                    errorElement.textContent = `Please add "${currentDomain}" to Firebase authorized domains`;
+                } else {
+                    errorElement.textContent = error.message;
+                }
             }
         };
 
@@ -544,31 +363,19 @@
             const errorElement = document.getElementById('loginError');
             
             if (!email || !password) {
-                errorElement.textContent = 'Please enter both email and password.';
                 errorElement.style.display = 'block';
+                errorElement.textContent = "Please enter both email and password";
                 return;
             }
             
-            // Set flag to prevent Google Translate popups during auth
-            window.isFirebaseAuthInProgress = true;
-            
-            // Make sure Google Translate dropdown is closed before auth
-            const dropdown = document.getElementById('languageDropdown');
-            if (dropdown) dropdown.classList.remove('show');
-            
             try {
-                await auth.signInWithEmailAndPassword(email, password);
-                console.log('User logged in:', email);
-                
-                // Reset flag after auth is complete
-                window.isFirebaseAuthInProgress = false;
+                errorElement.style.display = 'none';
+                const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                console.log("Login successful:", userCredential.user.email);
             } catch (error) {
-                console.error('Login error:', error);
-                errorElement.textContent = error.message;
+                console.error("Login error:", error.code, error.message);
                 errorElement.style.display = 'block';
-                
-                // Reset flag on error
-                window.isFirebaseAuthInProgress = false;
+                errorElement.textContent = error.message;
             }
         };
 
@@ -576,49 +383,22 @@
         window.registerUser = async () => {
             const email = document.getElementById('registerEmail').value;
             const password = document.getElementById('registerPassword').value;
-            const confirmPassword = document.getElementById('confirmPassword').value;
             const errorElement = document.getElementById('registerError');
             
-            if (!email || !password || !confirmPassword) {
-                errorElement.textContent = 'Please fill in all fields.';
+            if (!email || !password) {
                 errorElement.style.display = 'block';
+                errorElement.textContent = "Please enter both email and password";
                 return;
             }
-            
-            if (password !== confirmPassword) {
-                errorElement.textContent = 'Passwords do not match.';
-                errorElement.style.display = 'block';
-                return;
-            }
-            
-            // Set flag to prevent Google Translate popups during auth
-            window.isFirebaseAuthInProgress = true;
-            
-            // Make sure Google Translate dropdown is closed before auth
-            const dropdown = document.getElementById('languageDropdown');
-            if (dropdown) dropdown.classList.remove('show');
             
             try {
+                errorElement.style.display = 'none';
                 const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-                console.log('User registered:', userCredential.user.email);
-                
-                // Create empty profile document in Firestore
-                await db.collection('userProfiles').doc(userCredential.user.uid).set({
-                    email: email,
-                    role: 'user', // Default role
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    lastLogin: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                
-                // Reset flag after auth is complete
-                window.isFirebaseAuthInProgress = false;
+                console.log("Registration successful:", userCredential.user.email);
             } catch (error) {
-                console.error('Registration error:', error);
-                errorElement.textContent = error.message;
+                console.error("Registration error:", error.code, error.message);
                 errorElement.style.display = 'block';
-                
-                // Reset flag on error
-                window.isFirebaseAuthInProgress = false;
+                errorElement.textContent = error.message;
             }
         };
 
@@ -640,70 +420,6 @@
             // Open admin page with authentication prompt
             window.location.href = getPath('admin.html');
         }
-        
-        // Language selector functions
-        window.toggleLanguageDropdown = () => {
-            const dropdown = document.getElementById('languageDropdown');
-            dropdown.classList.toggle('show');
-        };
-        
-        window.changeLanguage = (langCode, displayText) => {
-            // Update display
-            document.getElementById('currentLanguage').textContent = displayText;
-            document.getElementById('languageDropdown').classList.remove('show');
-            
-            // Save language preference
-            localStorage.setItem('selectedLanguage', langCode);
-            localStorage.setItem('selectedLanguageDisplay', displayText);
-            
-            // Trigger Google Translate
-            if (langCode === 'en') {
-                // Reset to original language
-                if (window.google && window.google.translate) {
-                    const translateElement = window.google.translate.TranslateElement();
-                    if (translateElement) {
-                        window.location.reload();
-                    }
-                }
-            } else {
-                // Translate to selected language
-                setTimeout(() => {
-                    const selectElement = document.querySelector('.goog-te-combo');
-                    if (selectElement) {
-                        selectElement.value = langCode;
-                        selectElement.dispatchEvent(new Event('change'));
-                    }
-                }, 500);
-            }
-        };
-        
-        // Load saved language preference
-        window.addEventListener('load', () => {
-            const savedLang = localStorage.getItem('selectedLanguage');
-            const savedDisplay = localStorage.getItem('selectedLanguageDisplay');
-            
-            if (savedLang && savedDisplay && savedLang !== 'en') {
-                document.getElementById('currentLanguage').textContent = savedDisplay;
-                // Apply translation after a short delay
-                setTimeout(() => {
-                    const selectElement = document.querySelector('.goog-te-combo');
-                    if (selectElement) {
-                        selectElement.value = savedLang;
-                        selectElement.dispatchEvent(new Event('change'));
-                    }
-                }, 1000);
-            }
-        });
-        
-        // Close dropdown when clicking outside
-        document.addEventListener('click', (event) => {
-            const languageSelector = document.querySelector('.custom-language-selector');
-            const dropdown = document.getElementById('languageDropdown');
-            
-            if (languageSelector && !languageSelector.contains(event.target)) {
-                dropdown.classList.remove('show');
-            }
-        });
     </script>
 </body>
 </html>
