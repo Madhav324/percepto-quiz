@@ -621,181 +621,64 @@
                     showError('Failed to save quiz result');
                 }
             }
-
-            // Auth state observer
-            auth.onAuthStateChanged(async (user) => {
+            
+            // Firebase auth state observer using promises instead of async/await
+            firebase.auth().onAuthStateChanged(function(user) {
                 if (user) {
-                    userEmail = user.email;
-                    await checkIfDoctor(user.uid);
-                    loadQuizState();
+                    // User is signed in
+                    console.log("Auth state: User is signed in.");
                     
-                    // Load user name
-                    try {
-                        let profileRef;
-                        if (isPatientQuiz && currentPatientId) {
-                            // If accessing as a patient, get patient's profile
-                            profileRef = database.ref(`doctors/${doctorId}/patients/${currentPatientId}/profile`);
-                        } else {
-                            // Get role to determine path
-                            const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
-                            const role = roleSnapshot.val();
-                            profileRef = database.ref(`${role}s/${user.uid}/profile`);
+                    // Check user profile using promises
+                    checkUserProfile(user.uid).then(function(hasProfile) {
+                        // If no profile, redirect to create one
+                        if (!hasProfile) {
+                            window.location.href = 'profile.html';
                         }
-                        
-                        const snapshot = await profileRef.once('value');
-                        const profile = snapshot.val();
-                        if (profile && profile.name) {
-                            document.getElementById('userName').textContent = profile.name;
-                        } else {
-                            document.getElementById('userName').textContent = 'User';
-                        }
-                    } catch (error) {
-                        console.error('Error loading profile:', error);
-                        document.getElementById('userName').textContent = 'User';
-                    }
-                    
-                    document.getElementById('quiz-container').style.display = 'block';
+                    }).catch(function(error) {
+                        console.error("Error checking user profile:", error);
+                    });
                 } else {
+                    // No user is signed in, redirect to login
+                    console.log("Auth state: No user is signed in.");
                     window.location.href = 'login.html';
                 }
             });
-
-            // Initialize profile icon and name
-            async function initializeProfileIcon() {
-                const user = auth.currentUser;
-                if (!user) return;
-                
-                try {
-                    let profile;
-                    let userDisplayName;
-                    let initial = 'U';
-                    
-                    // Check if this is a patient quiz
-                    const currentPatientId = sessionStorage.getItem('currentPatientId');
-                    const doctorId = sessionStorage.getItem('doctorId');
-                    const isPatientQuiz = !!currentPatientId;
-                    
-                    if (isPatientQuiz) {
-                        // Doctor viewing patient
-                        console.log(`Loading patient profile: ${currentPatientId}`);
-                        const patientSnapshot = await database.ref(`doctors/${doctorId}/patients/${currentPatientId}/profile`).once('value');
-                        profile = patientSnapshot.val();
-                        
-                        if (profile && profile.name) {
-                            userDisplayName = profile.name + " (Patient)";
-                            initial = profile.name.charAt(0).toUpperCase();
-                        } else {
-                            userDisplayName = "Patient";
-                            initial = "P";
-                        }
-                    } else {
-                        // Get user role
-                        const roleSnapshot = await database.ref(`roles/${user.uid}`).once('value');
-                        const role = roleSnapshot.val() || 'user';
-                        
-                        if (role === 'doctor') {
-                            // Doctor
-                            console.log('Loading doctor profile');
-                            const doctorSnapshot = await database.ref(`doctors/${user.uid}/profile`).once('value');
-                            profile = doctorSnapshot.val();
-                            
-                            if (profile && profile.name) {
-                                userDisplayName = "Dr. " + profile.name;
-                                initial = profile.name.charAt(0).toUpperCase();
-                            } else {
-                                userDisplayName = "Doctor";
-                                initial = "D";
-                            }
-                        } else {
-                            // Regular user
-                            console.log('Loading user profile');
-                            const userSnapshot = await database.ref(`users/${user.uid}/profile`).once('value');
-                            profile = userSnapshot.val();
-                            
-                            if (profile && profile.name) {
-                                userDisplayName = profile.name;
-                                initial = profile.name.charAt(0).toUpperCase();
-                            } else if (user.email) {
-                                userDisplayName = user.email.split('@')[0];
-                                initial = user.email.charAt(0).toUpperCase();
-                            }
-                        }
-                    }
-                    
-                    // Set profile icon and user name
-                    const profileIcon = document.getElementById('profileIcon');
-                    if (profileIcon) {
-                        profileIcon.textContent = initial;
-                    }
-                    
-                    const userName = document.getElementById('userName');
-                    if (userName) {
-                        userName.textContent = userDisplayName;
-                    }
-                    
-                    // Enable correct UI elements based on role
-                    const quizContainer = document.getElementById('quizContainer');
-                    if (quizContainer) {
-                        quizContainer.style.display = 'block';
-                    }
-                    
-                    const doctorMessage = document.getElementById('doctorMessage');
-                    if (doctorMessage) {
-                        doctorMessage.style.display = 'none';
-                    }
-                } catch (error) {
-                    console.error('Error in profile initialization:', error);
-                    
-                    const profileIcon = document.getElementById('profileIcon');
-                    if (profileIcon) {
-                        profileIcon.textContent = user.email ? user.email.charAt(0).toUpperCase() : 'U';
-                    }
-                    
-                    const userName = document.getElementById('userName');
-                    if (userName) {
-                        userName.textContent = user.email ? user.email.split('@')[0] : 'User';
-                    }
-                }
-            }
-
-            function editProfile() {
-                const currentPatientId = sessionStorage.getItem('currentPatientId');
-                if (currentPatientId) {
-                    // If accessing as a patient, go to patient profile page
-                    window.location.href = 'patient_profile.html';
-                } else {
-                    // Regular user/doctor profile
-                    window.location.href = 'profile.html';
-                }
-            }
-
-            function logout() {
-                // Set flag to prevent Google Translate popups during auth operation
+            
+            // Logout function using promises instead of async/await
+            document.getElementById('logoutBtn').addEventListener('click', function() {
+                // Set flag to prevent Google Translate popups during auth
                 window.isFirebaseAuthInProgress = true;
                 
-                // Make sure Google Translate dropdown is closed before auth
+                // Close language dropdown if open
                 const dropdown = document.getElementById('languageDropdown');
                 if (dropdown) dropdown.classList.remove('show');
                 
-                const currentPatientId = sessionStorage.getItem('currentPatientId');
-                if (currentPatientId) {
-                    // If accessing as a patient, clear session and return to patients.html
-                    sessionStorage.removeItem('currentPatientId');
-                    sessionStorage.removeItem('doctorId');
-                    window.location.href = 'patients.html';
-                } else {
-                    // Regular logout
-                    auth.signOut()
-                        .then(() => {
-                            sessionStorage.clear();
-                            window.isFirebaseAuthInProgress = false;
-                            window.location.href = 'login.html';
-                        })
-                        .catch(error => {
-                            console.error('Error logging out:', error);
-                            window.isFirebaseAuthInProgress = false;
-                        });
-                }
+                // Disable button to prevent multiple clicks
+                const logoutBtn = document.getElementById('logoutBtn');
+                if (logoutBtn) logoutBtn.disabled = true;
+                
+                // Use promise-based approach for consistency
+                firebase.auth().signOut().then(function() {
+                    console.log("Logged out successfully");
+                    window.location.href = 'login.html';
+                }).catch(function(error) {
+                    console.error("Error signing out:", error);
+                    // Reset flag and button state on error
+                    window.isFirebaseAuthInProgress = false;
+                    if (logoutBtn) logoutBtn.disabled = false;
+                });
+            });
+            
+            // Check if user has a profile using promises
+            function checkUserProfile(userId) {
+                return firebase.firestore().collection('userProfiles').doc(userId).get()
+                    .then(function(doc) {
+                        return doc.exists;
+                    })
+                    .catch(function(error) {
+                        console.error("Error checking profile:", error);
+                        return false;
+                    });
             }
 
             // Auth state observer

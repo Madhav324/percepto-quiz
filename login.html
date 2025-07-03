@@ -385,12 +385,76 @@
             }
         }
 
+        // Check for redirect result on page load
+        window.addEventListener('load', function() {
+            // Clear any error messages that might be showing
+            document.getElementById('loginError').style.display = 'none';
+            document.getElementById('registerError').style.display = 'none';
+            
+            // Handle redirect result
+            auth.getRedirectResult().then(function(result) {
+                if (result.user) {
+                    console.log("Redirect sign-in successful:", result.user.email);
+                    
+                    // Get user info from Google
+                    const user = result.user;
+                    const userId = user.uid;
+                    const userEmail = user.email;
+                    const displayName = user.displayName || '';
+                    const photoURL = user.photoURL || '';
+                    
+                    // Check if user has a profile
+                    return checkUserProfile(userId).then(function(hasProfile) {
+                        // If no profile exists, create one with Google info
+                        if (!hasProfile) {
+                            return db.collection('userProfiles').doc(userId).set({
+                                email: userEmail,
+                                name: displayName,
+                                photoURL: photoURL,
+                                role: 'user', // Default role
+                                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                                lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+                            }).then(function() {
+                                console.log("Created new profile for Google user:", userEmail);
+                                return hasProfile; // Return hasProfile status for the next then()
+                            }).catch(function(profileError) {
+                                console.error("Error creating profile:", profileError);
+                                return hasProfile; // Continue even if profile creation fails
+                            });
+                        } else {
+                            // Update last login time for existing profile
+                            return db.collection('userProfiles').doc(userId).update({
+                                lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+                            }).then(function() {
+                                return hasProfile; // Return hasProfile status for the next then()
+                            }).catch(function(updateError) {
+                                console.error("Error updating last login:", updateError);
+                                return hasProfile; // Continue even if update fails
+                            });
+                        }
+                    }).then(function(hasProfile) {
+                        // Navigate to appropriate page
+                        window.location.href = getPath(hasProfile ? 'index.html' : 'profile.html');
+                    });
+                }
+            }).catch(function(error) {
+                if (error.code && error.code !== 'auth/user-cancelled') {
+                    console.error("Redirect error:", error);
+                    const errorElement = document.getElementById('loginError');
+                    errorElement.textContent = error.message || 'Authentication failed';
+                    errorElement.style.display = 'block';
+                }
+            });
+            
+            // Reset auth flags if the page is being loaded fresh
+            window.isFirebaseAuthInProgress = false;
+        });
+        
         // Google Sign In
-        window.signInWithGoogle = async () => {
+        window.signInWithGoogle = function() {
             const isRegisterForm = document.getElementById('loginForm').style.display === 'none';
             const errorElement = document.getElementById(isRegisterForm ? 'registerError' : 'loginError');
             const buttonId = isRegisterForm ? 'google-signup-btn' : 'google-signin-btn';
-            const spinnerId = isRegisterForm ? 'google-signup-spinner' : 'google-signin-spinner';
             
             // Clear previous errors
             errorElement.style.display = 'none';
@@ -403,102 +467,30 @@
             // Set flag to prevent Google Translate popups during auth
             window.isFirebaseAuthInProgress = true;
             
-            // Create a timeout to detect if the popup is taking too long
-            const timeoutId = setTimeout(() => {
-                // Reset UI if no response after 45 seconds (popup might be blocked or slow connection)
-                if (window.isFirebaseAuthInProgress) {
-                    window.isFirebaseAuthInProgress = false;
-                    button.classList.remove('loading');
-                    button.disabled = false;
-                    errorElement.textContent = 'Authentication timed out. Please check popup blockers and try again.';
-                    errorElement.style.display = 'block';
-                }
-            }, 45000); // 45 second timeout
-            
             try {
                 // Make sure Google Translate dropdown is closed before auth
                 const dropdown = document.getElementById('languageDropdown');
                 if (dropdown) dropdown.classList.remove('show');
                 
-                const result = await auth.signInWithPopup(googleProvider);
-                clearTimeout(timeoutId); // Clear the timeout since auth was successful
-                console.log("Google sign-in successful:", result.user.email);
+                // Use redirect instead of popup for more reliable auth
+                auth.signInWithRedirect(googleProvider);
                 
-                // Reset flag after auth is complete
-                window.isFirebaseAuthInProgress = false;
+                // No need to reset button state as the page will reload after redirect
+                // The auth result will be handled in the page load handler
                 
-                // Get user info from Google
-                const user = result.user;
-                const userId = user.uid;
-                const userEmail = user.email;
-                const displayName = user.displayName || '';
-                const photoURL = user.photoURL || '';
-                
-                // Check if user has a profile
-                const hasProfile = await checkUserProfile(userId);
-                
-                // If no profile exists, create one with Google info
-                if (!hasProfile) {
-                    try {
-                        // Create user profile in Firestore
-                        await db.collection('userProfiles').doc(userId).set({
-                            email: userEmail,
-                            name: displayName,
-                            photoURL: photoURL,
-                            role: 'user', // Default role
-                            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                            lastLogin: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-                        console.log("Created new profile for Google user:", userEmail);
-                    } catch (profileError) {
-                        console.error("Error creating profile:", profileError);
-                        // Reset flag on error
-                        window.isFirebaseAuthInProgress = false;
-                    }
-                } else {
-                    // Update last login time
-                    try {
-                        await db.collection('userProfiles').doc(userId).update({
-                            lastLogin: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-                    } catch (updateError) {
-                        console.error("Error updating last login:", updateError);
-                        // Reset flag on error
-                        window.isFirebaseAuthInProgress = false;
-                    }
-                }
-                
-                // Redirect based on profile status
-                window.location.href = getPath(hasProfile ? 'index.html' : 'profile.html');
+                // Note: We can't reset the flag here because the page will reload
+                // The flag will be reset when the page loads
             } catch (error) {
-                console.error('Google sign-in error:', error);
-                clearTimeout(timeoutId); // Clear the timeout on error
+                console.error('Google sign-in redirect error:', error);
                 
                 // Reset flag on error
                 window.isFirebaseAuthInProgress = false;
                 
-                // Handle popup closed by user more gracefully
-                if (error.code === 'auth/popup-closed-by-user') {
-                    console.log('Authentication popup was closed before completion');
-                    errorElement.textContent = 'Sign-in cancelled. Please try again.';
-                } else if (error.code === 'auth/cancelled-popup-request') {
-                    console.log('Another authentication popup is already open');
-                    errorElement.textContent = 'Another sign-in popup is already open. Please close it and try again.';
-                } else if (error.code === 'auth/network-request-failed') {
-                    errorElement.textContent = 'Network error. Please check your internet connection and try again.';
-                } else if (error.code === 'auth/too-many-requests') {
-                    errorElement.textContent = 'Too many attempts. Please wait a moment before trying again.';
-                } else if (error.code === 'auth/popup-blocked') {
-                    errorElement.textContent = 'Popup blocked. Please allow popups for this site and try again.';
-                } else {
-                    // For other errors, show the message
-                    errorElement.textContent = error.message || 'Authentication failed. Please try again.';
-                }
-                
+                // Handle redirect errors
+                errorElement.textContent = 'Authentication failed. Please try again.';
                 errorElement.style.display = 'block';
-            } finally {
-                // Reset button state regardless of success or failure
-                const button = document.getElementById(buttonId);
+                
+                // Reset button state
                 button.classList.remove('loading');
                 button.disabled = false;
             }
