@@ -99,6 +99,16 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Try to load Google Translate API
     initializeTranslation();
+    
+    // Check if we need to apply a saved language (non-English)
+    const savedLanguage = localStorage.getItem('selectedLanguage');
+    if (savedLanguage && savedLanguage !== 'en') {
+        // Set the cookie directly to ensure Google Translate picks it up on page load
+        document.cookie = `googtrans=/auto/${savedLanguage}; path=/`;
+        document.cookie = `googtrans=/auto/${savedLanguage}; path=/; domain=.${window.location.hostname}`;
+        document.cookie = `googtrans=/auto/${savedLanguage}; path=/; domain=${window.location.hostname}`;
+        console.log(`Applied saved language cookies for: ${savedLanguage}`);
+    }
 });
 
 /**
@@ -164,8 +174,19 @@ function setupLanguageSelector() {
         // Save selection to localStorage
         localStorage.setItem('selectedLanguage', selectedLang);
         
-        // Apply the selected language
-        applyLanguage(selectedLang);
+        if (selectedLang === 'en') {
+            // For English, use the existing approach which clears cookies and reloads
+            applyLanguage(selectedLang);
+        } else {
+            // For non-English languages, set Google Translate cookie directly and reload
+            // This ensures a clean translation state on each language change
+            document.cookie = `googtrans=/auto/${selectedLang}; path=/`;
+            document.cookie = `googtrans=/auto/${selectedLang}; path=/; domain=.${window.location.hostname}`;
+            document.cookie = `googtrans=/auto/${selectedLang}; path=/; domain=${window.location.hostname}`;
+            
+            console.log(`Set cookies and reloading for language: ${selectedLang}`);
+            location.reload();
+        }
     });
 }
 
@@ -178,6 +199,23 @@ function forceTranslation(lang) {
     
     console.log(`Forcing translation to ${lang} using direct methods`);
     
+    if (lang === 'en') {
+        // For English, clear all Google Translate cookies and reload
+        console.log('Forcing English language - clearing all translation cookies');
+        document.cookie = 'googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+        document.cookie = 'googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; domain=.' + location.hostname + '; path=/;';
+        document.cookie = 'googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; domain=' + location.hostname + '; path=/;';
+        
+        // Remove translation attributes
+        document.documentElement.removeAttribute('translate');
+        document.documentElement.setAttribute('lang', 'en');
+        
+        // Force a page reload to reset Google Translate state
+        location.reload();
+        return true;
+    }
+    
+    // For other languages:
     // Set HTML lang attribute
     document.documentElement.setAttribute('lang', lang);
     
@@ -266,9 +304,17 @@ function applyLanguage(lang) {
     
     console.log(`Attempting to apply language: ${lang}`);
     
-    // If language is English, just reload the page
+    // Store selected language in localStorage
+    localStorage.setItem('selectedLanguage', lang);
+    
+    // If language is English, reset cookies and reload without Google Translate
     if (lang === 'en') {
-        console.log('Switching to English - reloading page');
+        console.log('Switching to English - removing translation cookies');
+        // Remove Google Translate cookies
+        document.cookie = 'googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+        document.cookie = 'googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; domain=.' + location.hostname + '; path=/;';
+        
+        // Reload the page to show original English content
         location.reload();
         return true;
     }
