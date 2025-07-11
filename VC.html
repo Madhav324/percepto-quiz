@@ -8,14 +8,20 @@
     <style>
         body {
             font-family: 'Arial', sans-serif;
-            background-color: #f7f9fc;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             margin: 0;
             padding: 0;
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
         }
         .container {
-            max-width: 650px;
+            max-width: 630px;
             margin: 0 auto;
-            padding: 20px 10px;
+            padding: 15px 10px;
+            position: relative;
+            z-index: 1;
+            animation: container-appear 0.8s ease-out;
         }
         .header {
             display: flex;
@@ -74,27 +80,78 @@
             text-align: center;
         }
         button {
-            background-color: #4CAF50;
+            background: linear-gradient(135deg, #9966CC 0%, #8A2BE2 100%);
             color: white;
             border: none;
-            padding: 10px 15px;
-            border-radius: 5px;
+            padding: 8px 12px;
+            border-radius: 8px;
             cursor: pointer;
             font-size: 15px;
-            margin: 8px 5px;
-            min-width: 130px;
-            transition: background-color 0.3s, transform 0.2s;
-            height: 65px;
+            margin: 5px 3px;
+            min-width: 120px;
+            height: 50px;
+            position: relative;
+            overflow: hidden;
+            z-index: 1;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 4px 15px rgba(153, 102, 204, 0.3);
         }
+        
         button:hover {
-            background-color: #45a049;
-            transform: translateY(-2px);
+            background: linear-gradient(135deg, #A569BD 0%, #9B59B6 100%);
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 8px 25px rgba(153, 102, 204, 0.4);
+        }
+        
+        button::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background-image: radial-gradient(circle, rgba(255,255,255,0.8) 10%, transparent 10%), 
+                           radial-gradient(circle, rgba(255,255,255,0.5) 15%, transparent 15%),
+                           radial-gradient(circle, rgba(255,255,255,0.3) 20%, transparent 20%);
+            background-size: 30px 30px, 20px 20px, 15px 15px;
+            background-position: 0 0, 15px 15px, 30px 30px;
+            opacity: 0;
+            transform: scale(0.5);
+            transition: opacity 0.4s, transform 0.4s;
+            pointer-events: none;
+            z-index: -1;
+        }
+        
+        button:hover::before {
+            opacity: 0.7;
+            transform: scale(1);
+            animation: sparkle 2s infinite linear;
+        }
+        
+        button::after {
+            content: '💫';
+            position: absolute;
+            font-size: 20px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            opacity: 0;
+            transition: all 0.3s;
+            pointer-events: none;
+        }
+        
+        button:hover::after {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
         }
         #quiz-type {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
+            gap: 8px;
             justify-content: center;
+            position: relative;
+            z-index: 2;
+            perspective: 1000px;
         }
         .user-info {
             text-align: right;
@@ -152,24 +209,195 @@
             }
         }
         
-        /* Extra small devices */
-        @media (max-width: 400px) {
+        /* Mobile optimizations similar to index.html */
+        @media (max-width: 480px) {
             .container {
-                padding: 8px 3px;
+                max-width: 100% !important;
+                padding: 5px !important;
+                margin: 0 !important;
             }
-            h1 {
-                font-size: 1.1rem;
+            
+            #quiz-type {
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 4px !important;
+                width: 100% !important;
+                margin-top: 3px !important;
             }
+            
             button {
-                padding: 6px 8px;
-                font-size: 0.9rem;
-                min-height: 40px;
-                border-radius: 4px;
+                min-height: 35px !important;
+                padding: 6px 8px !important;
+                font-size: 0.85rem !important;
+                margin: 2px !important;
+            }
+            
+            h1 {
+                font-size: 14px !important;
+                margin: 0 0 3px 0 !important;
+            }
+            
+            h2 {
+                font-size: 16px !important;
+                margin-bottom: 8px !important;
+            }
+        }
+        
+        /* Floating background elements */
+        .decoration-stars {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+        
+        .star {
+            position: absolute;
+            font-size: 24px;
+            animation-duration: 6s;
+            animation-timing-function: ease-in-out;
+            animation-iteration-count: infinite;
+            opacity: 0.7;
+        }
+        
+        .star1 {
+            top: 15%;
+            left: 10%;
+            animation-name: float-diagonal;
+        }
+        
+        .star2 {
+            top: 25%;
+            right: 15%;
+            animation-name: float-circle;
+            animation-delay: 1s;
+        }
+        
+        .star3 {
+            bottom: 30%;
+            left: 20%;
+            animation-name: float-zigzag;
+            animation-delay: 2s;
+        }
+        
+        /* Background floating shapes */
+        .bg-shape {
+            position: absolute;
+            z-index: -1;
+            border-radius: 50%;
+            animation: float 8s infinite ease-in-out;
+            filter: blur(2px);
+        }
+        
+        .bg-shape:nth-child(1) {
+            top: 10%;
+            left: 10%;
+            width: 120px;
+            height: 120px;
+            background-color: rgba(93, 173, 226, 0.2);
+            animation-delay: 0s;
+        }
+        
+        .bg-shape:nth-child(2) {
+            top: 20%;
+            right: 15%;
+            width: 150px;
+            height: 150px;
+            background-color: rgba(244, 208, 63, 0.2);
+            animation-delay: 1s;
+            border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
+        }
+        
+        .bg-shape:nth-child(3) {
+            bottom: 15%;
+            left: 20%;
+            width: 130px;
+            height: 130px;
+            background-color: rgba(165, 105, 189, 0.2);
+            animation-delay: 0.5s;
+            border-radius: 30% 70% 50% 50% / 50% 50% 70% 30%;
+        }
+        
+        .bg-shape:nth-child(4) {
+            bottom: 10%;
+            right: 10%;
+            width: 180px;
+            height: 180px;
+            background-color: rgba(72, 201, 176, 0.2);
+            animation-delay: 1.5s;
+            border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+        }
+        
+        /* Animation keyframes */
+        @keyframes container-appear {
+            0% { opacity: 0; transform: translateY(20px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes float-diagonal {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            50% { transform: translate(30px, -20px) rotate(180deg); }
+            100% { transform: translate(0, 0) rotate(360deg); }
+        }
+        
+        @keyframes float-circle {
+            0% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(-15px, 15px) scale(1.1); }
+            66% { transform: translate(15px, 15px) scale(0.9); }
+            100% { transform: translate(0, 0) scale(1); }
+        }
+        
+        @keyframes float-zigzag {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            25% { transform: translate(20px, -10px) rotate(15deg); }
+            50% { transform: translate(0, 10px) rotate(0deg); }
+            75% { transform: translate(-20px, -10px) rotate(-15deg); }
+            100% { transform: translate(0, 0) rotate(0deg); }
+        }
+        
+        @keyframes float {
+            0% { transform: translateY(0) rotate(0deg); opacity: 0.5; }
+            25% { transform: translateY(-15px) rotate(3deg); opacity: 0.7; }
+            50% { transform: translateY(-25px) rotate(5deg); opacity: 0.8; }
+            75% { transform: translateY(-15px) rotate(2deg); opacity: 0.7; }
+            100% { transform: translateY(0) rotate(0deg); opacity: 0.5; }
+        }
+        
+        @keyframes sparkle {
+            0% { background-position: 0 0, 15px 15px, 30px 30px; }
+            100% { background-position: 30px 30px, 45px 45px, 60px 60px; }
+        }
+        
+        /* Extra small devices */
+        @media (max-width: 380px) and (orientation: portrait) {
+            button {
+                font-size: 0.8rem !important;
+                min-height: 32px !important;
+                padding: 4px 6px !important;
+            }
+            
+            #quiz-type {
+                gap: 3px !important;
             }
         }
     </style>
 </head>
 <body>
+    <!-- Floating background stars -->
+    <div class="decoration-stars">
+        <div class="star star1">🌟</div>
+        <div class="star star2">✨</div>
+        <div class="star star3">💫</div>
+    </div>
+    
+    <!-- Background floating shapes -->
+    <div class="bg-shape"></div>
+    <div class="bg-shape"></div>
+    <div class="bg-shape"></div>
+    <div class="bg-shape"></div>
     <div class="container">
         <div class="header">
             <h1>Visual Closure</h1>
