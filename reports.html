@@ -374,12 +374,14 @@
         }
         
         .cvi-risk-badge {
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
             font-weight: bold;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            display: inline-block;
+            margin: 2px;
         }
         
         .cvi-risk-low {
@@ -594,148 +596,711 @@
                 return 'score-low';
             }
             
-            // CVI Risk Classification Functions
+            // Enhanced CVI Risk Classification Functions - Quiz-Specific Clinical Assessment
             function calculateCVIRisk(quizType, attempt) {
                 if (!attempt) return 'medium';
                 
+                // Extract performance metrics
                 const score = attempt.score || 0;
                 const timeSpent = (attempt.timeSpent || 0) / 1000; // Convert to seconds
                 const accuracy = attempt.accuracy || 0;
                 const totalTaps = attempt.totalTaps || attempt.totalClicks || 0;
                 const incorrectAnswers = attempt.incorrectAnswers || 0;
+                const correctAnswers = attempt.correctAnswers || 0;
+                const avgTime = attempt.avgTime || 0;
+                const firstTap = attempt.firstTap || 0;
                 
-                let riskFactors = 0;
+                // Quiz-specific CVI assessment logic
+                switch(quizType) {
+                    case 'mirror':
+                        return assessMirrorFixation(score, timeSpent, accuracy, totalTaps);
+                    
+                    case 'VM1':
+                    case 'VSM':
+                        return assessVisualMemory(score, timeSpent, accuracy, totalTaps, quizType);
+                    
+                    case 'VC1':
+                    case 'VC2':
+                    case 'VC3':
+                    case 'VC4':
+                        return assessVisualClosure(score, timeSpent, accuracy, totalTaps, quizType);
+                    
+                    case 'VD':
+                    case 'VDT1':
+                    case 'VDT2':
+                    case 'VDTC':
+                    case 'VDTCC1':
+                    case 'VDTE':
+                    case 'VDTS':
+                    case 'VDTS1':
+                    case 'VDTS2':
+                    case 'VDTSE1':
+                        return assessVisualDiscrimination(score, timeSpent, accuracy, totalTaps, quizType);
+                    
+                    case 'VFC1':
+                    case 'VFC2':
+                    case 'VFC11':
+                    case 'VFC12':
+                    case 'VFC13':
+                    case 'VFC21':
+                    case 'VFC22':
+                    case 'VFC23':
+                        return assessVisualFormConstancy(score, timeSpent, accuracy, totalTaps, quizType);
+                    
+                    case 'Vspac':
+                    case 'VSpac1':
+                    case 'VSpac2':
+                    case 'line':
+                        return assessVisualSpatial(score, timeSpent, accuracy, totalTaps, quizType);
+                    
+                    case 'VN':
+                    case 'VN1':
+                    case 'VN2':
+                        return assessVisualNeglect(score, timeSpent, accuracy, totalTaps, quizType);
+                    
+                    case 'VFigure1':
+                    case 'VFigure2':
+                        return assessFigureGround(score, timeSpent, accuracy, totalTaps, quizType);
+                    
+                    case 'beads':
+                    case 'crow':
+                    case 'dressing':
+                    case 'lion':
+                    case 'morning':
+                        return assessFunctionalVision(score, timeSpent, accuracy, totalTaps, quizType);
+                    
+                    default:
+                        return assessGenericVisualProcessing(score, timeSpent, accuracy, totalTaps);
+                }
+            }
+            
+            // Mirror Fixation Assessment - Critical for CVI diagnosis
+            function assessMirrorFixation(score, timeSpent, accuracy, totalTaps) {
+                let riskLevel = 'low';
                 
-                // Score-based risk assessment
-                if (score < 40) riskFactors += 3;        // Very low score - high risk
-                else if (score < 60) riskFactors += 2;   // Low score - medium risk
-                else if (score < 75) riskFactors += 1;   // Below average - slight risk
+                // Mirror fixation is fundamental - any significant impairment is concerning
+                if (score < 50 || accuracy < 60) {
+                    riskLevel = 'high'; // Poor mirror fixation is a strong CVI indicator
+                } else if (score < 70 || accuracy < 75 || timeSpent > 90) {
+                    riskLevel = 'medium'; // Borderline mirror fixation needs monitoring
+                } else if (timeSpent > 60 || totalTaps > 15) {
+                    riskLevel = 'medium'; // Slow or inefficient fixation
+                }
                 
-                // Accuracy-based risk assessment
-                if (accuracy < 50) riskFactors += 2;     // Very low accuracy
-                else if (accuracy < 70) riskFactors += 1; // Low accuracy
+                return riskLevel;
+            }
+            
+            // Visual Memory Assessment
+            function assessVisualMemory(score, timeSpent, accuracy, totalTaps, quizType) {
+                let riskLevel = 'low';
                 
-                // Time-based risk assessment (quiz-specific thresholds)
-                const timeThresholds = {
-                    'VM1': { slow: 120, verySlow: 180 },     // Visual Memory
-                    'VC1': { slow: 90, verySlow: 150 },      // Visual Closure
-                    'VC2': { slow: 100, verySlow: 160 },
-                    'VC3': { slow: 110, verySlow: 170 },
-                    'VC4': { slow: 120, verySlow: 180 },
-                    'VD': { slow: 80, verySlow: 120 },       // Visual Discrimination
-                    'VDT1': { slow: 70, verySlow: 110 },
-                    'VDT2': { slow: 80, verySlow: 120 },
-                    'VDTC': { slow: 75, verySlow: 115 },
-                    'VFC1': { slow: 85, verySlow: 130 },     // Visual Form Constancy
-                    'VFC2': { slow: 90, verySlow: 140 },
-                    'Vspac': { slow: 100, verySlow: 150 },   // Visual Spatial
-                    'VSpac1': { slow: 95, verySlow: 145 },
-                    'VSpac2': { slow: 105, verySlow: 155 },
-                    'VN': { slow: 70, verySlow: 110 },       // Visual Neglect
-                    'VSM': { slow: 90, verySlow: 140 },      // Visual Sequential Memory
-                    'mirror': { slow: 60, verySlow: 90 },    // Mirror Assessment
-                    'default': { slow: 90, verySlow: 140 }
-                };
+                // Visual memory deficits are common in CVI
+                if (score < 40 || accuracy < 50) {
+                    riskLevel = 'high'; // Severe memory impairment
+                } else if (score < 60 || accuracy < 65 || timeSpent > 180) {
+                    riskLevel = 'medium'; // Moderate memory concerns
+                } else if (score < 75 || timeSpent > 120 || totalTaps > 25) {
+                    riskLevel = 'medium'; // Mild memory inefficiency
+                }
                 
-                const threshold = timeThresholds[quizType] || timeThresholds.default;
-                if (timeSpent > threshold.verySlow) riskFactors += 2;
-                else if (timeSpent > threshold.slow) riskFactors += 1;
+                return riskLevel;
+            }
+            
+            // Visual Closure Assessment
+            function assessVisualClosure(score, timeSpent, accuracy, totalTaps, quizType) {
+                let riskLevel = 'low';
                 
-                // Interaction-based risk assessment
-                if (totalTaps > 20) riskFactors += 1;    // Excessive tapping
-                if (incorrectAnswers > 5) riskFactors += 1; // Many incorrect attempts
+                // Adjust thresholds based on closure complexity
+                const complexityFactor = quizType === 'VC4' ? 1.2 : quizType === 'VC3' ? 1.1 : 1.0;
+                const timeThreshold = 150 * complexityFactor;
                 
-                // Quiz-specific risk factors
-                if (quizType === 'mirror' && score < 70) riskFactors += 2; // Mirror assessment is critical
-                if (quizType.startsWith('VN') && score < 65) riskFactors += 2; // Visual neglect is important
-                if (quizType.startsWith('VM') && score < 60) riskFactors += 1; // Visual memory concerns
+                if (score < 45 || accuracy < 55) {
+                    riskLevel = 'high'; // Poor closure ability
+                } else if (score < 65 || accuracy < 70 || timeSpent > timeThreshold) {
+                    riskLevel = 'medium'; // Moderate closure difficulties
+                } else if (score < 80 || timeSpent > (timeThreshold * 0.8) || totalTaps > 20) {
+                    riskLevel = 'medium'; // Mild closure concerns
+                }
                 
-                // Determine risk level based on accumulated risk factors
-                if (riskFactors >= 5) return 'high';
-                if (riskFactors >= 3) return 'medium';
-                return 'low';
+                return riskLevel;
+            }
+            
+            // Visual Discrimination Assessment
+            function assessVisualDiscrimination(score, timeSpent, accuracy, totalTaps, quizType) {
+                let riskLevel = 'low';
+                
+                // Different discrimination types have different implications
+                const isColorDiscrimination = quizType.includes('C');
+                const isShapeDiscrimination = quizType.includes('S');
+                const isExpressionDiscrimination = quizType.includes('E');
+                
+                if (score < 50 || accuracy < 60) {
+                    riskLevel = 'high'; // Poor discrimination is concerning
+                } else if (score < 70 || accuracy < 75 || timeSpent > 120) {
+                    riskLevel = 'medium'; // Moderate discrimination issues
+                } else if (score < 85 || timeSpent > 90 || totalTaps > 18) {
+                    riskLevel = 'medium'; // Mild discrimination inefficiency
+                }
+                
+                // Color discrimination issues may indicate different pathways
+                if (isColorDiscrimination && score < 60) {
+                    riskLevel = riskLevel === 'low' ? 'medium' : 'high';
+                }
+                
+                return riskLevel;
+            }
+            
+            // Visual Form Constancy Assessment
+            function assessVisualFormConstancy(score, timeSpent, accuracy, totalTaps, quizType) {
+                let riskLevel = 'low';
+                
+                // Form constancy is crucial for object recognition
+                if (score < 45 || accuracy < 55) {
+                    riskLevel = 'high'; // Poor form constancy
+                } else if (score < 65 || accuracy < 70 || timeSpent > 140) {
+                    riskLevel = 'medium'; // Moderate form constancy issues
+                } else if (score < 80 || timeSpent > 100 || totalTaps > 22) {
+                    riskLevel = 'medium'; // Mild form constancy concerns
+                }
+                
+                return riskLevel;
+            }
+            
+            // Visual Spatial Assessment
+            function assessVisualSpatial(score, timeSpent, accuracy, totalTaps, quizType) {
+                let riskLevel = 'low';
+                
+                // Spatial processing deficits are significant in CVI
+                if (score < 40 || accuracy < 50) {
+                    riskLevel = 'high'; // Severe spatial deficits
+                } else if (score < 60 || accuracy < 65 || timeSpent > 155) {
+                    riskLevel = 'medium'; // Moderate spatial issues
+                } else if (score < 75 || timeSpent > 120 || totalTaps > 25) {
+                    riskLevel = 'medium'; // Mild spatial concerns
+                }
+                
+                return riskLevel;
+            }
+            
+            // Visual Neglect Assessment - Critical for CVI
+            function assessVisualNeglect(score, timeSpent, accuracy, totalTaps, quizType) {
+                let riskLevel = 'low';
+                
+                // Visual neglect is a serious indicator of CVI
+                if (score < 60 || accuracy < 65) {
+                    riskLevel = 'high'; // Significant neglect patterns
+                } else if (score < 75 || accuracy < 80 || timeSpent > 110) {
+                    riskLevel = 'medium'; // Mild neglect tendencies
+                } else if (timeSpent > 80 || totalTaps > 15) {
+                    riskLevel = 'medium'; // Inefficient visual scanning
+                }
+                
+                return riskLevel;
+            }
+            
+            // Figure-Ground Assessment
+            function assessFigureGround(score, timeSpent, accuracy, totalTaps, quizType) {
+                let riskLevel = 'low';
+                
+                // Figure-ground separation is often impaired in CVI
+                if (score < 45 || accuracy < 55) {
+                    riskLevel = 'high'; // Poor figure-ground separation
+                } else if (score < 65 || accuracy < 70 || timeSpent > 130) {
+                    riskLevel = 'medium'; // Moderate figure-ground issues
+                } else if (score < 80 || timeSpent > 100 || totalTaps > 20) {
+                    riskLevel = 'medium'; // Mild figure-ground concerns
+                }
+                
+                return riskLevel;
+            }
+            
+            // Functional Vision Assessment
+            function assessFunctionalVision(score, timeSpent, accuracy, totalTaps, quizType) {
+                let riskLevel = 'low';
+                
+                // Functional vision tasks reflect real-world visual processing
+                if (score < 50 || accuracy < 60) {
+                    riskLevel = 'high'; // Poor functional vision
+                } else if (score < 70 || accuracy < 75 || timeSpent > 200) {
+                    riskLevel = 'medium'; // Moderate functional concerns
+                } else if (score < 85 || timeSpent > 150 || totalTaps > 30) {
+                    riskLevel = 'medium'; // Mild functional inefficiency
+                }
+                
+                return riskLevel;
+            }
+            
+            // Generic Visual Processing Assessment
+            function assessGenericVisualProcessing(score, timeSpent, accuracy, totalTaps) {
+                let riskLevel = 'low';
+                
+                if (score < 45 || accuracy < 55) {
+                    riskLevel = 'high';
+                } else if (score < 65 || accuracy < 70 || timeSpent > 120) {
+                    riskLevel = 'medium';
+                } else if (score < 80 || timeSpent > 90 || totalTaps > 20) {
+                    riskLevel = 'medium';
+                }
+                
+                return riskLevel;
             }
             
             function calculateOverallCVIRisk(quizRisks) {
                 if (Object.keys(quizRisks).length === 0) return 'medium';
                 
                 const riskCounts = { high: 0, medium: 0, low: 0 };
-                const criticalQuizzes = ['mirror', 'VN', 'VN1', 'VN2', 'VM1', 'VC4'];
-                let criticalHighRisk = 0;
                 
+                // Define critical assessment categories with clinical weights
+                const criticalAssessments = {
+                    'mirror': { weight: 3, category: 'fixation' },           // Most critical
+                    'VN': { weight: 3, category: 'neglect' },                // Visual neglect
+                    'VN1': { weight: 3, category: 'neglect' },
+                    'VN2': { weight: 3, category: 'neglect' },
+                    'VM1': { weight: 2, category: 'memory' },                // Visual memory
+                    'VSM': { weight: 2, category: 'memory' },
+                    'VC4': { weight: 2, category: 'closure' },               // Complex closure
+                    'VFC1': { weight: 2, category: 'form_constancy' },       // Form constancy
+                    'VFC2': { weight: 2, category: 'form_constancy' },
+                    'VSpac2': { weight: 2, category: 'spatial' },            // Complex spatial
+                    'VFigure1': { weight: 2, category: 'figure_ground' },    // Figure-ground
+                    'VFigure2': { weight: 2, category: 'figure_ground' }
+                };
+                
+                let criticalRiskScore = 0;
+                let totalCriticalWeight = 0;
+                const categoryRisks = {};
+                
+                // Analyze each quiz result
                 Object.entries(quizRisks).forEach(([quizType, risk]) => {
                     riskCounts[risk]++;
-                    if (criticalQuizzes.includes(quizType) && risk === 'high') {
-                        criticalHighRisk++;
+                    
+                    // Check if this is a critical assessment
+                    if (criticalAssessments[quizType]) {
+                        const assessment = criticalAssessments[quizType];
+                        const riskValue = risk === 'high' ? 3 : risk === 'medium' ? 2 : 1;
+                        
+                        criticalRiskScore += riskValue * assessment.weight;
+                        totalCriticalWeight += assessment.weight * 3; // Max possible score
+                        
+                        // Track category-specific risks
+                        if (!categoryRisks[assessment.category]) {
+                            categoryRisks[assessment.category] = [];
+                        }
+                        categoryRisks[assessment.category].push(risk);
                     }
                 });
                 
                 const totalQuizzes = Object.keys(quizRisks).length;
                 const highRiskPercentage = (riskCounts.high / totalQuizzes) * 100;
                 const mediumRiskPercentage = (riskCounts.medium / totalQuizzes) * 100;
+                const criticalRiskPercentage = totalCriticalWeight > 0 ? (criticalRiskScore / totalCriticalWeight) * 100 : 0;
                 
-                // High risk if:
-                // - Any critical quiz shows high risk
-                // - More than 40% of quizzes are high risk
-                // - More than 60% of quizzes are medium or high risk
-                if (criticalHighRisk > 0 || 
-                    highRiskPercentage > 40 || 
-                    (highRiskPercentage + mediumRiskPercentage) > 60) {
+                // Analyze category-specific patterns
+                const categoryAnalysis = analyzeCategoryRisks(categoryRisks);
+                
+                // Determine overall risk level with enhanced clinical logic
+                
+                // HIGH RISK CONDITIONS:
+                // 1. Mirror fixation shows high risk (fundamental CVI indicator)
+                if (quizRisks['mirror'] === 'high') {
                     return 'high';
                 }
                 
-                // Medium risk if:
-                // - More than 20% of quizzes are high risk
-                // - More than 40% of quizzes are medium or high risk
-                if (highRiskPercentage > 20 || 
-                    (highRiskPercentage + mediumRiskPercentage) > 40) {
+                // 2. Multiple critical assessments show high risk
+                const criticalHighCount = Object.keys(criticalAssessments)
+                    .filter(quiz => quizRisks[quiz] === 'high').length;
+                if (criticalHighCount >= 2) {
+                    return 'high';
+                }
+                
+                // 3. Visual neglect with any other high-risk assessment
+                if ((quizRisks['VN'] === 'high' || quizRisks['VN1'] === 'high' || quizRisks['VN2'] === 'high') &&
+                    riskCounts.high > 1) {
+                    return 'high';
+                }
+                
+                // 4. High percentage of overall high-risk results
+                if (highRiskPercentage > 35 || criticalRiskPercentage > 70) {
+                    return 'high';
+                }
+                
+                // 5. Specific category combinations indicating CVI
+                if (categoryAnalysis.hasMultipleCriticalCategories) {
+                    return 'high';
+                }
+                
+                // MEDIUM RISK CONDITIONS:
+                // 1. Any critical assessment shows high risk
+                if (criticalHighCount >= 1) {
+                    return 'medium';
+                }
+                
+                // 2. Mirror fixation shows medium risk
+                if (quizRisks['mirror'] === 'medium') {
+                    return 'medium';
+                }
+                
+                // 3. Multiple medium-risk critical assessments
+                const criticalMediumCount = Object.keys(criticalAssessments)
+                    .filter(quiz => quizRisks[quiz] === 'medium').length;
+                if (criticalMediumCount >= 3) {
+                    return 'medium';
+                }
+                
+                // 4. Moderate percentage thresholds
+                if (highRiskPercentage > 15 || 
+                    (highRiskPercentage + mediumRiskPercentage) > 50 ||
+                    criticalRiskPercentage > 50) {
+                    return 'medium';
+                }
+                
+                // 5. Category-specific medium risk patterns
+                if (categoryAnalysis.hasConcerningPatterns) {
                     return 'medium';
                 }
                 
                 return 'low';
             }
             
+            // Analyze category-specific risk patterns
+            function analyzeCategoryRisks(categoryRisks) {
+                let hasMultipleCriticalCategories = false;
+                let hasConcerningPatterns = false;
+                let criticalCategoriesWithHighRisk = 0;
+                
+                Object.entries(categoryRisks).forEach(([category, risks]) => {
+                    const hasHighRisk = risks.includes('high');
+                    const hasMediumRisk = risks.includes('medium');
+                    const mediumOrHighCount = risks.filter(r => r === 'medium' || r === 'high').length;
+                    
+                    if (hasHighRisk) {
+                        criticalCategoriesWithHighRisk++;
+                    }
+                    
+                    // Concerning patterns within categories
+                    if (mediumOrHighCount >= 2) {
+                        hasConcerningPatterns = true;
+                    }
+                });
+                
+                // Multiple critical categories with high risk
+                if (criticalCategoriesWithHighRisk >= 2) {
+                    hasMultipleCriticalCategories = true;
+                }
+                
+                return {
+                    hasMultipleCriticalCategories,
+                    hasConcerningPatterns,
+                    criticalCategoriesWithHighRisk
+                };
+            }
+            
             function generateCVIRiskReport(latestAttempts) {
                 const quizRisks = {};
+                const detailedAnalysis = {};
                 
-                // Calculate risk for each quiz
+                // Calculate individual quiz risks with detailed analysis
                 Object.entries(latestAttempts).forEach(([quizType, attempt]) => {
                     quizRisks[quizType] = calculateCVIRisk(quizType, attempt);
+                    detailedAnalysis[quizType] = getDetailedQuizAnalysis(quizType, attempt);
                 });
                 
+                // Calculate overall risk
                 const overallRisk = calculateOverallCVIRisk(quizRisks);
+                const clinicalSummary = generateClinicalSummary(overallRisk, quizRisks, detailedAnalysis);
                 
-                let riskHTML = `
-                    <div class="cvi-risk-container">
-                        <div class="cvi-risk-title">CVI Risk Assessment</div>
-                `;
-                
-                // Individual quiz risks
-                Object.entries(quizRisks).forEach(([quizType, risk]) => {
-                    const displayName = quizNames[quizType] || quizType;
-                    riskHTML += `
-                        <div class="cvi-risk-item">
-                            <span class="cvi-risk-quiz">${displayName}</span>
-                            <span class="cvi-risk-badge cvi-risk-${risk}">${risk} risk</span>
+                // Generate comprehensive risk report HTML
+                let reportHTML = `
+                    <div class="cvi-risk-section">
+                        <h2>🔍 Comprehensive CVI Risk Assessment</h2>
+                        
+                        <div class="overall-risk-container">
+                            <div class="overall-risk-indicator cvi-risk-${overallRisk}">
+                                <span class="risk-label">Overall CVI Risk Level:</span>
+                                <span class="risk-value">${overallRisk.toUpperCase()}</span>
+                            </div>
+                            <div class="risk-confidence">
+                                Based on ${Object.keys(quizRisks).length} visual processing assessments
+                            </div>
                         </div>
-                    `;
-                });
-                
-                // Overall risk assessment
-                const overallMessages = {
-                    low: 'Overall CVI Risk: LOW - Performance indicates good visual processing abilities',
-                    medium: 'Overall CVI Risk: MEDIUM - Some areas may need attention and monitoring',
-                    high: 'Overall CVI Risk: HIGH - Recommend comprehensive evaluation by a specialist'
-                };
-                
-                riskHTML += `
-                        <div class="cvi-overall-risk cvi-overall-${overallRisk}">
-                            ${overallMessages[overallRisk]}
+                        
+                        <div class="clinical-summary">
+                            <h3>📋 Clinical Summary</h3>
+                            <div class="summary-content">
+                                ${clinicalSummary.interpretation}
+                            </div>
+                        </div>
+                        
+                        <div class="risk-recommendations">
+                            <h3>💡 Clinical Recommendations</h3>
+                            <div class="recommendations-content">
+                                ${clinicalSummary.recommendations}
+                            </div>
+                        </div>
+                        
+                        <div class="assessment-breakdown">
+                            <h3>🎯 Assessment Category Breakdown</h3>
+                            <div class="category-analysis">
+                                ${generateCategoryBreakdown(quizRisks, detailedAnalysis)}
+                            </div>
+                        </div>
+                        
+                        <div class="individual-risks">
+                            <h3>📊 Individual Assessment Results</h3>
+                            <div class="detailed-risk-grid">
+                                ${generateDetailedRiskGrid(quizRisks, detailedAnalysis)}
+                            </div>
+                        </div>
+                        
+                        <div class="risk-factors">
+                            <h3>⚠️ Key Risk Factors Identified</h3>
+                            <div class="risk-factors-content">
+                                ${generateRiskFactors(quizRisks, detailedAnalysis)}
+                            </div>
                         </div>
                     </div>
                 `;
                 
-                return riskHTML;
+                return reportHTML;
+            }
+            
+            // Generate detailed analysis for each quiz
+            function getDetailedQuizAnalysis(quizType, attempt) {
+                const score = attempt.score || 0;
+                const timeSpent = (attempt.timeSpent || 0) / 1000;
+                const accuracy = attempt.accuracy || 0;
+                const totalTaps = attempt.totalTaps || attempt.totalClicks || 0;
+                
+                return {
+                    score,
+                    timeSpent,
+                    accuracy,
+                    totalTaps,
+                    efficiency: totalTaps > 0 ? (attempt.correctAnswers || 0) / totalTaps : 0,
+                    speedIndex: score > 0 ? score / Math.max(timeSpent, 1) : 0,
+                    concerns: identifySpecificConcerns(quizType, attempt)
+                };
+            }
+            
+            // Generate clinical summary and recommendations
+            function generateClinicalSummary(overallRisk, quizRisks, detailedAnalysis) {
+                const totalQuizzes = Object.keys(quizRisks).length;
+                const riskCounts = { high: 0, medium: 0, low: 0 };
+                Object.values(quizRisks).forEach(risk => riskCounts[risk]++);
+                
+                let interpretation = '';
+                let recommendations = '';
+                
+                if (overallRisk === 'high') {
+                    interpretation = `
+                        <p><strong>High CVI Risk Identified:</strong> The assessment reveals significant concerns across multiple visual processing domains. 
+                        ${riskCounts.high} out of ${totalQuizzes} assessments show high risk, indicating potential cortical visual impairment.</p>
+                        <p>Key areas of concern include visual processing efficiency, accuracy, and response patterns that are consistent with CVI characteristics.</p>
+                    `;
+                    recommendations = `
+                        <ul>
+                            <li><strong>Immediate Action:</strong> Refer for comprehensive ophthalmological and neurological evaluation</li>
+                            <li><strong>Educational Support:</strong> Implement CVI-specific accommodations and teaching strategies</li>
+                            <li><strong>Environmental Modifications:</strong> Reduce visual complexity, improve lighting, minimize distractions</li>
+                            <li><strong>Follow-up:</strong> Schedule regular reassessments every 3-6 months to monitor progress</li>
+                            <li><strong>Family Support:</strong> Provide CVI education and home strategy training</li>
+                        </ul>
+                    `;
+                } else if (overallRisk === 'medium') {
+                    interpretation = `
+                        <p><strong>Moderate CVI Risk:</strong> The assessment shows some areas of concern that warrant monitoring and intervention. 
+                        ${riskCounts.high + riskCounts.medium} out of ${totalQuizzes} assessments indicate potential visual processing challenges.</p>
+                        <p>While not definitively indicating CVI, these patterns suggest the need for targeted support and continued evaluation.</p>
+                    `;
+                    recommendations = `
+                        <ul>
+                            <li><strong>Monitoring:</strong> Continue regular visual processing assessments</li>
+                            <li><strong>Educational Support:</strong> Implement visual learning accommodations as needed</li>
+                            <li><strong>Professional Consultation:</strong> Consider evaluation by vision specialist if concerns persist</li>
+                            <li><strong>Environmental Awareness:</strong> Monitor for visual fatigue and provide breaks as needed</li>
+                            <li><strong>Progress Tracking:</strong> Reassess in 6-12 months or if symptoms worsen</li>
+                        </ul>
+                    `;
+                } else {
+                    interpretation = `
+                        <p><strong>Low CVI Risk:</strong> The assessment indicates good visual processing abilities across most domains. 
+                        ${riskCounts.low} out of ${totalQuizzes} assessments show typical performance patterns.</p>
+                        <p>Current visual processing skills appear to be developing appropriately with no significant concerns for CVI.</p>
+                    `;
+                    recommendations = `
+                        <ul>
+                            <li><strong>Continued Development:</strong> Support ongoing visual skill development through regular activities</li>
+                            <li><strong>Routine Monitoring:</strong> Include visual processing in regular developmental assessments</li>
+                            <li><strong>Educational Support:</strong> Continue with standard visual learning approaches</li>
+                            <li><strong>Preventive Care:</strong> Maintain good visual hygiene and regular eye exams</li>
+                            <li><strong>Future Assessment:</strong> Reassess if any visual concerns arise</li>
+                        </ul>
+                    `;
+                }
+                
+                return { interpretation, recommendations };
+            }
+            
+            // Generate category breakdown
+            function generateCategoryBreakdown(quizRisks, detailedAnalysis) {
+                const categories = {
+                    'fixation': { name: 'Visual Fixation', quizzes: ['mirror'], critical: true },
+                    'neglect': { name: 'Visual Neglect', quizzes: ['VN', 'VN1', 'VN2'], critical: true },
+                    'memory': { name: 'Visual Memory', quizzes: ['VM1', 'VSM'], critical: false },
+                    'closure': { name: 'Visual Closure', quizzes: ['VC1', 'VC2', 'VC3', 'VC4'], critical: false },
+                    'discrimination': { name: 'Visual Discrimination', quizzes: ['VD', 'VDT1', 'VDT2', 'VDTC'], critical: false },
+                    'form_constancy': { name: 'Form Constancy', quizzes: ['VFC1', 'VFC2'], critical: false },
+                    'spatial': { name: 'Visual Spatial', quizzes: ['Vspac', 'VSpac1', 'VSpac2'], critical: false },
+                    'figure_ground': { name: 'Figure-Ground', quizzes: ['VFigure1', 'VFigure2'], critical: false }
+                };
+                
+                let breakdownHTML = '';
+                
+                Object.entries(categories).forEach(([categoryKey, category]) => {
+                    const categoryQuizzes = category.quizzes.filter(quiz => quizRisks[quiz]);
+                    if (categoryQuizzes.length === 0) return;
+                    
+                    const categoryRisks = categoryQuizzes.map(quiz => quizRisks[quiz]);
+                    const hasHigh = categoryRisks.includes('high');
+                    const hasMedium = categoryRisks.includes('medium');
+                    
+                    let categoryRisk = 'low';
+                    if (hasHigh) categoryRisk = 'high';
+                    else if (hasMedium) categoryRisk = 'medium';
+                    
+                    const criticalBadge = category.critical ? '<span class="critical-badge">Critical</span>' : '';
+                    
+                    breakdownHTML += `
+                        <div class="category-item cvi-risk-${categoryRisk}">
+                            <div class="category-header">
+                                <span class="category-name">${category.name}</span>
+                                ${criticalBadge}
+                                <span class="category-risk cvi-risk-${categoryRisk}">${categoryRisk}</span>
+                            </div>
+                            <div class="category-details">
+                                ${categoryQuizzes.map(quiz => {
+                                    const displayName = quizNames[quiz] || quiz;
+                                    return `<span class="quiz-mini-badge cvi-risk-${quizRisks[quiz]}">${displayName}</span>`;
+                                }).join(' ')}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                return breakdownHTML;
+            }
+            
+            // Generate detailed risk grid
+            function generateDetailedRiskGrid(quizRisks, detailedAnalysis) {
+                let gridHTML = '';
+                
+                Object.entries(quizRisks).forEach(([quizType, risk]) => {
+                    const displayName = quizNames[quizType] || quizType;
+                    const analysis = detailedAnalysis[quizType];
+                    const concerns = analysis.concerns.length > 0 ? analysis.concerns.join(', ') : 'No specific concerns';
+                    
+                    gridHTML += `
+                        <div class="risk-grid-item cvi-risk-${risk}">
+                            <div class="grid-header">
+                                <span class="grid-quiz-name">${displayName}</span>
+                                <span class="grid-risk-badge cvi-risk-${risk}">${risk}</span>
+                            </div>
+                            <div class="grid-metrics">
+                                <div class="metric">Score: ${Math.round(analysis.score)}%</div>
+                                <div class="metric">Time: ${Math.round(analysis.timeSpent)}s</div>
+                                <div class="metric">Accuracy: ${Math.round(analysis.accuracy)}%</div>
+                            </div>
+                            <div class="grid-concerns">${concerns}</div>
+                        </div>
+                    `;
+                });
+                
+                return gridHTML;
+            }
+            
+            // Generate risk factors summary
+            function generateRiskFactors(quizRisks, detailedAnalysis) {
+                const allConcerns = [];
+                const criticalIssues = [];
+                
+                Object.entries(detailedAnalysis).forEach(([quizType, analysis]) => {
+                    if (quizRisks[quizType] === 'high') {
+                        criticalIssues.push(`${quizNames[quizType] || quizType}: ${analysis.concerns.join(', ')}`);
+                    }
+                    allConcerns.push(...analysis.concerns);
+                });
+                
+                const uniqueConcerns = [...new Set(allConcerns)];
+                
+                let factorsHTML = '';
+                
+                if (criticalIssues.length > 0) {
+                    factorsHTML += `
+                        <div class="critical-issues">
+                            <h4>Critical Issues Requiring Attention:</h4>
+                            <ul>
+                                ${criticalIssues.map(issue => `<li>${issue}</li>`).join('')}
+                            </ul>
+                        </div>
+                    `;
+                }
+                
+                if (uniqueConcerns.length > 0) {
+                    factorsHTML += `
+                        <div class="all-concerns">
+                            <h4>All Identified Concerns:</h4>
+                            <div class="concerns-tags">
+                                ${uniqueConcerns.map(concern => `<span class="concern-tag">${concern}</span>`).join('')}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    factorsHTML += '<p>No significant risk factors identified. Visual processing appears to be developing appropriately.</p>';
+                }
+                
+                return factorsHTML;
+            }
+            
+            // Identify specific concerns for each quiz type
+            function identifySpecificConcerns(quizType, attempt) {
+                const concerns = [];
+                const score = attempt.score || 0;
+                const timeSpent = (attempt.timeSpent || 0) / 1000;
+                const accuracy = attempt.accuracy || 0;
+                const totalTaps = attempt.totalTaps || attempt.totalClicks || 0;
+                
+                // Quiz-specific concern identification
+                if (quizType === 'mirror') {
+                    if (score < 60) concerns.push('Poor fixation stability');
+                    if (timeSpent > 90) concerns.push('Delayed fixation response');
+                    if (totalTaps > 15) concerns.push('Fixation searching behavior');
+                } else if (quizType.startsWith('VN')) {
+                    if (score < 70) concerns.push('Visual field neglect patterns');
+                    if (accuracy < 75) concerns.push('Inconsistent visual scanning');
+                    if (timeSpent > 110) concerns.push('Slow visual search strategies');
+                } else if (quizType.startsWith('VM')) {
+                    if (score < 60) concerns.push('Visual memory encoding difficulties');
+                    if (timeSpent > 180) concerns.push('Memory retrieval delays');
+                    if (totalTaps > 25) concerns.push('Memory uncertainty patterns');
+                } else if (quizType.startsWith('VC')) {
+                    if (score < 65) concerns.push('Visual closure processing deficits');
+                    if (accuracy < 70) concerns.push('Incomplete visual integration');
+                    if (timeSpent > 150) concerns.push('Slow closure completion');
+                } else if (quizType.startsWith('VD')) {
+                    if (score < 70) concerns.push('Visual discrimination difficulties');
+                    if (accuracy < 75) concerns.push('Feature detection inconsistencies');
+                    if (totalTaps > 18) concerns.push('Discrimination uncertainty');
+                } else if (quizType.startsWith('VFC')) {
+                    if (score < 65) concerns.push('Form constancy recognition issues');
+                    if (timeSpent > 140) concerns.push('Object recognition delays');
+                    if (accuracy < 70) concerns.push('Shape invariance difficulties');
+                } else if (quizType.includes('spac')) {
+                    if (score < 60) concerns.push('Spatial processing deficits');
+                    if (timeSpent > 155) concerns.push('Spatial orientation delays');
+                    if (accuracy < 65) concerns.push('Spatial relationship difficulties');
+                }
+                
+                return concerns;
             }
             
             // Load quiz reports
