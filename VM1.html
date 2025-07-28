@@ -771,9 +771,34 @@
             startTimer();
         }
         
+        function showTemporaryImages() {
+            // Create a set of temporary images (different from target images)
+            memoryImagesContainer.innerHTML = '';
+            const tempImages = [...baseImages].sort(() => Math.random() - 0.5).slice(0, 6);
+            tempImages.forEach(img => {
+                const imgElement = document.createElement('img');
+                imgElement.src = img;
+                imgElement.className = 'memory-image';
+                memoryImagesContainer.appendChild(imgElement);
+            });
+            
+            // After a brief delay, show the actual target images
+            setTimeout(() => {
+                // Show the real target images
+                memoryImagesContainer.innerHTML = '';
+                targetImages.forEach(img => {
+                    const imgElement = document.createElement('img');
+                    imgElement.src = img;
+                    imgElement.className = 'memory-image';
+                    memoryImagesContainer.appendChild(imgElement);
+                });
+            }, 500); // Show temporary images for 500ms
+        }
+        
         function startMemoryPhase() {
-            // Hide start button (memory images are already shown)
+            // Hide start button and show memory images
             document.getElementById('startButton').style.display = 'none';
+            memoryImagesContainer.style.display = 'block';
             
             // Reset the timer to give full time again when start button is clicked
             secondsLeft = useExtendedTime ? 60 : 30;
@@ -783,6 +808,9 @@
             if (timerInterval) {
                 clearInterval(timerInterval);
             }
+            
+            // Show temporary images first
+            showTemporaryImages();
             
             // Start the timer
             startTime = Date.now();
