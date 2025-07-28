@@ -526,7 +526,7 @@
         </div>
         
         <div style="display: flex; justify-content: center; margin: 15px 0;">
-            <button id="returnButton" class="btn" onclick="window.location.href='index.html'" style="background-color: #2196F3;">Return to Main Page</button>
+            <button id="returnButton" class="btn" onclick="window.location.href='index.html'" style="background-color: #2196F3;">Return</button>
         </div>
         
         <div id="selectionInstructions" class="instructions" style="display: none;">
@@ -796,25 +796,18 @@
         }
         
         function startMemoryPhase() {
-            // Hide start button and show memory images
+            // Hide start button
             document.getElementById('startButton').style.display = 'none';
-            memoryImagesContainer.style.display = 'block';
             
-            // Reset the timer to give full time again when start button is clicked
-            secondsLeft = useExtendedTime ? 60 : 30;
-            document.getElementById('timerDisplay').textContent = secondsLeft;
-            
-            // Clear any existing timer and restart
-            if (timerInterval) {
-                clearInterval(timerInterval);
+            // Skip the memory phase entirely and go directly to options phase
+            // First set target images if they aren't already set
+            if (targetImages.length === 0) {
+                const shuffled = [...baseImages].sort(() => Math.random() - 0.5);
+                targetImages = shuffled.slice(0, 6);
             }
             
-            // Show temporary images first
-            showTemporaryImages();
-            
-            // Start the timer
-            startTime = Date.now();
-            startTimer();
+            // Skip timer and show options phase immediately
+            showOptionsPhase();
         }
 
         function startTimer() {
