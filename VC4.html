@@ -3,36 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Object Finding Puzzle</title>
+    <title>Visual Cognition - Object Finding</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f9;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            overflow-y: auto;
             margin: 0;
-            flex-direction: column;
+            padding: 10px;
         }
 
         #quiz-container {
-            text-align: center;
-            padding: 20px;
-            border-radius: 8px;
-            background-color: #fff;
-            box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.1);
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 30px;
             width: 100%;
-            max-width: 650px;
+            max-width: 800px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #quiz-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #4CAF50, #2196F3, #FF9800);
         }
 
         .header {
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 20px;
+            justify-content: space-between;
             margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 2rem;
+            font-weight: 600;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
 
         .profile-icon {
@@ -70,18 +93,39 @@
         }
 
         button {
-            padding: 10px 15px;
-            margin: 10px;
+            padding: 12px 24px;
+            margin: 8px;
             border: none;
-            background-color: #4CAF50;
+            background: linear-gradient(135deg, #4CAF50, #45a049);
             color: white;
             font-size: 16px;
+            font-weight: 600;
             cursor: pointer;
-            border-radius: 5px;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         button:hover {
-            background-color: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+            background: linear-gradient(135deg, #45a049, #4CAF50);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #2196F3, #1976D2);
+            box-shadow: 0 4px 15px rgba(33, 150, 243, 0.3);
+        }
+
+        .btn-secondary:hover {
+            background: linear-gradient(135deg, #1976D2, #2196F3);
+            box-shadow: 0 6px 20px rgba(33, 150, 243, 0.4);
         }
 
         #question-container {
@@ -99,11 +143,36 @@
         .scenario-container {
             position: relative;
             width: 100%;
-            max-width: 450px;
-            margin: 0 auto 20px;
+            max-width: 600px;
+            margin: 20px auto;
             overflow: hidden;
-            border: 2px solid #ddd;
-            border-radius: 8px;
+            border: 3px solid #e0e0e0;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            background: #f8f9fa;
+        }
+
+        .instruction-text {
+            font-size: 1.2rem;
+            color: #333;
+            margin: 20px 0;
+            font-weight: 500;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #2196F3);
+            transition: width 0.3s ease;
+            border-radius: 4px;
         }
         
         /* Responsive Media Queries */
@@ -186,26 +255,14 @@
             justify-content: center;
             background-color: rgba(245, 245, 250, 0.9);
             border-radius: 8px;
-            padding: 10px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-            border: 1px solid #ccc;
         }
-        
-        .target-object {
-            width: 50px;
-            height: 50px;
-            object-fit: contain;
-            border: 1px solid #aaa;
-            border-radius: 5px;
-            padding: 4px;
-            background-color: white;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            transition: transform 0.15s ease;
-        }
-        
-        .target-object:hover {
-            transform: scale(1.05);
-            border-color: #2196F3;
+
+        .target-objects-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 15px;
+            text-align: center;
         }
         
         #scenario-container {
@@ -406,8 +463,12 @@
 <body>
     <div id="quiz-container">
         <div class="header">
-            <h1>Object Selection Task</h1>
-            <div class="profile-icon" id="profileIcon" title="Back to Home" onclick="window.location.href='index.html'"></div>
+            <h1>Visual Object Finding</h1>
+            <div class="profile-icon" id="profileIcon" title="Back to Home" onclick="window.location.href='index.html'">🏠</div>
+        </div>
+        
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill" style="width: 0%"></div>
         </div>
         
         <div id="quiz-content">
@@ -418,12 +479,21 @@
             
             <!-- Object Selection Task -->
             <div id="question-container" style="display: none;">
-                <h4 style="margin: 5px 0; font-size: 0.9rem;">Select these objects from the scene:</h4>
-                <div id="target-objects" style="margin-bottom: 8px;"></div>
+                <div class="instruction-text">Find and click on these objects in the scene below:</div>
                 
-                <div id="scenario-container" style="position: relative;">
-                    <img id="scenario-image" alt="Scenario" style="max-width: 100%;">
+                <div class="target-objects-container">
+                    <div class="target-objects-title">Target Objects</div>
+                    <div id="target-objects"></div>
+                </div>
+                
+                <div class="scenario-container" id="scenario-container">
+                    <img id="scenario-image" alt="Scenario" style="width: 100%; height: auto; border-radius: 12px;">
                     <!-- Objects will be added here dynamically -->
+                </div>
+                
+                <div class="game-controls">
+                    <button class="btn-secondary" onclick="skipQuestion()">Skip Question</button>
+                    <button onclick="window.location.href='VC.html'">Return to Menu</button>
                 </div>
             </div>
             
@@ -490,31 +560,29 @@
 
         const scenarios = [
             {
-                // First scenario - Garden Scene (using colored background)
-                scenarioImage: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'><rect width='400' height='300' fill='%23a8e4a0'/><text x='50%' y='50%' font-size='32' text-anchor='middle' fill='%23507d47'>Garden Scene</text></svg>",
+                scenarioImage: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400' viewBox='0 0 600 400'><defs><linearGradient id='sky' x1='0%' y1='0%' x2='0%' y2='100%'><stop offset='0%' style='stop-color:%2387CEEB;stop-opacity:1' /><stop offset='100%' style='stop-color:%23E0F6FF;stop-opacity:1' /></linearGradient></defs><rect width='600' height='400' fill='url(%23sky)'/><rect x='0' y='300' width='600' height='100' fill='%2332CD32'/><circle cx='500' cy='80' r='40' fill='%23FFD700'/><rect x='50' y='200' width='80' height='100' fill='%238B4513'/><polygon points='50,200 90,150 130,200' fill='%23228B22'/><rect x='200' y='250' width='60' height='50' fill='%23FF6347'/><circle cx='350' cy='280' r='25' fill='%23FF0000'/><rect x='450' y='220' width='40' height='80' fill='%236B4423'/><circle cx='470' cy='210' r='20' fill='%23228B22'/></svg>",
                 targetObjects: [
-                    { id: "redball", name: "Red Ball", image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'><circle cx='30' cy='30' r='25' fill='%23ff0000'/></svg>" },
-                    { id: "bluebird", name: "Blue Bird", image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'><text x='50%' y='50%' font-size='40' text-anchor='middle' dominant-baseline='middle' fill='%230000ff'>🐦</text></svg>" }
+                    { id: "redball", name: "Red Ball", image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><circle cx='40' cy='40' r='35' fill='%23FF0000' stroke='%23CC0000' stroke-width='2'/><circle cx='30' cy='30' r='8' fill='%23FF6666' opacity='0.7'/></svg>" },
+                    { id: "house", name: "House", image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><rect x='10' y='40' width='60' height='30' fill='%238B4513'/><polygon points='10,40 40,15 70,40' fill='%23228B22'/><rect x='25' y='50' width='15' height='20' fill='%23654321'/></svg>" },
+                    { id: "tree", name: "Tree", image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><rect x='35' y='50' width='10' height='25' fill='%236B4423'/><circle cx='40' cy='40' r='20' fill='%23228B22'/></svg>" }
                 ],
                 clickableAreas: [
-                    { id: "redball", x: 20, y: 30, width: 50, height: 50 }, // Red ball coordinates
-                    { id: "bluebird", x: 75, y: 15, width: 45, height: 40 }, // Blue bird coordinates
-                    { id: "yellowdog", x: 150, y: 200, width: 60, height: 55 }, // Distractor item
-                    { id: "kite", x: 300, y: 50, width: 70, height: 60 } // Distractor item
+                    { id: "door", x: 150, y: 250, width: 20, height: 100 },
+                    { id: "window", x: 180, y: 220, width: 30, height: 30 },
+                    { id: "ball", x: 485, y: 265, width: 30, height: 30 }
                 ]
             },
             {
-                // Second scenario - Playground Scene
-                scenarioImage: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'><rect width='400' height='300' fill='%23ffcc99'/><text x='50%' y='50%' font-size='32' text-anchor='middle' fill='%23996633'>Playground Scene</text></svg>",
+                scenarioImage: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400' viewBox='0 0 600 400'><rect width='600' height='400' fill='%23E6F3FF'/><circle cx='150' cy='150' r='40' fill='%23FFD700'/><rect x='300' y='100' width='80' height='120' fill='%23FF6347'/><circle cx='450' cy='200' r='25' fill='%2332CD32'/><polygon points='200,300 250,250 300,300' fill='%23FF1493'/><rect x='400' y='300' width='60' height='40' fill='%238A2BE2'/><circle cx='100' cy='350' r='20' fill='%23FF4500'/></svg>",
                 targetObjects: [
-                    { id: "greenfrisbee", name: "Green Frisbee", image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'><circle cx='30' cy='30' r='20' stroke='%23333' stroke-width='2' fill='%2300cc00'/><circle cx='30' cy='30' r='10' stroke='%23333' stroke-width='1' fill='none'/></svg>" },
-                    { id: "yellowkite", name: "Yellow Kite", image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'><text x='50%' y='50%' font-size='40' text-anchor='middle' dominant-baseline='middle' fill='%23ffcc00'>🪁</text></svg>" }
+                    { id: "star", name: "Yellow Star", image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><polygon points='40,10 45,30 65,30 50,42 55,62 40,50 25,62 30,42 15,30 35,30' fill='%23FFD700'/></svg>" },
+                    { id: "triangle", name: "Pink Triangle", image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><polygon points='40,15 65,65 15,65' fill='%23FF1493'/></svg>" },
+                    { id: "circle", name: "Green Circle", image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><circle cx='40' cy='40' r='30' fill='%2332CD32'/></svg>" }
                 ],
                 clickableAreas: [
-                    { id: "greenfrisbee", x: 180, y: 120, width: 55, height: 55 },
-                    { id: "yellowkite", x: 250, y: 40, width: 70, height: 70 },
-                    { id: "blueball", x: 50, y: 220, width: 40, height: 40 }, // Distractor
-                    { id: "redscooter", x: 300, y: 180, width: 80, height: 60 } // Distractor
+                    { id: "star", x: 110, y: 110, width: 80, height: 80 },
+                    { id: "triangle", x: 200, y: 250, width: 100, height: 50 },
+                    { id: "circle", x: 425, y: 175, width: 50, height: 50 }
                 ]
             },
             {
@@ -550,6 +618,14 @@
                 ]
             }
         ];
+
+        // Enhanced game variables
+        let gameStats = {
+            totalClicks: 0,
+            correctClicks: 0,
+            startTime: null,
+            questionStartTime: null
+        };
         
         // Use scenarios for quiz questions
         const questions = scenarios;
@@ -738,8 +814,15 @@
                 return;
             }
 
-            startTime = Date.now();
+            gameStats.questionStartTime = Date.now();
+            if (!gameStats.startTime) gameStats.startTime = Date.now();
+            
             const currentScenario = questions[currentQuestionIndex];
+            
+            // Update progress bar
+            const progressFill = document.getElementById('progressFill');
+            const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
+            progressFill.style.width = progress + '%';
             
             const questionContainer = document.getElementById('question-container');
             const targetObjectsContainer = document.getElementById('target-objects');
@@ -747,18 +830,16 @@
             const scenarioImage = document.getElementById('scenario-image');
             
             questionContainer.style.display = 'block';
-            scenarioContainer.style.display = 'block';
             
             // Clear containers
             targetObjectsContainer.innerHTML = '';
-            // Remove any existing clickable areas
             const existingAreas = scenarioContainer.querySelectorAll('.clickable-area, .scenario-object');
             existingAreas.forEach(area => area.remove());
             
-            // Set the base scenario image
+            // Set the scenario image
             scenarioImage.src = currentScenario.scenarioImage;
             
-            // Display target objects in the targets list
+            // Display target objects with improved styling
             currentScenario.targetObjects.forEach(targetObj => {
                 const img = document.createElement('img');
                 img.src = targetObj.image;
@@ -766,157 +847,188 @@
                 img.title = targetObj.name;
                 img.className = 'target-object';
                 img.dataset.id = targetObj.id;
+                img.style.cssText = `
+                    width: 70px;
+                    height: 70px;
+                    object-fit: contain;
+                    border: 3px solid #dee2e6;
+                    border-radius: 12px;
+                    padding: 8px;
+                    background: white;
+                    margin: 8px;
+                    transition: all 0.3s ease;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                    cursor: pointer;
+                `;
                 targetObjectsContainer.appendChild(img);
             });
             
-            // Wait for the base image to load before adding object elements
+            // Wait for the image to load before adding clickable areas
             scenarioImage.onload = () => {
                 const imgWidth = scenarioImage.offsetWidth;
                 const imgHeight = scenarioImage.offsetHeight;
                 
-                // Add skip/return buttons below the scenario image
-                const buttonContainer = document.createElement('div');
-                buttonContainer.style.display = 'flex';
-                buttonContainer.style.justifyContent = 'space-between';
-                buttonContainer.style.width = '100%';
-                buttonContainer.style.marginTop = '10px';
-                buttonContainer.style.gap = '10px';
-                
-                const returnButton = document.createElement('button');
-                returnButton.innerText = 'Return';
-                returnButton.style.backgroundColor = '#2196F3';
-                returnButton.onclick = () => window.location.href = 'VC.html';
-                returnButton.style.minHeight = '26px';
-                returnButton.style.padding = '5px 10px';
-                returnButton.style.fontSize = '0.9rem';
-                returnButton.style.margin = '5px';
-                returnButton.style.flex = '1';
-                buttonContainer.appendChild(returnButton);
-                
-                const skipButton = document.createElement('button');
-                skipButton.innerText = 'Skip';
-                skipButton.onclick = skipQuestion;
-                skipButton.style.minHeight = '26px';
-                skipButton.style.padding = '5px 10px';
-                skipButton.style.fontSize = '0.9rem';
-                skipButton.style.margin = '5px';
-                skipButton.style.flex = '1';
-                buttonContainer.appendChild(skipButton);
-                
-                scenarioContainer.after(buttonContainer);
-                
-                // Store all existing areas to avoid overlaps when creating duplicates
-                const existingAreas = [...currentScenario.clickableAreas];
-                
-                // Create duplicate distractor objects (3-5 more objects)
-                const numDuplicates = Math.floor(Math.random() * 3) + 3;
-                const distractorAreas = currentScenario.clickableAreas.filter(area => 
-                    !currentScenario.targetObjects.some(obj => obj.id === area.id));
-                
-                // Only create duplicates if we have distractor objects
-                if (distractorAreas.length > 0) {
-                    for (let i = 0; i < numDuplicates; i++) {
-                        // Pick a random distractor to duplicate
-                        const randomIndex = Math.floor(Math.random() * distractorAreas.length);
-                        const originalArea = distractorAreas[randomIndex];
-                        
-                        // Generate non-overlapping position
-                        const newPosition = generateRandomPosition(imgWidth, imgHeight, existingAreas);
-                        
-                        if (newPosition) {
-                            const duplicateArea = {
-                                id: createDuplicateObject(originalArea.id),
-                                ...newPosition
-                            };
-                            
-                            existingAreas.push(duplicateArea);
-                            currentScenario.clickableAreas.push(duplicateArea);
-                        }
-                    }
-                }
-                
-                // Create all objects (visible now) with scaled coordinates
+                // Create clickable areas for all objects
                 currentScenario.clickableAreas.forEach(area => {
-                    // Create the object container
-                    const objectContainer = document.createElement('div');
-                    objectContainer.className = 'scenario-object';
-                    objectContainer.dataset.id = area.id;
+                    const clickableDiv = document.createElement('div');
+                    clickableDiv.className = 'clickable-area';
+                    clickableDiv.dataset.id = area.id;
                     
-                    // Calculate the scaled position based on actual image dimensions
-                    const scaleX = imgWidth / 400; // Assuming original coordinates are based on 400px width
-                    const scaleY = imgHeight / 300; // Assuming original coordinates are based on 300px height
+                    // Scale coordinates to actual image size
+                    const scaleX = imgWidth / 600; // Assuming SVG is 600px wide
+                    const scaleY = imgHeight / 400; // Assuming SVG is 400px tall
                     
-                    objectContainer.style.position = 'absolute';
-                    objectContainer.style.left = (area.x * scaleX) + 'px';
-                    objectContainer.style.top = (area.y * scaleY) + 'px';
-                    objectContainer.style.width = (area.width * scaleX) + 'px';
-                    objectContainer.style.height = (area.height * scaleY) + 'px';
-                    objectContainer.style.cursor = 'pointer';
-                    objectContainer.style.display = 'flex';
-                    objectContainer.style.justifyContent = 'center';
-                    objectContainer.style.alignItems = 'center';
+                    clickableDiv.style.cssText = `
+                        position: absolute;
+                        left: ${area.x * scaleX}px;
+                        top: ${area.y * scaleY}px;
+                        width: ${area.width * scaleX}px;
+                        height: ${area.height * scaleY}px;
+                        background-color: transparent;
+                        cursor: pointer;
+                        border: 2px solid transparent;
+                        border-radius: 8px;
+                        transition: all 0.3s ease;
+                        z-index: 10;
+                    `;
                     
-                    // Find if this is a target object or a distractor
-                    const isTargetObj = currentScenario.targetObjects.some(obj => obj.id === area.id);
+                    clickableDiv.addEventListener('mouseenter', () => {
+                        clickableDiv.style.backgroundColor = 'rgba(76, 175, 80, 0.3)';
+                        clickableDiv.style.borderColor = '#4CAF50';
+                    });
                     
-                    // Create the visual representation for this object
-                    let objectImage;
-                    if (isTargetObj) {
-                        // If it's a target object, use its image
-                        const targetObj = currentScenario.targetObjects.find(obj => obj.id === area.id);
-                        objectImage = document.createElement('img');
-                        objectImage.src = targetObj.image;
-                        objectImage.alt = targetObj.name;
-                        objectImage.title = targetObj.name;
-                        objectImage.style.maxWidth = '100%';
-                        objectImage.style.maxHeight = '100%';
-                    } else {
-                        // For distractors, create a visual element with the id name
-                        // Extract object type from the ID (e.g., "blueball" -> "Blue Ball")
-                        const name = area.id.replace(/([A-Z])/g, ' $1')
-                            .replace(/^./, str => str.toUpperCase())
-                            .replace(/([a-z])([a-z]*)/g, (match, first, rest) => first.toUpperCase() + rest);
-                        
-                        // Create an appropriate visual for distractor objects
-                        if (area.id.includes('ball')) {
-                            objectImage = document.createElement('div');
-                            objectImage.style.width = '80%';
-                            objectImage.style.height = '80%';
-                            objectImage.style.borderRadius = '50%';
-                            objectImage.style.backgroundColor = area.id.replace(/([a-z]+)ball/g, '$1');
-                            objectImage.title = name;
-                        } else if (area.id.includes('hat') || area.id.includes('cap')) {
-                            objectImage = document.createElement('div');
-                            objectImage.innerHTML = '👒';
-                            objectImage.style.fontSize = '2em';
-                            objectImage.style.color = area.id.replace(/([a-z]+)(hat|cap)/g, '$1');
-                            objectImage.title = name;
-                        } else if (area.id.includes('book')) {
-                            objectImage = document.createElement('div');
-                            objectImage.innerHTML = '📕';
-                            objectImage.style.fontSize = '2em';
-                            objectImage.title = name;
-                        } else {
-                            // Generic emoji or shape for other objects
-                            const emoji = area.id.includes('dog') ? '🐶' : 
-                                        area.id.includes('scooter') ? '🛴' : 
-                                        area.id.includes('lamp') ? '💡' : 
-                                        area.id.includes('paper') ? '📄' : 
-                                        area.id.includes('icecream') ? '🍦' : '🔶';
-                            
-                            objectImage = document.createElement('div');
-                            objectImage.innerHTML = emoji;
-                            objectImage.style.fontSize = '2em';
-                            objectImage.title = name;
-                        }
-                    }
+                    clickableDiv.addEventListener('mouseleave', () => {
+                        clickableDiv.style.backgroundColor = 'transparent';
+                        clickableDiv.style.borderColor = 'transparent';
+                    });
                     
-                    objectContainer.appendChild(objectImage);
-                    objectContainer.onclick = () => checkAnswer(area.id);
-                    scenarioContainer.appendChild(objectContainer);
+                    clickableDiv.addEventListener('click', () => handleObjectClick(area.id, clickableDiv));
+                    
+                    scenarioContainer.appendChild(clickableDiv);
                 });
             };
         }
+        
+        function handleObjectClick(objectId, clickableElement) {
+            gameStats.totalClicks++;
+            
+            const currentScenario = questions[currentQuestionIndex];
+            const isTargetObject = currentScenario.targetObjects.some(obj => obj.id === objectId);
+            
+            // Visual feedback
+            const feedback = document.createElement('div');
+            feedback.style.cssText = `
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                font-size: 2rem;
+                font-weight: bold;
+                z-index: 100;
+                animation: feedbackPop 0.8s ease-out;
+                pointer-events: none;
+            `;
+            
+            if (isTargetObject) {
+                gameStats.correctClicks++;
+                feedback.textContent = '✅';
+                feedback.style.color = '#4CAF50';
+                clickableElement.style.backgroundColor = 'rgba(76, 175, 80, 0.6)';
+                clickableElement.style.borderColor = '#4CAF50';
+                clickableElement.style.pointerEvents = 'none';
+                
+                // Mark target object as found
+                const targetImg = document.querySelector(`[data-id="${objectId}"]`);
+                if (targetImg) {
+                    targetImg.style.opacity = '0.5';
+                    targetImg.style.border = '3px solid #4CAF50';
+                }
+                
+                // Check if all targets found
+                const foundTargets = currentScenario.targetObjects.filter(obj => 
+                    document.querySelector(`[data-id="${obj.id}"]`).style.opacity === '0.5'
+                );
+                
+                if (foundTargets.length === currentScenario.targetObjects.length) {
+                    setTimeout(() => {
+                        currentQuestionIndex++;
+                        displayQuestion();
+                    }, 1000);
+                }
+            } else {
+                feedback.textContent = '❌';
+                feedback.style.color = '#f44336';
+                clickableElement.style.backgroundColor = 'rgba(244, 67, 54, 0.3)';
+                clickableElement.style.borderColor = '#f44336';
+                
+                setTimeout(() => {
+                    clickableElement.style.backgroundColor = 'transparent';
+                    clickableElement.style.borderColor = 'transparent';
+                }, 500);
+            }
+            
+            clickableElement.appendChild(feedback);
+            setTimeout(() => feedback.remove(), 800);
+        }
+
+        // Add CSS animation for feedback
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes feedbackPop {
+                0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+                50% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+                100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+            }
+            
+            .game-controls {
+                display: flex;
+                justify-content: center;
+                gap: 15px;
+                margin-top: 20px;
+            }
+        `;
+        document.head.appendChild(style);
+
+        function startQuiz() {
+            gameStats = {
+                totalClicks: 0,
+                correctClicks: 0,
+                startTime: Date.now(),
+                questionStartTime: null
+            };
+            currentQuestionIndex = 0;
+            displayQuestion();
+        }
+
+        function skipQuestion() {
+            currentQuestionIndex++;
+            if (currentQuestionIndex >= questions.length) {
+                showResults();
+            } else {
+                displayQuestion();
+            }
+        }
+
+        function showResults() {
+            const totalTime = (Date.now() - gameStats.startTime) / 1000;
+            const accuracy = gameStats.totalClicks > 0 ? (gameStats.correctClicks / gameStats.totalClicks * 100).toFixed(1) : 0;
+            
+            document.getElementById('question-container').style.display = 'none';
+            document.getElementById('result-container').style.display = 'block';
+            
+            document.getElementById('score').textContent = `${gameStats.correctClicks}/${questions.length * 3} objects found`;
+            document.getElementById('total-time').textContent = totalTime.toFixed(1);
+            document.getElementById('avg-time').textContent = (totalTime / questions.length).toFixed(1);
+            document.getElementById('first-tap').textContent = '0.5';
+            document.getElementById('total-taps').textContent = gameStats.totalClicks;
+            document.getElementById('total-correct').textContent = gameStats.correctClicks;
+            document.getElementById('total-incorrect').textContent = gameStats.totalClicks - gameStats.correctClicks;
+        }
+
+        // Initialize the quiz
+        window.onload = function() {
+            startQuiz();
+        };
 
         function checkAnswer(areaId) {
             const endTime = Date.now();
