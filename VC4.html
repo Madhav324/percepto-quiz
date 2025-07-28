@@ -479,12 +479,14 @@
             
             <!-- Object Selection Task -->
             <div id="question-container" style="display: none;">
-                <div class="instruction-text">Find and click on these objects in the scene below:</div>
+                <div class="instruction-text" id="instructionText">Find and click on these objects in the scene below:</div>
                 
                 <div class="target-objects-container">
                     <div class="target-objects-title">Target Objects</div>
                     <div id="target-objects"></div>
                 </div>
+                
+                <div id="sequenceStatus" style="display: none; margin: 15px 0; padding: 10px; background: #e3f2fd; border-radius: 8px; font-weight: 600;"></div>
                 
                 <div class="scenario-container" id="scenario-container">
                     <img id="scenario-image" alt="Scenario" style="width: 100%; height: auto; border-radius: 12px;">
@@ -560,64 +562,70 @@
 
         const scenarios = [
             {
-                scenarioImage: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400' viewBox='0 0 600 400'><defs><linearGradient id='sky' x1='0%' y1='0%' x2='0%' y2='100%'><stop offset='0%' style='stop-color:%2387CEEB;stop-opacity:1' /><stop offset='100%' style='stop-color:%23E0F6FF;stop-opacity:1' /></linearGradient></defs><rect width='600' height='400' fill='url(%23sky)'/><rect x='0' y='300' width='600' height='100' fill='%2332CD32'/><circle cx='500' cy='80' r='40' fill='%23FFD700'/><rect x='50' y='200' width='80' height='100' fill='%238B4513'/><polygon points='50,200 90,150 130,200' fill='%23228B22'/><rect x='200' y='250' width='60' height='50' fill='%23FF6347'/><circle cx='350' cy='280' r='25' fill='%23FF0000'/><rect x='450' y='220' width='40' height='80' fill='%236B4423'/><circle cx='470' cy='210' r='20' fill='%23228B22'/></svg>",
+                // Visual Search Test - Find specific letters among distractors
+                scenarioImage: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400' viewBox='0 0 600 400'><rect width='600' height='400' fill='%23f8f9fa'/><text x='50' y='50' font-family='Arial' font-size='36' fill='%23333'>P</text><text x='150' y='50' font-family='Arial' font-size='36' fill='%23333'>R</text><text x='250' y='50' font-family='Arial' font-size='36' fill='%23333'>Q</text><text x='350' y='50' font-family='Arial' font-size='36' fill='%23333'>P</text><text x='450' y='50' font-family='Arial' font-size='36' fill='%23333'>B</text><text x='550' y='50' font-family='Arial' font-size='36' fill='%23333'>D</text><text x='50' y='120' font-family='Arial' font-size='36' fill='%23333'>R</text><text x='150' y='120' font-family='Arial' font-size='36' fill='%23333'>P</text><text x='250' y='120' font-family='Arial' font-size='36' fill='%23333'>B</text><text x='350' y='120' font-family='Arial' font-size='36' fill='%23333'>Q</text><text x='450' y='120' font-family='Arial' font-size='36' fill='%23333'>R</text><text x='550' y='120' font-family='Arial' font-size='36' fill='%23333'>P</text><text x='50' y='190' font-family='Arial' font-size='36' fill='%23333'>Q</text><text x='150' y='190' font-family='Arial' font-size='36' fill='%23333'>B</text><text x='250' y='190' font-family='Arial' font-size='36' fill='%23333'>P</text><text x='350' y='190' font-family='Arial' font-size='36' fill='%23333'>R</text><text x='450' y='190' font-family='Arial' font-size='36' fill='%23333'>D</text><text x='550' y='190' font-family='Arial' font-size='36' fill='%23333'>Q</text><text x='50' y='260' font-family='Arial' font-size='36' fill='%23333'>B</text><text x='150' y='260' font-family='Arial' font-size='36' fill='%23333'>P</text><text x='250' y='260' font-family='Arial' font-size='36' fill='%23333'>R</text><text x='350' y='260' font-family='Arial' font-size='36' fill='%23333'>P</text><text x='450' y='260' font-family='Arial' font-size='36' fill='%23333'>Q</text><text x='550' y='260' font-family='Arial' font-size='36' fill='%23333'>B</text><text x='50' y='330' font-family='Arial' font-size='36' fill='%23333'>R</text><text x='150' y='330' font-family='Arial' font-size='36' fill='%23333'>Q</text><text x='250' y='330' font-family='Arial' font-size='36' fill='%23333'>B</text><text x='350' y='330' font-family='Arial' font-size='36' fill='%23333'>P</text><text x='450' y='330' font-family='Arial' font-size='36' fill='%23333'>R</text><text x='550' y='330' font-family='Arial' font-size='36' fill='%23333'>D</text></svg>",
+                instruction: "Find all the letter 'P' in the grid",
                 targetObjects: [
-                    { id: "redball", name: "Red Ball", image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><circle cx='40' cy='40' r='35' fill='%23FF0000' stroke='%23CC0000' stroke-width='2'/><circle cx='30' cy='30' r='8' fill='%23FF6666' opacity='0.7'/></svg>" },
-                    { id: "house", name: "House", image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><rect x='10' y='40' width='60' height='30' fill='%238B4513'/><polygon points='10,40 40,15 70,40' fill='%23228B22'/><rect x='25' y='50' width='15' height='20' fill='%23654321'/></svg>" },
-                    { id: "tree", name: "Tree", image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><rect x='35' y='50' width='10' height='25' fill='%236B4423'/><circle cx='40' cy='40' r='20' fill='%23228B22'/></svg>" }
+                    { id: "letterP", name: "Letter P", image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><text x='40' y='50' font-family='Arial' font-size='48' text-anchor='middle' dominant-baseline='middle' fill='%23007bff'>P</text></svg>" }
                 ],
                 clickableAreas: [
-                    { id: "door", x: 150, y: 250, width: 20, height: 100 },
-                    { id: "window", x: 180, y: 220, width: 30, height: 30 },
-                    { id: "ball", x: 485, y: 265, width: 30, height: 30 }
+                    { id: "letterP", x: 30, y: 20, width: 40, height: 40 },
+                    { id: "letterP", x: 330, y: 20, width: 40, height: 40 },
+                    { id: "letterP", x: 130, y: 90, width: 40, height: 40 },
+                    { id: "letterP", x: 530, y: 90, width: 40, height: 40 },
+                    { id: "letterP", x: 230, y: 160, width: 40, height: 40 },
+                    { id: "letterP", x: 130, y: 230, width: 40, height: 40 },
+                    { id: "letterP", x: 330, y: 230, width: 40, height: 40 },
+                    { id: "letterP", x: 330, y: 300, width: 40, height: 40 }
                 ]
             },
             {
-                scenarioImage: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400' viewBox='0 0 600 400'><rect width='600' height='400' fill='%23E6F3FF'/><circle cx='150' cy='150' r='40' fill='%23FFD700'/><rect x='300' y='100' width='80' height='120' fill='%23FF6347'/><circle cx='450' cy='200' r='25' fill='%2332CD32'/><polygon points='200,300 250,250 300,300' fill='%23FF1493'/><rect x='400' y='300' width='60' height='40' fill='%238A2BE2'/><circle cx='100' cy='350' r='20' fill='%23FF4500'/></svg>",
+                // Shape Recognition Test - Find specific shapes among similar ones
+                scenarioImage: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400' viewBox='0 0 600 400'><rect width='600' height='400' fill='%23f8f9fa'/><circle cx='80' cy='80' r='25' fill='%23dc3545'/><rect x='55' y='155' width='50' height='50' fill='%23007bff'/><polygon points='80,230 105,280 55,280' fill='%2328a745'/><circle cx='200' cy='80' r='25' fill='%23007bff'/><rect x='175' y='155' width='50' height='50' fill='%23dc3545'/><polygon points='200,230 225,280 175,280' fill='%23007bff'/><circle cx='320' cy='80' r='25' fill='%2328a745'/><rect x='295' y='155' width='50' height='50' fill='%2328a745'/><polygon points='320,230 345,280 295,280' fill='%23dc3545'/><circle cx='440' cy='80' r='25' fill='%23007bff'/><rect x='415' y='155' width='50' height='50' fill='%23007bff'/><polygon points='440,230 465,280 415,280' fill='%2328a745'/><circle cx='80' cy='320' r='25' fill='%2328a745'/><rect x='175' y='295' width='50' height='50' fill='%23dc3545'/><polygon points='320,300 345,350 295,350' fill='%23007bff'/><circle cx='440' cy='320' r='25' fill='%23dc3545'/></svg>",
+                instruction: "Find all the BLUE circles",
                 targetObjects: [
-                    { id: "star", name: "Yellow Star", image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><polygon points='40,10 45,30 65,30 50,42 55,62 40,50 25,62 30,42 15,30 35,30' fill='%23FFD700'/></svg>" },
-                    { id: "triangle", name: "Pink Triangle", image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><polygon points='40,15 65,65 15,65' fill='%23FF1493'/></svg>" },
-                    { id: "circle", name: "Green Circle", image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><circle cx='40' cy='40' r='30' fill='%2332CD32'/></svg>" }
+                    { id: "blueCircle", name: "Blue Circle", image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><circle cx='40' cy='40' r='30' fill='%23007bff'/></svg>" }
                 ],
                 clickableAreas: [
-                    { id: "star", x: 110, y: 110, width: 80, height: 80 },
-                    { id: "triangle", x: 200, y: 250, width: 100, height: 50 },
-                    { id: "circle", x: 425, y: 175, width: 50, height: 50 }
+                    { id: "blueCircle", x: 175, y: 55, width: 50, height: 50 },
+                    { id: "blueCircle", x: 415, y: 55, width: 50, height: 50 }
                 ]
             },
             {
-                // Third scenario - Beach Scene
-                scenarioImage: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'><rect width='400' height='200' fill='%2399ccff'/><rect width='400' height='100' y='200' fill='%23ffcc99'/><text x='50%' y='50%' font-size='32' text-anchor='middle' fill='%23ffffff'>Beach Scene</text></svg>",
+                // Visual Attention Test - Find numbers in correct sequence
+                scenarioImage: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400' viewBox='0 0 600 400'><rect width='600' height='400' fill='%23f8f9fa'/><text x='100' y='80' font-family='Arial' font-size='32' fill='%23333'>7</text><text x='300' y='80' font-family='Arial' font-size='32' fill='%23333'>3</text><text x='500' y='80' font-family='Arial' font-size='32' fill='%23333'>9</text><text x='50' y='150' font-family='Arial' font-size='32' fill='%23333'>1</text><text x='200' y='150' font-family='Arial' font-size='32' fill='%23333'>5</text><text x='350' y='150' font-family='Arial' font-size='32' fill='%23333'>2</text><text x='450' y='150' font-family='Arial' font-size='32' fill='%23333'>8</text><text x='150' y='220' font-family='Arial' font-size='32' fill='%23333'>4</text><text x='400' y='220' font-family='Arial' font-size='32' fill='%23333'>6</text><text x='250' y='290' font-family='Arial' font-size='32' fill='%23333'>0</text><text x='550' y='220' font-family='Arial' font-size='32' fill='%23333'>3</text><text x='80' y='290' font-family='Arial' font-size='32' fill='%23333'>1</text></svg>",
+                instruction: "Click numbers 1, 2, 3 in that order",
                 targetObjects: [
-                    { id: "pinkumbrella", name: "Pink Umbrella", image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'><text x='50%' y='50%' font-size='40' text-anchor='middle' dominant-baseline='middle' fill='%23ff66cc'>☂️</text></svg>" },
-                    { id: "orangeball", name: "Orange Ball", image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'><circle cx='30' cy='30' r='25' fill='%23ff9933'/></svg>" },
-                    { id: "yellowsandals", name: "Yellow Sandals", image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'><text x='50%' y='50%' font-size='40' text-anchor='middle' dominant-baseline='middle' fill='%23ffcc00'>👡</text></svg>" }
+                    { id: "number1", name: "Number 1", image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><text x='40' y='50' font-family='Arial' font-size='48' text-anchor='middle' dominant-baseline='middle' fill='%23007bff'>1</text></svg>" },
+                    { id: "number2", name: "Number 2", image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><text x='40' y='50' font-family='Arial' font-size='48' text-anchor='middle' dominant-baseline='middle' fill='%23007bff'>2</text></svg>" },
+                    { id: "number3", name: "Number 3", image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><text x='40' y='50' font-family='Arial' font-size='48' text-anchor='middle' dominant-baseline='middle' fill='%23007bff'>3</text></svg>" }
                 ],
                 clickableAreas: [
-                    { id: "pinkumbrella", x: 100, y: 70, width: 80, height: 70 },
-                    { id: "orangeball", x: 240, y: 180, width: 45, height: 45 },
-                    { id: "yellowsandals", x: 30, y: 220, width: 60, height: 40 },
-                    { id: "blueicecream", x: 180, y: 150, width: 35, height: 50 }, // Distractor
-                    { id: "redhat", x: 280, y: 90, width: 50, height: 40 } // Distractor
-                ]
+                    { id: "number1", x: 30, y: 120, width: 40, height: 40 },
+                    { id: "number2", x: 330, y: 120, width: 40, height: 40 },
+                    { id: "number3", x: 280, y: 50, width: 40, height: 40 },
+                    { id: "number1", x: 60, y: 260, width: 40, height: 40 },
+                    { id: "number3", x: 530, y: 190, width: 40, height: 40 }
+                ],
+                sequenceRequired: true,
+                correctSequence: ["number1", "number2", "number3"]
             },
             {
-                // Fourth scenario - Room Scene
-                scenarioImage: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'><rect width='400' height='300' fill='%23f2f2f2'/><rect width='100' height='100' x='50' y='50' fill='%23d9d9d9'/><rect width='200' height='50' x='150' y='200' fill='%23cccccc'/><text x='50%' y='50%' font-size='32' text-anchor='middle' fill='%23666666'>Room Scene</text></svg>",
+                // Pattern Recognition Test - Find the odd one out
+                scenarioImage: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400' viewBox='0 0 600 400'><rect width='600' height='400' fill='%23f8f9fa'/><circle cx='100' cy='100' r='30' fill='%23007bff'/><circle cx='200' cy='100' r='30' fill='%23007bff'/><circle cx='300' cy='100' r='30' fill='%23007bff'/><circle cx='400' cy='100' r='30' fill='%23dc3545'/><circle cx='500' cy='100' r='30' fill='%23007bff'/><circle cx='100' cy='200' r='30' fill='%23007bff'/><circle cx='200' cy='200' r='30' fill='%23007bff'/><circle cx='300' cy='200' r='30' fill='%23007bff'/><circle cx='400' cy='200' r='30' fill='%23007bff'/><circle cx='500' cy='200' r='30' fill='%23007bff'/><circle cx='100' cy='300' r='30' fill='%23007bff'/><circle cx='200' cy='300' r='30' fill='%23007bff'/><circle cx='300' cy='300' r='30' fill='%23007bff'/><circle cx='400' cy='300' r='30' fill='%23007bff'/><circle cx='500' cy='300' r='30' fill='%23007bff'/></svg>",
+                instruction: "Find the circle that is different from the others",
                 targetObjects: [
-                    { id: "brownbook", name: "Brown Book", image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'><text x='50%' y='50%' font-size='40' text-anchor='middle' dominant-baseline='middle' fill='%23996633'>📕</text></svg>" },
-                    { id: "greenmug", name: "Green Mug", image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'><text x='50%' y='50%' font-size='40' text-anchor='middle' dominant-baseline='middle' fill='%2300cc00'>☕</text></svg>" },
-                    { id: "purplepen", name: "Purple Pen", image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'><text x='50%' y='50%' font-size='40' text-anchor='middle' dominant-baseline='middle' fill='%23cc00cc'>✒️</text></svg>" }
+                    { id: "oddCircle", name: "Red Circle", image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><circle cx='40' cy='40' r='30' fill='%23dc3545'/></svg>" }
                 ],
                 clickableAreas: [
-                    { id: "brownbook", x: 120, y: 160, width: 70, height: 50 },
-                    { id: "greenmug", x: 280, y: 120, width: 40, height: 45 },
-                    { id: "purplepen", x: 180, y: 75, width: 30, height: 60 },
-                    { id: "yellowlamp", x: 50, y: 100, width: 45, height: 80 }, // Distractor
-                    { id: "bluepaper", x: 220, y: 200, width: 60, height: 40 } // Distractor
+                    { id: "oddCircle", x: 370, y: 70, width: 60, height: 60 }
                 ]
             }
         ];
+
+        // Game state for sequence tracking
+        let currentSequence = [];
+        let expectedSequence = [];
 
         // Enhanced game variables
         let gameStats = {
@@ -828,8 +836,23 @@
             const targetObjectsContainer = document.getElementById('target-objects');
             const scenarioContainer = document.getElementById('scenario-container');
             const scenarioImage = document.getElementById('scenario-image');
+            const instructionText = document.getElementById('instructionText');
+            const sequenceStatus = document.getElementById('sequenceStatus');
             
             questionContainer.style.display = 'block';
+            
+            // Set instruction text
+            instructionText.textContent = currentScenario.instruction || 'Find and click on these objects in the scene below:';
+            
+            // Handle sequence-based tests
+            if (currentScenario.sequenceRequired) {
+                currentSequence = [];
+                expectedSequence = currentScenario.correctSequence;
+                sequenceStatus.style.display = 'block';
+                sequenceStatus.textContent = `Next: Click ${expectedSequence[0].replace('number', '').replace('letter', '')}`;
+            } else {
+                sequenceStatus.style.display = 'none';
+            }
             
             // Clear containers
             targetObjectsContainer.innerHTML = '';
@@ -929,7 +952,42 @@
                 pointer-events: none;
             `;
             
-            if (isTargetObject) {
+            let isCorrectClick = false;
+            
+            // Handle sequence-based tests
+            if (currentScenario.sequenceRequired) {
+                const expectedNext = expectedSequence[currentSequence.length];
+                if (objectId === expectedNext) {
+                    isCorrectClick = true;
+                    currentSequence.push(objectId);
+                    
+                    const sequenceStatus = document.getElementById('sequenceStatus');
+                    if (currentSequence.length < expectedSequence.length) {
+                        const nextItem = expectedSequence[currentSequence.length];
+                        sequenceStatus.textContent = `Next: Click ${nextItem.replace('number', '').replace('letter', '')}`;
+                    } else {
+                        sequenceStatus.textContent = 'Sequence completed! ✅';
+                        sequenceStatus.style.background = '#d4edda';
+                        sequenceStatus.style.color = '#155724';
+                    }
+                } else {
+                    // Wrong sequence item clicked
+                    feedback.textContent = '❌';
+                    feedback.style.color = '#f44336';
+                    clickableElement.style.backgroundColor = 'rgba(244, 67, 54, 0.3)';
+                    clickableElement.style.borderColor = '#f44336';
+                    
+                    setTimeout(() => {
+                        clickableElement.style.backgroundColor = 'transparent';
+                        clickableElement.style.borderColor = 'transparent';
+                    }, 500);
+                }
+            } else {
+                // Regular target object test
+                isCorrectClick = isTargetObject;
+            }
+            
+            if (isCorrectClick) {
                 gameStats.correctClicks++;
                 feedback.textContent = '✅';
                 feedback.style.color = '#4CAF50';
@@ -937,25 +995,38 @@
                 clickableElement.style.borderColor = '#4CAF50';
                 clickableElement.style.pointerEvents = 'none';
                 
-                // Mark target object as found
-                const targetImg = document.querySelector(`[data-id="${objectId}"]`);
-                if (targetImg) {
-                    targetImg.style.opacity = '0.5';
-                    targetImg.style.border = '3px solid #4CAF50';
+                // Mark target object as found (for non-sequence tests)
+                if (!currentScenario.sequenceRequired) {
+                    const targetImg = document.querySelector(`[data-id="${objectId}"]`);
+                    if (targetImg) {
+                        targetImg.style.opacity = '0.5';
+                        targetImg.style.border = '3px solid #4CAF50';
+                    }
                 }
                 
-                // Check if all targets found
-                const foundTargets = currentScenario.targetObjects.filter(obj => 
-                    document.querySelector(`[data-id="${obj.id}"]`).style.opacity === '0.5'
-                );
+                // Check completion conditions
+                let isComplete = false;
+                if (currentScenario.sequenceRequired) {
+                    isComplete = currentSequence.length === expectedSequence.length;
+                } else {
+                    // Count found targets
+                    const totalTargets = currentScenario.clickableAreas.filter(area => 
+                        currentScenario.targetObjects.some(obj => obj.id === area.id)
+                    ).length;
+                    const foundTargets = currentScenario.clickableAreas.filter(area => {
+                        const element = document.querySelector(`[data-id="${area.id}"]`);
+                        return element && element.style.pointerEvents === 'none';
+                    }).length;
+                    isComplete = foundTargets >= totalTargets;
+                }
                 
-                if (foundTargets.length === currentScenario.targetObjects.length) {
+                if (isComplete) {
                     setTimeout(() => {
                         currentQuestionIndex++;
                         displayQuestion();
-                    }, 1000);
+                    }, 1500);
                 }
-            } else {
+            } else if (!currentScenario.sequenceRequired) {
                 feedback.textContent = '❌';
                 feedback.style.color = '#f44336';
                 clickableElement.style.backgroundColor = 'rgba(244, 67, 54, 0.3)';
