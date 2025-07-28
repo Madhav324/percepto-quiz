@@ -340,6 +340,93 @@
             color: #c62828;
         }
         
+        /* CVI Risk Classification Styles */
+        .cvi-risk-container {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+            border-left: 4px solid #007bff;
+        }
+        
+        .cvi-risk-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #333;
+            text-align: center;
+        }
+        
+        .cvi-risk-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            margin: 5px 0;
+            border-radius: 6px;
+            background-color: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .cvi-risk-quiz {
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .cvi-risk-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .cvi-risk-low {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .cvi-risk-medium {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        
+        .cvi-risk-high {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .cvi-overall-risk {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        
+        .cvi-overall-low {
+            background-color: #d1f2eb;
+            color: #0c5460;
+            border: 2px solid #17a2b8;
+        }
+        
+        .cvi-overall-medium {
+            background-color: #fef9e7;
+            color: #8a6d3b;
+            border: 2px solid #f0ad4e;
+        }
+        
+        .cvi-overall-high {
+            background-color: #f2dede;
+            color: #a94442;
+            border: 2px solid #d9534f;
+        }
+        
         /* Responsive design */
         @media (max-width: 576px) {
             .container {
@@ -505,6 +592,150 @@
                 if (score >= 80) return 'score-high';
                 if (score >= 60) return 'score-medium';
                 return 'score-low';
+            }
+            
+            // CVI Risk Classification Functions
+            function calculateCVIRisk(quizType, attempt) {
+                if (!attempt) return 'medium';
+                
+                const score = attempt.score || 0;
+                const timeSpent = (attempt.timeSpent || 0) / 1000; // Convert to seconds
+                const accuracy = attempt.accuracy || 0;
+                const totalTaps = attempt.totalTaps || attempt.totalClicks || 0;
+                const incorrectAnswers = attempt.incorrectAnswers || 0;
+                
+                let riskFactors = 0;
+                
+                // Score-based risk assessment
+                if (score < 40) riskFactors += 3;        // Very low score - high risk
+                else if (score < 60) riskFactors += 2;   // Low score - medium risk
+                else if (score < 75) riskFactors += 1;   // Below average - slight risk
+                
+                // Accuracy-based risk assessment
+                if (accuracy < 50) riskFactors += 2;     // Very low accuracy
+                else if (accuracy < 70) riskFactors += 1; // Low accuracy
+                
+                // Time-based risk assessment (quiz-specific thresholds)
+                const timeThresholds = {
+                    'VM1': { slow: 120, verySlow: 180 },     // Visual Memory
+                    'VC1': { slow: 90, verySlow: 150 },      // Visual Closure
+                    'VC2': { slow: 100, verySlow: 160 },
+                    'VC3': { slow: 110, verySlow: 170 },
+                    'VC4': { slow: 120, verySlow: 180 },
+                    'VD': { slow: 80, verySlow: 120 },       // Visual Discrimination
+                    'VDT1': { slow: 70, verySlow: 110 },
+                    'VDT2': { slow: 80, verySlow: 120 },
+                    'VDTC': { slow: 75, verySlow: 115 },
+                    'VFC1': { slow: 85, verySlow: 130 },     // Visual Form Constancy
+                    'VFC2': { slow: 90, verySlow: 140 },
+                    'Vspac': { slow: 100, verySlow: 150 },   // Visual Spatial
+                    'VSpac1': { slow: 95, verySlow: 145 },
+                    'VSpac2': { slow: 105, verySlow: 155 },
+                    'VN': { slow: 70, verySlow: 110 },       // Visual Neglect
+                    'VSM': { slow: 90, verySlow: 140 },      // Visual Sequential Memory
+                    'mirror': { slow: 60, verySlow: 90 },    // Mirror Assessment
+                    'default': { slow: 90, verySlow: 140 }
+                };
+                
+                const threshold = timeThresholds[quizType] || timeThresholds.default;
+                if (timeSpent > threshold.verySlow) riskFactors += 2;
+                else if (timeSpent > threshold.slow) riskFactors += 1;
+                
+                // Interaction-based risk assessment
+                if (totalTaps > 20) riskFactors += 1;    // Excessive tapping
+                if (incorrectAnswers > 5) riskFactors += 1; // Many incorrect attempts
+                
+                // Quiz-specific risk factors
+                if (quizType === 'mirror' && score < 70) riskFactors += 2; // Mirror assessment is critical
+                if (quizType.startsWith('VN') && score < 65) riskFactors += 2; // Visual neglect is important
+                if (quizType.startsWith('VM') && score < 60) riskFactors += 1; // Visual memory concerns
+                
+                // Determine risk level based on accumulated risk factors
+                if (riskFactors >= 5) return 'high';
+                if (riskFactors >= 3) return 'medium';
+                return 'low';
+            }
+            
+            function calculateOverallCVIRisk(quizRisks) {
+                if (Object.keys(quizRisks).length === 0) return 'medium';
+                
+                const riskCounts = { high: 0, medium: 0, low: 0 };
+                const criticalQuizzes = ['mirror', 'VN', 'VN1', 'VN2', 'VM1', 'VC4'];
+                let criticalHighRisk = 0;
+                
+                Object.entries(quizRisks).forEach(([quizType, risk]) => {
+                    riskCounts[risk]++;
+                    if (criticalQuizzes.includes(quizType) && risk === 'high') {
+                        criticalHighRisk++;
+                    }
+                });
+                
+                const totalQuizzes = Object.keys(quizRisks).length;
+                const highRiskPercentage = (riskCounts.high / totalQuizzes) * 100;
+                const mediumRiskPercentage = (riskCounts.medium / totalQuizzes) * 100;
+                
+                // High risk if:
+                // - Any critical quiz shows high risk
+                // - More than 40% of quizzes are high risk
+                // - More than 60% of quizzes are medium or high risk
+                if (criticalHighRisk > 0 || 
+                    highRiskPercentage > 40 || 
+                    (highRiskPercentage + mediumRiskPercentage) > 60) {
+                    return 'high';
+                }
+                
+                // Medium risk if:
+                // - More than 20% of quizzes are high risk
+                // - More than 40% of quizzes are medium or high risk
+                if (highRiskPercentage > 20 || 
+                    (highRiskPercentage + mediumRiskPercentage) > 40) {
+                    return 'medium';
+                }
+                
+                return 'low';
+            }
+            
+            function generateCVIRiskReport(latestAttempts) {
+                const quizRisks = {};
+                
+                // Calculate risk for each quiz
+                Object.entries(latestAttempts).forEach(([quizType, attempt]) => {
+                    quizRisks[quizType] = calculateCVIRisk(quizType, attempt);
+                });
+                
+                const overallRisk = calculateOverallCVIRisk(quizRisks);
+                
+                let riskHTML = `
+                    <div class="cvi-risk-container">
+                        <div class="cvi-risk-title">CVI Risk Assessment</div>
+                `;
+                
+                // Individual quiz risks
+                Object.entries(quizRisks).forEach(([quizType, risk]) => {
+                    const displayName = quizNames[quizType] || quizType;
+                    riskHTML += `
+                        <div class="cvi-risk-item">
+                            <span class="cvi-risk-quiz">${displayName}</span>
+                            <span class="cvi-risk-badge cvi-risk-${risk}">${risk} risk</span>
+                        </div>
+                    `;
+                });
+                
+                // Overall risk assessment
+                const overallMessages = {
+                    low: 'Overall CVI Risk: LOW - Performance indicates good visual processing abilities',
+                    medium: 'Overall CVI Risk: MEDIUM - Some areas may need attention and monitoring',
+                    high: 'Overall CVI Risk: HIGH - Recommend comprehensive evaluation by a specialist'
+                };
+                
+                riskHTML += `
+                        <div class="cvi-overall-risk cvi-overall-${overallRisk}">
+                            ${overallMessages[overallRisk]}
+                        </div>
+                    </div>
+                `;
+                
+                return riskHTML;
             }
             
             // Load quiz reports
@@ -683,7 +914,10 @@
                     // Log found data for debugging
                     console.log(`Found ${Object.keys(latestAttempts).length} quiz types with data:`, Object.keys(latestAttempts));
                     
-                    let reportsHTML = '';
+                    // Generate CVI Risk Assessment
+                    const cviRiskHTML = generateCVIRiskReport(latestAttempts);
+                    
+                    let reportsHTML = cviRiskHTML;
                     
                     // Sort quiz types alphabetically by display name
                     const sortedQuizTypes = Object.keys(latestAttempts).sort((a, b) => {
@@ -698,6 +932,7 @@
                         const date = formatDate(attempt.timestamp);
                         const score = attempt.score || 0;
                         const scoreClass = getScoreClass(score);
+                        const cviRisk = calculateCVIRisk(quizType, attempt);
                         
                         // Calculate time in seconds for display
                         const timeSpent = Math.round((attempt.timeSpent || 0) / 1000); // in seconds
@@ -709,6 +944,7 @@
                                     <div>
                                         <div class="quiz-title">
                                             ${displayName}
+                                            <span class="cvi-risk-badge cvi-risk-${cviRisk}" style="margin-left: 10px; font-size: 10px;">${cviRisk}</span>
                                         </div>
                                         <div class="quiz-date">Latest attempt: ${date}</div>
                                     </div>
