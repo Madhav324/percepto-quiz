@@ -520,7 +520,9 @@
             <!-- Memory images will be placed here -->
         </div>
         
-        <button id="startButton" class="btn" style="margin-top: 15px; display: none;">Start</button>
+        <div style="text-align: center; margin: 15px 0;">
+            <button id="startButton" class="btn" style="display: none;">Start</button>
+        </div>
         
         <div id="selectionInstructions" class="instructions" style="display: none;">
             Select all 6 images that were shown earlier
@@ -729,9 +731,9 @@
             document.getElementById('result-container').style.display = 'none';
             document.getElementById('report-container').style.display = 'none';
             
-            // Show start button and hide memory images initially
+            // Show start button and memory images immediately
             document.getElementById('startButton').style.display = 'block';
-            memoryImagesContainer.style.display = 'none';
+            memoryImagesContainer.style.display = 'block';
             
             // Reset game state
             targetImages = [];
@@ -747,16 +749,6 @@
             const shuffled = [...baseImages].sort(() => Math.random() - 0.5);
             targetImages = shuffled.slice(0, 6);
             
-            // Reset timer display
-            secondsLeft = useExtendedTime ? 60 : 30;
-            document.getElementById('timerDisplay').textContent = secondsLeft;
-        }
-        
-        function startMemoryPhase() {
-            // Hide start button and show memory images
-            document.getElementById('startButton').style.display = 'none';
-            memoryImagesContainer.style.display = 'block';
-            
             // Create memory phase display
             memoryImagesContainer.innerHTML = '';
             targetImages.forEach(img => {
@@ -765,6 +757,27 @@
                 imgElement.className = 'memory-image';
                 memoryImagesContainer.appendChild(imgElement);
             });
+            
+            // Reset and start timer display
+            secondsLeft = useExtendedTime ? 60 : 30;
+            document.getElementById('timerDisplay').textContent = secondsLeft;
+            
+            // Auto-start the timer
+            startTimer();
+        }
+        
+        function startMemoryPhase() {
+            // Hide start button (memory images are already shown)
+            document.getElementById('startButton').style.display = 'none';
+            
+            // Reset the timer to give full time again when start button is clicked
+            secondsLeft = useExtendedTime ? 60 : 30;
+            document.getElementById('timerDisplay').textContent = secondsLeft;
+            
+            // Clear any existing timer and restart
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
             
             // Start the timer
             startTime = Date.now();
