@@ -590,6 +590,56 @@
             margin: 0 0 15px 0;
         }
         
+        /* Enhanced Analysis Styles */
+        .quiz-analysis-card.needs-attention {
+            border-color: #ff9800;
+            background: linear-gradient(135deg, #fff3e0, #fce4ec);
+        }
+        
+        .quiz-analysis-card.needs-attention h3 {
+            color: #e65100;
+        }
+        
+        .current-vs-recommended {
+            margin-top: 15px;
+            border-top: 1px solid #e0e0e0;
+            padding-top: 12px;
+        }
+        
+        .current-thresholds {
+            background: #f5f5f5;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 10px;
+            font-size: 13px;
+            border-left: 3px solid #9e9e9e;
+        }
+        
+        .threshold-recommendation.needs-adjustment {
+            background: linear-gradient(135deg, #ffebee, #fff3e0);
+            border-left-color: #ff5722;
+        }
+        
+        .threshold-recommendation.good-fit {
+            background: linear-gradient(135deg, #e8f5e8, #f3e5f5);
+            border-left-color: #4caf50;
+        }
+        
+        .adjustment-needed {
+            color: #d84315;
+            font-weight: 600;
+        }
+        
+        .good-fit-text {
+            color: #2e7d32;
+            font-weight: 600;
+        }
+        
+        .threshold-recommendation small {
+            color: #666;
+            font-style: italic;
+        }
+        
         /* Responsive design */
         @media (max-width: 576px) {
             .container {
@@ -2196,62 +2246,272 @@
             function generateCalibratedThresholds(performanceStats) {
                 const thresholds = {};
                 
+                // Quiz-specific assessment parameters based on existing CVI logic
+                const quizSpecificParams = {
+                    'mirror': {
+                        scoreThresholds: [20, 35, 50], // high, medium, mild risk
+                        timeThresholds: [150, 200, 300], // mild, moderate, severe
+                        accuracyThresholds: [30, 45, 60],
+                        tapThresholds: [30, 40],
+                        riskFactorThresholds: [5, 8] // medium, high
+                    },
+                    'VM1': {
+                        scoreThresholds: [15, 30, 45, 60],
+                        timeThresholds: [240, 300, 400],
+                        accuracyThresholds: [25, 40, 55],
+                        tapThresholds: [35, 50],
+                        riskFactorThresholds: [5, 8]
+                    },
+                    'VSM': {
+                        scoreThresholds: [15, 30, 45, 60],
+                        timeThresholds: [300, 400, 500],
+                        accuracyThresholds: [20, 35, 50],
+                        tapThresholds: [35, 50],
+                        riskFactorThresholds: [5, 8]
+                    },
+                    'VC1': {
+                        scoreThresholds: [20, 35, 50],
+                        timeThresholds: [250, 350],
+                        accuracyThresholds: [30, 45],
+                        tapThresholds: [30, 40],
+                        riskFactorThresholds: [4, 6]
+                    },
+                    'VC2': {
+                        scoreThresholds: [25, 40, 55],
+                        timeThresholds: [200, 300],
+                        accuracyThresholds: [35, 50],
+                        tapThresholds: [30, 40],
+                        riskFactorThresholds: [4, 6]
+                    },
+                    'VC3': {
+                        scoreThresholds: [20, 35, 50, 65],
+                        timeThresholds: [220, 300, 400],
+                        accuracyThresholds: [30, 45, 60],
+                        tapThresholds: [35, 50],
+                        riskFactorThresholds: [6, 9]
+                    },
+                    'VC4': {
+                        scoreThresholds: [15, 30, 45, 60],
+                        timeThresholds: [300, 400, 500],
+                        accuracyThresholds: [25, 40, 55],
+                        tapThresholds: [35, 50],
+                        riskFactorThresholds: [6, 9]
+                    },
+                    'VDTS1': {
+                        scoreThresholds: [25, 40, 55],
+                        timeThresholds: [200, 280],
+                        accuracyThresholds: [40, 55],
+                        tapThresholds: [30, 40],
+                        riskFactorThresholds: [4, 6]
+                    },
+                    'VDTS2': {
+                        scoreThresholds: [20, 35, 50],
+                        timeThresholds: [240, 320],
+                        accuracyThresholds: [35, 50],
+                        tapThresholds: [30, 40],
+                        riskFactorThresholds: [4, 6]
+                    },
+                    'VDTE': {
+                        scoreThresholds: [15, 30, 45, 60],
+                        timeThresholds: [220, 280, 360],
+                        accuracyThresholds: [30, 45, 60],
+                        tapThresholds: [35, 50],
+                        riskFactorThresholds: [6, 9]
+                    },
+                    'VDTC': {
+                        scoreThresholds: [35, 50, 65],
+                        timeThresholds: [150, 200],
+                        accuracyThresholds: [50, 65],
+                        tapThresholds: [25, 35],
+                        riskFactorThresholds: [4, 6]
+                    },
+                    'VFC11': {
+                        scoreThresholds: [30, 45, 60],
+                        timeThresholds: [200, 260],
+                        accuracyThresholds: [40, 55],
+                        tapThresholds: [30, 40],
+                        riskFactorThresholds: [4, 6]
+                    },
+                    'VN1': {
+                        scoreThresholds: [25, 40, 55],
+                        timeThresholds: [180, 240, 320],
+                        accuracyThresholds: [35, 50, 65],
+                        tapThresholds: [30, 45],
+                        riskFactorThresholds: [5, 8]
+                    },
+                    'VN2': {
+                        scoreThresholds: [20, 35, 50],
+                        timeThresholds: [200, 280, 380],
+                        accuracyThresholds: [30, 45, 60],
+                        tapThresholds: [35, 50],
+                        riskFactorThresholds: [5, 8]
+                    },
+                    'VSpac1': {
+                        scoreThresholds: [25, 40, 55],
+                        timeThresholds: [220, 300, 400],
+                        accuracyThresholds: [35, 50, 65],
+                        tapThresholds: [30, 45],
+                        riskFactorThresholds: [5, 8]
+                    },
+                    'VSpac2': {
+                        scoreThresholds: [20, 35, 50],
+                        timeThresholds: [250, 350, 450],
+                        accuracyThresholds: [30, 45, 60],
+                        tapThresholds: [35, 50],
+                        riskFactorThresholds: [5, 8]
+                    }
+                };
+                
                 Object.entries(performanceStats).forEach(([quizType, stats]) => {
                     const scores = stats.scores;
                     const times = stats.times;
                     const accuracies = stats.accuracies;
                     const taps = stats.taps;
                     
-                    // Use statistical analysis to set realistic thresholds
-                    // High risk: Below 10th percentile (truly abnormal)
-                    // Medium risk: Between 10th-25th percentile (concerning)
-                    // Low risk: Above 25th percentile (normal range)
+                    // Get quiz-specific parameters or use defaults
+                    const params = quizSpecificParams[quizType] || {
+                        scoreThresholds: [20, 35, 50],
+                        timeThresholds: [200, 300, 400],
+                        accuracyThresholds: [30, 45, 60],
+                        tapThresholds: [30, 40],
+                        riskFactorThresholds: [5, 8]
+                    };
                     
+                    // Analyze actual data against existing thresholds
+                    const scoreAnalysis = analyzeParameterFit(scores, params.scoreThresholds, 'score');
+                    const timeAnalysis = times ? analyzeParameterFit(times, params.timeThresholds, 'time') : null;
+                    const accuracyAnalysis = accuracies ? analyzeParameterFit(accuracies, params.accuracyThresholds, 'accuracy') : null;
+                    const tapAnalysis = taps ? analyzeParameterFit(taps, params.tapThresholds, 'taps') : null;
+                    
+                    // Generate calibrated thresholds based on data fit
                     thresholds[quizType] = {
+                        originalParams: params,
                         score: {
-                            highRisk: Math.max(0, scores.p10 - scores.std * 0.5), // More conservative
-                            mediumRisk: scores.p25,
-                            current: {
-                                mean: scores.mean,
-                                median: scores.median,
-                                p10: scores.p10,
-                                p25: scores.p25
-                            }
+                            current: scoreAnalysis.current,
+                            recommended: scoreAnalysis.recommended,
+                            fit: scoreAnalysis.fit,
+                            adjustment: scoreAnalysis.adjustment
                         },
-                        time: times ? {
-                            highRisk: times.p90 + times.mean * 0.5, // Very slow
-                            mediumRisk: times.p75,
-                            current: {
-                                mean: times.mean,
-                                median: times.median,
-                                p75: times.p75,
-                                p90: times.p90
-                            }
+                        time: timeAnalysis ? {
+                            current: timeAnalysis.current,
+                            recommended: timeAnalysis.recommended,
+                            fit: timeAnalysis.fit,
+                            adjustment: timeAnalysis.adjustment
                         } : null,
-                        accuracy: accuracies ? {
-                            highRisk: Math.max(0, accuracies.p10 - accuracies.mean * 0.2),
-                            mediumRisk: accuracies.p25,
-                            current: {
-                                mean: accuracies.mean,
-                                median: accuracies.median,
-                                p10: accuracies.p10,
-                                p25: accuracies.p25
-                            }
+                        accuracy: accuracyAnalysis ? {
+                            current: accuracyAnalysis.current,
+                            recommended: accuracyAnalysis.recommended,
+                            fit: accuracyAnalysis.fit,
+                            adjustment: accuracyAnalysis.adjustment
                         } : null,
-                        taps: taps ? {
-                            highRisk: taps.p90 + taps.mean * 0.5,
-                            mediumRisk: taps.p75,
-                            current: {
-                                mean: taps.mean,
-                                median: taps.median,
-                                p75: taps.p75,
-                                p90: taps.p90
-                            }
-                        } : null
+                        taps: tapAnalysis ? {
+                            current: tapAnalysis.current,
+                            recommended: tapAnalysis.recommended,
+                            fit: tapAnalysis.fit,
+                            adjustment: tapAnalysis.adjustment
+                        } : null,
+                        dataStats: {
+                            totalAttempts: stats.totalAttempts,
+                            scoreMean: scores.mean,
+                            scoreMedian: scores.median,
+                            timeMean: times ? times.mean : null,
+                            accuracyMean: accuracies ? accuracies.mean : null
+                        }
                     };
                 });
                 
                 return thresholds;
+            }
+            
+            // Analyze how well actual data fits existing thresholds
+            function analyzeParameterFit(dataArray, thresholds, paramType) {
+                const sorted = [...dataArray].sort((a, b) => a - b);
+                const mean = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+                const median = getMedian(dataArray);
+                const p10 = getPercentile(dataArray, 10);
+                const p25 = getPercentile(dataArray, 25);
+                const p75 = getPercentile(dataArray, 75);
+                const p90 = getPercentile(dataArray, 90);
+                
+                let fit = 'good';
+                let adjustment = 'none';
+                let recommended = [...thresholds];
+                
+                if (paramType === 'score' || paramType === 'accuracy') {
+                    // For scores and accuracy, lower values are worse
+                    const highRiskThreshold = thresholds[0];
+                    const mediumRiskThreshold = thresholds[1];
+                    
+                    // Check if too many normal users are being flagged
+                    const belowHighRisk = dataArray.filter(v => v < highRiskThreshold).length;
+                    const belowMediumRisk = dataArray.filter(v => v < mediumRiskThreshold).length;
+                    
+                    const highRiskPercentage = (belowHighRisk / dataArray.length) * 100;
+                    const mediumRiskPercentage = (belowMediumRisk / dataArray.length) * 100;
+                    
+                    if (highRiskPercentage > 15) { // Too many flagged as high risk
+                        fit = 'too_strict';
+                        adjustment = 'lower_thresholds';
+                        recommended[0] = Math.max(p10 - 5, 0); // More conservative
+                        recommended[1] = Math.max(p25 - 5, recommended[0] + 5);
+                    } else if (highRiskPercentage < 3) { // Too few flagged
+                        fit = 'too_lenient';
+                        adjustment = 'raise_thresholds';
+                        recommended[0] = Math.min(p10 + 5, recommended[1] - 5);
+                    }
+                    
+                    if (mediumRiskPercentage > 30) { // Too many medium risk
+                        recommended[1] = Math.max(p25 - 3, recommended[0] + 5);
+                    }
+                    
+                } else if (paramType === 'time' || paramType === 'taps') {
+                    // For time and taps, higher values are worse
+                    const mediumRiskThreshold = thresholds[thresholds.length - 2] || thresholds[0];
+                    const highRiskThreshold = thresholds[thresholds.length - 1];
+                    
+                    // Check if too many normal users are being flagged
+                    const aboveMediumRisk = dataArray.filter(v => v > mediumRiskThreshold).length;
+                    const aboveHighRisk = dataArray.filter(v => v > highRiskThreshold).length;
+                    
+                    const mediumRiskPercentage = (aboveMediumRisk / dataArray.length) * 100;
+                    const highRiskPercentage = (aboveHighRisk / dataArray.length) * 100;
+                    
+                    if (highRiskPercentage > 15) { // Too many flagged as high risk
+                        fit = 'too_strict';
+                        adjustment = 'raise_thresholds';
+                        recommended[recommended.length - 1] = Math.min(p90 + mean * 0.2, p90 * 1.5);
+                        if (recommended.length > 1) {
+                            recommended[recommended.length - 2] = Math.min(p75 + mean * 0.1, recommended[recommended.length - 1] - 20);
+                        }
+                    } else if (highRiskPercentage < 3) { // Too few flagged
+                        fit = 'too_lenient';
+                        adjustment = 'lower_thresholds';
+                        recommended[recommended.length - 1] = Math.max(p75 + 10, mean + 20);
+                    }
+                }
+                
+                return {
+                    current: {
+                        mean: mean,
+                        median: median,
+                        p10: p10,
+                        p25: p25,
+                        p75: p75,
+                        p90: p90,
+                        originalThresholds: thresholds
+                    },
+                    recommended: recommended,
+                    fit: fit,
+                    adjustment: adjustment,
+                    flaggedPercentages: {
+                        highRisk: paramType === 'score' || paramType === 'accuracy' ? 
+                            (dataArray.filter(v => v < thresholds[0]).length / dataArray.length) * 100 :
+                            (dataArray.filter(v => v > thresholds[thresholds.length - 1]).length / dataArray.length) * 100,
+                        mediumRisk: paramType === 'score' || paramType === 'accuracy' ? 
+                            (dataArray.filter(v => v < thresholds[1] && v >= thresholds[0]).length / dataArray.length) * 100 :
+                            (dataArray.filter(v => v > thresholds[thresholds.length - 2] && v <= thresholds[thresholds.length - 1]).length / dataArray.length) * 100
+                    }
+                };
             }
             
             function displayAnalysisResults(performanceStats, calibratedThresholds, allQuizData) {
@@ -2274,9 +2534,18 @@
                     const displayName = quizNames[quizType] || quizType;
                     const thresholds = calibratedThresholds[quizType];
                     
+                    // Determine overall fit status
+                    const fitStatuses = [thresholds.score.fit];
+                    if (thresholds.time) fitStatuses.push(thresholds.time.fit);
+                    if (thresholds.accuracy) fitStatuses.push(thresholds.accuracy.fit);
+                    if (thresholds.taps) fitStatuses.push(thresholds.taps.fit);
+                    
+                    const hasConcerns = fitStatuses.some(f => f !== 'good');
+                    const cardClass = hasConcerns ? 'quiz-analysis-card needs-attention' : 'quiz-analysis-card';
+                    
                     analysisHTML += `
-                        <div class="quiz-analysis-card">
-                            <h3>${displayName}</h3>
+                        <div class="${cardClass}">
+                            <h3>${displayName} ${hasConcerns ? '⚠️' : '✅'}</h3>
                             <div class="stats-summary">
                                 <p><strong>Total Attempts:</strong> ${stats.totalAttempts}</p>
                                 
@@ -2285,48 +2554,118 @@
                                     <p>Mean: ${stats.scores.mean.toFixed(1)}% | Median: ${stats.scores.median.toFixed(1)}%</p>
                                     <p>Range: ${stats.scores.min}% - ${stats.scores.max}%</p>
                                     <p>10th percentile: ${stats.scores.p10.toFixed(1)}% | 25th percentile: ${stats.scores.p25.toFixed(1)}%</p>
-                                    <div class="threshold-recommendation">
-                                        <strong>Recommended Thresholds:</strong><br>
-                                        High Risk: < ${thresholds.score.highRisk.toFixed(1)}%<br>
-                                        Medium Risk: < ${thresholds.score.mediumRisk.toFixed(1)}%
+                                    
+                                    <div class="current-vs-recommended">
+                                        <div class="current-thresholds">
+                                            <strong>Current Thresholds:</strong><br>
+                                            High Risk: < ${thresholds.score.current.originalThresholds[0]}% | 
+                                            Medium Risk: < ${thresholds.score.current.originalThresholds[1]}%
+                                        </div>
+                                        
+                                        <div class="threshold-recommendation ${thresholds.score.fit !== 'good' ? 'needs-adjustment' : 'good-fit'}">
+                                            <strong>Analysis: ${getFitDescription(thresholds.score.fit)}</strong><br>
+                                            ${thresholds.score.fit !== 'good' ? `
+                                                <span class="adjustment-needed">Recommended Adjustments:</span><br>
+                                                High Risk: < ${thresholds.score.recommended[0].toFixed(1)}% | 
+                                                Medium Risk: < ${thresholds.score.recommended[1].toFixed(1)}%<br>
+                                                <small>Currently flagging ${thresholds.score.flaggedPercentages ? thresholds.score.flaggedPercentages.highRisk.toFixed(1) : 'N/A'}% as high risk</small>
+                                            ` : `
+                                                <span class="good-fit-text">Current thresholds are well-calibrated for this data</span>
+                                            `}
+                                        </div>
                                     </div>
                                 </div>
                                 
-                                ${stats.times ? `
+                                ${stats.times && thresholds.time ? `
                                 <div class="stat-group">
                                     <h4>⏱️ Time (seconds)</h4>
                                     <p>Mean: ${stats.times.mean.toFixed(1)}s | Median: ${stats.times.median.toFixed(1)}s</p>
                                     <p>75th percentile: ${stats.times.p75.toFixed(1)}s | 90th percentile: ${stats.times.p90.toFixed(1)}s</p>
-                                    <div class="threshold-recommendation">
-                                        <strong>Recommended Thresholds:</strong><br>
-                                        High Risk: > ${thresholds.time.highRisk.toFixed(1)}s<br>
-                                        Medium Risk: > ${thresholds.time.mediumRisk.toFixed(1)}s
+                                    
+                                    <div class="current-vs-recommended">
+                                        <div class="current-thresholds">
+                                            <strong>Current Thresholds:</strong><br>
+                                            ${thresholds.time.current.originalThresholds.map((t, i) => 
+                                                i === thresholds.time.current.originalThresholds.length - 1 ? `High Risk: > ${t}s` :
+                                                i === thresholds.time.current.originalThresholds.length - 2 ? `Medium Risk: > ${t}s` :
+                                                `Mild: > ${t}s`
+                                            ).join(' | ')}
+                                        </div>
+                                        
+                                        <div class="threshold-recommendation ${thresholds.time.fit !== 'good' ? 'needs-adjustment' : 'good-fit'}">
+                                            <strong>Analysis: ${getFitDescription(thresholds.time.fit)}</strong><br>
+                                            ${thresholds.time.fit !== 'good' ? `
+                                                <span class="adjustment-needed">Recommended Adjustments:</span><br>
+                                                ${thresholds.time.recommended.map((t, i) => 
+                                                    i === thresholds.time.recommended.length - 1 ? `High Risk: > ${t.toFixed(1)}s` :
+                                                    i === thresholds.time.recommended.length - 2 ? `Medium Risk: > ${t.toFixed(1)}s` :
+                                                    `Mild: > ${t.toFixed(1)}s`
+                                                ).join(' | ')}<br>
+                                                <small>Currently flagging ${thresholds.time.flaggedPercentages ? thresholds.time.flaggedPercentages.highRisk.toFixed(1) : 'N/A'}% as high risk</small>
+                                            ` : `
+                                                <span class="good-fit-text">Current thresholds are well-calibrated for this data</span>
+                                            `}
+                                        </div>
                                     </div>
                                 </div>
                                 ` : ''}
                                 
-                                ${stats.accuracies ? `
+                                ${stats.accuracies && thresholds.accuracy ? `
                                 <div class="stat-group">
                                     <h4>🎯 Accuracy</h4>
                                     <p>Mean: ${stats.accuracies.mean.toFixed(1)}% | Median: ${stats.accuracies.median.toFixed(1)}%</p>
                                     <p>10th percentile: ${stats.accuracies.p10.toFixed(1)}% | 25th percentile: ${stats.accuracies.p25.toFixed(1)}%</p>
-                                    <div class="threshold-recommendation">
-                                        <strong>Recommended Thresholds:</strong><br>
-                                        High Risk: < ${thresholds.accuracy.highRisk.toFixed(1)}%<br>
-                                        Medium Risk: < ${thresholds.accuracy.mediumRisk.toFixed(1)}%
+                                    
+                                    <div class="current-vs-recommended">
+                                        <div class="current-thresholds">
+                                            <strong>Current Thresholds:</strong><br>
+                                            High Risk: < ${thresholds.accuracy.current.originalThresholds[0]}% | 
+                                            Medium Risk: < ${thresholds.accuracy.current.originalThresholds[1]}%
+                                        </div>
+                                        
+                                        <div class="threshold-recommendation ${thresholds.accuracy.fit !== 'good' ? 'needs-adjustment' : 'good-fit'}">
+                                            <strong>Analysis: ${getFitDescription(thresholds.accuracy.fit)}</strong><br>
+                                            ${thresholds.accuracy.fit !== 'good' ? `
+                                                <span class="adjustment-needed">Recommended Adjustments:</span><br>
+                                                High Risk: < ${thresholds.accuracy.recommended[0].toFixed(1)}% | 
+                                                Medium Risk: < ${thresholds.accuracy.recommended[1].toFixed(1)}%<br>
+                                                <small>Currently flagging ${thresholds.accuracy.flaggedPercentages ? thresholds.accuracy.flaggedPercentages.highRisk.toFixed(1) : 'N/A'}% as high risk</small>
+                                            ` : `
+                                                <span class="good-fit-text">Current thresholds are well-calibrated for this data</span>
+                                            `}
+                                        </div>
                                     </div>
                                 </div>
                                 ` : ''}
                                 
-                                ${stats.taps ? `
+                                ${stats.taps && thresholds.taps ? `
                                 <div class="stat-group">
                                     <h4>👆 Interactions</h4>
                                     <p>Mean: ${stats.taps.mean.toFixed(1)} | Median: ${stats.taps.median.toFixed(1)}</p>
                                     <p>75th percentile: ${stats.taps.p75.toFixed(1)} | 90th percentile: ${stats.taps.p90.toFixed(1)}</p>
-                                    <div class="threshold-recommendation">
-                                        <strong>Recommended Thresholds:</strong><br>
-                                        High Risk: > ${thresholds.taps.highRisk.toFixed(1)}<br>
-                                        Medium Risk: > ${thresholds.taps.mediumRisk.toFixed(1)}
+                                    
+                                    <div class="current-vs-recommended">
+                                        <div class="current-thresholds">
+                                            <strong>Current Thresholds:</strong><br>
+                                            ${thresholds.taps.current.originalThresholds.map((t, i) => 
+                                                i === thresholds.taps.current.originalThresholds.length - 1 ? `High Risk: > ${t}` :
+                                                `Medium Risk: > ${t}`
+                                            ).join(' | ')}
+                                        </div>
+                                        
+                                        <div class="threshold-recommendation ${thresholds.taps.fit !== 'good' ? 'needs-adjustment' : 'good-fit'}">
+                                            <strong>Analysis: ${getFitDescription(thresholds.taps.fit)}</strong><br>
+                                            ${thresholds.taps.fit !== 'good' ? `
+                                                <span class="adjustment-needed">Recommended Adjustments:</span><br>
+                                                ${thresholds.taps.recommended.map((t, i) => 
+                                                    i === thresholds.taps.recommended.length - 1 ? `High Risk: > ${t.toFixed(1)}` :
+                                                    `Medium Risk: > ${t.toFixed(1)}`
+                                                ).join(' | ')}<br>
+                                                <small>Currently flagging ${thresholds.taps.flaggedPercentages ? thresholds.taps.flaggedPercentages.highRisk.toFixed(1) : 'N/A'}% as high risk</small>
+                                            ` : `
+                                                <span class="good-fit-text">Current thresholds are well-calibrated for this data</span>
+                                            `}
+                                        </div>
                                     </div>
                                 </div>
                                 ` : ''}
@@ -2339,18 +2678,35 @@
                         </div>
                         
                         <div class="analysis-summary">
-                            <h3>📋 Analysis Summary</h3>
-                            <p>This analysis examined real quiz performance data to recommend evidence-based CVI risk thresholds.</p>
+                            <h3>📋 Quiz-Specific Threshold Analysis Summary</h3>
+                            <p>This analysis examined real quiz performance data against existing CVI risk assessment thresholds for each specific quiz type.</p>
                             <p><strong>Methodology:</strong></p>
                             <ul>
-                                <li>High Risk: Below 10th percentile (truly abnormal performance)</li>
-                                <li>Medium Risk: Between 10th-25th percentile (concerning performance)</li>
-                                <li>Low Risk: Above 25th percentile (normal range)</li>
+                                <li><strong>Quiz-Specific Parameters:</strong> Each quiz has tailored thresholds based on its difficulty and expected performance ranges</li>
+                                <li><strong>Data Fit Analysis:</strong> Compares actual user performance against current thresholds to identify over/under-flagging</li>
+                                <li><strong>Calibration Goals:</strong> High risk should flag ~3-10% of users, Medium risk ~10-25% of users</li>
+                                <li><strong>Evidence-Based Adjustments:</strong> Recommendations based on statistical analysis of real user data</li>
                             </ul>
-                            <p>These thresholds are based on actual user data and should provide more accurate CVI risk assessment.</p>
+                            <p><strong>Interpretation:</strong></p>
+                            <ul>
+                                <li>✅ <strong>Good Fit:</strong> Current thresholds are well-calibrated for the data</li>
+                                <li>⚠️ <strong>Too Strict:</strong> Flagging too many normal users as high/medium risk</li>
+                                <li>⚠️ <strong>Too Lenient:</strong> Not flagging enough users who may have CVI concerns</li>
+                            </ul>
+                            <p>Use the recommended adjustments to fine-tune CVI risk assessment accuracy for each quiz type.</p>
                         </div>
                     </div>
                 `;
+                
+                // Helper function for fit descriptions
+                function getFitDescription(fit) {
+                    switch(fit) {
+                        case 'good': return 'Well-Calibrated';
+                        case 'too_strict': return 'Too Strict (Over-flagging)';
+                        case 'too_lenient': return 'Too Lenient (Under-flagging)';
+                        default: return 'Unknown';
+                    }
+                }
                 
                 reportContainer.innerHTML = analysisHTML;
                 
