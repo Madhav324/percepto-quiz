@@ -22,7 +22,7 @@
             padding: 15px;
             box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
             text-align: center;
-            max-width: 1000px;
+            max-width: 650px;
             width: 95%;
         }
 
@@ -390,30 +390,89 @@
         #clear-report:hover {
             background-color: #c82333;
         }
-
+        
+        #timeToggleButton {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 12px;
+            margin-top: 10px;
+            cursor: pointer;
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+        
+        #timeToggleButton:hover {
+            background-color: #45a049;
+        }
+        
+        .statistics-container {
+            background-color: white;
+            border-radius: 15px;
+            padding: 15px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+            width: 95%;
+            max-width: 650px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+        
         @media (max-width: 768px) {
             .memory-images {
                 grid-template-columns: repeat(3, 1fr);
+                gap: 5px;
             }
             
             .memory-image {
-                width: 80px;
-                height: 80px;
+                width: 70px;
+                height: 70px;
+                border-width: 1px;
+                padding: 3px;
             }
 
             .options-container {
                 grid-template-columns: repeat(4, 1fr);
+                gap: 5px;
             }
 
             .option-image {
-                width: 60px;
-                height: 60px;
+                width: 45px;
+                height: 45px;
+                padding: 1px;
+                border-width: 1px;
+            }
+            
+            .profile-icon {
+                width: 30px;
+                height: 30px;
+                font-size: 0.9rem;
+            }
+            
+            h1 {
+                font-size: 1.3em;
+            }
+            
+            .timer {
+                font-size: 1.2em;
+            }
+            
+            #timeToggleButton {
+                padding: 5px 8px;
+                font-size: 0.9rem;
             }
         }
-
+        
         @media (max-width: 480px) {
             .memory-images {
                 grid-template-columns: repeat(3, 1fr);
+                gap: 3px;
             }
             
             .memory-image {
@@ -422,12 +481,23 @@
             }
 
             .options-container {
-                grid-template-columns: repeat(3, 1fr);
+                grid-template-columns: repeat(4, 1fr);
+                gap: 3px;
             }
 
             .option-image {
-                width: 50px;
-                height: 50px;
+                width: 40px;
+                height: 40px;
+                min-height: 26px;
+            }
+            
+            .game-container {
+                padding: 10px;
+            }
+            
+            .instructions p {
+                font-size: 0.9rem;
+                margin: 5px 0;
             }
         }
     </style>
@@ -437,16 +507,17 @@
         <div class="header">
             <h1>Memory Challenge!</h1>
             <div class="profile-icon" id="profileIcon" title="Back to Home" onclick="window.location.href='index.html'"></div>
+            <span id="patient-indicator" class="patient-indicator" style="display: none;">Patient</span>
         </div>
         
-        <div id="instructionsDiv" class="instructions">
-            Remember these 6 images! They will disappear in <span id="timerDisplay">60</span> seconds.
-            <span id="patient-indicator" class="patient-indicator" style="display: none;">Patient</span>
+        <div class="instructions" id="instructionsDiv">
+            <p>Memorize these images. They will disappear soon!</p>
+            <div class="timer">Time left: <span id="timerDisplay">30</span>s</div>
+            <button id="timeToggleButton" class="btn">Switch to 1 Minute</button>
         </div>
         
         <div id="memoryImagesContainer" class="memory-images">
             <!-- Memory images will be placed here -->
-        </div>
         
         <div id="selectionInstructions" class="instructions" style="display: none;">
             Select all 6 images that were shown earlier
@@ -614,8 +685,9 @@
         let totalTaps = 0;
         let incorrectPlacements = 0;
         let timerInterval = null;
-        let secondsLeft = 60;
+        let secondsLeft = 30; // Default time set to 30 seconds
         let firstTapTime = null;
+        let useExtendedTime = false; // Flag for extended time (1 minute)
 
         // Game state
         const baseImages = [
@@ -679,14 +751,21 @@
             });
             
             // Start the timer
-            secondsLeft = 60;
+            secondsLeft = useExtendedTime ? 60 : 30; // Use 60 seconds if extended time is enabled, otherwise 30 seconds
             document.getElementById('timerDisplay').textContent = secondsLeft;
             startTime = Date.now();
             
+            // Start the timer using the separate function
+            startTimer();
+        }
+
+        function startTimer() {
+            // Clear any existing timer
             if (timerInterval) {
                 clearInterval(timerInterval);
             }
             
+            // Start a new timer
             timerInterval = setInterval(() => {
                 secondsLeft--;
                 document.getElementById('timerDisplay').textContent = secondsLeft;
@@ -697,7 +776,7 @@
                 }
             }, 1000);
         }
-
+        
         function showOptionsPhase() {
             // Hide memory phase elements
             memoryImagesContainer.style.display = 'none';
@@ -1091,6 +1170,31 @@
         // Event listeners
         checkButton.addEventListener('click', checkAnswers);
         startOverButton.addEventListener('click', startNewGame);
+        
+        // Time toggle button functionality
+        const timeToggleButton = document.getElementById('timeToggleButton');
+        timeToggleButton.addEventListener('click', function() {
+            useExtendedTime = !useExtendedTime;
+            if (useExtendedTime) {
+                this.textContent = 'Switch to 30 Seconds';
+                this.style.backgroundColor = '#2196F3';
+                if (timerInterval) {
+                    clearInterval(timerInterval);
+                    secondsLeft = 60;
+                    document.getElementById('timerDisplay').textContent = secondsLeft;
+                    startTimer();
+                }
+            } else {
+                this.textContent = 'Switch to 1 Minute';
+                this.style.backgroundColor = '#4CAF50';
+                if (timerInterval) {
+                    clearInterval(timerInterval);
+                    secondsLeft = 30;
+                    document.getElementById('timerDisplay').textContent = secondsLeft;
+                    startTimer();
+                }
+            }
+        });
 
         // Start the game when the page loads
         window.onload = startNewGame;
