@@ -1897,7 +1897,7 @@
             }
             
             // Visual Neglect Assessment (VN1)
-            function assessVisualNeglect(score, timeSpent, accuracy, totalTaps, attempt) {
+            function assessVisualNeglect(score, timeSpent, totalTaps, attempt) {
                 let riskLevel = 'low';
                 let riskFactors = 0;
                 
@@ -1910,11 +1910,7 @@
                 if (timeSpent > 25) riskFactors += 3; // Very slow target finding
                 else if (timeSpent > 15) riskFactors += 2; // Slow target finding
                 
-                // Accuracy and interaction assessment
-                if (accuracy < 40) riskFactors += 3; // Poor click accuracy
-                else if (accuracy < 60) riskFactors += 2; // Moderate accuracy issues
-                else if (accuracy < 80) riskFactors += 1; // Mild accuracy concerns
-                
+                // Interaction assessment
                 if (totalTaps > 20) riskFactors += 2; // Multiple incorrect clicks
                 else if (totalTaps > 12) riskFactors += 1; // Some incorrect clicks
                 
@@ -1925,7 +1921,7 @@
             }
             
             // Visual Spatial Assessment (VSpac1, VSpac2)
-            function assessVisualSpatial(score, timeSpent, accuracy, totalTaps, quizType) {
+            function assessVisualSpatial(score, timeSpent, totalTaps, quizType) {
                 let riskLevel = 'low';
                 let riskFactors = 0;
                 
@@ -1941,18 +1937,17 @@
                 if (timeSpent > 400) riskFactors += 3; // Very slow processing
                 else if (timeSpent > 250) riskFactors += 2; // Slow processing
                 
-                // Accuracy assessment
-                if (accuracy < 30) riskFactors += 3; // Poor accuracy
-                else if (accuracy < 60) riskFactors += 2; // Moderate accuracy issues
+                // High error rate assessment
+                if (totalTaps > 50) riskFactors += 2; // High error rate on complex levels
                 
-                if (riskFactors >= 8) riskLevel = 'high';
-                else if (riskFactors >= 5) riskLevel = 'medium';
+                if (riskFactors >= 6) riskLevel = 'high';
+                else if (riskFactors >= 3) riskLevel = 'medium';
                 
                 return riskLevel;
             }
             
             // Figure Recognition Assessment (VFigure1, VFigure2)
-            function assessFigureRecognition(score, timeSpent, accuracy, totalTaps, quizType) {
+            function assessFigureRecognition(score, timeSpent, totalTaps, quizType) {
                 let riskLevel = 'low';
                 let riskFactors = 0;
                 
@@ -1967,18 +1962,17 @@
                 if (timeSpent > 350) riskFactors += 2; // Slow processing
                 else if (timeSpent > 200) riskFactors += 1; // Mildly slow
                 
-                // Accuracy assessment
-                if (accuracy < 35) riskFactors += 2; // Poor accuracy
-                else if (accuracy < 60) riskFactors += 1; // Moderate accuracy issues
+                // Poor complex figure recognition assessment
+                if (totalTaps > 40) riskFactors += 2; // Poor complex figure recognition
                 
-                if (riskFactors >= 7) riskLevel = 'high';
-                else if (riskFactors >= 4) riskLevel = 'medium';
+                if (riskFactors >= 5) riskLevel = 'high';
+                else if (riskFactors >= 3) riskLevel = 'medium';
                 
                 return riskLevel;
             }
             
             // Letter Recognition Assessment (letter.html)
-            function assessLetterRecognition(score, timeSpent, accuracy, totalTaps, attempt) {
+            function assessLetterRecognition(score, timeSpent, totalTaps, attempt) {
                 let riskLevel = 'low';
                 let riskFactors = 0;
                 
@@ -1993,18 +1987,17 @@
                 if (timeSpent > 300) riskFactors += 2; // Slow processing
                 else if (timeSpent > 180) riskFactors += 1; // Mildly slow
                 
-                // Accuracy assessment
-                if (accuracy < 40) riskFactors += 2; // Poor accuracy
-                else if (accuracy < 65) riskFactors += 1; // Moderate accuracy issues
+                // Poor letter discrimination assessment
+                if (totalTaps > 40) riskFactors += 2; // Poor letter discrimination
                 
-                if (riskFactors >= 7) riskLevel = 'high';
-                else if (riskFactors >= 4) riskLevel = 'medium';
+                if (riskFactors >= 5) riskLevel = 'high';
+                else if (riskFactors >= 3) riskLevel = 'medium';
                 
                 return riskLevel;
             }
             
             // Sequential Memory Assessment (morning, lion, dressing, crow)
-            function assessSequentialMemory(score, timeSpent, accuracy, totalTaps, quizType) {
+            function assessSequentialMemory(score, timeSpent, totalTaps, quizType) {
                 let riskLevel = 'low';
                 let riskFactors = 0;
                 
@@ -2018,23 +2011,23 @@
                 if (timeSpent > 250) riskFactors += 2; // Slow processing
                 else if (timeSpent > 150) riskFactors += 1; // Mildly slow
                 
-                // Accuracy assessment
-                if (accuracy < 40) riskFactors += 2; // Poor accuracy
-                else if (accuracy < 65) riskFactors += 1; // Moderate accuracy issues
+                // Poor sequence logic assessment
+                if (totalTaps > 35) riskFactors += 2; // Poor sequence logic
                 
-                if (riskFactors >= 7) riskLevel = 'high';
-                else if (riskFactors >= 4) riskLevel = 'medium';
+                if (riskFactors >= 5) riskLevel = 'high';
+                else if (riskFactors >= 3) riskLevel = 'medium';
                 
                 return riskLevel;
             }
             
             // Line Orientation Assessment (line.html)
-            function assessLineOrientation(score, timeSpent, accuracy, totalTaps, attempt) {
+            function assessLineOrientation(score, timeSpent, totalTaps, attempt) {
                 let riskLevel = 'low';
                 let riskFactors = 0;
                 
-                // Score assessment (variable max)
-                const scorePercentage = accuracy; // Using accuracy as primary metric
+                // Score assessment (variable max) - using score percentage
+                const maxScore = 100; // Assuming percentage-based scoring
+                const scorePercentage = (score / maxScore) * 100;
                 
                 if (scorePercentage < 50) riskFactors += 3; // Poor orientation discrimination
                 else if (scorePercentage < 75) riskFactors += 2; // Moderate issues
@@ -2043,23 +2036,23 @@
                 if (timeSpent > 280) riskFactors += 2; // Slow processing
                 else if (timeSpent > 160) riskFactors += 1; // Mildly slow
                 
-                // Accuracy assessment
-                if (accuracy < 35) riskFactors += 2; // Poor accuracy
-                else if (accuracy < 60) riskFactors += 1; // Moderate accuracy issues
+                // Poor angle discrimination assessment
+                if (totalTaps > 40) riskFactors += 2; // Poor angle discrimination
                 
-                if (riskFactors >= 7) riskLevel = 'high';
-                else if (riskFactors >= 4) riskLevel = 'medium';
+                if (riskFactors >= 5) riskLevel = 'high';
+                else if (riskFactors >= 3) riskLevel = 'medium';
                 
                 return riskLevel;
             }
             
             // Motion Perception Assessment (Vmotion1.html)
-            function assessMotionPerception(score, timeSpent, accuracy, totalTaps, attempt) {
+            function assessMotionPerception(score, timeSpent, totalTaps, attempt) {
                 let riskLevel = 'low';
                 let riskFactors = 0;
                 
-                // Score assessment (variable max)
-                const scorePercentage = accuracy; // Using accuracy as primary metric
+                // Score assessment (variable max) - using score percentage
+                const maxScore = 100; // Assuming percentage-based scoring
+                const scorePercentage = (score / maxScore) * 100;
                 
                 if (scorePercentage < 40) riskFactors += 4; // Poor motion perception
                 else if (scorePercentage < 70) riskFactors += 3; // Moderate issues
@@ -2068,12 +2061,11 @@
                 if (timeSpent > 320) riskFactors += 2; // Slow processing
                 else if (timeSpent > 200) riskFactors += 1; // Mildly slow
                 
-                // Accuracy assessment
-                if (accuracy < 30) riskFactors += 3; // Poor accuracy
-                else if (accuracy < 55) riskFactors += 2; // Moderate accuracy issues
+                // Poor motion tracking assessment
+                if (totalTaps > 50) riskFactors += 2; // Poor motion tracking
                 
-                if (riskFactors >= 8) riskLevel = 'high';
-                else if (riskFactors >= 5) riskLevel = 'medium';
+                if (riskFactors >= 6) riskLevel = 'high';
+                else if (riskFactors >= 3) riskLevel = 'medium';
                 
                 return riskLevel;
             }
