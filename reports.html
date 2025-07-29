@@ -2297,6 +2297,29 @@
             // CVI RISK ASSESSMENT FUNCTIONS - Updated to follow CVI_Risk_Assessment_Parameters.txt
             // Uses standardized 4-parameter structure: score, time, first tap time, total taps
             
+            // Main CVI Risk Assessment Router Function
+            function assessQuizCVIRisk(quizType, attempt) {
+                const score = attempt.score || 0;
+                const timeSpent = attempt.timeSpent || attempt.time || 0;
+                const firstTapTime = attempt.firstTapTime || attempt.firstClickTime || 0;
+                const totalTaps = attempt.totalTaps || attempt.totalClicks || 0;
+                
+                // Route to appropriate assessment function based on quiz type
+                switch(quizType) {
+                    case 'VM1':
+                        return assessVisualMemory(score, timeSpent, firstTapTime, totalTaps);
+                    case 'FG':
+                        return assessFigureGround(score, timeSpent, firstTapTime, totalTaps);
+                    case 'VC1':
+                    case 'VC2':
+                    case 'VC3':
+                    case 'VC4':
+                        return assessVisualClosure(score, timeSpent, firstTapTime, totalTaps);
+                    default:
+                        return assessGenericQuiz(score, timeSpent, firstTapTime, totalTaps);
+                }
+            }
+            
             function assessVisualMemory(score, timeSpent, firstTapTime, totalTaps) {
                 let riskLevel = 'low';
                 let riskFactors = 0;
@@ -3322,7 +3345,9 @@
                         const date = formatDate(attempt.timestamp);
                         const score = attempt.score || 0;
                         const scoreClass = getScoreClass(score);
-                        // Removed CVI risk calculation as requested
+                        
+                        // Calculate CVI risk assessment for this quiz
+                        const cviRisk = assessQuizCVIRisk(quizType, attempt);
                         
                         // Calculate time in seconds for display
                         const timeSpent = Math.round((attempt.timeSpent || 0) / 1000); // in seconds
@@ -3334,6 +3359,7 @@
                                     <div>
                                         <div class="quiz-title">
                                             ${displayName}
+                                            <span class="cvi-risk-badge cvi-risk-${cviRisk}">${cviRisk.toUpperCase()}</span>
                                         </div>
                                         <div class="quiz-date">Latest attempt: ${date}</div>
                                     </div>
