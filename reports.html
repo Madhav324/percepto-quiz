@@ -2294,9 +2294,168 @@
                 };
             }
             
-            // Removed generateCVIRiskReport function as requested
+            // CVI RISK ASSESSMENT FUNCTIONS - Updated to follow CVI_Risk_Assessment_Parameters.txt
+            // Uses standardized 4-parameter structure: score, time, first tap time, total taps
             
-
+            function assessVisualMemory(score, timeSpent, firstTapTime, totalTaps) {
+                let riskLevel = 'low';
+                let riskFactors = 0;
+                
+                // Score assessment (max 6 points)
+                if (score < 2) riskFactors += 4;
+                else if (score < 4) riskFactors += 2;
+                
+                // Time assessment
+                if (timeSpent > 180) riskFactors += 3;
+                else if (timeSpent > 120) riskFactors += 2;
+                
+                // First tap time assessment
+                if (firstTapTime > 8) riskFactors += 3;
+                else if (firstTapTime > 5) riskFactors += 2;
+                
+                // Total taps assessment
+                if (totalTaps > 25) riskFactors += 2;
+                else if (totalTaps > 15) riskFactors += 1;
+                
+                if (riskFactors >= 8) riskLevel = 'high';
+                else if (riskFactors >= 5) riskLevel = 'medium';
+                
+                return riskLevel;
+            }
+            
+            function assessFigureGround(score, timeSpent, firstTapTime, totalTaps) {
+                let riskLevel = 'low';
+                let riskFactors = 0;
+                
+                // Score assessment (max 12 points)
+                if (score < 4) riskFactors += 4;
+                else if (score < 8) riskFactors += 2;
+                
+                // Time assessment
+                if (timeSpent > 300) riskFactors += 3;
+                else if (timeSpent > 240) riskFactors += 2;
+                
+                // First tap time assessment
+                if (firstTapTime > 6) riskFactors += 3;
+                else if (firstTapTime > 4) riskFactors += 2;
+                
+                // Total taps assessment
+                if (totalTaps > 30) riskFactors += 2;
+                else if (totalTaps > 20) riskFactors += 1;
+                
+                if (riskFactors >= 8) riskLevel = 'high';
+                else if (riskFactors >= 5) riskLevel = 'medium';
+                
+                return riskLevel;
+            }
+            
+            function assessVisualClosure(score, timeSpent, firstTapTime, totalTaps) {
+                let riskLevel = 'low';
+                let riskFactors = 0;
+                
+                // Score assessment (max 10 points)
+                if (score < 3) riskFactors += 4;
+                else if (score < 6) riskFactors += 2;
+                
+                // Time assessment
+                if (timeSpent > 250) riskFactors += 3;
+                else if (timeSpent > 200) riskFactors += 2;
+                
+                // First tap time assessment
+                if (firstTapTime > 7) riskFactors += 3;
+                else if (firstTapTime > 5) riskFactors += 2;
+                
+                // Total taps assessment
+                if (totalTaps > 25) riskFactors += 2;
+                else if (totalTaps > 18) riskFactors += 1;
+                
+                if (riskFactors >= 8) riskLevel = 'high';
+                else if (riskFactors >= 5) riskLevel = 'medium';
+                
+                return riskLevel;
+            }
+            
+            function generateCVIRiskReport(latestAttempts) {
+                const cviResults = {};
+                let overallRiskFactors = 0;
+                let totalQuizzes = 0;
+                
+                // Assess each quiz type
+                Object.entries(latestAttempts).forEach(([quizType, attempt]) => {
+                    if (!attempt) return;
+                    
+                    const score = attempt.score || 0;
+                    const timeSpent = attempt.timeSpent || attempt.time || 0;
+                    const firstTapTime = attempt.firstTapTime || attempt.firstClickTime || 0;
+                    const totalTaps = attempt.totalTaps || attempt.totalClicks || 0;
+                    
+                    let riskLevel = 'low';
+                    
+                    // Map quiz types to assessment functions
+                    switch(quizType) {
+                        case 'VM1':
+                            riskLevel = assessVisualMemory(score, timeSpent, firstTapTime, totalTaps);
+                            break;
+                        case 'FG':
+                            riskLevel = assessFigureGround(score, timeSpent, firstTapTime, totalTaps);
+                            break;
+                        case 'VC4':
+                            riskLevel = assessVisualClosure(score, timeSpent, firstTapTime, totalTaps);
+                            break;
+                        default:
+                            // Generic assessment for other quiz types
+                            riskLevel = assessGenericQuiz(score, timeSpent, firstTapTime, totalTaps);
+                    }
+                    
+                    cviResults[quizType] = {
+                        riskLevel,
+                        score,
+                        timeSpent,
+                        firstTapTime,
+                        totalTaps
+                    };
+                    
+                    // Count risk factors for overall assessment
+                    if (riskLevel === 'high') overallRiskFactors += 3;
+                    else if (riskLevel === 'medium') overallRiskFactors += 2;
+                    else if (riskLevel === 'low') overallRiskFactors += 1;
+                    
+                    totalQuizzes++;
+                });
+                
+                // Determine overall CVI risk
+                let overallRisk = 'low';
+                if (totalQuizzes > 0) {
+                    const avgRiskFactor = overallRiskFactors / totalQuizzes;
+                    if (avgRiskFactor >= 2.5) overallRisk = 'high';
+                    else if (avgRiskFactor >= 1.8) overallRisk = 'medium';
+                }
+                
+                return {
+                    individualResults: cviResults,
+                    overallRisk,
+                    totalQuizzes,
+                    riskFactorAverage: totalQuizzes > 0 ? (overallRiskFactors / totalQuizzes).toFixed(2) : 0
+                };
+            }
+            
+            function assessGenericQuiz(score, timeSpent, firstTapTime, totalTaps) {
+                let riskLevel = 'low';
+                let riskFactors = 0;
+                
+                // Generic scoring thresholds
+                const scoreThreshold = score < 3 ? 3 : (score < 6 ? 2 : 0);
+                const timeThreshold = timeSpent > 300 ? 3 : (timeSpent > 200 ? 2 : 0);
+                const tapTimeThreshold = firstTapTime > 6 ? 3 : (firstTapTime > 4 ? 2 : 0);
+                const totalTapThreshold = totalTaps > 30 ? 2 : (totalTaps > 20 ? 1 : 0);
+                
+                riskFactors = scoreThreshold + timeThreshold + tapTimeThreshold + totalTapThreshold;
+                
+                if (riskFactors >= 8) riskLevel = 'high';
+                else if (riskFactors >= 5) riskLevel = 'medium';
+                
+                return riskLevel;
+            }
             
             // COMPREHENSIVE DATA ANALYSIS FOR CVI THRESHOLD CALIBRATION
             async function analyzeQuizDataForThresholds() {
