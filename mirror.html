@@ -1627,25 +1627,17 @@
                                 y: rightIris.y - rightEyeCenter.y
                             };
                             
-                            // Check if eyes are closed - more permissive criterion
-                            const leftMagnitude = Math.sqrt(leftEyeballVector.x * leftEyeballVector.x + leftEyeballVector.y * leftEyeballVector.y);
-                            const rightMagnitude = Math.sqrt(rightEyeballVector.x * rightEyeballVector.x + rightEyeballVector.y * rightEyeballVector.y);
-                            // Almost always consider eyes open unless truly tiny vectors
-                            const eyesOpen = leftMagnitude > 0.02 || rightMagnitude > 0.02;
-                            
-                            // Average eyeball vector - only consider if eyes are open
+                            // Calculate average eyeball vector from both eyes
                             const rawAvgEyeballVector = {
                                 x: (leftEyeballVector.x + rightEyeballVector.x) / 2,
                                 y: (leftEyeballVector.y + rightEyeballVector.y) / 2
                             };
                             
-                            // Add to history for smoothing
-                            if (eyesOpen) {
-                                eyeballVectorHistory.push(rawAvgEyeballVector);
-                                // Limit history size
-                                if (eyeballVectorHistory.length > EYEBALL_HISTORY_SIZE) {
-                                    eyeballVectorHistory.shift();
-                                }
+                            // Always add to history for tracking - trust face detection
+                            eyeballVectorHistory.push(rawAvgEyeballVector);
+                            // Limit history size
+                            if (eyeballVectorHistory.length > EYEBALL_HISTORY_SIZE) {
+                                eyeballVectorHistory.shift();
                             }
                             
                             // Apply smoothing to reduce noise and improve accuracy
@@ -1715,7 +1707,7 @@
                             );
                             
                             // Auto-calibrate eyeball movement threshold with balanced sensitivity
-                            if (eyesOpen && eyeballVectorHistory.length >= 5) {
+                            if (eyeballVectorHistory.length >= 5) {
                                 const currMagnitude = Math.sqrt(
                                     avgEyeballVector.x * avgEyeballVector.x + 
                                     avgEyeballVector.y * avgEyeballVector.y
@@ -1845,10 +1837,24 @@
                                 ctx.setLineDash([]);
                             }
                             
-                            // Balanced criteria for counting eyeball movements
-                            // Count real eye movements while filtering out noise and head movements
-                            // Use 1.5x threshold instead of 2x for better sensitivity
-                            if (faceMovement < faceMovementThreshold && eyeballMovement > eyeballNoiseThreshold * 1.5) {
+                            // Simplified criteria for counting eyeball movements
+                            // Count movements when face is relatively stable and eye vector changes
+                            // Use 1.2x threshold for maximum sensitivity while filtering noise
+                            const detectionThreshold = eyeballNoiseThreshold * 1.2;
+                            
+                            // Debug logging every 30 frames (about every 1.5 seconds)
+                            if (detectionFrameCount % 30 === 0) {
+                                console.log('Detection:', {
+                                    faceMovement: faceMovement.toFixed(2),
+                                    faceThr: faceMovementThreshold,
+                                    eyeballMovement: eyeballMovement.toFixed(3),
+                                    detectionThr: detectionThreshold.toFixed(3),
+                                    historySize: eyeballVectorHistory.length,
+                                    count: eyeballMovementCount
+                                });
+                            }
+                            
+                            if (faceMovement < faceMovementThreshold && eyeballMovement > detectionThreshold) {
                                 // Significant eyeball movement detected (independent of face)
                                 eyeballMovementCount++;
                                 eyeFixationCount = 0; // Reset fixation counter
