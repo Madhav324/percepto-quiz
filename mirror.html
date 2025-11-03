@@ -555,7 +555,7 @@
         let isCalibrated = false;
         let calibrationPoints = [];
         let maxEyeballMovement = 3.0; // Reasonable starting default
-        let eyeballNoiseThreshold = 0.5; // Conservative threshold to filter noise
+        let eyeballNoiseThreshold = 0.3; // Lower threshold for better movement detection
 
         // Auth state observer
         auth.onAuthStateChanged(async (user) => {
@@ -1571,7 +1571,7 @@
             isCalibrated = false;
             calibrationPoints = [];
             maxEyeballMovement = 3.0;
-            eyeballNoiseThreshold = 0.5;
+            eyeballNoiseThreshold = 0.3;
             
             // Start detection loop
             detectionInterval = setInterval(async () => {
@@ -1724,8 +1724,9 @@
                                 // Update maximum observed eyeball movement with reasonable cap
                                 if (currMagnitude > maxEyeballMovement && currMagnitude < 10) {
                                     maxEyeballMovement = currMagnitude;
-                                    // Set threshold to filter out noise but detect real movements
-                                    eyeballNoiseThreshold = Math.max(0.15, maxEyeballMovement * 0.2); // 20% of max for balanced detection
+                                    // Set threshold lower to capture more real movements
+                                    // Use 15% of max instead of 20% for better sensitivity
+                                    eyeballNoiseThreshold = Math.max(0.12, maxEyeballMovement * 0.15);
                                 }
                             }
                             
@@ -1844,9 +1845,10 @@
                                 ctx.setLineDash([]);
                             }
                             
-                            // Stricter criteria for counting MEANINGFUL eyeball movements
-                            // Only count significant eye movements independent of head movement
-                            if (faceMovement < faceMovementThreshold && eyeballMovement > eyeballNoiseThreshold * 2) {
+                            // Balanced criteria for counting eyeball movements
+                            // Count real eye movements while filtering out noise and head movements
+                            // Use 1.5x threshold instead of 2x for better sensitivity
+                            if (faceMovement < faceMovementThreshold && eyeballMovement > eyeballNoiseThreshold * 1.5) {
                                 // Significant eyeball movement detected (independent of face)
                                 eyeballMovementCount++;
                                 eyeFixationCount = 0; // Reset fixation counter
@@ -1903,14 +1905,13 @@
                             lastEyeballVector = { ...avgEyeballVector };
                             lastFacePosition = { ...currentFacePosition };
                             
-                            // Enhanced detection data display with calibration info
+                            // Enhanced detection data display
                             document.getElementById('detectionData').innerHTML = `
                                 Face movements: ${eyeMovementCount}<br>
                                 <b>Eyeball movements: ${eyeballMovementCount}</b><br>
                                 Following light: ${isFollowingLight ? '<span style="color:green">Yes</span>' : 'No'} (${(followingScore * 100).toFixed(0)}%)<br>
                                 Fixation: ${eyeFixationDuration.toFixed(1)}s<br>
-                                ${eyesOpen ? '<span style="color:green">Eyes open</span>' : '<span style="color:red">Eyes closed</span>'}<br>
-                                Threshold: ${eyeballNoiseThreshold.toFixed(2)}<br>
+                                Movement threshold: ${eyeballNoiseThreshold.toFixed(2)}<br>
                                 FPS: ${frameRate}
                             `;
                             
