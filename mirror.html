@@ -464,23 +464,6 @@
             
             <div class="observation-section">
                 <h4>Clinical Notes</h4>
-                <div class="observation-item">
-                    <label for="fixationDuration">Observed Fixation (seconds):</label>
-                    <input type="number" id="fixationDuration" min="0" max="300" value="0">
-                    <small style="display: block; margin-top: 3px; color: #666;">Use 0 to save automated value</small>
-                </div>
-                <div class="observation-item" style="margin-top: 10px;">
-                    <label for="pursuitCount">Pursuit Attempts (0-5):</label>
-                    <select id="pursuitCount">
-                        <option value="0">Use automated</option>
-                        <option value="1">1/5</option>
-                        <option value="2">2/5</option>
-                        <option value="3">3/5</option>
-                        <option value="4">4/5</option>
-                        <option value="5">5/5</option>
-                    </select>
-                </div>
-            </div>
             <div class="observation-item">
                 <label for="notes">Notes:</label>
                 <textarea id="notes" rows="3" style="width: 100%;"></textarea>
@@ -592,11 +575,11 @@
         let lightPosition = { x: 0, y: 0 };
         let lastLightPosition = { x: 0, y: 0 };
         
-        // Calibration variables - clinically appropriate thresholds
+        // Calibration variables - balanced for CVI assessment
         let isCalibrated = false;
         let calibrationPoints = [];
         let maxEyeballMovement = 5.0; // Based on typical gaze redirections
-        let eyeballNoiseThreshold = 0.8; // Filters noise, detects real movements
+        let eyeballNoiseThreshold = 1.0; // Filters noise, detects intentional movements
 
         // Auth state observer
         auth.onAuthStateChanged(async (user) => {
@@ -1036,18 +1019,16 @@
             }
             
             try {
-                // Get observation data
-                const manualFixationDuration = parseInt(document.getElementById('fixationDuration').value) || 0;
-                const manualPursuitCount = parseInt(document.getElementById('pursuitCount').value) || 0;
+                // Get observation data  
                 const notes = document.getElementById('notes').value;
                 
-                // Use manual values if provided (non-zero), otherwise use CAPTURED final values
-                const savedFixationDuration = manualFixationDuration > 0 ? manualFixationDuration : Math.round(finalFixationDuration);
+                // Use automated values from the entire assessment
+                const savedFixationDuration = Math.round(finalFixationDuration);
                 
-                // Convert pursuit quality to count if not manually overridden
-                let savedPursuitCount = manualPursuitCount;
-                if (manualPursuitCount === 0 && enableEyeTracking) {
-                    // Auto-convert FINAL captured quality score to count
+                // Convert pursuit quality score to count
+                let savedPursuitCount = 0;
+                if (enableEyeTracking) {
+                    // Convert FINAL captured quality score to count
                     if (finalFollowingScore > 0.8) savedPursuitCount = 5;
                     else if (finalFollowingScore > 0.7) savedPursuitCount = 4;
                     else if (finalFollowingScore > 0.5) savedPursuitCount = 3;
@@ -1065,12 +1046,10 @@
                     firstTapTime: firstTapTime || 0,
                     pattern,
                     speed,
-                    // Mirror fixation data (auto or manual)
+                    // Mirror fixation data (automated from entire assessment)
                     fixationDuration: savedFixationDuration,
-                    fixationDurationSource: manualFixationDuration > 0 ? 'manual' : 'auto',
-                    // Pursuit test data (auto or manual)
+                    // Pursuit test data (automated from entire assessment)
                     pursuitCount: savedPursuitCount,
-                    pursuitCountSource: manualPursuitCount > 0 ? 'manual' : 'auto',
                     pursuitSuccessRate: (savedPursuitCount / 5) * 100,
                     notes: notes,
                     // Eye tracking data if enabled (using captured final values)
@@ -1115,9 +1094,7 @@
                 
                 alert('Assessment results saved successfully!');
                 
-                // Reset form - using actual form element IDs
-                document.getElementById('fixationDuration').value = 0;
-                document.getElementById('pursuitCount').value = '0';
+                // Reset notes
                 document.getElementById('notes').value = '';
                 
                 // Reset variables
@@ -1440,7 +1417,7 @@
             isCalibrated = false;
             calibrationPoints = [];
             maxEyeballMovement = 5.0;
-            eyeballNoiseThreshold = 0.8;
+            eyeballNoiseThreshold = 1.0;
             
             // Start detection loop
             detectionInterval = setInterval(async () => {
@@ -1702,8 +1679,8 @@
                             const weightedFollowingScore = calculateWeightedScore(followingHistory);
                             followingScore = weightedFollowingScore;
                             
-                            // Stricter threshold for sustained following
-                            isFollowingLight = followingScore > 0.7;
+                            // Can only be following if eyes are trackable
+                            isFollowingLight = eyesOpen && followingScore > 0.7;
                             
                             // Draw line from eye to light if following
                             if (showTrackingVisuals && isFollowingLight) {
@@ -1717,11 +1694,12 @@
                                 ctx.setLineDash([]);
                             }
                             
-                            // Logical eyeball movement detection for CVI assessment
-                            // Count meaningful gaze redirections (saccades), filter out noise
-                            // Clinical relevance: How many times did the child redirect their gaze?
-                            if (eyesOpen && eyeballMovement > eyeballNoiseThreshold * 1.2) {
-                                // Eyeball movement detected (eyes must be open)
+                            // ONLY track when we can actually see and track the gaze
+                            if (!eyesOpen) {
+                                // Can't track gaze - reset fixation counter
+                                eyeFixationCount = 0;
+                            } else if (eyeballMovement > eyeballNoiseThreshold * 1.5) {
+                                // Meaningful gaze redirection detected
                                 eyeballMovementCount++;
                                 eyeFixationCount = 0; // Reset fixation counter
                                 
@@ -1746,8 +1724,9 @@
                             } else if (faceMovement >= faceMovementThreshold) {
                                 // Face movement detected, but not counting as eyeball movement
                                 eyeMovementCount++;
-                            } else if (eyesOpen) {
-                                // Eye fixation detected (only when eyes are open)
+                                eyeFixationCount = 0; // Reset fixation during head movement
+                            } else {
+                                // Stable gaze - count as fixation (only possible if eyesOpen=true from above check)
                                 eyeFixationCount++;
                                 if (eyeFixationCount >= 5 && frameRate > 0) { // About 0.25 seconds at 20fps
                                     // Prevent infinity: check frameRate is valid
