@@ -584,11 +584,11 @@
         let lightPosition = { x: 0, y: 0 };
         let lastLightPosition = { x: 0, y: 0 };
         
-        // Calibration variables - conservative defaults for accuracy
+        // Calibration variables - sensitive defaults for better detection
         let isCalibrated = false;
         let calibrationPoints = [];
-        let maxEyeballMovement = 3.0; // Reasonable starting default
-        let eyeballNoiseThreshold = 0.5; // Conservative threshold to filter noise
+        let maxEyeballMovement = 5.0; // Higher cap for wider range
+        let eyeballNoiseThreshold = 0.3; // Lower threshold for more sensitivity
 
         // Auth state observer
         auth.onAuthStateChanged(async (user) => {
@@ -1400,8 +1400,8 @@
             lastLightPosition = { x: 0, y: 0 };
             isCalibrated = false;
             calibrationPoints = [];
-            maxEyeballMovement = 3.0;
-            eyeballNoiseThreshold = 0.5;
+            maxEyeballMovement = 5.0;
+            eyeballNoiseThreshold = 0.3;
             
             // Start detection loop
             detectionInterval = setInterval(async () => {
@@ -1545,25 +1545,25 @@
                                 y: (leftEyeCenter.y + rightEyeCenter.y) / 2
                             };
                             
-                            // Check for overall face movement with balanced threshold
-                            const faceMovementThreshold = 10; // pixels - increased for less sensitivity
+                            // Check for overall face movement with higher threshold
+                            const faceMovementThreshold = 15; // pixels - higher to reduce over-counting
                             const faceMovement = Math.sqrt(
                                 Math.pow(currentFacePosition.x - lastFacePosition.x, 2) + 
                                 Math.pow(currentFacePosition.y - lastFacePosition.y, 2)
                             );
                             
-                            // Auto-calibrate eyeball movement threshold with balanced sensitivity
-                            if (eyesOpen && eyeballVectorHistory.length >= 5) {
+                            // Auto-calibrate eyeball movement threshold with sensitive detection
+                            if (eyesOpen && eyeballVectorHistory.length >= 3) {
                                 const currMagnitude = Math.sqrt(
                                     avgEyeballVector.x * avgEyeballVector.x + 
                                     avgEyeballVector.y * avgEyeballVector.y
                                 );
                                 
-                                // Update maximum observed eyeball movement with reasonable cap
-                                if (currMagnitude > maxEyeballMovement && currMagnitude < 10) {
+                                // Update maximum observed eyeball movement with higher cap
+                                if (currMagnitude > maxEyeballMovement && currMagnitude < 15) {
                                     maxEyeballMovement = currMagnitude;
-                                    // Set threshold to filter out noise but detect real movements
-                                    eyeballNoiseThreshold = Math.max(0.15, maxEyeballMovement * 0.2); // 20% of max for balanced detection
+                                    // Lower threshold for sensitive detection
+                                    eyeballNoiseThreshold = Math.max(0.1, maxEyeballMovement * 0.15); // 15% of max for sensitive detection
                                 }
                             }
                             
@@ -1617,8 +1617,8 @@
                             // Balanced light following detection
                             let followingDetected = false;
                             
-                            // Reasonable dot product threshold for alignment
-                            followingDetected = dotProduct > 0.5;
+                            // Higher dot product threshold for better alignment
+                            followingDetected = dotProduct > 0.65;
                             
                             // Additional methods to increase detection rates
                             if (!followingDetected) {
@@ -1649,8 +1649,8 @@
                                         const moveToLightAlignment = normEyeMovement.x * normLightVector.x +
                                                                     normEyeMovement.y * normLightVector.y;
                                         
-                                        // Reasonable threshold for directional alignment
-                                        if (moveToLightAlignment > 0.4) {
+                                        // Higher threshold for directional alignment
+                                        if (moveToLightAlignment > 0.55) {
                                             followingDetected = true;
                                         }
                                     }
@@ -1667,8 +1667,8 @@
                             const weightedFollowingScore = calculateWeightedScore(followingHistory);
                             followingScore = weightedFollowingScore;
                             
-                            // Balanced threshold for sustained following
-                            isFollowingLight = followingScore > 0.6;
+                            // Higher threshold for sustained following - must be clearly tracking
+                            isFollowingLight = followingScore > 0.75;
                             
                             // Draw line from eye to light if following
                             if (showTrackingVisuals && isFollowingLight) {
@@ -1682,9 +1682,9 @@
                                 ctx.setLineDash([]);
                             }
                             
-                            // Balanced criteria for counting eyeball movements
-                            // Count movements that are clearly intentional eye movements, not noise
-                            if (eyesOpen && faceMovement < faceMovementThreshold && eyeballMovement > eyeballNoiseThreshold * 1.5) {
+                            // Sensitive criteria for counting eyeball movements
+                            // Detect most eye movements while filtering obvious noise
+                            if (eyesOpen && faceMovement < faceMovementThreshold && eyeballMovement > eyeballNoiseThreshold * 0.8) {
                                 // Eyeball movement detected (eyes must be open, minimal head movement)
                                 eyeballMovementCount++;
                                 eyeFixationCount = 0; // Reset fixation counter
@@ -1742,11 +1742,12 @@
                             lastFacePosition = { ...currentFacePosition };
                             
                             // Enhanced detection data display with clinical metrics
+                            const fixationDisplay = isFinite(eyeFixationDuration) ? eyeFixationDuration.toFixed(1) : '0.0';
                             document.getElementById('detectionData').innerHTML = `
                                 <b>Eye Status:</b> ${eyesOpen ? '<span style="color:green">Open</span>' : '<span style="color:red">Closed</span>'} (EAR: ${avgEAR.toFixed(2)})<br>
                                 <b>Eyeball movements:</b> ${eyeballMovementCount}<br>
                                 <b>Following light:</b> ${isFollowingLight ? '<span style="color:green">Yes</span>' : 'No'} (${(followingScore * 100).toFixed(0)}%)<br>
-                                <b>Sustained fixation:</b> ${eyeFixationDuration.toFixed(1)}s<br>
+                                <b>Sustained fixation:</b> ${fixationDisplay}s<br>
                                 Face movements: ${eyeMovementCount}<br>
                                 Detection: Thr=${eyeballNoiseThreshold.toFixed(2)}, FPS=${frameRate}
                             `;
@@ -1758,7 +1759,8 @@
                             const autoFollowingDisplay = document.getElementById('autoFollowingValue');
                             
                             if (autoFixationDisplay) {
-                                autoFixationDisplay.textContent = `${eyeFixationDuration.toFixed(1)}s`;
+                                const fixationValue = isFinite(eyeFixationDuration) ? eyeFixationDuration.toFixed(1) : '0.0';
+                                autoFixationDisplay.textContent = `${fixationValue}s`;
                                 autoFixationDisplay.style.color = eyeFixationDuration > 3 ? 'green' : 'orange';
                             }
                             
