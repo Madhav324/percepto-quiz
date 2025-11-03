@@ -1807,8 +1807,6 @@
         function updateAssessmentDisplays(isFinal) {
             const autoFixationDisplay = document.getElementById('autoFixationValue');
             const autoPursuitDisplay = document.getElementById('autoPursuitValue');
-            const autoFollowingDisplay = document.getElementById('autoFollowingValue');
-            
             const autoMovementDisplay = document.getElementById('autoMovementValue');
             
             // Use appropriate values based on state
@@ -1816,9 +1814,12 @@
             const followValue = isFinal ? finalFollowingScore : followingScore;
             const moveValue = eyeballMovementCount;
             
+            // Calculate time elapsed for live pursuit quality
+            const timeElapsed = isRunning ? (Date.now() - startTime - pausedTime) / 1000 : assessmentDuration;
+            
             // Calculate pursuit quality
             let pursuitQuality = '--';
-            if (isFinal || (isRunning && assessmentDuration > 3)) {
+            if (isFinal || (isRunning && timeElapsed > 3)) {
                 if (followValue > 0.7) pursuitQuality = 'Excellent';
                 else if (followValue > 0.5) pursuitQuality = 'Good';
                 else if (followValue > 0.3) pursuitQuality = 'Fair';
