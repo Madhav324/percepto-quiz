@@ -145,13 +145,31 @@
         /* Light stimulus */
         .light-stimulus {
             position: absolute;
-            width: 20px;
-            height: 20px;
+            width: 25px;
+            height: 25px;
             border-radius: 50%;
-            background: radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(255,255,0,0.8) 70%);
-            box-shadow: 0 0 15px rgba(255,255,0,0.8);
+            background: radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(255,255,0,0.9) 50%, rgba(255,200,0,0.7) 100%);
+            box-shadow: 0 0 20px rgba(255,255,0,0.9), 0 0 40px rgba(255,200,0,0.5);
             z-index: 10;
             pointer-events: none;
+            transition: opacity 0.3s ease;
+            opacity: 0;
+        }
+        
+        .light-stimulus.active {
+            opacity: 1;
+            animation: pulse-glow 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes pulse-glow {
+            0%, 100% { 
+                box-shadow: 0 0 20px rgba(255,255,0,0.9), 0 0 40px rgba(255,200,0,0.5);
+                transform: scale(1);
+            }
+            50% { 
+                box-shadow: 0 0 30px rgba(255,255,0,1), 0 0 60px rgba(255,200,0,0.7);
+                transform: scale(1.1);
+            }
         }
 
         /* Controls */
@@ -201,6 +219,16 @@
 
         button:hover {
             background-color: #45a049;
+        }
+        
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
+        button.active {
+            background-color: #ff9800;
         }
 
         /* Observation checklist */
@@ -498,9 +526,9 @@
         let isPaused = false;
         let isReversed = false;
         let speed = 5;
-        let pattern = 'linear';
-        let xPos = 50;
-        let yPos = 50;
+        let pattern = 'horizontal'; // Fixed: Changed from 'linear' to 'horizontal' to match dropdown options
+        let xPos = 0;
+        let yPos = 0;
         let angle = 0;
         
         // Assessment data
@@ -597,6 +625,9 @@
                     
                     // Initialize camera
                     initCamera();
+                    
+                    // Initialize button states
+                    updateButtonStates();
                     
                     // Load previous assessments
                     loadPreviousAssessments();
@@ -734,6 +765,7 @@
                 startAnimation();
                 isRunning = true;
                 isPaused = false;
+                updateButtonStates();
             }
         }
         
@@ -744,6 +776,7 @@
                 isRunning = false;
                 isPaused = false;
                 assessmentDuration = (Date.now() - startTime) / 1000; // in seconds
+                updateButtonStates();
             }
         }
         
@@ -754,11 +787,14 @@
                     // Resume
                     startAnimation();
                     isPaused = false;
+                    document.getElementById('pauseBtn').textContent = 'Pause';
                 } else {
                     // Pause
                     stopAnimation();
                     isPaused = true;
+                    document.getElementById('pauseBtn').textContent = 'Resume';
                 }
+                updateButtonStates();
             }
         }
         
@@ -770,11 +806,58 @@
             }
         }
         
+        // Update button states based on assessment status
+        function updateButtonStates() {
+            const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            const pauseBtn = document.getElementById('pauseBtn');
+            const reverseBtn = document.getElementById('reverseBtn');
+            
+            if (isRunning) {
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                pauseBtn.disabled = false;
+                reverseBtn.disabled = false;
+                stopBtn.classList.add('active');
+            } else {
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+                pauseBtn.disabled = true;
+                reverseBtn.disabled = true;
+                stopBtn.classList.remove('active');
+                pauseBtn.textContent = 'Pause';
+            }
+        }
+        
         // Animation functions
         function startAnimation() {
             if (animationId) {
                 cancelAnimationFrame(animationId);
             }
+            
+            // Initialize position based on container size
+            const containerWidth = lightStimulus.parentElement.offsetWidth;
+            const containerHeight = lightStimulus.parentElement.offsetHeight;
+            const stimulusWidth = lightStimulus.offsetWidth;
+            const stimulusHeight = lightStimulus.offsetHeight;
+            
+            const maxX = containerWidth - stimulusWidth;
+            const maxY = containerHeight - stimulusHeight;
+            
+            // Start from the left-center or top-center depending on pattern
+            if (pattern === 'horizontal') {
+                xPos = 0;
+                yPos = maxY / 2;
+            } else if (pattern === 'vertical') {
+                xPos = maxX / 2;
+                yPos = 0;
+            }
+            
+            // Reset direction
+            isReversed = false;
+            
+            // Add active class for visual feedback
+            lightStimulus.classList.add('active');
             
             animateStimulus();
         }
@@ -784,6 +867,8 @@
                 cancelAnimationFrame(animationId);
                 animationId = null;
             }
+            // Remove active class when stopped
+            lightStimulus.classList.remove('active');
         }
         
         function animateStimulus() {
@@ -795,8 +880,8 @@
             const maxX = containerWidth - stimulusWidth;
             const maxY = containerHeight - stimulusHeight;
             
-            // Calculate speed factor (1-10 scale)
-            const speedFactor = speed / 5;
+            // Calculate speed factor (1-10 scale) - optimized for smoother movement
+            const speedFactor = speed * 0.5;
             
             // Two pursuit patterns: horizontal and vertical
             switch(pattern) {
@@ -843,9 +928,12 @@
                     break;
             }
             
-            // Update light position
-            lightStimulus.style.left = `${xPos}px`;
-            lightStimulus.style.top = `${yPos}px`;
+            // Update light position with sub-pixel accuracy for smoother animation
+            lightStimulus.style.left = `${Math.round(xPos * 10) / 10}px`;
+            lightStimulus.style.top = `${Math.round(yPos * 10) / 10}px`;
+            
+            // Store light position for eye tracking correlation
+            lightPosition = { x: xPos, y: yPos };
             
             // Continue animation
             animationId = requestAnimationFrame(animateStimulus);
@@ -928,17 +1016,20 @@
                 
                 alert('Assessment results saved successfully!');
                 
-                // Reset form
-                document.getElementById('fixation').checked = false;
-                document.getElementById('leftField').checked = false;
-                document.getElementById('rightField').checked = false;
-                document.getElementById('centerField').checked = false;
-                document.getElementById('duration').value = 0;
+                // Reset form - using actual form element IDs
+                document.getElementById('fixationDuration').value = 0;
+                document.getElementById('pursuitCount').value = '0';
                 document.getElementById('notes').value = '';
                 
                 // Reset variables
                 assessmentDuration = 0;
                 interactionCount = 0;
+                xPos = 0;
+                yPos = 0;
+                isReversed = false;
+                
+                // Reset button states
+                updateButtonStates();
                 
                 // Reset eye tracking data
                 eyeMovementData = [];
