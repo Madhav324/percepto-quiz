@@ -1489,17 +1489,21 @@
                                 y: (leftEyeballVector.y + rightEyeballVector.y) / 2
                             };
                             
-                            // Add to history for smoothing
+                            // Add to history for smoothing - ONLY if eyes trackable
+                            let avgEyeballVector;
                             if (eyesOpen) {
                                 eyeballVectorHistory.push(rawAvgEyeballVector);
                                 // Limit history size
                                 if (eyeballVectorHistory.length > EYEBALL_HISTORY_SIZE) {
                                     eyeballVectorHistory.shift();
                                 }
+                                // Apply smoothing
+                                avgEyeballVector = smoothEyeballVector(eyeballVectorHistory);
+                            } else {
+                                // Eyes not trackable - clear history and use zero vector
+                                eyeballVectorHistory = [];
+                                avgEyeballVector = { x: 0, y: 0 };
                             }
-                            
-                            // Apply smoothing to reduce noise and improve accuracy
-                            const avgEyeballVector = smoothEyeballVector(eyeballVectorHistory);
                             
                             // Draw face landmarks if visual tracking is enabled
                             if (showTrackingVisuals) {
@@ -1579,11 +1583,11 @@
                                 }
                             }
                             
-                            // Calculate eyeball movement with dynamically calibrated threshold
-                            const eyeballMovement = Math.sqrt(
+                            // Calculate eyeball movement - ONLY if eyes trackable
+                            const eyeballMovement = eyesOpen ? Math.sqrt(
                                 Math.pow(avgEyeballVector.x - lastEyeballVector.x, 2) + 
                                 Math.pow(avgEyeballVector.y - lastEyeballVector.y, 2)
-                            );
+                            ) : 0;
                             
                             // Get light stimulus position with improved accuracy
                             const lightStimulus = document.getElementById('lightStimulus');
@@ -1694,72 +1698,81 @@
                                 ctx.setLineDash([]);
                             }
                             
-                            // ONLY track when we can actually see and track the gaze
+                            // ALL tracking logic ONLY when eyes are trackable
                             if (!eyesOpen) {
-                                // Can't track gaze - reset fixation counter
+                                // Can't track gaze - reset ALL counters
                                 eyeFixationCount = 0;
-                            } else if (eyeballMovement > eyeballNoiseThreshold * 1.5) {
-                                // Meaningful gaze redirection detected
-                                eyeballMovementCount++;
-                                eyeFixationCount = 0; // Reset fixation counter
-                                
-                                // Draw eyeball movement path if visual tracking is enabled
-                                if (showTrackingVisuals && lastEyeballVector.x !== 0) {
-                                    ctx.strokeStyle = '#ff0000';
-                                    ctx.lineWidth = 2;
-                                    ctx.beginPath();
-                                    ctx.moveTo(avgEyePos.x, avgEyePos.y);
-                                    ctx.lineTo(avgEyePos.x + avgEyeballVector.x * 5, avgEyePos.y + avgEyeballVector.y * 5);
-                                    ctx.stroke();
-                                }
-                                
-                                // Record eyeball movement data
-                                eyeMovementData.push({
-                                    timestamp: Date.now(),
-                                    position: { ...avgEyePos },
-                                    eyeballVector: { ...avgEyeballVector },
-                                    isMovement: true,
-                                    followingLight: isFollowingLight
-                                });
-                            } else if (faceMovement >= faceMovementThreshold) {
-                                // Face movement detected, but not counting as eyeball movement
-                                eyeMovementCount++;
-                                eyeFixationCount = 0; // Reset fixation during head movement
+                                // Don't update any metrics
                             } else {
-                                // Stable gaze - count as fixation (only possible if eyesOpen=true from above check)
-                                eyeFixationCount++;
-                                if (eyeFixationCount >= 5 && frameRate > 0) { // About 0.25 seconds at 20fps
-                                    // Prevent infinity: check frameRate is valid
-                                    const increment = frameRate > 0 ? 1/frameRate : 0.05;
-                                    eyeFixationDuration += increment;
+                                // Eyes trackable - proceed with detection
+                                if (eyeballMovement > eyeballNoiseThreshold * 1.5) {
+                                    // Meaningful gaze redirection detected
+                                    eyeballMovementCount++;
+                                    eyeFixationCount = 0; // Reset fixation counter
                                     
-                                    // Safety cap to prevent runaway values
-                                    if (eyeFixationDuration > 300) eyeFixationDuration = 300;
-                                    
-                                    // Mark fixation point if visual tracking is enabled
-                                    if (showTrackingVisuals) {
-                                        ctx.fillStyle = 'rgba(0, 255, 255, 0.5)';
+                                    // Draw eyeball movement path if visual tracking is enabled
+                                    if (showTrackingVisuals && lastEyeballVector.x !== 0) {
+                                        ctx.strokeStyle = '#ff0000';
+                                        ctx.lineWidth = 2;
                                         ctx.beginPath();
-                                        ctx.arc(avgEyePos.x, avgEyePos.y, 5, 0, 2 * Math.PI);
-                                        ctx.fill();
+                                        ctx.moveTo(avgEyePos.x, avgEyePos.y);
+                                        ctx.lineTo(avgEyePos.x + avgEyeballVector.x * 5, avgEyePos.y + avgEyeballVector.y * 5);
+                                        ctx.stroke();
                                     }
                                     
-                                    // Record eye fixation data
+                                    // Record eyeball movement data
                                     eyeMovementData.push({
                                         timestamp: Date.now(),
                                         position: { ...avgEyePos },
                                         eyeballVector: { ...avgEyeballVector },
-                                        isMovement: false,
-                                        fixationDuration: eyeFixationDuration,
+                                        isMovement: true,
                                         followingLight: isFollowingLight
                                     });
+                                } else if (faceMovement >= faceMovementThreshold) {
+                                    // Face movement detected, but not counting as eyeball movement
+                                    eyeMovementCount++;
+                                    eyeFixationCount = 0; // Reset fixation during head movement
+                                } else {
+                                    // Stable gaze - count as fixation
+                                    eyeFixationCount++;
+                                    if (eyeFixationCount >= 5 && frameRate > 0) { // About 0.25 seconds at 20fps
+                                        // Prevent infinity: check frameRate is valid
+                                        const increment = frameRate > 0 ? 1/frameRate : 0.05;
+                                        eyeFixationDuration += increment;
+                                        
+                                        // Safety cap to prevent runaway values
+                                        if (eyeFixationDuration > 300) eyeFixationDuration = 300;
+                                        
+                                        // Mark fixation point if visual tracking is enabled
+                                        if (showTrackingVisuals) {
+                                            ctx.fillStyle = 'rgba(0, 255, 255, 0.5)';
+                                            ctx.beginPath();
+                                            ctx.arc(avgEyePos.x, avgEyePos.y, 5, 0, 2 * Math.PI);
+                                            ctx.fill();
+                                        }
+                                        
+                                        // Record eye fixation data
+                                        eyeMovementData.push({
+                                            timestamp: Date.now(),
+                                            position: { ...avgEyePos },
+                                            eyeballVector: { ...avgEyeballVector },
+                                            isMovement: false,
+                                            fixationDuration: eyeFixationDuration,
+                                            followingLight: isFollowingLight
+                                        });
+                                    }
                                 }
                             }
                             
-                            // Update last positions
-                            lastEyePosition = { ...avgEyePos };
-                            lastEyeballVector = { ...avgEyeballVector };
-                            lastFacePosition = { ...currentFacePosition };
+                            // Update last positions - ONLY if eyes trackable
+                            if (eyesOpen) {
+                                lastEyePosition = { ...avgEyePos };
+                                lastEyeballVector = { ...avgEyeballVector };
+                                lastFacePosition = { ...currentFacePosition };
+                            } else {
+                                // Reset last eyeball vector when not trackable
+                                lastEyeballVector = { x: 0, y: 0 };
+                            }
                             
                             // Clear, simple detection display
                             document.getElementById('detectionData').innerHTML = `
