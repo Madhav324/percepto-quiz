@@ -1722,11 +1722,15 @@
                                 }
                             }
                             
-                            // Calculate eyeball movement with dynamically calibrated threshold
-                            const eyeballMovement = Math.sqrt(
-                                Math.pow(avgEyeballVector.x - lastEyeballVector.x, 2) + 
-                                Math.pow(avgEyeballVector.y - lastEyeballVector.y, 2)
+                            // Calculate eyeball movement using RAW vector (not smoothed)
+                            // Smoothing dampens frame-to-frame changes too much for detection
+                            const rawEyeballMovement = Math.sqrt(
+                                Math.pow(rawAvgEyeballVector.x - lastEyeballVector.x, 2) + 
+                                Math.pow(rawAvgEyeballVector.y - lastEyeballVector.y, 2)
                             );
+                            
+                            // Also calculate smoothed movement for comparison
+                            const eyeballMovement = rawEyeballMovement;
                             
                             // Get light stimulus position with improved accuracy
                             const lightStimulus = document.getElementById('lightStimulus');
@@ -1847,9 +1851,11 @@
                                 console.log('Detection:', {
                                     faceMovement: faceMovement.toFixed(2),
                                     faceThr: faceMovementThreshold,
+                                    rawMovement: rawEyeballMovement.toFixed(3),
                                     eyeballMovement: eyeballMovement.toFixed(3),
                                     detectionThr: detectionThreshold.toFixed(3),
                                     historySize: eyeballVectorHistory.length,
+                                    vectorMag: Math.sqrt(rawAvgEyeballVector.x**2 + rawAvgEyeballVector.y**2).toFixed(3),
                                     count: eyeballMovementCount
                                 });
                             }
@@ -1906,9 +1912,9 @@
                                 }
                             }
                             
-                            // Update last positions
+                            // Update last positions - use RAW vector for next comparison
                             lastEyePosition = { ...avgEyePos };
-                            lastEyeballVector = { ...avgEyeballVector };
+                            lastEyeballVector = { ...rawAvgEyeballVector };  // Use raw, not smoothed!
                             lastFacePosition = { ...currentFacePosition };
                             
                             // Enhanced detection data display
