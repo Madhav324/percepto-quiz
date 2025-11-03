@@ -1046,27 +1046,93 @@
                 // Get clinical notes
                 const notes = document.getElementById('notes').value;
                 
-                // Prepare screening data object - automated measurements only
+                // Calculate comprehensive screening score (0-100)
+                const pursuitScore = Math.min(100, followingScore * 100);
+                const fixationScore = Math.min(100, (eyeFixationDuration / 10) * 100); // 10s = perfect
+                const responseScore = Math.max(0, 100 - (firstTapTime * 10)); // Lower is better
+                const stabilityScore = Math.max(0, 100 - (eyeballMovementCount / 2)); // Fewer movements = better stability
+                
+                // Weighted composite score
+                const totalScore = Math.round(
+                    (pursuitScore * 0.4) +      // 40% pursuit ability
+                    (fixationScore * 0.3) +      // 30% fixation ability
+                    (responseScore * 0.15) +     // 15% response time
+                    (stabilityScore * 0.15)      // 15% eye stability
+                );
+                
+                // Quality ratings
+                const pursuitQuality = followingScore > 0.7 ? 'Good' : followingScore > 0.5 ? 'Fair' : 'Poor';
+                const fixationQuality = eyeFixationDuration > 5 ? 'Good' : eyeFixationDuration > 2 ? 'Fair' : 'Poor';
+                
+                // CVI Risk Assessment based on multiple factors
+                let riskFactors = 0;
+                if (followingScore < 0.5) riskFactors += 3;          // Poor pursuit tracking
+                else if (followingScore < 0.7) riskFactors += 1;     // Fair pursuit tracking
+                
+                if (eyeFixationDuration < 2) riskFactors += 3;      // Poor fixation
+                else if (eyeFixationDuration < 5) riskFactors += 1;  // Fair fixation
+                
+                if (firstTapTime > 5) riskFactors += 2;             // Slow response
+                else if (firstTapTime > 3) riskFactors += 1;         // Delayed response
+                
+                if (eyeballMovementCount > 100) riskFactors += 2;   // Excessive movements
+                else if (eyeballMovementCount > 50) riskFactors += 1; // High movements
+                
+                if (assessmentDuration > 60 && followingScore < 0.6) riskFactors += 1; // Extended time with poor performance
+                
+                // Risk level classification
+                let screeningResult, riskLevel;
+                if (riskFactors >= 6) {
+                    screeningResult = 'REFER';
+                    riskLevel = 'HIGH';
+                } else if (riskFactors >= 3) {
+                    screeningResult = 'MONITOR';
+                    riskLevel = 'MEDIUM';
+                } else {
+                    screeningResult = 'PASS';
+                    riskLevel = 'LOW';
+                }
+                
+                // Prepare comprehensive screening data object
                 const timestamp = Date.now();
                 const assessmentData = {
                     timestamp,
-                    assessmentDuration,
-                    interactionCount,
+                    
+                    // Core Parameters (matching other quizzes)
+                    score: totalScore,
+                    time: assessmentDuration,
                     firstTapTime: firstTapTime || 0,
+                    totalTaps: interactionCount,
+                    
+                    // Test Configuration
                     pattern,
                     speed,
-                    notes: notes || '',
-                    // Automated eye tracking data (objective measurements)
+                    
+                    // Screening Results
+                    screeningResult,      // PASS | MONITOR | REFER
+                    riskLevel,            // LOW | MEDIUM | HIGH
+                    riskFactors,          // 0-10 count
+                    
+                    // Component Scores
+                    pursuitScore: Math.round(pursuitScore),
+                    fixationScore: Math.round(fixationScore),
+                    responseScore: Math.round(responseScore),
+                    stabilityScore: Math.round(stabilityScore),
+                    
+                    // Quality Ratings
+                    pursuitQuality,
+                    fixationQuality,
+                    
+                    // Detailed Eye Tracking Metrics
                     eyeTrackingEnabled: enableEyeTracking,
                     faceMovementCount: eyeMovementCount || 0,
                     eyeballMovementCount: eyeballMovementCount || 0,
                     eyeFixationDuration: eyeFixationDuration || 0,
                     followingLightScore: followingScore || 0,
-                    // Store movement data count
                     eyeMovements: eyeMovementData ? eyeMovementData.length : 0,
-                    // Calculated screening metrics
-                    pursuitQuality: followingScore > 0.7 ? 'Good' : followingScore > 0.5 ? 'Fair' : 'Poor',
-                    fixationQuality: eyeFixationDuration > 5 ? 'Good' : eyeFixationDuration > 2 ? 'Fair' : 'Poor'
+                    
+                    // Clinical Notes
+                    notes: notes || ''
                 }; 
                 
                 // Determine the correct path based on user role
@@ -1193,14 +1259,22 @@
                         const li = document.createElement('li');
                         li.className = 'attempt-item';
                         
-                        // Create summary with flattened data structure
+                        // Create summary with screening results prominently displayed
                         const summary = document.createElement('div');
                         summary.className = 'attempt-summary';
+                        
+                        // Get screening result with color coding
+                        const screeningResult = assessment.screeningResult || 'N/A';
+                        const screeningScore = assessment.score || 0;
+                        const resultColor = screeningResult === 'PASS' ? 'green' : 
+                                          screeningResult === 'MONITOR' ? 'orange' : 
+                                          screeningResult === 'REFER' ? 'red' : 'gray';
+                        
                         summary.innerHTML = `
                             <span><strong>Date:</strong> ${formattedDate}</span>
-                            <span><strong>Pattern:</strong> ${assessment.pattern || 'Unknown'}</span>
-                            <span><strong>Duration:</strong> ${assessment.assessmentDuration ? assessment.assessmentDuration.toFixed(1) : '0'}s</span>
-                            <span><strong>Eye Track:</strong> ${assessment.eyeTrackingEnabled ? 'On' : 'Off'}</span>
+                            <span><strong>Score:</strong> ${screeningScore}/100</span>
+                            <span style="color:${resultColor}; font-weight:bold;"><strong>Result:</strong> ${screeningResult}</span>
+                            <span><strong>Pattern:</strong> ${assessment.pattern || 'horizontal'}</span>
                         `;
                         
                         // Create toggle button
@@ -1218,37 +1292,88 @@
                         // Prepare a flat list of all detail items
                         let detailRows = '';
                         
-                        // Basic assessment details
+                        // Screening Results (Primary)
+                        const detailScore = assessment.score || 0;
+                        const detailResult = assessment.screeningResult || 'N/A';
+                        const detailRisk = assessment.riskLevel || 'N/A';
+                        const detailRiskCount = assessment.riskFactors || 0;
+                        
+                        const detailResultColor = detailResult === 'PASS' ? 'green' : detailResult === 'MONITOR' ? 'orange' : 'red';
+                        const detailRiskColor = detailRisk === 'LOW' ? 'green' : detailRisk === 'MEDIUM' ? 'orange' : 'red';
+                        
                         detailRows += `
+                            <div class="detail-row detail-section-header">
+                                <span>📊 Screening Summary</span>
+                            </div>
+                            <div class="detail-row highlight-row">
+                                <span class="detail-label">Overall Score:</span>
+                                <span style="font-weight:bold; font-size:1.2em;">${detailScore}/100</span>
+                            </div>
+                            <div class="detail-row highlight-row">
+                                <span class="detail-label">Screening Result:</span>
+                                <span style="color:${detailResultColor}; font-weight:bold; font-size:1.1em;">${detailResult}</span>
+                            </div>
+                            <div class="detail-row highlight-row">
+                                <span class="detail-label">CVI Risk Level:</span>
+                                <span style="color:${detailRiskColor}; font-weight:bold;">${detailRisk} (${detailRiskCount} risk factors)</span>
+                            </div>`;
+                        
+                        // Component Scores
+                        if (assessment.pursuitScore !== undefined) {
+                            detailRows += `
+                            <div class="detail-row detail-section-header">
+                                <span>📈 Component Scores</span>
+                            </div>
                             <div class="detail-row">
-                                <span class="detail-label">Assessment Duration:</span>
-                                <span>${assessment.assessmentDuration ? assessment.assessmentDuration.toFixed(1) : '0'}s</span>
+                                <span class="detail-label">Pursuit Tracking:</span>
+                                <span>${assessment.pursuitScore || 0}/100</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Fixation Stability:</span>
+                                <span>${assessment.fixationScore || 0}/100</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Response Time:</span>
+                                <span>${assessment.responseScore || 0}/100</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Eye Stability:</span>
+                                <span>${assessment.stabilityScore || 0}/100</span>
+                            </div>`;
+                        }
+                        
+                        // Core Parameters
+                        detailRows += `
+                            <div class="detail-row detail-section-header">
+                                <span>⚙️ Test Parameters</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Time (Duration):</span>
+                                <span>${assessment.time ? assessment.time.toFixed(1) : assessment.assessmentDuration ? assessment.assessmentDuration.toFixed(1) : '0'}s</span>
                             </div>
                             <div class="detail-row">
                                 <span class="detail-label">First Tap Time:</span>
                                 <span>${assessment.firstTapTime ? assessment.firstTapTime.toFixed(2) : '0'}s</span>
                             </div>
                             <div class="detail-row">
-                                <span class="detail-label">Total Interactions:</span>
-                                <span>${assessment.interactionCount || 0}</span>
+                                <span class="detail-label">Total Taps:</span>
+                                <span>${assessment.totalTaps || assessment.interactionCount || 0}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Pattern Used:</span>
+                                <span>${assessment.pattern || 'horizontal'}</span>
                             </div>
                             <div class="detail-row">
                                 <span class="detail-label">Speed Setting:</span>
                                 <span>${assessment.speed || 0}/10</span>
                             </div>`;
                         
-                        // Screening results header
-                        detailRows += `
-                            <div class="detail-row detail-section-header">
-                                <span>Automated Screening Results</span>
-                            </div>
-                            <div class="detail-row">
-                                <span class="detail-label">Pattern Used:</span>
-                                <span>${assessment.pattern || 'horizontal'}</span>
-                            </div>`;
-                        
-                        // Eye tracking data
+                        // Detailed Eye Tracking Metrics
                         if (assessment.eyeTrackingEnabled) {
+                            detailRows += `
+                            <div class="detail-row detail-section-header">
+                                <span>👁️ Eye Tracking Metrics</span>
+                            </div>`;
                             detailRows += `
                             <div class="detail-row">
                                 <span class="detail-label">Face Movements:</span>
