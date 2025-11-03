@@ -570,11 +570,11 @@
         let lightPosition = { x: 0, y: 0 };
         let lastLightPosition = { x: 0, y: 0 };
         
-        // Calibration variables - with more permissive defaults
+        // Calibration variables - conservative defaults for accuracy
         let isCalibrated = false;
         let calibrationPoints = [];
-        let maxEyeballMovement = 2.0; // Higher default for greater leeway
-        let eyeballNoiseThreshold = 0.1; // Much lower threshold to detect subtle movements
+        let maxEyeballMovement = 3.0; // Reasonable starting default
+        let eyeballNoiseThreshold = 0.5; // Conservative threshold to filter noise
 
         // Auth state observer
         auth.onAuthStateChanged(async (user) => {
@@ -1369,8 +1369,8 @@
             lastLightPosition = { x: 0, y: 0 };
             isCalibrated = false;
             calibrationPoints = [];
-            maxEyeballMovement = 1.0;
-            eyeballNoiseThreshold = 0.3;
+            maxEyeballMovement = 3.0;
+            eyeballNoiseThreshold = 0.5;
             
             // Start detection loop
             detectionInterval = setInterval(async () => {
@@ -1513,18 +1513,18 @@
                                 Math.pow(currentFacePosition.y - lastFacePosition.y, 2)
                             );
                             
-                            // Auto-calibrate eyeball movement threshold with much more leeway
-                            if (eyesOpen && eyeballVectorHistory.length >= 2) { // Only need 2 frames now
+                            // Auto-calibrate eyeball movement threshold with balanced sensitivity
+                            if (eyesOpen && eyeballVectorHistory.length >= 5) {
                                 const currMagnitude = Math.sqrt(
                                     avgEyeballVector.x * avgEyeballVector.x + 
                                     avgEyeballVector.y * avgEyeballVector.y
                                 );
                                 
-                                // Update maximum observed eyeball movement with higher cap
-                                if (currMagnitude > maxEyeballMovement && currMagnitude < 15) { // Higher cap for greater range
+                                // Update maximum observed eyeball movement with reasonable cap
+                                if (currMagnitude > maxEyeballMovement && currMagnitude < 10) {
                                     maxEyeballMovement = currMagnitude;
-                                    // Keep threshold very low to detect subtle movements
-                                    eyeballNoiseThreshold = Math.max(0.05, maxEyeballMovement * 0.05); // Only 5% of max for greater sensitivity
+                                    // Set threshold to filter out noise but detect real movements
+                                    eyeballNoiseThreshold = Math.max(0.15, maxEyeballMovement * 0.2); // 20% of max for balanced detection
                                 }
                             }
                             
@@ -1575,11 +1575,11 @@
                             // Dot product to calculate similarity of direction (1 = same direction, -1 = opposite)
                             const dotProduct = normEyeballVector.x * normLightVector.x + normEyeballVector.y * normLightVector.y;
                             
-                            // GREATLY simplified light following detection with more leeway
+                            // Balanced light following detection
                             let followingDetected = false;
                             
-                            // Much lower dot product threshold (was 0.6-0.7, now 0.3)
-                            followingDetected = dotProduct > 0.3;
+                            // Reasonable dot product threshold for alignment
+                            followingDetected = dotProduct > 0.5;
                             
                             // Additional methods to increase detection rates
                             if (!followingDetected) {
@@ -1610,8 +1610,8 @@
                                         const moveToLightAlignment = normEyeMovement.x * normLightVector.x +
                                                                     normEyeMovement.y * normLightVector.y;
                                         
-                                        // Very permissive threshold - just need to be vaguely in the right direction
-                                        if (moveToLightAlignment > 0.1) {
+                                        // Reasonable threshold for directional alignment
+                                        if (moveToLightAlignment > 0.4) {
                                             followingDetected = true;
                                         }
                                     }
@@ -1628,8 +1628,8 @@
                             const weightedFollowingScore = calculateWeightedScore(followingHistory);
                             followingScore = weightedFollowingScore;
                             
-                            // Much lower threshold for considering following (was 0.5)
-                            isFollowingLight = followingScore > 0.3;
+                            // Balanced threshold for sustained following
+                            isFollowingLight = followingScore > 0.6;
                             
                             // Draw line from eye to light if following
                             if (showTrackingVisuals && isFollowingLight) {
@@ -1643,10 +1643,10 @@
                                 ctx.setLineDash([]);
                             }
                             
-                            // Much more permissive criteria for counting eyeball movements
-                            // Allow some face movement and very small eyeball movements
-                            if (faceMovement < faceMovementThreshold * 2 && eyeballMovement > eyeballNoiseThreshold * 0.5) { // Double face threshold, halve eyeball threshold
-                                // Eyeball movement detected (independent of face)
+                            // Stricter criteria for counting MEANINGFUL eyeball movements
+                            // Only count significant eye movements independent of head movement
+                            if (faceMovement < faceMovementThreshold && eyeballMovement > eyeballNoiseThreshold * 2) {
+                                // Significant eyeball movement detected (independent of face)
                                 eyeballMovementCount++;
                                 eyeFixationCount = 0; // Reset fixation counter
                                 
@@ -1712,6 +1712,38 @@
                                 Threshold: ${eyeballNoiseThreshold.toFixed(2)}<br>
                                 FPS: ${frameRate}
                             `;
+                            
+                            // AUTO-FILL Assessment Form Fields (only update if not manually edited)
+                            // Auto-fill fixation duration every 2 seconds if significant fixation detected
+                            if (eyeFixationDuration > 2) {
+                                const fixationField = document.getElementById('fixationDuration');
+                                if (fixationField) {
+                                    const currentValue = parseInt(fixationField.value) || 0;
+                                    const autoValue = Math.round(eyeFixationDuration);
+                                    // Only update if field is empty or auto-value is higher
+                                    if (currentValue === 0 || autoValue > currentValue) {
+                                        fixationField.value = autoValue;
+                                    }
+                                }
+                            }
+                            
+                            // Auto-calculate pursuit count based on sustained high following scores
+                            if (isRunning && !isPaused) {
+                                const pursuitField = document.getElementById('pursuitCount');
+                                if (pursuitField) {
+                                    const timeElapsed = (Date.now() - startTime - pausedTime) / 1000;
+                                    
+                                    // Count successful pursuits: sustained following >70% for at least 3 seconds
+                                    // Each 5-second interval of good following = 1 successful pursuit (max 5)
+                                    if (followingScore > 0.7 && timeElapsed > 3) {
+                                        const estimatedPursuits = Math.min(5, Math.floor(timeElapsed / 5));
+                                        const currentPursuits = parseInt(pursuitField.value) || 0;
+                                        if (estimatedPursuits > currentPursuits) {
+                                            pursuitField.value = estimatedPursuits;
+                                        }
+                                    }
+                                }
+                            }
                         } else {
                             document.getElementById('detectionData').textContent = 'No face detected';
                         }
