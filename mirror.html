@@ -443,25 +443,39 @@
         <div class="observation-container">
             <h3>Assessment Checklist</h3>
             <div class="observation-section">
-                <h4>Mirror Fixation</h4>
-                <div class="observation-item">
-                    <label for="fixationDuration">Time looking at reflection (seconds):</label>
-                    <input type="number" id="fixationDuration" min="0" max="300" value="0">
+                <h4>📊 Automated Assessment Metrics</h4>
+                <div class="observation-item" style="background: #f0f8ff; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+                    <strong>Mirror Fixation (Auto-detected):</strong> <span id="autoFixationValue" style="font-size: 18px; font-weight: bold;">0s</span>
+                    <p style="margin: 5px 0 0 0; font-size: 12px; color: #666;">Sustained eye contact with reflection</p>
+                </div>
+                <div class="observation-item" style="background: #f0fff0; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+                    <strong>Pursuit Quality (Auto-detected):</strong> <span id="autoPursuitValue" style="font-size: 18px; font-weight: bold;">Not Started</span>
+                    <p style="margin: 5px 0 0 0; font-size: 12px; color: #666;">Light following accuracy</p>
+                </div>
+                <div class="observation-item" style="background: #fffaf0; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+                    <strong>Following Score (Auto-detected):</strong> <span id="autoFollowingValue" style="font-size: 18px; font-weight: bold;">0%</span>
+                    <p style="margin: 5px 0 0 0; font-size: 12px; color: #666;">Percentage of time tracking light stimulus</p>
                 </div>
             </div>
             
             <div class="observation-section">
-                <h4>Light Pursuit</h4>
+                <h4>✍️ Clinical Observations (Optional Override)</h4>
                 <div class="observation-item">
-                    <label for="pursuitCount">Successful pursuits (out of 5):</label>
+                    <label for="fixationDuration">Manual Fixation Time (seconds) - Leave 0 to use auto-detected:</label>
+                    <input type="number" id="fixationDuration" min="0" max="300" value="0" placeholder="Auto-filled">
+                    <small style="color: #666;">Override only if you observe differently than automated detection</small>
+                </div>
+                <div class="observation-item" style="margin-top: 10px;">
+                    <label for="pursuitCount">Manual Pursuit Count (0-5) - Leave 0 to use auto-detected quality:</label>
                     <select id="pursuitCount">
-                        <option value="0">0/5</option>
-                        <option value="1">1/5</option>
-                        <option value="2">2/5</option>
-                        <option value="3">3/5</option>
-                        <option value="4">4/5</option>
-                        <option value="5">5/5</option>
+                        <option value="0">Use Auto-detected</option>
+                        <option value="1">1/5 - Very Poor</option>
+                        <option value="2">2/5 - Poor</option>
+                        <option value="3">3/5 - Fair</option>
+                        <option value="4">4/5 - Good</option>
+                        <option value="5">5/5 - Excellent</option>
                     </select>
+                    <small style="color: #666;">Override only if automated quality doesn't match observed behavior</small>
                 </div>
             </div>
             <div class="observation-item">
@@ -985,9 +999,24 @@
             
             try {
                 // Get observation data
-                const fixationDuration = document.getElementById('fixationDuration').value;
-                const pursuitCount = document.getElementById('pursuitCount').value;
+                const manualFixationDuration = parseInt(document.getElementById('fixationDuration').value) || 0;
+                const manualPursuitCount = parseInt(document.getElementById('pursuitCount').value) || 0;
                 const notes = document.getElementById('notes').value;
+                
+                // Use manual values if provided (non-zero), otherwise use auto-detected
+                const finalFixationDuration = manualFixationDuration > 0 ? manualFixationDuration : Math.round(eyeFixationDuration);
+                
+                // Convert pursuit quality to count if not manually overridden
+                let finalPursuitCount = manualPursuitCount;
+                if (manualPursuitCount === 0 && enableEyeTracking) {
+                    // Auto-convert quality score to count
+                    if (followingScore > 0.8) finalPursuitCount = 5;
+                    else if (followingScore > 0.7) finalPursuitCount = 4;
+                    else if (followingScore > 0.5) finalPursuitCount = 3;
+                    else if (followingScore > 0.3) finalPursuitCount = 2;
+                    else if (followingScore > 0.15) finalPursuitCount = 1;
+                    else finalPursuitCount = 0;
+                }
                 
                 // Prepare data object as a flat structure without nested objects
                 const timestamp = Date.now();
@@ -998,11 +1027,13 @@
                     firstTapTime: firstTapTime || 0,
                     pattern,
                     speed,
-                    // Mirror fixation data
-                    fixationDuration: parseInt(fixationDuration) || 0,
-                    // Pursuit test data
-                    pursuitCount: parseInt(pursuitCount) || 0,
-                    pursuitSuccessRate: (parseInt(pursuitCount) / 5) * 100 || 0,
+                    // Mirror fixation data (auto or manual)
+                    fixationDuration: finalFixationDuration,
+                    fixationDurationSource: manualFixationDuration > 0 ? 'manual' : 'auto',
+                    // Pursuit test data (auto or manual)
+                    pursuitCount: finalPursuitCount,
+                    pursuitCountSource: manualPursuitCount > 0 ? 'manual' : 'auto',
+                    pursuitSuccessRate: (finalPursuitCount / 5) * 100,
                     notes: notes,
                     // Eye tracking data if enabled
                     eyeTrackingEnabled: enableEyeTracking,
@@ -1426,11 +1457,19 @@
                                 y: rightIris.y - rightEyeCenter.y
                             };
                             
-                            // Check if eyes are closed - more permissive criterion
+                            // Proper eye closure detection using Eye Aspect Ratio (EAR)
+                            // EAR = (vertical_1 + vertical_2) / (2 * horizontal)
+                            // When eyes closed, vertical distances approach 0, EAR drops below ~0.2
+                            const leftEAR = calculateEyeAspectRatio(leftEye);
+                            const rightEAR = calculateEyeAspectRatio(rightEye);
+                            const avgEAR = (leftEAR + rightEAR) / 2;
+                            
+                            // Eyes considered open if EAR > 0.21 (calibrated threshold)
+                            const eyesOpen = avgEAR > 0.21;
+                            
+                            // Calculate eyeball vector magnitudes for movement detection
                             const leftMagnitude = Math.sqrt(leftEyeballVector.x * leftEyeballVector.x + leftEyeballVector.y * leftEyeballVector.y);
                             const rightMagnitude = Math.sqrt(rightEyeballVector.x * rightEyeballVector.x + rightEyeballVector.y * rightEyeballVector.y);
-                            // Almost always consider eyes open unless truly tiny vectors
-                            const eyesOpen = leftMagnitude > 0.02 || rightMagnitude > 0.02;
                             
                             // Average eyeball vector - only consider if eyes are open
                             const rawAvgEyeballVector = {
@@ -1506,8 +1545,8 @@
                                 y: (leftEyeCenter.y + rightEyeCenter.y) / 2
                             };
                             
-                            // Check for overall face movement
-                            const faceMovementThreshold = 5; // pixels
+                            // Check for overall face movement with balanced threshold
+                            const faceMovementThreshold = 10; // pixels - increased for less sensitivity
                             const faceMovement = Math.sqrt(
                                 Math.pow(currentFacePosition.x - lastFacePosition.x, 2) + 
                                 Math.pow(currentFacePosition.y - lastFacePosition.y, 2)
@@ -1643,10 +1682,10 @@
                                 ctx.setLineDash([]);
                             }
                             
-                            // Stricter criteria for counting MEANINGFUL eyeball movements
-                            // Only count significant eye movements independent of head movement
-                            if (faceMovement < faceMovementThreshold && eyeballMovement > eyeballNoiseThreshold * 2) {
-                                // Significant eyeball movement detected (independent of face)
+                            // Balanced criteria for counting eyeball movements
+                            // Count movements that are clearly intentional eye movements, not noise
+                            if (eyesOpen && faceMovement < faceMovementThreshold && eyeballMovement > eyeballNoiseThreshold * 1.5) {
+                                // Eyeball movement detected (eyes must be open, minimal head movement)
                                 eyeballMovementCount++;
                                 eyeFixationCount = 0; // Reset fixation counter
                                 
@@ -1702,47 +1741,49 @@
                             lastEyeballVector = { ...avgEyeballVector };
                             lastFacePosition = { ...currentFacePosition };
                             
-                            // Enhanced detection data display with calibration info
+                            // Enhanced detection data display with clinical metrics
                             document.getElementById('detectionData').innerHTML = `
+                                <b>Eye Status:</b> ${eyesOpen ? '<span style="color:green">Open</span>' : '<span style="color:red">Closed</span>'} (EAR: ${avgEAR.toFixed(2)})<br>
+                                <b>Eyeball movements:</b> ${eyeballMovementCount}<br>
+                                <b>Following light:</b> ${isFollowingLight ? '<span style="color:green">Yes</span>' : 'No'} (${(followingScore * 100).toFixed(0)}%)<br>
+                                <b>Sustained fixation:</b> ${eyeFixationDuration.toFixed(1)}s<br>
                                 Face movements: ${eyeMovementCount}<br>
-                                <b>Eyeball movements: ${eyeballMovementCount}</b><br>
-                                Following light: ${isFollowingLight ? '<span style="color:green">Yes</span>' : 'No'} (${(followingScore * 100).toFixed(0)}%)<br>
-                                Fixation: ${eyeFixationDuration.toFixed(1)}s<br>
-                                ${eyesOpen ? '<span style="color:green">Eyes open</span>' : '<span style="color:red">Eyes closed</span>'}<br>
-                                Threshold: ${eyeballNoiseThreshold.toFixed(2)}<br>
-                                FPS: ${frameRate}
+                                Detection: Thr=${eyeballNoiseThreshold.toFixed(2)}, FPS=${frameRate}
                             `;
                             
-                            // AUTO-FILL Assessment Form Fields (only update if not manually edited)
-                            // Auto-fill fixation duration every 2 seconds if significant fixation detected
-                            if (eyeFixationDuration > 2) {
-                                const fixationField = document.getElementById('fixationDuration');
-                                if (fixationField) {
-                                    const currentValue = parseInt(fixationField.value) || 0;
-                                    const autoValue = Math.round(eyeFixationDuration);
-                                    // Only update if field is empty or auto-value is higher
-                                    if (currentValue === 0 || autoValue > currentValue) {
-                                        fixationField.value = autoValue;
-                                    }
-                                }
+                            // UPDATE CLINICAL ASSESSMENT DISPLAYS
+                            // Update auto-detected values in real-time (read-only displays)
+                            const autoFixationDisplay = document.getElementById('autoFixationValue');
+                            const autoPursuitDisplay = document.getElementById('autoPursuitValue');
+                            const autoFollowingDisplay = document.getElementById('autoFollowingValue');
+                            
+                            if (autoFixationDisplay) {
+                                autoFixationDisplay.textContent = `${eyeFixationDuration.toFixed(1)}s`;
+                                autoFixationDisplay.style.color = eyeFixationDuration > 3 ? 'green' : 'orange';
                             }
                             
-                            // Auto-calculate pursuit count based on sustained high following scores
-                            if (isRunning && !isPaused) {
-                                const pursuitField = document.getElementById('pursuitCount');
-                                if (pursuitField) {
-                                    const timeElapsed = (Date.now() - startTime - pausedTime) / 1000;
-                                    
-                                    // Count successful pursuits: sustained following >70% for at least 3 seconds
-                                    // Each 5-second interval of good following = 1 successful pursuit (max 5)
-                                    if (followingScore > 0.7 && timeElapsed > 3) {
-                                        const estimatedPursuits = Math.min(5, Math.floor(timeElapsed / 5));
-                                        const currentPursuits = parseInt(pursuitField.value) || 0;
-                                        if (estimatedPursuits > currentPursuits) {
-                                            pursuitField.value = estimatedPursuits;
-                                        }
-                                    }
+                            if (autoPursuitDisplay && isRunning && !isPaused) {
+                                const timeElapsed = (Date.now() - startTime - pausedTime) / 1000;
+                                // Calculate pursuit quality score
+                                let pursuitQuality = 'Poor';
+                                let pursuitColor = 'red';
+                                if (followingScore > 0.7 && timeElapsed > 5) {
+                                    pursuitQuality = 'Excellent';
+                                    pursuitColor = 'green';
+                                } else if (followingScore > 0.5 && timeElapsed > 3) {
+                                    pursuitQuality = 'Good';
+                                    pursuitColor = 'orange';
+                                } else if (followingScore > 0.3) {
+                                    pursuitQuality = 'Fair';
+                                    pursuitColor = 'darkorange';
                                 }
+                                autoPursuitDisplay.textContent = pursuitQuality;
+                                autoPursuitDisplay.style.color = pursuitColor;
+                            }
+                            
+                            if (autoFollowingDisplay) {
+                                autoFollowingDisplay.textContent = `${(followingScore * 100).toFixed(0)}%`;
+                                autoFollowingDisplay.style.color = followingScore > 0.6 ? 'green' : (followingScore > 0.3 ? 'orange' : 'red');
                             }
                         } else {
                             document.getElementById('detectionData').textContent = 'No face detected';
@@ -1766,6 +1807,37 @@
             const canvas = document.getElementById('overlay');
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+        
+        // Calculate Eye Aspect Ratio (EAR) for blink/closure detection
+        // EAR = (||p2-p6|| + ||p3-p5||) / (2 * ||p1-p4||)
+        // Where p1-p6 are the 6 eye landmark points
+        // EAR ≈ 0.3 when eyes open, < 0.2 when eyes closed
+        function calculateEyeAspectRatio(eyePoints) {
+            // Eye landmarks are in order: outer corner, top-outer, top-inner, inner corner, bottom-inner, bottom-outer
+            // For face-api.js: points 0-5 represent the eye contour
+            if (eyePoints.length < 6) return 0.3; // Default to "eyes open" if insufficient points
+            
+            // Calculate vertical distances
+            const vertical1 = Math.sqrt(
+                Math.pow(eyePoints[1].x - eyePoints[5].x, 2) + 
+                Math.pow(eyePoints[1].y - eyePoints[5].y, 2)
+            );
+            const vertical2 = Math.sqrt(
+                Math.pow(eyePoints[2].x - eyePoints[4].x, 2) + 
+                Math.pow(eyePoints[2].y - eyePoints[4].y, 2)
+            );
+            
+            // Calculate horizontal distance (eye width)
+            const horizontal = Math.sqrt(
+                Math.pow(eyePoints[0].x - eyePoints[3].x, 2) + 
+                Math.pow(eyePoints[0].y - eyePoints[3].y, 2)
+            );
+            
+            // Calculate EAR
+            const ear = (vertical1 + vertical2) / (2.0 * horizontal);
+            
+            return ear;
         }
         
         // Calculate eye center from landmarks
