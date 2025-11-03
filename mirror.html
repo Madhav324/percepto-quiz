@@ -536,7 +536,6 @@
         
         let lastFacePosition = { x: 0, y: 0 };
         let eyeMovementCount = 0;
-        let eyeballMovementCount = 0;
         let eyeFixationCount = 0;
         let eyeFixationDuration = 0;
         let lastDetectionTime = 0;
@@ -1050,14 +1049,12 @@
                 const pursuitScore = Math.min(100, followingScore * 100);
                 const fixationScore = Math.min(100, (eyeFixationDuration / 10) * 100); // 10s = perfect
                 const responseScore = Math.max(0, 100 - (firstTapTime * 10)); // Lower is better
-                const stabilityScore = Math.max(0, 100 - (eyeballMovementCount / 2)); // Fewer movements = better stability
                 
-                // Weighted composite score
+                // Weighted composite score (3 components)
                 const totalScore = Math.round(
-                    (pursuitScore * 0.4) +      // 40% pursuit ability
-                    (fixationScore * 0.3) +      // 30% fixation ability
-                    (responseScore * 0.15) +     // 15% response time
-                    (stabilityScore * 0.15)      // 15% eye stability
+                    (pursuitScore * 0.50) +      // 50% pursuit ability
+                    (fixationScore * 0.35) +     // 35% fixation ability
+                    (responseScore * 0.15)       // 15% response time
                 );
                 
                 // Quality ratings
@@ -1074,9 +1071,6 @@
                 
                 if (firstTapTime > 5) riskFactors += 2;             // Slow response
                 else if (firstTapTime > 3) riskFactors += 1;         // Delayed response
-                
-                if (eyeballMovementCount > 100) riskFactors += 2;   // Excessive movements
-                else if (eyeballMovementCount > 50) riskFactors += 1; // High movements
                 
                 if (assessmentDuration > 60 && followingScore < 0.6) riskFactors += 1; // Extended time with poor performance
                 
@@ -1117,7 +1111,6 @@
                     pursuitScore: Math.round(pursuitScore),
                     fixationScore: Math.round(fixationScore),
                     responseScore: Math.round(responseScore),
-                    stabilityScore: Math.round(stabilityScore),
                     
                     // Quality Ratings
                     pursuitQuality,
@@ -1126,10 +1119,8 @@
                     // Detailed Eye Tracking Metrics
                     eyeTrackingEnabled: enableEyeTracking,
                     faceMovementCount: eyeMovementCount || 0,
-                    eyeballMovementCount: eyeballMovementCount || 0,
                     eyeFixationDuration: eyeFixationDuration || 0,
                     followingLightScore: followingScore || 0,
-                    eyeMovements: eyeMovementData ? eyeMovementData.length : 0,
                     
                     // Clinical Notes
                     notes: notes || ''
@@ -1192,7 +1183,6 @@
                 // Reset eye tracking data
                 eyeMovementData = [];
                 eyeMovementCount = 0;
-                eyeballMovementCount = 0;
                 eyeballVectorHistory = [];
                 eyeFixationCount = 0;
                 eyeFixationDuration = 0;
@@ -1335,10 +1325,6 @@
                             <div class="detail-row">
                                 <span class="detail-label">Response Time:</span>
                                 <span>${assessment.responseScore || 0}/100</span>
-                            </div>
-                            <div class="detail-row">
-                                <span class="detail-label">Eye Stability:</span>
-                                <span>${assessment.stabilityScore || 0}/100</span>
                             </div>`;
                         }
                         
@@ -1373,15 +1359,10 @@
                             detailRows += `
                             <div class="detail-row detail-section-header">
                                 <span>👁️ Eye Tracking Metrics</span>
-                            </div>`;
-                            detailRows += `
+                            </div>
                             <div class="detail-row">
                                 <span class="detail-label">Face Movements:</span>
                                 <span>${assessment.faceMovementCount || 0}</span>
-                            </div>
-                            <div class="detail-row highlight-row">
-                                <span class="detail-label">Eyeball Movements:</span>
-                                <span>${assessment.eyeballMovementCount || 0}</span>
                             </div>`;
                             
                             // Add following light score
@@ -1558,7 +1539,6 @@
             eyeballVectorHistory = [];
             lastFacePosition = { x: 0, y: 0 };
             eyeMovementCount = 0;
-            eyeballMovementCount = 0;
             eyeFixationCount = 0;
             eyeFixationDuration = 0;
             lastDetectionTime = Date.now();
@@ -1722,15 +1702,11 @@
                                 }
                             }
                             
-                            // Calculate eyeball movement using RAW vector (not smoothed)
-                            // Smoothing dampens frame-to-frame changes too much for detection
-                            const rawEyeballMovement = Math.sqrt(
-                                Math.pow(rawAvgEyeballVector.x - lastEyeballVector.x, 2) + 
-                                Math.pow(rawAvgEyeballVector.y - lastEyeballVector.y, 2)
+                            // Calculate eyeball movement with dynamically calibrated threshold
+                            const eyeballMovement = Math.sqrt(
+                                Math.pow(avgEyeballVector.x - lastEyeballVector.x, 2) + 
+                                Math.pow(avgEyeballVector.y - lastEyeballVector.y, 2)
                             );
-                            
-                            // Also calculate smoothed movement for comparison
-                            const eyeballMovement = rawEyeballMovement;
                             
                             // Get light stimulus position with improved accuracy
                             const lightStimulus = document.getElementById('lightStimulus');
@@ -1841,53 +1817,15 @@
                                 ctx.setLineDash([]);
                             }
                             
-                            // Simplified criteria for counting eyeball movements
-                            // Count movements when face is relatively stable and eye vector changes
-                            // Use 1.2x threshold for maximum sensitivity while filtering noise
+                            // Track fixation (eyes stable)
                             const detectionThreshold = eyeballNoiseThreshold * 1.2;
                             
-                            // Debug logging every 30 frames (about every 1.5 seconds)
-                            if (detectionFrameCount % 30 === 0) {
-                                console.log('Detection:', {
-                                    faceMovement: faceMovement.toFixed(2),
-                                    faceThr: faceMovementThreshold,
-                                    rawMovement: rawEyeballMovement.toFixed(3),
-                                    eyeballMovement: eyeballMovement.toFixed(3),
-                                    detectionThr: detectionThreshold.toFixed(3),
-                                    historySize: eyeballVectorHistory.length,
-                                    vectorMag: Math.sqrt(rawAvgEyeballVector.x**2 + rawAvgEyeballVector.y**2).toFixed(3),
-                                    count: eyeballMovementCount
-                                });
-                            }
-                            
-                            if (faceMovement < faceMovementThreshold && eyeballMovement > detectionThreshold) {
-                                // Significant eyeball movement detected (independent of face)
-                                eyeballMovementCount++;
-                                eyeFixationCount = 0; // Reset fixation counter
-                                
-                                // Draw eyeball movement path if visual tracking is enabled
-                                if (showTrackingVisuals && lastEyeballVector.x !== 0) {
-                                    ctx.strokeStyle = '#ff0000';
-                                    ctx.lineWidth = 2;
-                                    ctx.beginPath();
-                                    ctx.moveTo(avgEyePos.x, avgEyePos.y);
-                                    ctx.lineTo(avgEyePos.x + avgEyeballVector.x * 5, avgEyePos.y + avgEyeballVector.y * 5);
-                                    ctx.stroke();
-                                }
-                                
-                                // Record eyeball movement data
-                                eyeMovementData.push({
-                                    timestamp: Date.now(),
-                                    position: { ...avgEyePos },
-                                    eyeballVector: { ...avgEyeballVector },
-                                    isMovement: true,
-                                    followingLight: isFollowingLight
-                                });
-                            } else if (faceMovement >= faceMovementThreshold) {
-                                // Face movement detected, but not counting as eyeball movement
+                            if (faceMovement >= faceMovementThreshold) {
+                                // Face movement detected
                                 eyeMovementCount++;
-                            } else {
-                                // Eye fixation detected
+                                eyeFixationCount = 0;
+                            } else if (eyeballMovement < detectionThreshold) {
+                                // Eye fixation detected (stable gaze)
                                 eyeFixationCount++;
                                 if (eyeFixationCount >= 5) { // About 0.25 seconds at 20fps
                                     eyeFixationDuration += 1/frameRate;
@@ -1901,29 +1839,22 @@
                                     }
                                     
                                     // Record eye fixation data
-                                    eyeMovementData.push({
-                                        timestamp: Date.now(),
-                                        position: { ...avgEyePos },
-                                        eyeballVector: { ...avgEyeballVector },
-                                        isMovement: false,
-                                        fixationDuration: eyeFixationDuration,
-                                        followingLight: isFollowingLight
-                                    });
                                 }
+                            } else {
+                                // Eye movement but not tracking (between fixation and face movement)
+                                eyeFixationCount = 0;
                             }
                             
-                            // Update last positions - use RAW vector for next comparison
+                            // Update last positions
                             lastEyePosition = { ...avgEyePos };
-                            lastEyeballVector = { ...rawAvgEyeballVector };  // Use raw, not smoothed!
+                            lastEyeballVector = { ...avgEyeballVector };
                             lastFacePosition = { ...currentFacePosition };
                             
                             // Enhanced detection data display
                             document.getElementById('detectionData').innerHTML = `
                                 Face movements: ${eyeMovementCount}<br>
-                                <b>Eyeball movements: ${eyeballMovementCount}</b><br>
                                 Following light: ${isFollowingLight ? '<span style="color:green">Yes</span>' : 'No'} (${(followingScore * 100).toFixed(0)}%)<br>
                                 Fixation: ${eyeFixationDuration.toFixed(1)}s<br>
-                                Movement threshold: ${eyeballNoiseThreshold.toFixed(2)}<br>
                                 FPS: ${frameRate}
                             `;
                             
