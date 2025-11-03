@@ -260,7 +260,7 @@
             margin-top: 40px;
             width: 100%;
             max-width: 600px;
-            display: none;
+            display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
@@ -403,6 +403,9 @@
                 <select id="pattern">
                     <option value="horizontal">Horizontal Line (Left to Right)</option>
                     <option value="vertical">Vertical Line (Up and Down)</option>
+                    <option value="diagonal">Diagonal Line (Corner to Corner)</option>
+                    <option value="circular">Circular Path (Clockwise)</option>
+                    <option value="random">Random Movement</option>
                 </select>
             </div>
             
@@ -870,13 +873,23 @@
             const maxX = containerWidth - stimulusWidth;
             const maxY = containerHeight - stimulusHeight;
             
-            // Start from the left-center or top-center depending on pattern
+            // Start from appropriate position depending on pattern
             if (pattern === 'horizontal') {
                 xPos = 0;
                 yPos = maxY / 2;
             } else if (pattern === 'vertical') {
                 xPos = maxX / 2;
                 yPos = 0;
+            } else if (pattern === 'diagonal') {
+                xPos = 0;
+                yPos = 0;
+            } else if (pattern === 'circular') {
+                xPos = maxX / 2;
+                yPos = 0;
+                angle = 0; // Reset angle for circular motion
+            } else if (pattern === 'random') {
+                xPos = Math.random() * maxX;
+                yPos = Math.random() * maxY;
             }
             
             // Reset direction
@@ -909,7 +922,7 @@
             // Calculate speed factor (1-10 scale) - optimized for smoother movement
             const speedFactor = speed * 0.5;
             
-            // Two pursuit patterns: horizontal and vertical
+            // Multiple pursuit patterns for comprehensive CVI assessment
             switch(pattern) {
                 case 'horizontal':
                     // Horizontal movement (left to right)
@@ -951,6 +964,76 @@
                         // Keep horizontal position centered
                         xPos = maxX / 2;
                     }
+                    break;
+                    
+                case 'diagonal':
+                    // Diagonal movement (corner to corner)
+                    if (!isReversed) {
+                        xPos += speedFactor;
+                        yPos += speedFactor;
+                        if (xPos > maxX || yPos > maxY) {
+                            xPos = Math.min(xPos, maxX);
+                            yPos = Math.min(yPos, maxY);
+                            isReversed = true;
+                        }
+                    } else {
+                        xPos -= speedFactor;
+                        yPos -= speedFactor;
+                        if (xPos < 0 || yPos < 0) {
+                            xPos = Math.max(xPos, 0);
+                            yPos = Math.max(yPos, 0);
+                            isReversed = false;
+                        }
+                    }
+                    break;
+                    
+                case 'circular':
+                    // Circular movement (smooth orbit)
+                    const radius = Math.min(maxX, maxY) / 2;
+                    const centerX = maxX / 2;
+                    const centerY = maxY / 2;
+                    
+                    // Increment angle based on speed
+                    angle += speedFactor * 0.02;
+                    
+                    // Calculate position on circle
+                    xPos = centerX + radius * Math.cos(angle);
+                    yPos = centerY + radius * Math.sin(angle);
+                    
+                    // Keep within bounds
+                    xPos = Math.max(0, Math.min(xPos, maxX));
+                    yPos = Math.max(0, Math.min(yPos, maxY));
+                    break;
+                    
+                case 'random':
+                    // Random movement (unpredictable pattern)
+                    // Change direction randomly every 30-60 frames
+                    if (!window.randomFrameCount) window.randomFrameCount = 0;
+                    if (!window.randomTargetX) window.randomTargetX = xPos;
+                    if (!window.randomTargetY) window.randomTargetY = yPos;
+                    
+                    window.randomFrameCount++;
+                    
+                    // Pick new random target every 45 frames on average
+                    if (window.randomFrameCount > 30 + Math.random() * 30) {
+                        window.randomTargetX = Math.random() * maxX;
+                        window.randomTargetY = Math.random() * maxY;
+                        window.randomFrameCount = 0;
+                    }
+                    
+                    // Move towards target
+                    const dx = window.randomTargetX - xPos;
+                    const dy = window.randomTargetY - yPos;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance > 1) {
+                        xPos += (dx / distance) * speedFactor;
+                        yPos += (dy / distance) * speedFactor;
+                    }
+                    
+                    // Keep within bounds
+                    xPos = Math.max(0, Math.min(xPos, maxX));
+                    yPos = Math.max(0, Math.min(yPos, maxY));
                     break;
             }
             
@@ -1059,7 +1142,13 @@
                 pauseStartTime = 0;
                 xPos = 0;
                 yPos = 0;
+                angle = 0;
                 isReversed = false;
+                
+                // Reset random movement variables
+                if (window.randomFrameCount) delete window.randomFrameCount;
+                if (window.randomTargetX) delete window.randomTargetX;
+                if (window.randomTargetY) delete window.randomTargetY;
                 
                 // Reset button states
                 updateButtonStates();
