@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CVI Fixation Mirror Assessment</title>
+    <title>CVI Pursuit & Fixation Screening</title>
     <!-- face-api.js for eye tracking -->
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <style>
@@ -383,7 +383,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>CVI Fixation Mirror Assessment</h1>
+            <h1>CVI Pursuit & Fixation Screening</h1>
             <div class="profile-icon" id="profileIcon" title="Back to Home" onclick="window.location.href='index.html'"></div>
         </div>
         
@@ -444,35 +444,13 @@
         </div>
         
         <div class="observation-container">
-            <h3>Assessment Checklist</h3>
-            <div class="observation-section">
-                <h4>Mirror Fixation</h4>
-                <div class="observation-item">
-                    <label for="fixationDuration">Time looking at reflection (seconds):</label>
-                    <input type="number" id="fixationDuration" min="0" max="300" value="0">
-                </div>
-            </div>
-            
-            <div class="observation-section">
-                <h4>Light Pursuit</h4>
-                <div class="observation-item">
-                    <label for="pursuitCount">Successful pursuits (out of 5):</label>
-                    <select id="pursuitCount">
-                        <option value="0">0/5</option>
-                        <option value="1">1/5</option>
-                        <option value="2">2/5</option>
-                        <option value="3">3/5</option>
-                        <option value="4">4/5</option>
-                        <option value="5">5/5</option>
-                    </select>
-                </div>
-            </div>
+            <h3>Screening Notes (Optional)</h3>
             <div class="observation-item">
-                <label for="notes">Notes:</label>
-                <textarea id="notes" rows="3" style="width: 100%;"></textarea>
+                <label for="notes">Clinical Observations:</label>
+                <textarea id="notes" rows="4" placeholder="Enter any behavioral observations, environmental factors, or clinical notes..." style="width: 100%;"></textarea>
             </div>
             <div class="button-group">
-                <button id="saveBtn">Save Observations</button>
+                <button id="saveBtn">Save Screening Results</button>
             </div>
         </div>
         
@@ -769,8 +747,6 @@
         });
         
         // Track first tap on observation form inputs
-        document.getElementById('fixationDuration').addEventListener('input', recordFirstTap);
-        document.getElementById('pursuitCount').addEventListener('change', recordFirstTap);
         document.getElementById('notes').addEventListener('input', recordFirstTap);
         
         // Record first tap time
@@ -1067,12 +1043,10 @@
             }
             
             try {
-                // Get observation data
-                const fixationDuration = document.getElementById('fixationDuration').value;
-                const pursuitCount = document.getElementById('pursuitCount').value;
+                // Get clinical notes
                 const notes = document.getElementById('notes').value;
                 
-                // Prepare data object as a flat structure without nested objects
+                // Prepare screening data object - automated measurements only
                 const timestamp = Date.now();
                 const assessmentData = {
                     timestamp,
@@ -1081,20 +1055,18 @@
                     firstTapTime: firstTapTime || 0,
                     pattern,
                     speed,
-                    // Mirror fixation data
-                    fixationDuration: parseInt(fixationDuration) || 0,
-                    // Pursuit test data
-                    pursuitCount: parseInt(pursuitCount) || 0,
-                    pursuitSuccessRate: (parseInt(pursuitCount) / 5) * 100 || 0,
-                    notes: notes,
-                    // Eye tracking data if enabled
+                    notes: notes || '',
+                    // Automated eye tracking data (objective measurements)
                     eyeTrackingEnabled: enableEyeTracking,
                     faceMovementCount: eyeMovementCount || 0,
                     eyeballMovementCount: eyeballMovementCount || 0,
                     eyeFixationDuration: eyeFixationDuration || 0,
                     followingLightScore: followingScore || 0,
-                    // Store simplified movement data
-                    eyeMovements: eyeMovementData ? eyeMovementData.length : 0
+                    // Store movement data count
+                    eyeMovements: eyeMovementData ? eyeMovementData.length : 0,
+                    // Calculated screening metrics
+                    pursuitQuality: followingScore > 0.7 ? 'Good' : followingScore > 0.5 ? 'Fair' : 'Poor',
+                    fixationQuality: eyeFixationDuration > 5 ? 'Good' : eyeFixationDuration > 2 ? 'Fair' : 'Poor'
                 }; 
                 
                 // Determine the correct path based on user role
@@ -1126,11 +1098,9 @@
                 console.log(`Saving assessment results to path: ${path}`);
                 await database.ref(path).set(assessmentData);
                 
-                alert('Assessment results saved successfully!');
+                alert('Screening results saved successfully!');
                 
-                // Reset form - using actual form element IDs
-                document.getElementById('fixationDuration').value = 0;
-                document.getElementById('pursuitCount').value = '0';
+                // Reset form
                 document.getElementById('notes').value = '';
                 
                 // Reset variables
@@ -1267,28 +1237,14 @@
                                 <span>${assessment.speed || 0}/10</span>
                             </div>`;
                         
-                        // Mirror fixation data
+                        // Screening results header
                         detailRows += `
                             <div class="detail-row detail-section-header">
-                                <span>Mirror Fixation Assessment</span>
-                            </div>
-                            <div class="detail-row">
-                                <span class="detail-label">Time Looking at Reflection:</span>
-                                <span>${assessment.fixationDuration || 0} seconds</span>
-                            </div>`;
-                            
-                        // Pursuit test data
-                        detailRows += `
-                            <div class="detail-row detail-section-header">
-                                <span>Light Pursuit Assessment</span>
+                                <span>Automated Screening Results</span>
                             </div>
                             <div class="detail-row">
                                 <span class="detail-label">Pattern Used:</span>
                                 <span>${assessment.pattern || 'horizontal'}</span>
-                            </div>
-                            <div class="detail-row">
-                                <span class="detail-label">Successful Pursuits:</span>
-                                <span>${assessment.pursuitCount || 0}/5 (${assessment.pursuitSuccessRate || 0}%)</span>
                             </div>`;
                         
                         // Eye tracking data
@@ -1324,13 +1280,44 @@
                                     <span>${eyeFixDuration.toFixed(1)}s</span>
                                 </div>`;
                             }
+                            
+                            // Add screening quality metrics
+                            detailRows += `
+                            <div class="detail-row detail-section-header">
+                                <span>Screening Quality Assessment</span>
+                            </div>`;
+                            
+                            const pursuitQuality = assessment.pursuitQuality || 
+                                (assessment.followingLightScore > 0.7 ? 'Good' : 
+                                 assessment.followingLightScore > 0.5 ? 'Fair' : 'Poor');
+                            const fixationQuality = assessment.fixationQuality || 
+                                (eyeFixDuration > 5 ? 'Good' : 
+                                 eyeFixDuration > 2 ? 'Fair' : 'Poor');
+                            
+                            const pursuitColor = pursuitQuality === 'Good' ? 'green' : 
+                                               pursuitQuality === 'Fair' ? 'orange' : 'red';
+                            const fixationColor = fixationQuality === 'Good' ? 'green' : 
+                                                fixationQuality === 'Fair' ? 'orange' : 'red';
+                            
+                            detailRows += `
+                            <div class="detail-row highlight-row">
+                                <span class="detail-label">Pursuit Quality:</span>
+                                <span style="color:${pursuitColor}; font-weight:bold">${pursuitQuality}</span>
+                            </div>
+                            <div class="detail-row highlight-row">
+                                <span class="detail-label">Fixation Quality:</span>
+                                <span style="color:${fixationColor}; font-weight:bold">${fixationQuality}</span>
+                            </div>`;
                         }
                         
                         // Add notes if they exist
-                        if (assessment.notes) {
+                        if (assessment.notes && assessment.notes.trim()) {
                             detailRows += `
+                            <div class="detail-row detail-section-header">
+                                <span>Clinical Notes</span>
+                            </div>
                             <div class="detail-row">
-                                <span class="detail-label">Notes:</span>
+                                <span class="detail-label">Observations:</span>
                                 <span>${assessment.notes}</span>
                             </div>`;
                         }
@@ -1802,37 +1789,8 @@
                                 FPS: ${frameRate}
                             `;
                             
-                            // AUTO-FILL Assessment Form Fields (only update if not manually edited)
-                            // Auto-fill fixation duration every 2 seconds if significant fixation detected
-                            if (eyeFixationDuration > 2) {
-                                const fixationField = document.getElementById('fixationDuration');
-                                if (fixationField) {
-                                    const currentValue = parseInt(fixationField.value) || 0;
-                                    const autoValue = Math.round(eyeFixationDuration);
-                                    // Only update if field is empty or auto-value is higher
-                                    if (currentValue === 0 || autoValue > currentValue) {
-                                        fixationField.value = autoValue;
-                                    }
-                                }
-                            }
-                            
-                            // Auto-calculate pursuit count based on sustained high following scores
-                            if (isRunning && !isPaused) {
-                                const pursuitField = document.getElementById('pursuitCount');
-                                if (pursuitField) {
-                                    const timeElapsed = (Date.now() - startTime - pausedTime) / 1000;
-                                    
-                                    // Count successful pursuits: sustained following >70% for at least 3 seconds
-                                    // Each 5-second interval of good following = 1 successful pursuit (max 5)
-                                    if (followingScore > 0.7 && timeElapsed > 3) {
-                                        const estimatedPursuits = Math.min(5, Math.floor(timeElapsed / 5));
-                                        const currentPursuits = parseInt(pursuitField.value) || 0;
-                                        if (estimatedPursuits > currentPursuits) {
-                                            pursuitField.value = estimatedPursuits;
-                                        }
-                                    }
-                                }
-                            }
+                            // Automated screening - no manual input needed
+                            // All metrics are automatically calculated and stored
                         } else {
                             document.getElementById('detectionData').textContent = 'No face detected';
                         }
