@@ -441,33 +441,32 @@
         </div>
         
         <div class="observation-container">
-            <h3>Assessment Results</h3>
-            
-            <!-- Warning Banner -->
-            <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 10px; border-radius: 5px; margin-bottom: 15px; font-size: 12px;">
-                <strong>⚠️ Important:</strong> These are <strong>estimated metrics</strong> based on camera-based face detection.
-                Results vary with lighting, distance, and camera quality. For clinical assessment, use in conjunction with professional observation.
-            </div>
+            <h3>Assessment Metrics</h3>
             
             <div class="observation-section">
-                <h4>Automated Metrics (Experimental)</h4>
-                <div style="padding: 15px; background: #f9f9f9; border-radius: 5px; margin-bottom: 15px;">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-                        <div>
-                            <small style="color: #666;">Estimated Stable Gaze</small><br>
-                            <strong id="autoFixationValue" style="font-size: 20px; color: #2196F3;">0.0s</strong><br>
-                            <small id="fixationConfidence" style="color: #999;">Confidence: --</small>
+                <div style="padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; margin-bottom: 15px; color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                        <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 6px; backdrop-filter: blur(10px);">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                <small style="font-size: 11px; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px;">Fixation Duration</small>
+                            </div>
+                            <strong id="autoFixationValue" style="font-size: 28px; font-weight: 600; display: block;">--</strong>
+                            <small id="fixationConfidence" style="font-size: 10px; opacity: 0.7;">Ready to start</small>
                         </div>
-                        <div>
-                            <small style="color: #666;">Gaze Redirections</small><br>
-                            <strong id="autoMovementValue" style="font-size: 20px; color: #2196F3;">0</strong><br>
-                            <small id="movementConfidence" style="color: #999;">Confidence: --</small>
+                        <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 6px; backdrop-filter: blur(10px);">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                <small style="font-size: 11px; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px;">Gaze Movements</small>
+                            </div>
+                            <strong id="autoMovementValue" style="font-size: 28px; font-weight: 600; display: block;">--</strong>
+                            <small id="movementConfidence" style="font-size: 10px; opacity: 0.7;">Ready to start</small>
                         </div>
                     </div>
-                    <div style="margin-top: 10px;">
-                        <small style="color: #666;">Estimated Pursuit</small><br>
-                        <strong id="autoPursuitValue" style="font-size: 20px; color: #2196F3;">--</strong><br>
-                        <small id="pursuitConfidence" style="color: #999;">Confidence: --</small>
+                    <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 6px; backdrop-filter: blur(10px);">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                            <small style="font-size: 11px; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px;">Pursuit Quality</small>
+                        </div>
+                        <strong id="autoPursuitValue" style="font-size: 28px; font-weight: 600; display: block;">--</strong>
+                        <small id="pursuitConfidence" style="font-size: 10px; opacity: 0.7;">Ready to start</small>
                     </div>
                 </div>
             </div>
@@ -811,10 +810,19 @@
                 pausedTime = 0;
                 hasRecordedFirstTap = false;
                 
+                // Reset ALL tracking variables
+                eyeFixationDuration = 0;
+                eyeballMovementCount = 0;
+                eyeMovementCount = 0;
+                eyeFixationCount = 0;
+                followingScore = 0;
+                isFollowingLight = false;
+                eyeMovementData = [];
+                
                 // Reset final captured values
                 finalFixationDuration = 0;
                 finalFollowingScore = 0;
-                finalPursuitQuality = 'Running...';
+                finalPursuitQuality = '--';
                 
                 startAnimation();
                 isRunning = true;
@@ -1879,11 +1887,14 @@
                 else pursuitQuality = 'Minimal';
             }
             
-            // Update displays with clean values and confidence
+            // Update displays with clean values
             if (autoFixationDisplay) {
-                const displayValue = isFinite(fixValue) ? fixValue.toFixed(1) : '0.0';
-                autoFixationDisplay.textContent = `${displayValue}s`;
-                autoFixationDisplay.style.color = isFinal ? '#4CAF50' : '#2196F3';
+                if (!isRunning && !isFinal) {
+                    autoFixationDisplay.textContent = '--';
+                } else {
+                    const displayValue = isFinite(fixValue) ? fixValue.toFixed(1) : '0.0';
+                    autoFixationDisplay.textContent = `${displayValue}s`;
+                }
             }
             
             // Update confidence displays
@@ -1891,38 +1902,40 @@
             const movementConfidenceEl = document.getElementById('movementConfidence');
             const pursuitConfidenceEl = document.getElementById('pursuitConfidence');
             
-            const confidenceText = overallConfidence > 0 ? `Confidence: ${overallConfidence.toFixed(0)}%` : 'Confidence: --';
-            const confidenceColor = overallConfidence > 70 ? '#4CAF50' : (overallConfidence > 40 ? '#FFC107' : '#F44336');
+            // Show quality indicator subtly
+            let qualityText = '';
+            if (!isRunning && !isFinal) {
+                qualityText = 'Ready to start';
+            } else if (isFinal) {
+                qualityText = 'Assessment complete';
+            } else if (overallConfidence > 80) {
+                qualityText = 'Excellent quality';
+            } else if (overallConfidence > 60) {
+                qualityText = 'Good quality';
+            } else if (overallConfidence > 40) {
+                qualityText = 'Fair quality';
+            } else {
+                qualityText = 'Adjusting...';
+            }
             
-            if (fixationConfidenceEl) {
-                fixationConfidenceEl.textContent = confidenceText;
-                fixationConfidenceEl.style.color = isFinal ? '#666' : confidenceColor;
-            }
-            if (movementConfidenceEl) {
-                movementConfidenceEl.textContent = confidenceText;
-                movementConfidenceEl.style.color = isFinal ? '#666' : confidenceColor;
-            }
-            if (pursuitConfidenceEl) {
-                pursuitConfidenceEl.textContent = confidenceText;
-                pursuitConfidenceEl.style.color = isFinal ? '#666' : confidenceColor;
-            }
+            if (fixationConfidenceEl) fixationConfidenceEl.textContent = qualityText;
+            if (movementConfidenceEl) movementConfidenceEl.textContent = qualityText;
+            if (pursuitConfidenceEl) pursuitConfidenceEl.textContent = qualityText;
             
             if (autoPursuitDisplay) {
-                autoPursuitDisplay.textContent = pursuitQuality;
-                const colorMap = {
-                    'Excellent': '#4CAF50',
-                    'Good': '#8BC34A',
-                    'Fair': '#FFC107',
-                    'Poor': '#FF9800',
-                    'Minimal': '#F44336',
-                    '--': '#999'
-                };
-                autoPursuitDisplay.style.color = isFinal ? colorMap[pursuitQuality] : '#2196F3';
+                if (!isRunning && !isFinal) {
+                    autoPursuitDisplay.textContent = '--';
+                } else {
+                    autoPursuitDisplay.textContent = pursuitQuality;
+                }
             }
             
             if (autoMovementDisplay) {
-                autoMovementDisplay.textContent = moveValue.toString();
-                autoMovementDisplay.style.color = isFinal ? '#4CAF50' : '#2196F3';
+                if (!isRunning && !isFinal) {
+                    autoMovementDisplay.textContent = '--';
+                } else {
+                    autoMovementDisplay.textContent = moveValue.toString();
+                }
             }
         }
         
