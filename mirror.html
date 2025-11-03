@@ -554,6 +554,11 @@
         let firstTapTime = 0;
         let hasRecordedFirstTap = false;
         
+        // Final captured values (frozen when stopped)
+        let finalFixationDuration = 0;
+        let finalFollowingScore = 0;
+        let finalPursuitQuality = 'Not Started';
+        
         // Eye tracking variables
         let isFaceDetectionInitialized = false;
         let enableEyeTracking = true;
@@ -584,11 +589,11 @@
         let lightPosition = { x: 0, y: 0 };
         let lastLightPosition = { x: 0, y: 0 };
         
-        // Calibration variables - sensitive defaults for better detection
+        // Calibration variables - conservative defaults for accuracy
         let isCalibrated = false;
         let calibrationPoints = [];
-        let maxEyeballMovement = 5.0; // Higher cap for wider range
-        let eyeballNoiseThreshold = 0.3; // Lower threshold for more sensitivity
+        let maxEyeballMovement = 3.0; // Reasonable starting default
+        let eyeballNoiseThreshold = 0.5; // Conservative threshold to filter noise
 
         // Auth state observer
         auth.onAuthStateChanged(async (user) => {
@@ -799,10 +804,19 @@
                 startTime = Date.now();
                 pausedTime = 0;
                 hasRecordedFirstTap = false;
+                
+                // Reset final captured values
+                finalFixationDuration = 0;
+                finalFollowingScore = 0;
+                finalPursuitQuality = 'Running...';
+                
                 startAnimation();
                 isRunning = true;
                 isPaused = false;
                 updateButtonStates();
+                
+                // Initialize displays
+                updateAssessmentDisplays(false);
             }
         }
         
@@ -814,6 +828,27 @@
                 isPaused = false;
                 // Calculate actual duration excluding paused time
                 assessmentDuration = (Date.now() - startTime - pausedTime) / 1000; // in seconds
+                
+                // CAPTURE FINAL VALUES - freeze assessment metrics
+                finalFixationDuration = eyeFixationDuration;
+                finalFollowingScore = followingScore;
+                
+                // Calculate final pursuit quality
+                if (followingScore > 0.7 && assessmentDuration > 5) {
+                    finalPursuitQuality = 'Excellent';
+                } else if (followingScore > 0.5 && assessmentDuration > 3) {
+                    finalPursuitQuality = 'Good';
+                } else if (followingScore > 0.3 && assessmentDuration > 2) {
+                    finalPursuitQuality = 'Fair';
+                } else if (followingScore > 0.1) {
+                    finalPursuitQuality = 'Poor';
+                } else {
+                    finalPursuitQuality = 'Very Poor';
+                }
+                
+                // Update displays with final values
+                updateAssessmentDisplays(true);
+                
                 updateButtonStates();
             }
         }
@@ -1003,19 +1038,19 @@
                 const manualPursuitCount = parseInt(document.getElementById('pursuitCount').value) || 0;
                 const notes = document.getElementById('notes').value;
                 
-                // Use manual values if provided (non-zero), otherwise use auto-detected
-                const finalFixationDuration = manualFixationDuration > 0 ? manualFixationDuration : Math.round(eyeFixationDuration);
+                // Use manual values if provided (non-zero), otherwise use CAPTURED final values
+                const savedFixationDuration = manualFixationDuration > 0 ? manualFixationDuration : Math.round(finalFixationDuration);
                 
                 // Convert pursuit quality to count if not manually overridden
-                let finalPursuitCount = manualPursuitCount;
+                let savedPursuitCount = manualPursuitCount;
                 if (manualPursuitCount === 0 && enableEyeTracking) {
-                    // Auto-convert quality score to count
-                    if (followingScore > 0.8) finalPursuitCount = 5;
-                    else if (followingScore > 0.7) finalPursuitCount = 4;
-                    else if (followingScore > 0.5) finalPursuitCount = 3;
-                    else if (followingScore > 0.3) finalPursuitCount = 2;
-                    else if (followingScore > 0.15) finalPursuitCount = 1;
-                    else finalPursuitCount = 0;
+                    // Auto-convert FINAL captured quality score to count
+                    if (finalFollowingScore > 0.8) savedPursuitCount = 5;
+                    else if (finalFollowingScore > 0.7) savedPursuitCount = 4;
+                    else if (finalFollowingScore > 0.5) savedPursuitCount = 3;
+                    else if (finalFollowingScore > 0.3) savedPursuitCount = 2;
+                    else if (finalFollowingScore > 0.15) savedPursuitCount = 1;
+                    else savedPursuitCount = 0;
                 }
                 
                 // Prepare data object as a flat structure without nested objects
@@ -1028,19 +1063,20 @@
                     pattern,
                     speed,
                     // Mirror fixation data (auto or manual)
-                    fixationDuration: finalFixationDuration,
+                    fixationDuration: savedFixationDuration,
                     fixationDurationSource: manualFixationDuration > 0 ? 'manual' : 'auto',
                     // Pursuit test data (auto or manual)
-                    pursuitCount: finalPursuitCount,
+                    pursuitCount: savedPursuitCount,
                     pursuitCountSource: manualPursuitCount > 0 ? 'manual' : 'auto',
-                    pursuitSuccessRate: (finalPursuitCount / 5) * 100,
+                    pursuitSuccessRate: (savedPursuitCount / 5) * 100,
                     notes: notes,
-                    // Eye tracking data if enabled
+                    // Eye tracking data if enabled (using captured final values)
                     eyeTrackingEnabled: enableEyeTracking,
                     faceMovementCount: eyeMovementCount || 0,
                     eyeballMovementCount: eyeballMovementCount || 0,
-                    eyeFixationDuration: eyeFixationDuration || 0,
-                    followingLightScore: followingScore || 0,
+                    eyeFixationDuration: finalFixationDuration || 0,
+                    followingLightScore: finalFollowingScore || 0,
+                    pursuitQuality: finalPursuitQuality,
                     // Store simplified movement data
                     eyeMovements: eyeMovementData ? eyeMovementData.length : 0
                 };
@@ -1400,8 +1436,8 @@
             lastLightPosition = { x: 0, y: 0 };
             isCalibrated = false;
             calibrationPoints = [];
-            maxEyeballMovement = 5.0;
-            eyeballNoiseThreshold = 0.3;
+            maxEyeballMovement = 3.0;
+            eyeballNoiseThreshold = 0.5;
             
             // Start detection loop
             detectionInterval = setInterval(async () => {
@@ -1545,25 +1581,25 @@
                                 y: (leftEyeCenter.y + rightEyeCenter.y) / 2
                             };
                             
-                            // Check for overall face movement with higher threshold
-                            const faceMovementThreshold = 15; // pixels - higher to reduce over-counting
+                            // Check for overall face movement with balanced threshold
+                            const faceMovementThreshold = 10; // pixels - increased for less sensitivity
                             const faceMovement = Math.sqrt(
                                 Math.pow(currentFacePosition.x - lastFacePosition.x, 2) + 
                                 Math.pow(currentFacePosition.y - lastFacePosition.y, 2)
                             );
                             
-                            // Auto-calibrate eyeball movement threshold with sensitive detection
-                            if (eyesOpen && eyeballVectorHistory.length >= 3) {
+                            // Auto-calibrate eyeball movement threshold with balanced sensitivity
+                            if (eyesOpen && eyeballVectorHistory.length >= 5) {
                                 const currMagnitude = Math.sqrt(
                                     avgEyeballVector.x * avgEyeballVector.x + 
                                     avgEyeballVector.y * avgEyeballVector.y
                                 );
                                 
-                                // Update maximum observed eyeball movement with higher cap
-                                if (currMagnitude > maxEyeballMovement && currMagnitude < 15) {
+                                // Update maximum observed eyeball movement with reasonable cap
+                                if (currMagnitude > maxEyeballMovement && currMagnitude < 10) {
                                     maxEyeballMovement = currMagnitude;
-                                    // Lower threshold for sensitive detection
-                                    eyeballNoiseThreshold = Math.max(0.1, maxEyeballMovement * 0.15); // 15% of max for sensitive detection
+                                    // Set threshold to filter out noise but detect real movements
+                                    eyeballNoiseThreshold = Math.max(0.15, maxEyeballMovement * 0.2); // 20% of max for balanced detection
                                 }
                             }
                             
@@ -1614,10 +1650,10 @@
                             // Dot product to calculate similarity of direction (1 = same direction, -1 = opposite)
                             const dotProduct = normEyeballVector.x * normLightVector.x + normEyeballVector.y * normLightVector.y;
                             
-                            // Balanced light following detection
+                            // Stricter light following detection
                             let followingDetected = false;
                             
-                            // Higher dot product threshold for better alignment
+                            // Higher threshold - eyes must be well-aligned with light
                             followingDetected = dotProduct > 0.65;
                             
                             // Additional methods to increase detection rates
@@ -1649,8 +1685,8 @@
                                         const moveToLightAlignment = normEyeMovement.x * normLightVector.x +
                                                                     normEyeMovement.y * normLightVector.y;
                                         
-                                        // Higher threshold for directional alignment
-                                        if (moveToLightAlignment > 0.55) {
+                                        // Stricter threshold for directional alignment
+                                        if (moveToLightAlignment > 0.6) {
                                             followingDetected = true;
                                         }
                                     }
@@ -1667,8 +1703,8 @@
                             const weightedFollowingScore = calculateWeightedScore(followingHistory);
                             followingScore = weightedFollowingScore;
                             
-                            // Higher threshold for sustained following - must be clearly tracking
-                            isFollowingLight = followingScore > 0.75;
+                            // Stricter threshold for sustained following
+                            isFollowingLight = followingScore > 0.7;
                             
                             // Draw line from eye to light if following
                             if (showTrackingVisuals && isFollowingLight) {
@@ -1682,10 +1718,10 @@
                                 ctx.setLineDash([]);
                             }
                             
-                            // Sensitive criteria for counting eyeball movements
-                            // Detect most eye movements while filtering obvious noise
-                            if (eyesOpen && faceMovement < faceMovementThreshold && eyeballMovement > eyeballNoiseThreshold * 0.8) {
-                                // Eyeball movement detected (eyes must be open, minimal head movement)
+                            // More sensitive eyeball movement detection
+                            // Count significant eye movements independent of minor head motion
+                            if (eyesOpen && faceMovement < faceMovementThreshold * 1.5 && eyeballMovement > eyeballNoiseThreshold) {
+                                // Eyeball movement detected (eyes must be open)
                                 eyeballMovementCount++;
                                 eyeFixationCount = 0; // Reset fixation counter
                                 
@@ -1710,11 +1746,16 @@
                             } else if (faceMovement >= faceMovementThreshold) {
                                 // Face movement detected, but not counting as eyeball movement
                                 eyeMovementCount++;
-                            } else {
-                                // Eye fixation detected
+                            } else if (eyesOpen) {
+                                // Eye fixation detected (only when eyes are open)
                                 eyeFixationCount++;
-                                if (eyeFixationCount >= 5) { // About 0.25 seconds at 20fps
-                                    eyeFixationDuration += 1/frameRate;
+                                if (eyeFixationCount >= 5 && frameRate > 0) { // About 0.25 seconds at 20fps
+                                    // Prevent infinity: check frameRate is valid
+                                    const increment = frameRate > 0 ? 1/frameRate : 0.05;
+                                    eyeFixationDuration += increment;
+                                    
+                                    // Safety cap to prevent runaway values
+                                    if (eyeFixationDuration > 300) eyeFixationDuration = 300;
                                     
                                     // Mark fixation point if visual tracking is enabled
                                     if (showTrackingVisuals) {
@@ -1742,50 +1783,19 @@
                             lastFacePosition = { ...currentFacePosition };
                             
                             // Enhanced detection data display with clinical metrics
-                            const fixationDisplay = isFinite(eyeFixationDuration) ? eyeFixationDuration.toFixed(1) : '0.0';
                             document.getElementById('detectionData').innerHTML = `
                                 <b>Eye Status:</b> ${eyesOpen ? '<span style="color:green">Open</span>' : '<span style="color:red">Closed</span>'} (EAR: ${avgEAR.toFixed(2)})<br>
                                 <b>Eyeball movements:</b> ${eyeballMovementCount}<br>
                                 <b>Following light:</b> ${isFollowingLight ? '<span style="color:green">Yes</span>' : 'No'} (${(followingScore * 100).toFixed(0)}%)<br>
-                                <b>Sustained fixation:</b> ${fixationDisplay}s<br>
+                                <b>Sustained fixation:</b> ${eyeFixationDuration.toFixed(1)}s<br>
                                 Face movements: ${eyeMovementCount}<br>
                                 Detection: Thr=${eyeballNoiseThreshold.toFixed(2)}, FPS=${frameRate}
                             `;
                             
                             // UPDATE CLINICAL ASSESSMENT DISPLAYS
-                            // Update auto-detected values in real-time (read-only displays)
-                            const autoFixationDisplay = document.getElementById('autoFixationValue');
-                            const autoPursuitDisplay = document.getElementById('autoPursuitValue');
-                            const autoFollowingDisplay = document.getElementById('autoFollowingValue');
-                            
-                            if (autoFixationDisplay) {
-                                const fixationValue = isFinite(eyeFixationDuration) ? eyeFixationDuration.toFixed(1) : '0.0';
-                                autoFixationDisplay.textContent = `${fixationValue}s`;
-                                autoFixationDisplay.style.color = eyeFixationDuration > 3 ? 'green' : 'orange';
-                            }
-                            
-                            if (autoPursuitDisplay && isRunning && !isPaused) {
-                                const timeElapsed = (Date.now() - startTime - pausedTime) / 1000;
-                                // Calculate pursuit quality score
-                                let pursuitQuality = 'Poor';
-                                let pursuitColor = 'red';
-                                if (followingScore > 0.7 && timeElapsed > 5) {
-                                    pursuitQuality = 'Excellent';
-                                    pursuitColor = 'green';
-                                } else if (followingScore > 0.5 && timeElapsed > 3) {
-                                    pursuitQuality = 'Good';
-                                    pursuitColor = 'orange';
-                                } else if (followingScore > 0.3) {
-                                    pursuitQuality = 'Fair';
-                                    pursuitColor = 'darkorange';
-                                }
-                                autoPursuitDisplay.textContent = pursuitQuality;
-                                autoPursuitDisplay.style.color = pursuitColor;
-                            }
-                            
-                            if (autoFollowingDisplay) {
-                                autoFollowingDisplay.textContent = `${(followingScore * 100).toFixed(0)}%`;
-                                autoFollowingDisplay.style.color = followingScore > 0.6 ? 'green' : (followingScore > 0.3 ? 'orange' : 'red');
+                            // Only update if assessment is running
+                            if (isRunning && !isPaused) {
+                                updateAssessmentDisplays(false);
                             }
                         } else {
                             document.getElementById('detectionData').textContent = 'No face detected';
@@ -1795,6 +1805,83 @@
                     console.error('Error in eye tracking:', error);
                 }
             }, 50); // 20 fps
+        }
+        
+        // Update assessment display panels
+        function updateAssessmentDisplays(isFinal) {
+            const autoFixationDisplay = document.getElementById('autoFixationValue');
+            const autoPursuitDisplay = document.getElementById('autoPursuitValue');
+            const autoFollowingDisplay = document.getElementById('autoFollowingValue');
+            
+            if (isFinal) {
+                // Use captured final values (frozen)
+                if (autoFixationDisplay) {
+                    const displayValue = isFinite(finalFixationDuration) ? finalFixationDuration.toFixed(1) : '0.0';
+                    autoFixationDisplay.textContent = `${displayValue}s (Final)`;
+                    autoFixationDisplay.style.color = finalFixationDuration > 3 ? 'green' : 'orange';
+                    autoFixationDisplay.style.fontWeight = 'bold';
+                }
+                
+                if (autoPursuitDisplay) {
+                    autoPursuitDisplay.textContent = `${finalPursuitQuality} (Final)`;
+                    const colorMap = {
+                        'Excellent': 'green',
+                        'Good': 'orange',
+                        'Fair': 'darkorange',
+                        'Poor': 'red',
+                        'Very Poor': 'darkred'
+                    };
+                    autoPursuitDisplay.style.color = colorMap[finalPursuitQuality] || 'gray';
+                    autoPursuitDisplay.style.fontWeight = 'bold';
+                }
+                
+                if (autoFollowingDisplay) {
+                    const displayScore = isFinite(finalFollowingScore) ? finalFollowingScore : 0;
+                    autoFollowingDisplay.textContent = `${(displayScore * 100).toFixed(0)}% (Final)`;
+                    autoFollowingDisplay.style.color = displayScore > 0.6 ? 'green' : (displayScore > 0.3 ? 'orange' : 'red');
+                    autoFollowingDisplay.style.fontWeight = 'bold';
+                }
+            } else {
+                // Use live values (updating)
+                if (autoFixationDisplay) {
+                    const displayValue = isFinite(eyeFixationDuration) ? eyeFixationDuration.toFixed(1) : '0.0';
+                    autoFixationDisplay.textContent = `${displayValue}s`;
+                    autoFixationDisplay.style.color = eyeFixationDuration > 3 ? 'green' : 'orange';
+                    autoFixationDisplay.style.fontWeight = 'normal';
+                }
+                
+                if (autoPursuitDisplay) {
+                    const timeElapsed = (Date.now() - startTime - pausedTime) / 1000;
+                    let pursuitQuality = 'Poor';
+                    let pursuitColor = 'red';
+                    if (followingScore > 0.7 && timeElapsed > 5) {
+                        pursuitQuality = 'Excellent';
+                        pursuitColor = 'green';
+                    } else if (followingScore > 0.5 && timeElapsed > 3) {
+                        pursuitQuality = 'Good';
+                        pursuitColor = 'orange';
+                    } else if (followingScore > 0.3 && timeElapsed > 2) {
+                        pursuitQuality = 'Fair';
+                        pursuitColor = 'darkorange';
+                    } else if (followingScore > 0.1) {
+                        pursuitQuality = 'Poor';
+                        pursuitColor = 'red';
+                    } else {
+                        pursuitQuality = 'Running...';
+                        pursuitColor = 'gray';
+                    }
+                    autoPursuitDisplay.textContent = pursuitQuality;
+                    autoPursuitDisplay.style.color = pursuitColor;
+                    autoPursuitDisplay.style.fontWeight = 'normal';
+                }
+                
+                if (autoFollowingDisplay) {
+                    const displayScore = isFinite(followingScore) ? followingScore : 0;
+                    autoFollowingDisplay.textContent = `${(displayScore * 100).toFixed(0)}%`;
+                    autoFollowingDisplay.style.color = displayScore > 0.6 ? 'green' : (displayScore > 0.3 ? 'orange' : 'red');
+                    autoFollowingDisplay.style.fontWeight = 'normal';
+                }
+            }
         }
         
         // Stop eye tracking
