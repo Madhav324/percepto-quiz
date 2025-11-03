@@ -589,11 +589,11 @@
         let lightPosition = { x: 0, y: 0 };
         let lastLightPosition = { x: 0, y: 0 };
         
-        // Calibration variables - conservative defaults for accuracy
+        // Calibration variables - more sensitive defaults for better detection
         let isCalibrated = false;
         let calibrationPoints = [];
         let maxEyeballMovement = 3.0; // Reasonable starting default
-        let eyeballNoiseThreshold = 0.5; // Conservative threshold to filter noise
+        let eyeballNoiseThreshold = 0.3; // Lower threshold for more sensitive detection
 
         // Auth state observer
         auth.onAuthStateChanged(async (user) => {
@@ -829,11 +829,11 @@
                 // Calculate actual duration excluding paused time
                 assessmentDuration = (Date.now() - startTime - pausedTime) / 1000; // in seconds
                 
-                // CAPTURE FINAL VALUES - freeze assessment metrics
+                // CAPTURE FINAL VALUES - freeze assessment metrics from ENTIRE assessment
                 finalFixationDuration = eyeFixationDuration;
                 finalFollowingScore = followingScore;
                 
-                // Calculate final pursuit quality
+                // Calculate final pursuit quality based on ENTIRE assessment
                 if (followingScore > 0.7 && assessmentDuration > 5) {
                     finalPursuitQuality = 'Excellent';
                 } else if (followingScore > 0.5 && assessmentDuration > 3) {
@@ -846,7 +846,15 @@
                     finalPursuitQuality = 'Very Poor';
                 }
                 
-                // Update displays with final values
+                console.log('CAPTURED FINAL VALUES:', {
+                    duration: assessmentDuration,
+                    fixation: finalFixationDuration,
+                    following: finalFollowingScore,
+                    quality: finalPursuitQuality,
+                    eyeballMovements: eyeballMovementCount
+                });
+                
+                // Update displays with final values and LOCK them
                 updateAssessmentDisplays(true);
                 
                 updateButtonStates();
@@ -1437,7 +1445,7 @@
             isCalibrated = false;
             calibrationPoints = [];
             maxEyeballMovement = 3.0;
-            eyeballNoiseThreshold = 0.5;
+            eyeballNoiseThreshold = 0.3;
             
             // Start detection loop
             detectionInterval = setInterval(async () => {
@@ -1500,8 +1508,9 @@
                             const rightEAR = calculateEyeAspectRatio(rightEye);
                             const avgEAR = (leftEAR + rightEAR) / 2;
                             
-                            // Eyes considered open if EAR > 0.21 (calibrated threshold)
-                            const eyesOpen = avgEAR > 0.21;
+                            // Eyes considered open if EAR > 0.18 (adjusted for better detection)
+                            // Lower threshold catches partial closures and blinks
+                            const eyesOpen = avgEAR > 0.18;
                             
                             // Calculate eyeball vector magnitudes for movement detection
                             const leftMagnitude = Math.sqrt(leftEyeballVector.x * leftEyeballVector.x + leftEyeballVector.y * leftEyeballVector.y);
@@ -1718,9 +1727,9 @@
                                 ctx.setLineDash([]);
                             }
                             
-                            // More sensitive eyeball movement detection
-                            // Count significant eye movements independent of minor head motion
-                            if (eyesOpen && faceMovement < faceMovementThreshold * 1.5 && eyeballMovement > eyeballNoiseThreshold) {
+                            // Very sensitive eyeball movement detection
+                            // Count even small eye movements independent of head motion
+                            if (eyesOpen && faceMovement < faceMovementThreshold * 2.0 && eyeballMovement > eyeballNoiseThreshold * 0.7) {
                                 // Eyeball movement detected (eyes must be open)
                                 eyeballMovementCount++;
                                 eyeFixationCount = 0; // Reset fixation counter
@@ -1793,9 +1802,14 @@
                             `;
                             
                             // UPDATE CLINICAL ASSESSMENT DISPLAYS
-                            // Only update if assessment is running
+                            // Only update if assessment is actually running (not stopped)
                             if (isRunning && !isPaused) {
                                 updateAssessmentDisplays(false);
+                            }
+                            // If stopped but eye tracking still active, keep final values displayed
+                            else if (!isRunning && finalFixationDuration > 0) {
+                                // Don't update - displays remain frozen with final values
+                                // This ensures the display never changes after stop
                             }
                         } else {
                             document.getElementById('detectionData').textContent = 'No face detected';
@@ -1814,16 +1828,19 @@
             const autoFollowingDisplay = document.getElementById('autoFollowingValue');
             
             if (isFinal) {
-                // Use captured final values (frozen)
+                // Use captured final values (frozen) - from ENTIRE assessment period
                 if (autoFixationDisplay) {
                     const displayValue = isFinite(finalFixationDuration) ? finalFixationDuration.toFixed(1) : '0.0';
-                    autoFixationDisplay.textContent = `${displayValue}s (Final)`;
+                    autoFixationDisplay.textContent = `${displayValue}s ✓ FINAL`;
                     autoFixationDisplay.style.color = finalFixationDuration > 3 ? 'green' : 'orange';
                     autoFixationDisplay.style.fontWeight = 'bold';
+                    autoFixationDisplay.style.backgroundColor = '#f0f0f0';
+                    autoFixationDisplay.style.padding = '5px';
+                    autoFixationDisplay.style.borderRadius = '3px';
                 }
                 
                 if (autoPursuitDisplay) {
-                    autoPursuitDisplay.textContent = `${finalPursuitQuality} (Final)`;
+                    autoPursuitDisplay.textContent = `${finalPursuitQuality} ✓ FINAL`;
                     const colorMap = {
                         'Excellent': 'green',
                         'Good': 'orange',
@@ -1833,21 +1850,29 @@
                     };
                     autoPursuitDisplay.style.color = colorMap[finalPursuitQuality] || 'gray';
                     autoPursuitDisplay.style.fontWeight = 'bold';
+                    autoPursuitDisplay.style.backgroundColor = '#f0f0f0';
+                    autoPursuitDisplay.style.padding = '5px';
+                    autoPursuitDisplay.style.borderRadius = '3px';
                 }
                 
                 if (autoFollowingDisplay) {
                     const displayScore = isFinite(finalFollowingScore) ? finalFollowingScore : 0;
-                    autoFollowingDisplay.textContent = `${(displayScore * 100).toFixed(0)}% (Final)`;
+                    autoFollowingDisplay.textContent = `${(displayScore * 100).toFixed(0)}% ✓ FINAL`;
                     autoFollowingDisplay.style.color = displayScore > 0.6 ? 'green' : (displayScore > 0.3 ? 'orange' : 'red');
                     autoFollowingDisplay.style.fontWeight = 'bold';
+                    autoFollowingDisplay.style.backgroundColor = '#f0f0f0';
+                    autoFollowingDisplay.style.padding = '5px';
+                    autoFollowingDisplay.style.borderRadius = '3px';
                 }
             } else {
-                // Use live values (updating)
+                // Use live values (updating) - shows current real-time data
                 if (autoFixationDisplay) {
                     const displayValue = isFinite(eyeFixationDuration) ? eyeFixationDuration.toFixed(1) : '0.0';
-                    autoFixationDisplay.textContent = `${displayValue}s`;
+                    autoFixationDisplay.textContent = `${displayValue}s (live)`;
                     autoFixationDisplay.style.color = eyeFixationDuration > 3 ? 'green' : 'orange';
                     autoFixationDisplay.style.fontWeight = 'normal';
+                    autoFixationDisplay.style.backgroundColor = 'transparent';
+                    autoFixationDisplay.style.padding = '0';
                 }
                 
                 if (autoPursuitDisplay) {
@@ -1870,16 +1895,20 @@
                         pursuitQuality = 'Running...';
                         pursuitColor = 'gray';
                     }
-                    autoPursuitDisplay.textContent = pursuitQuality;
+                    autoPursuitDisplay.textContent = `${pursuitQuality} (live)`;
                     autoPursuitDisplay.style.color = pursuitColor;
                     autoPursuitDisplay.style.fontWeight = 'normal';
+                    autoPursuitDisplay.style.backgroundColor = 'transparent';
+                    autoPursuitDisplay.style.padding = '0';
                 }
                 
                 if (autoFollowingDisplay) {
                     const displayScore = isFinite(followingScore) ? followingScore : 0;
-                    autoFollowingDisplay.textContent = `${(displayScore * 100).toFixed(0)}%`;
+                    autoFollowingDisplay.textContent = `${(displayScore * 100).toFixed(0)}% (live)`;
                     autoFollowingDisplay.style.color = displayScore > 0.6 ? 'green' : (displayScore > 0.3 ? 'orange' : 'red');
                     autoFollowingDisplay.style.fontWeight = 'normal';
+                    autoFollowingDisplay.style.backgroundColor = 'transparent';
+                    autoFollowingDisplay.style.padding = '0';
                 }
             }
         }
