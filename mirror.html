@@ -441,23 +441,33 @@
         </div>
         
         <div class="observation-container">
-            <h3>Assessment Checklist</h3>
+            <h3>Assessment Results</h3>
+            
+            <!-- Warning Banner -->
+            <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 10px; border-radius: 5px; margin-bottom: 15px; font-size: 12px;">
+                <strong>⚠️ Important:</strong> These are <strong>estimated metrics</strong> based on camera-based face detection.
+                Results vary with lighting, distance, and camera quality. For clinical assessment, use in conjunction with professional observation.
+            </div>
+            
             <div class="observation-section">
-                <h4>Assessment Results</h4>
+                <h4>Automated Metrics (Experimental)</h4>
                 <div style="padding: 15px; background: #f9f9f9; border-radius: 5px; margin-bottom: 15px;">
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
                         <div>
-                            <small style="color: #666;">Fixation Duration</small><br>
-                            <strong id="autoFixationValue" style="font-size: 20px; color: #2196F3;">0.0s</strong>
+                            <small style="color: #666;">Estimated Stable Gaze</small><br>
+                            <strong id="autoFixationValue" style="font-size: 20px; color: #2196F3;">0.0s</strong><br>
+                            <small id="fixationConfidence" style="color: #999;">Confidence: --</small>
                         </div>
                         <div>
-                            <small style="color: #666;">Gaze Movements</small><br>
-                            <strong id="autoMovementValue" style="font-size: 20px; color: #2196F3;">0</strong>
+                            <small style="color: #666;">Gaze Redirections</small><br>
+                            <strong id="autoMovementValue" style="font-size: 20px; color: #2196F3;">0</strong><br>
+                            <small id="movementConfidence" style="color: #999;">Confidence: --</small>
                         </div>
                     </div>
                     <div style="margin-top: 10px;">
-                        <small style="color: #666;">Pursuit Quality</small><br>
-                        <strong id="autoPursuitValue" style="font-size: 20px; color: #2196F3;">--</strong>
+                        <small style="color: #666;">Estimated Pursuit</small><br>
+                        <strong id="autoPursuitValue" style="font-size: 20px; color: #2196F3;">--</strong><br>
+                        <small id="pursuitConfidence" style="color: #999;">Confidence: --</small>
                     </div>
                 </div>
             </div>
@@ -580,6 +590,16 @@
         let calibrationPoints = [];
         let maxEyeballMovement = 5.0; // Based on typical gaze redirections
         let eyeballNoiseThreshold = 1.0; // Filters noise, detects intentional movements
+        
+        // Distance normalization
+        let baselineFaceSize = 0; // Will be set in first few frames
+        let faceSizeHistory = [];
+        const FACE_SIZE_HISTORY = 30; // Average over 30 frames
+        
+        // Confidence tracking
+        let detectionQualityHistory = [];
+        const QUALITY_HISTORY_SIZE = 60; // 3 seconds at 20fps
+        let overallConfidence = 0;
 
         // Auth state observer
         auth.onAuthStateChanged(async (user) => {
@@ -1418,6 +1438,10 @@
             calibrationPoints = [];
             maxEyeballMovement = 5.0;
             eyeballNoiseThreshold = 1.0;
+            baselineFaceSize = 0;
+            faceSizeHistory = [];
+            detectionQualityHistory = [];
+            overallConfidence = 0;
             
             // Start detection loop
             detectionInterval = setInterval(async () => {
@@ -1473,15 +1497,39 @@
                                 y: rightIris.y - rightEyeCenter.y
                             };
                             
+                            // DISTANCE NORMALIZATION - normalize by face size
+                            const currentFaceSize = Math.sqrt(faceBox.width * faceBox.height);
+                            faceSizeHistory.push(currentFaceSize);
+                            if (faceSizeHistory.length > FACE_SIZE_HISTORY) {
+                                faceSizeHistory.shift();
+                            }
+                            const avgFaceSize = faceSizeHistory.reduce((a, b) => a + b, 0) / faceSizeHistory.length;
+                            
+                            // Set baseline on first stable detection
+                            if (baselineFaceSize === 0 && faceSizeHistory.length >= FACE_SIZE_HISTORY) {
+                                baselineFaceSize = avgFaceSize;
+                            }
+                            
+                            // Calculate distance normalization factor
+                            const normalizationFactor = baselineFaceSize > 0 ? avgFaceSize / baselineFaceSize : 1.0;
+                            
                             // Calculate eyeball vector magnitudes for movement detection
                             const leftMagnitude = Math.sqrt(leftEyeballVector.x * leftEyeballVector.x + leftEyeballVector.y * leftEyeballVector.y);
                             const rightMagnitude = Math.sqrt(rightEyeballVector.x * rightEyeballVector.x + rightEyeballVector.y * rightEyeballVector.y);
                             
-                            // Simple, logical eye status detection
-                            // If we have valid iris positions with meaningful magnitude, we can track gaze
-                            // This is what matters for CVI assessment - can we track their gaze?
+                            // DETECTION QUALITY - track confidence
+                            const detectionQuality = (leftMagnitude + rightMagnitude) / 2;
+                            detectionQualityHistory.push(detectionQuality > 0.3 ? 1 : 0);
+                            if (detectionQualityHistory.length > QUALITY_HISTORY_SIZE) {
+                                detectionQualityHistory.shift();
+                            }
+                            overallConfidence = detectionQualityHistory.length > 0 ? 
+                                (detectionQualityHistory.reduce((a, b) => a + b, 0) / detectionQualityHistory.length * 100) : 0;
+                            
+                            // Eye status detection with adaptive threshold
+                            const eyeThreshold = 0.3 * normalizationFactor; // Scale threshold by distance
                             const eyesOpen = leftIris && rightIris && 
-                                           leftMagnitude > 0.5 && rightMagnitude > 0.5;
+                                           leftMagnitude > eyeThreshold && rightMagnitude > eyeThreshold;
                             
                             // Average eyeball vector - only consider if eyes are open
                             const rawAvgEyeballVector = {
@@ -1583,11 +1631,16 @@
                                 }
                             }
                             
-                            // Calculate eyeball movement - ONLY if eyes trackable
-                            const eyeballMovement = eyesOpen ? Math.sqrt(
-                                Math.pow(avgEyeballVector.x - lastEyeballVector.x, 2) + 
-                                Math.pow(avgEyeballVector.y - lastEyeballVector.y, 2)
-                            ) : 0;
+                            // Calculate eyeball movement - ONLY if eyes trackable, NORMALIZED by distance
+                            let eyeballMovement = 0;
+                            if (eyesOpen && lastEyeballVector.x !== 0) {
+                                const rawMovement = Math.sqrt(
+                                    Math.pow(avgEyeballVector.x - lastEyeballVector.x, 2) + 
+                                    Math.pow(avgEyeballVector.y - lastEyeballVector.y, 2)
+                                );
+                                // Normalize by distance - farther away = scale up movement
+                                eyeballMovement = rawMovement * normalizationFactor;
+                            }
                             
                             // Get light stimulus position with improved accuracy
                             const lightStimulus = document.getElementById('lightStimulus');
@@ -1773,14 +1826,13 @@
                                 // Reset last eyeball vector when not trackable
                                 lastEyeballVector = { x: 0, y: 0 };
                             }
-                            
-                            // Clear, simple detection display
+                            // Enhanced detection display with confidence and normalization info
                             document.getElementById('detectionData').innerHTML = `
-                                <b>Eyes:</b> ${eyesOpen ? '<span style="color:green">Tracking</span>' : '<span style="color:gray">Not visible</span>'}<br>
-                                <b>Gaze movements:</b> ${eyeballMovementCount}<br>
-                                <b>Following light:</b> ${isFollowingLight ? '<span style="color:green">Yes</span>' : 'No'} (${(followingScore * 100).toFixed(0)}%)<br>
-                                <b>Cumulative fixation:</b> ${eyeFixationDuration.toFixed(1)}s<br>
-                                Head movements: ${eyeMovementCount} | FPS: ${frameRate}
+                                <b>Detection:</b> ${eyesOpen ? '<span style="color:green">Tracking</span>' : '<span style="color:gray">Not detected</span>'}<br>
+                                <b>Gaze redirections:</b> ${eyeballMovementCount}<br>
+                                <b>Following estimate:</b> ${isFollowingLight ? '<span style="color:green">Yes</span>' : 'No'} (${(followingScore * 100).toFixed(0)}%)<br>
+                                <b>Stable gaze:</b> ${eyeFixationDuration.toFixed(1)}s<br>
+                                <small style="color: #666;">Distance: ${(normalizationFactor * 100).toFixed(0)}% | Quality: ${overallConfidence.toFixed(0)}% | FPS: ${frameRate}</small>
                             `;
                             
                             // UPDATE CLINICAL ASSESSMENT DISPLAYS
@@ -1827,11 +1879,32 @@
                 else pursuitQuality = 'Minimal';
             }
             
-            // Update displays with clean values
+            // Update displays with clean values and confidence
             if (autoFixationDisplay) {
                 const displayValue = isFinite(fixValue) ? fixValue.toFixed(1) : '0.0';
                 autoFixationDisplay.textContent = `${displayValue}s`;
                 autoFixationDisplay.style.color = isFinal ? '#4CAF50' : '#2196F3';
+            }
+            
+            // Update confidence displays
+            const fixationConfidenceEl = document.getElementById('fixationConfidence');
+            const movementConfidenceEl = document.getElementById('movementConfidence');
+            const pursuitConfidenceEl = document.getElementById('pursuitConfidence');
+            
+            const confidenceText = overallConfidence > 0 ? `Confidence: ${overallConfidence.toFixed(0)}%` : 'Confidence: --';
+            const confidenceColor = overallConfidence > 70 ? '#4CAF50' : (overallConfidence > 40 ? '#FFC107' : '#F44336');
+            
+            if (fixationConfidenceEl) {
+                fixationConfidenceEl.textContent = confidenceText;
+                fixationConfidenceEl.style.color = isFinal ? '#666' : confidenceColor;
+            }
+            if (movementConfidenceEl) {
+                movementConfidenceEl.textContent = confidenceText;
+                movementConfidenceEl.style.color = isFinal ? '#666' : confidenceColor;
+            }
+            if (pursuitConfidenceEl) {
+                pursuitConfidenceEl.textContent = confidenceText;
+                pursuitConfidenceEl.style.color = isFinal ? '#666' : confidenceColor;
             }
             
             if (autoPursuitDisplay) {
