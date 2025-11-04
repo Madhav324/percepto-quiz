@@ -267,12 +267,13 @@
         
         #scenario-container {
             position: relative;
-            width: 90%;
-            max-width: 350px;
-            margin: 5px auto;
-            border: 1px solid #ddd;
-            border-radius: 5px;
+            width: 95%;
+            max-width: 600px;
+            margin: 15px auto;
+            border: 3px solid #ddd;
+            border-radius: 12px;
             overflow: hidden;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
         }
         
         #scenario-image {
@@ -314,20 +315,27 @@
         }
 
         .target-object {
-            width: 60px;
-            height: 60px;
-            border: 2px solid #2196F3;
-            border-radius: 8px;
-            padding: 5px;
+            width: 100px;
+            height: 100px;
+            border: 3px solid #2196F3;
+            border-radius: 12px;
+            padding: 8px;
             object-fit: contain;
             background-color: #e3f2fd;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .target-object:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 16px rgba(33, 150, 243, 0.4);
         }
 
         @media (max-width: 480px) {
             .target-object {
-                width: 45px;
-                height: 45px;
-                padding: 3px;
+                width: 70px;
+                height: 70px;
+                padding: 5px;
             }
         }
 
@@ -937,14 +945,14 @@
                 img.className = 'target-object';
                 img.dataset.id = targetObj.id;
                 img.style.cssText = `
-                    width: 70px;
-                    height: 70px;
+                    width: 100px;
+                    height: 100px;
                     object-fit: contain;
                     border: 3px solid #dee2e6;
                     border-radius: 12px;
-                    padding: 8px;
+                    padding: 10px;
                     background: white;
-                    margin: 8px;
+                    margin: 10px;
                     transition: all 0.3s ease;
                     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
                     cursor: pointer;
@@ -975,20 +983,26 @@
                         height: ${area.height * scaleY}px;
                         background-color: transparent;
                         cursor: pointer;
-                        border: 2px solid transparent;
+                        border: 2px dashed rgba(76, 175, 80, 0.3);
                         border-radius: 8px;
                         transition: all 0.3s ease;
                         z-index: 10;
                     `;
                     
                     clickableDiv.addEventListener('mouseenter', () => {
-                        clickableDiv.style.backgroundColor = 'rgba(76, 175, 80, 0.3)';
+                        clickableDiv.style.backgroundColor = 'rgba(76, 175, 80, 0.4)';
                         clickableDiv.style.borderColor = '#4CAF50';
+                        clickableDiv.style.borderStyle = 'solid';
+                        clickableDiv.style.borderWidth = '3px';
                     });
                     
                     clickableDiv.addEventListener('mouseleave', () => {
-                        clickableDiv.style.backgroundColor = 'transparent';
-                        clickableDiv.style.borderColor = 'transparent';
+                        if (clickableDiv.style.pointerEvents !== 'none') {
+                            clickableDiv.style.backgroundColor = 'transparent';
+                            clickableDiv.style.borderColor = 'rgba(76, 175, 80, 0.3)';
+                            clickableDiv.style.borderStyle = 'dashed';
+                            clickableDiv.style.borderWidth = '2px';
+                        }
                     });
                     
                     clickableDiv.addEventListener('click', () => handleObjectClick(area.id, clickableDiv));
@@ -1087,6 +1101,7 @@
                 }
                 
                 if (isComplete) {
+                    showColorfulFeedback('All objects found! Great job! 🎉', 'success');
                     setTimeout(() => {
                         currentQuestionIndex++;
                         displayQuestion();
@@ -1166,111 +1181,6 @@
         window.onload = function() {
             startQuiz();
         };
-
-        function checkAnswer(areaId) {
-            const endTime = Date.now();
-            const timeSpent = (endTime - startTime) / 1000;
-            timeTaken.push(timeSpent);
-            
-            // Record the first tap time if not already set
-            if (firstTapTime === null) {
-                firstTapTime = timeSpent;
-            }
-            
-            // Increment total taps counter
-            totalTaps++;
-            
-            const currentScenario = questions[currentQuestionIndex];
-            const targetIds = currentScenario.targetObjects.map(obj => obj.id);
-            
-            if (targetIds.includes(areaId)) {
-                // Found a target object
-                score++;
-                correctAnswers++;
-                
-                // Create a success animation at the clicked position
-                const clickedArea = document.querySelector(`.scenario-object[data-id="${areaId}"]`);
-                if (!clickedArea) return; // Safety check
-                
-                const scenarioContainer = document.getElementById('scenario-container');
-                
-                // Create a success indicator
-                const successMark = document.createElement('div');
-                successMark.className = 'feedback-mark success-mark';
-                successMark.innerHTML = '✓';
-                successMark.style.position = 'absolute';
-                successMark.style.left = clickedArea.style.left;
-                successMark.style.top = clickedArea.style.top;
-                successMark.style.fontSize = '2rem';
-                successMark.style.color = '#4CAF50';
-                successMark.style.fontWeight = 'bold';
-                successMark.style.zIndex = '10';
-                successMark.style.textShadow = '0px 0px 3px white';
-                scenarioContainer.appendChild(successMark);
-                
-                // Disable the clicked area to prevent multiple clicks
-                clickedArea.style.pointerEvents = 'none';
-                clickedArea.style.opacity = '0.7';
-                
-                // Mark the found target in the target list
-                const targetImage = document.querySelector(`.target-object[data-id="${areaId}"]`);
-                if (targetImage) {
-                    targetImage.style.opacity = '0.3';
-                    targetImage.style.border = '2px solid #4CAF50';
-                }
-                
-                // Check if all targets have been found
-                const foundTargets = document.querySelectorAll('.target-object[style*="opacity: 0.3"]');
-                if (foundTargets.length === currentScenario.targetObjects.length) {
-                    // All targets found, show success feedback
-                    showColorfulFeedback('All objects found! Great job! 🎉', 'success');
-                    setTimeout(() => {
-                        moveToNextQuestion();
-                    }, 1500);
-                }
-            } else {
-                // Incorrect selection
-                triesLeft--;
-                incorrectAnswers++;
-                
-                // Create a failure indicator
-                const clickedArea = document.querySelector(`.scenario-object[data-id="${areaId}"]`);
-                if (!clickedArea) return; // Safety check
-                
-                const scenarioContainer = document.getElementById('scenario-container');
-                
-                const failMark = document.createElement('div');
-                failMark.className = 'feedback-mark fail-mark';
-                failMark.innerHTML = '✗';
-                failMark.style.position = 'absolute';
-                failMark.style.left = clickedArea.style.left;
-                failMark.style.top = clickedArea.style.top;
-                failMark.style.fontSize = '2rem';
-                failMark.style.color = '#F44336';
-                failMark.style.fontWeight = 'bold';
-                failMark.style.zIndex = '10';
-                failMark.style.textShadow = '0px 0px 3px white';
-                scenarioContainer.appendChild(failMark);
-                
-                // Briefly disable this distractor to prevent repeated clicks
-                clickedArea.style.pointerEvents = 'none';
-                setTimeout(() => {
-                    clickedArea.style.pointerEvents = 'auto';
-                    // Remove the fail mark after a delay
-                    if (failMark.parentNode) {
-                        failMark.parentNode.removeChild(failMark);
-                    }
-                }, 1000);
-                
-                if (triesLeft <= 0) {
-                    // No more tries, show warning and move to next question
-                    showColorfulFeedback('Out of tries! Moving to the next question. 😔', 'warning');
-                    setTimeout(() => {
-                        moveToNextQuestion();
-                    }, 1500);
-                }
-            }
-        }
 
         function skipQuestion() {
             incorrectAnswers++;
