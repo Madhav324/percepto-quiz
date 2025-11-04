@@ -579,18 +579,39 @@
             
             <div id="images-container" class="option-container" style="display: none;"></div>
             
-            <div id="result-container" style="display:none">
+            <div id="result-container" style="display:none; text-align: center;">
                 <div class="result-message">Quiz Complete!</div>
-                <h2>Quiz Results</h2>
-                <ul style="list-style: none; padding: 0;">
-                    <li><strong>Score:</strong> <span id="score"></span></li>
-                    <li><strong>Total Time:</strong> <span id="total-time"></span> seconds</li>
-                    <li><strong>Average Time:</strong> <span id="avg-time"></span> seconds</li>
-                    <li><strong>First Tap Time:</strong> <span id="first-tap"></span> seconds</li>
-                    <li><strong>Total Taps:</strong> <span id="total-taps"></span></li>
-                    <li><strong>Total Correct Answers:</strong> <span id="total-correct"></span></li>
-                    <li><strong>Total Incorrect Answers:</strong> <span id="total-incorrect"></span></li>
-                </ul>
+                <h2 style="color: #4CAF50; margin-bottom: 30px;">Quiz Results</h2>
+                <div style="background: #f8f9fa; padding: 25px; border-radius: 15px; max-width: 500px; margin: 0 auto; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                    <div style="margin-bottom: 15px; padding: 12px; background: white; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                        <strong style="color: #495057; font-size: 16px;">Score:</strong>
+                        <span id="score" style="color: #4CAF50; font-size: 20px; font-weight: bold;">0</span>
+                    </div>
+                    <div style="margin-bottom: 15px; padding: 12px; background: white; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                        <strong style="color: #495057; font-size: 16px;">Total Time:</strong>
+                        <span id="total-time" style="color: #2196F3; font-size: 18px; font-weight: bold;">0</span> <span style="color: #6c757d;">seconds</span>
+                    </div>
+                    <div style="margin-bottom: 15px; padding: 12px; background: white; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                        <strong style="color: #495057; font-size: 16px;">Average Time:</strong>
+                        <span id="avg-time" style="color: #2196F3; font-size: 18px; font-weight: bold;">0</span> <span style="color: #6c757d;">seconds</span>
+                    </div>
+                    <div style="margin-bottom: 15px; padding: 12px; background: white; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                        <strong style="color: #495057; font-size: 16px;">First Tap Time:</strong>
+                        <span id="first-tap" style="color: #FF9800; font-size: 18px; font-weight: bold;">0</span> <span style="color: #6c757d;">seconds</span>
+                    </div>
+                    <div style="margin-bottom: 15px; padding: 12px; background: white; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                        <strong style="color: #495057; font-size: 16px;">Total Taps:</strong>
+                        <span id="total-taps" style="color: #9C27B0; font-size: 18px; font-weight: bold;">0</span>
+                    </div>
+                    <div style="margin-bottom: 15px; padding: 12px; background: white; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                        <strong style="color: #495057; font-size: 16px;">Total Correct:</strong>
+                        <span id="total-correct" style="color: #4CAF50; font-size: 18px; font-weight: bold;">0</span>
+                    </div>
+                    <div style="margin-bottom: 15px; padding: 12px; background: white; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                        <strong style="color: #495057; font-size: 16px;">Total Incorrect:</strong>
+                        <span id="total-incorrect" style="color: #f44336; font-size: 18px; font-weight: bold;">0</span>
+                    </div>
+                </div>
                 <div class="button-container" style="margin-top: 10px;">
                     <button onclick="restartQuiz()" style="margin-right: 10px; min-height: 26px; padding: 5px 10px; font-size: 0.9rem;">Restart Quiz</button>
                     <button onclick="window.location.href='VC.html'" style="min-height: 26px; padding: 5px 10px; font-size: 0.9rem;">Return to Visual Cognition</button>
@@ -1203,6 +1224,14 @@
             const averageTime = totalTime / questions.length;
             const accuracy = gameStats.totalClicks > 0 ? (gameStats.correctClicks / gameStats.totalClicks * 100).toFixed(1) : 0;
             
+            // Debug logging
+            console.log('=== QUIZ RESULTS ===');
+            console.log('gameStats:', gameStats);
+            console.log('Total Time:', totalTime);
+            console.log('Average Time:', averageTime);
+            console.log('First Tap Time:', firstTapTime);
+            console.log('Questions Length:', questions.length);
+            
             // Hide question container, show results
             document.getElementById('question-container').style.display = 'none';
             const imagesContainer = document.getElementById('images-container');
@@ -1211,14 +1240,14 @@
             }
             document.getElementById('result-container').style.display = 'block';
             
-            // Display results using gameStats
-            document.getElementById('score').textContent = gameStats.correctClicks;
-            document.getElementById('total-time').textContent = totalTime.toFixed(2);
-            document.getElementById('avg-time').textContent = averageTime.toFixed(2);
+            // Display results using gameStats with proper values
+            document.getElementById('score').textContent = gameStats.correctClicks || 0;
+            document.getElementById('total-time').textContent = (totalTime || 0).toFixed(2);
+            document.getElementById('avg-time').textContent = (averageTime || 0).toFixed(2);
             document.getElementById('first-tap').textContent = firstTapTime ? firstTapTime.toFixed(2) : '0.00';
-            document.getElementById('total-taps').textContent = gameStats.totalClicks;
-            document.getElementById('total-correct').textContent = gameStats.correctClicks;
-            document.getElementById('total-incorrect').textContent = gameStats.totalClicks - gameStats.correctClicks;
+            document.getElementById('total-taps').textContent = gameStats.totalClicks || 0;
+            document.getElementById('total-correct').textContent = gameStats.correctClicks || 0;
+            document.getElementById('total-incorrect').textContent = (gameStats.totalClicks - gameStats.correctClicks) || 0;
             
             // Save results to Firebase
             saveQuizResults(
