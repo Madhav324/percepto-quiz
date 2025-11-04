@@ -938,11 +938,16 @@
             
             // Clear containers
             targetObjectsContainer.innerHTML = '';
-            const existingAreas = scenarioContainer.querySelectorAll('.clickable-area, .scenario-object');
+            const existingAreas = scenarioContainer.querySelectorAll('.clickable-area, .scenario-object, .feedback-mark');
             existingAreas.forEach(area => area.remove());
             
             // Set the scenario image
             scenarioImage.src = currentScenario.scenarioImage;
+            
+            // Force reload if image is already loaded (cached)
+            if (scenarioImage.complete) {
+                scenarioImage.onload();
+            }
             
             // Display target objects with improved styling
             currentScenario.targetObjects.forEach(targetObj => {
@@ -970,6 +975,10 @@
             
             // Wait for the image to load before adding clickable areas
             scenarioImage.onload = () => {
+                // Clear any existing clickable areas first
+                const oldAreas = scenarioContainer.querySelectorAll('.clickable-area');
+                oldAreas.forEach(area => area.remove());
+                
                 // Use fixed dimensions since we force the image to 800x600
                 const imgWidth = 800;
                 const imgHeight = 600;
@@ -1098,14 +1107,21 @@
                 if (currentScenario.sequenceRequired) {
                     isComplete = currentSequence.length === expectedSequence.length;
                 } else {
-                    // Count found targets
-                    const totalTargets = currentScenario.clickableAreas.filter(area => 
-                        currentScenario.targetObjects.some(obj => obj.id === area.id)
-                    ).length;
-                    const foundTargets = currentScenario.clickableAreas.filter(area => {
-                        const element = document.querySelector(`[data-id="${area.id}"]`);
-                        return element && element.style.pointerEvents === 'none';
-                    }).length;
+                    // Count found targets - check clickable divs in scenario container
+                    const totalTargets = currentScenario.targetObjects.length;
+                    const scenarioContainer = document.getElementById('scenario-container');
+                    const clickableDivs = scenarioContainer.querySelectorAll('.clickable-area');
+                    let foundTargets = 0;
+                    
+                    clickableDivs.forEach(div => {
+                        const divId = div.dataset.id;
+                        const isTarget = currentScenario.targetObjects.some(obj => obj.id === divId);
+                        if (isTarget && div.style.pointerEvents === 'none') {
+                            foundTargets++;
+                        }
+                    });
+                    
+                    console.log(`Found ${foundTargets} of ${totalTargets} targets`);
                     isComplete = foundTargets >= totalTargets;
                 }
                 
