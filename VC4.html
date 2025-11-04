@@ -779,12 +779,12 @@
                     document.getElementById('profileIcon').title = 'Back to Home';
                     
                     totalStartTime = Date.now();
-                    displayQuestion();
+                    startQuiz();
                 } catch (error) {
                     console.error('Error loading profile in VC4:', error);
                     document.getElementById('profileIcon').textContent = 'U';
                     totalStartTime = Date.now();
-                    displayQuestion();
+                    startQuiz();
                 }
             } else {
                 window.location.href = 'index.html';
@@ -1142,6 +1142,7 @@
         document.head.appendChild(style);
 
         function startQuiz() {
+            console.log('Starting VC4 quiz...');
             gameStats = {
                 totalClicks: 0,
                 correctClicks: 0,
@@ -1149,16 +1150,27 @@
                 questionStartTime: null
             };
             currentQuestionIndex = 0;
+            score = 0;
+            correctAnswers = 0;
+            incorrectAnswers = 0;
+            totalTaps = 0;
+            firstTapTime = null;
+            timeTaken = [];
+            
             displayQuestion();
         }
 
         function skipQuestion() {
-            currentQuestionIndex++;
-            if (currentQuestionIndex >= questions.length) {
-                showResults();
-            } else {
-                displayQuestion();
-            }
+            incorrectAnswers++;
+            showColorfulFeedback('You skipped this question! ⏭️', 'info');
+            setTimeout(() => {
+                currentQuestionIndex++;
+                if (currentQuestionIndex >= questions.length) {
+                    showResults();
+                } else {
+                    displayQuestion();
+                }
+            }, 1500);
         }
 
         function showResults() {
@@ -1171,21 +1183,10 @@
             document.getElementById('score').textContent = `${gameStats.correctClicks}/${questions.length * 3} objects found`;
             document.getElementById('total-time').textContent = totalTime.toFixed(1);
             document.getElementById('avg-time').textContent = (totalTime / questions.length).toFixed(1);
-            document.getElementById('first-tap').textContent = '0.5';
+            document.getElementById('first-tap').textContent = firstTapTime ? firstTapTime.toFixed(2) : '0.0';
             document.getElementById('total-taps').textContent = gameStats.totalClicks;
             document.getElementById('total-correct').textContent = gameStats.correctClicks;
             document.getElementById('total-incorrect').textContent = gameStats.totalClicks - gameStats.correctClicks;
-        }
-
-        // Initialize the quiz
-        window.onload = function() {
-            startQuiz();
-        };
-
-        function skipQuestion() {
-            incorrectAnswers++;
-            showColorfulFeedback('You skipped this question! ⏭️', 'info');
-            setTimeout(moveToNextQuestion, 1500);
         }
 
         function showColorfulFeedback(message, type) {
@@ -1523,22 +1524,6 @@
                 console.error('Error clearing reports:', error);
                 alert('Failed to clear reports: ' + error.message);
             }
-        }
-
-        function restartQuiz() {
-            document.getElementById('result-container').style.display = 'none';
-            document.getElementById('report-container').style.display = 'none';
-            document.getElementById('question-container').style.display = 'block';
-            document.getElementById('images-container').style.display = 'grid';
-            currentQuestionIndex = 0;
-            score = 0;
-            triesLeft = 3;
-            timeTaken = [];
-            incorrectAnswers = 0;
-            totalTaps = 0;
-            correctAnswers = 0;
-            totalStartTime = Date.now();
-            displayQuestion();
         }
     </script>
 </body>
