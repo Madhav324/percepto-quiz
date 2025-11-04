@@ -1200,18 +1200,39 @@
 
         function showResults() {
             const totalTime = (Date.now() - gameStats.startTime) / 1000;
+            const averageTime = totalTime / questions.length;
             const accuracy = gameStats.totalClicks > 0 ? (gameStats.correctClicks / gameStats.totalClicks * 100).toFixed(1) : 0;
             
+            // Hide question container, show results
             document.getElementById('question-container').style.display = 'none';
+            const imagesContainer = document.getElementById('images-container');
+            if (imagesContainer) {
+                imagesContainer.style.display = 'none';
+            }
             document.getElementById('result-container').style.display = 'block';
             
-            document.getElementById('score').textContent = `${gameStats.correctClicks}/${questions.length * 3} objects found`;
-            document.getElementById('total-time').textContent = totalTime.toFixed(1);
-            document.getElementById('avg-time').textContent = (totalTime / questions.length).toFixed(1);
-            document.getElementById('first-tap').textContent = firstTapTime ? firstTapTime.toFixed(2) : '0.0';
+            // Display results using gameStats
+            document.getElementById('score').textContent = gameStats.correctClicks;
+            document.getElementById('total-time').textContent = totalTime.toFixed(2);
+            document.getElementById('avg-time').textContent = averageTime.toFixed(2);
+            document.getElementById('first-tap').textContent = firstTapTime ? firstTapTime.toFixed(2) : '0.00';
             document.getElementById('total-taps').textContent = gameStats.totalClicks;
             document.getElementById('total-correct').textContent = gameStats.correctClicks;
             document.getElementById('total-incorrect').textContent = gameStats.totalClicks - gameStats.correctClicks;
+            
+            // Save results to Firebase
+            saveQuizResults(
+                gameStats.correctClicks,
+                parseFloat(totalTime.toFixed(2)),
+                parseFloat(averageTime.toFixed(2)),
+                firstTapTime ? parseFloat(firstTapTime.toFixed(2)) : 0,
+                gameStats.totalClicks,
+                gameStats.correctClicks,
+                gameStats.totalClicks - gameStats.correctClicks
+            );
+            
+            // Display previous attempts
+            displayPreviousAttempts();
         }
 
         function showColorfulFeedback(message, type) {
@@ -1260,45 +1281,6 @@
             }
         }
         
-        function showResults() {
-            // Calculate scores and stats
-            const totalTime = timeTaken.reduce((a, b) => a + b, 0).toFixed(2);
-            const averageTime = (totalTime / Math.max(1, timeTaken.length)).toFixed(2);
-            
-            // Display results
-            const questionContainer = document.getElementById('question-container');
-            questionContainer.style.display = 'none';
-            
-            const imagesContainer = document.getElementById('images-container');
-            if (imagesContainer) { // Check if element exists first
-                imagesContainer.style.display = 'none';
-            }
-            
-            const resultContainer = document.getElementById('result-container');
-            resultContainer.style.display = 'block';
-            
-            document.getElementById('score').textContent = score;
-            document.getElementById('total-time').textContent = totalTime;
-            document.getElementById('avg-time').textContent = averageTime;
-            document.getElementById('first-tap').textContent = firstTapTime ? firstTapTime.toFixed(2) : 'N/A';
-            document.getElementById('total-taps').textContent = totalTaps;
-            document.getElementById('total-correct').textContent = correctAnswers;
-            document.getElementById('total-incorrect').textContent = incorrectAnswers;
-            
-            // Save results to database
-            saveQuizResults(
-                score,
-                parseFloat(totalTime),
-                parseFloat(averageTime),
-                firstTapTime ? parseFloat(firstTapTime.toFixed(2)) : 0,
-                totalTaps,
-                correctAnswers,
-                incorrectAnswers
-            );
-            
-            // Display previous attempts
-            displayPreviousAttempts();
-        }
         
         async function displayPreviousAttempts() {
             // Show the report container
